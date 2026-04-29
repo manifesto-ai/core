@@ -40,6 +40,11 @@ export const ACTS_CASES = {
   TYPES_GOVERNED_RUNTIME: "ACTS-TYPE-002",
   TYPES_LINEAGE_CONFIG: "ACTS-TYPE-003",
   TYPES_BASE_INTROSPECTION: "ACTS-TYPE-004",
+  V5_ACTION_CANDIDATE_SURFACE: "ACTS-V5-001",
+  V5_ADMISSION_AND_PREVIEW: "ACTS-V5-002",
+  V5_SUBMIT_RESULTS: "ACTS-V5-003",
+  V5_OBSERVE_EVENTS: "ACTS-V5-004",
+  TYPES_V5_ACTION_CANDIDATE: "ACTS-V5-TYPE-001",
 } as const;
 
 export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = [
@@ -143,6 +148,31 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
     "types",
     "Activated base runtime exposes typed introspection refs, graph helpers, and public dry-run result types including optional diagnostics.trace.",
   ),
+  complianceCase(
+    ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE,
+    "base",
+    "SDK v5 activated runtime exposes the action-candidate root and per-action handle grammar without v3 root verbs.",
+  ),
+  complianceCase(
+    ACTS_CASES.V5_ADMISSION_AND_PREVIEW,
+    "base",
+    "SDK v5 check() and preview() preserve first-failing admission order and preview non-commit semantics.",
+  ),
+  complianceCase(
+    ACTS_CASES.V5_SUBMIT_RESULTS,
+    "base",
+    "SDK v5 base submit() returns law-aware settled result envelopes, preserves full projected snapshots, and reports operational failures explicitly.",
+  ),
+  complianceCase(
+    ACTS_CASES.V5_OBSERVE_EVENTS,
+    "base",
+    "SDK v5 observe.event() emits compact lifecycle payloads without embedding projected or canonical snapshots.",
+  ),
+  complianceCase(
+    ACTS_CASES.TYPES_V5_ACTION_CANDIDATE,
+    "types",
+    "SDK v5 public types expose ManifestoApp, action handles, bound actions, options, admission, preview, and mode-specific submit results.",
+  ),
 ] as const;
 
 export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntry[] = [
@@ -225,6 +255,26 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
   ...coverMany(
     ["ACTS-TYPE-4"],
     [ACTS_CASES.TYPES_BASE_INTROSPECTION],
+  ),
+  ...coverMany(
+    ["ACTS-V5-ROOT-1", "ACTS-V5-ACTION-1"],
+    [ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE],
+  ),
+  ...coverMany(
+    ["ACTS-V5-ADMISSION-1", "ACTS-V5-PREVIEW-1"],
+    [ACTS_CASES.V5_ADMISSION_AND_PREVIEW],
+  ),
+  ...coverMany(
+    ["ACTS-V5-SUBMIT-1", "ACTS-V5-SUBMIT-2", "ACTS-V5-SUBMIT-3"],
+    [ACTS_CASES.V5_SUBMIT_RESULTS],
+  ),
+  ...coverMany(
+    ["ACTS-V5-OBSERVE-1"],
+    [ACTS_CASES.V5_OBSERVE_EVENTS],
+  ),
+  ...coverMany(
+    ["ACTS-V5-TYPE-1", "ACTS-V5-TYPE-2"],
+    [ACTS_CASES.TYPES_V5_ACTION_CANDIDATE],
   ),
 ] as const;
 

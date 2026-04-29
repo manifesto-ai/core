@@ -2,27 +2,54 @@
 
 > **Status:** Normative (Living Document)
 > **Scope:** Manifesto SDK Layer - Public Developer API
-> **Compatible with:** Core SPEC v4.2.0, Host Contract v4.0.0, Compiler SPEC v1.0.0, Lineage SPEC v3.0.0, Governance SPEC v3.0.0
-> **Replaces:** Earlier SDK spec baselines as the current SDK contract
-> **Implements:** ADR-017, ADR-019, ADR-020
+> **Compatible with:** Manifesto v5 substrate, ADR-025 Snapshot Ontology, Core SPEC v5, Host Contract v5, Lineage SPEC v5, Governance SPEC v5
+> **Replaces:** SDK v3 activated-runtime caller ladder as the current SDK contract
+> **Implements:** ADR-017, ADR-019, ADR-020, ADR-025, ADR-026
 
-> **Historical Note:** Pre-ADR-017 SDK surfaces live in Git history. They are no longer kept as active package docs in the working tree.
+> **Historical Note:** SDK v3 APIs remain available in Git history and in the v3
+> FDR companion for rationale. They are not compatibility targets for the v5
+> canonical public surface.
 >
-> **Current Contract Status:** Projected introspection, intent-level dispatchability, refined single-parameter object binding in `createIntent()`, bound-intent dry-run via `simulateIntent(intent)`, the `@manifesto-ai/sdk/extensions` Extension Kernel, the first-party `createSimulationSession()` helper on that seam, additive intent explanation reads via `explainIntentFor()`, `explainIntent()`, `why()`, and `whyNot()`, the helper-boundary capability aliases `ManifestoLegalityRuntime<T>` and `ManifestoDispatchRuntime<T>`, and the additive base write-report companion `dispatchAsyncWithReport()` are all part of the current SDK contract. The compiler-side extraction contract now lives in [SPEC-v1.1.0](../../compiler/docs/SPEC-v1.1.0.md), including tooling-only structural annotations via `@meta` and declaration-level source maps through `DomainModule.sourceMap`.
+> **Current Contract Status:** SDK v5 exposes an activation-first
+> `ManifestoApp` organized around the action-candidate ladder:
+> `snapshot() -> actions.* -> check() -> preview() -> submit()`. The canonical
+> root surface is `snapshot()`, `actions`, `action(name)`, `observe`, `inspect`,
+> and `dispose()`. Raw `Intent` construction is an advanced protocol escape
+> hatch reachable through `BoundAction.intent()`, not the primary app path.
 
 ## 1. Purpose
 
 This document defines the current SDK public contract.
 
-The SDK owns exactly one concept, `createManifesto()`, but that concept is no longer a ready-to-run runtime factory. In the current contract, `createManifesto()` returns a **composable manifesto**. Runtime verbs appear only after `activate()`.
+The SDK owns the base activation-first application runtime surface. It exposes
+the present application view, typed action-candidate handles, projected reads,
+observation, and advanced inspection. It does not own lineage continuity or
+governance legitimacy. Those remain the responsibility of their owning package
+specs.
 
-The SDK no longer presents top-level `@manifesto-ai/world` as part of its public story. Governed composition is expressed by decorating the composable manifesto with `withLineage()` and `withGovernance()` from their owning packages.
+The v5 public model is:
 
-This document is normative for SDK-owned behavior. It does not restate the full lineage or governance runtime contracts. Those remain the responsibility of their owning package specs.
+```typescript
+const app = createManifesto<TodoDomain>(schema, effects).activate();
+
+app.snapshot();
+app.actions.addTodo.info();
+app.actions.addTodo.available();
+app.actions.addTodo.check({ title: "Ship v5" });
+app.actions.addTodo.preview({ title: "Ship v5" });
+await app.actions.addTodo.submit({ title: "Ship v5" });
+```
+
+The SDK does not present `@manifesto-ai/world` as part of its public story.
+Governed composition is expressed by decorating the composable manifesto with
+`withLineage()` and `withGovernance()` from their owning packages.
 
 ## 2. Normative Language
 
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in [RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119).
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document
+are to be interpreted as described in
+[RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119).
 
 Normative rule prefixes:
 
@@ -31,118 +58,118 @@ Normative rule prefixes:
 | `SDK-ROLE-*` | SDK ownership and package boundary |
 | `SDK-PHASE-*` | phase and lifecycle rules |
 | `SDK-CREATE-*` | factory and schema resolution |
-| `SDK-TYPE-*` | public type rules |
-| `SDK-BASE-*` | activated base runtime surface |
-| `SDK-DISPATCH-*` | `dispatchAsync()` semantics |
-| `SDK-REPORT-*` | additive base write-report semantics |
-| `SDK-REPORT-SUB-*` | shared internal report substrate semantics |
-| `SDK-GRAPH-*` | `getSchemaGraph()` and `SchemaGraph` semantics |
-| `SDK-SIM-*` | public dry-run semantics |
-| `SDK-EXT-*` | `@manifesto-ai/sdk/extensions` semantics |
-| `SDK-EXT-EXPLAIN-*` | extension-kernel intent explanation semantics |
-| `SDK-EXPLAIN-RT-*` | activated-runtime explanation convenience semantics |
-| `SDK-SUB-*` | subscription semantics |
-| `SDK-EVENT-*` | telemetry channel semantics |
-| `SDK-SNAP-*` | snapshot visibility and immutability |
+| `SDK-ROOT-*` | runtime root and mode-specific surface rules |
+| `SDK-ACTION-*` | action handle and bound action rules |
+| `SDK-ADMISSION-*` | `check()` and first-failing-layer rules |
+| `SDK-PREVIEW-*` | `preview()` dry-run rules |
+| `SDK-SUBMIT-*` | law-aware `submit()` rules |
+| `SDK-RESULT-*` | result envelope and outcome rules |
+| `SDK-SNAPSHOT-*` | projected/canonical snapshot visibility |
+| `SDK-OBSERVE-*` | state/event observation |
+| `SDK-INSPECT-*` | advanced inspection surface |
+| `SDK-EXT-*` | `@manifesto-ai/sdk/extensions` boundary |
 | `SDK-DISPOSE-*` | disposal semantics |
 | `SDK-ERR-*` | SDK-owned error model |
-| `SDK-BOUNDARY-*` | decorator boundary rules |
 | `SDK-HC-*` | hard-cut removal rules |
 
 ## 3. SDK Role and Boundaries
 
-The SDK owns the present-only application entrypoint. It does not own lineage continuity, governance legitimacy, or world facade assembly.
+The SDK exposes the app-facing runtime grammar. Core computes, Host executes,
+Lineage records continuity, and Governance authorizes legitimacy.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| SDK-ROLE-1 | MUST | SDK MUST own exactly one concept: `createManifesto()` |
-| SDK-ROLE-2 | MUST | `createManifesto()` MUST return `ComposableManifesto<T, BaseLaws>`, not a runtime instance |
-| SDK-ROLE-3 | MUST NOT | SDK MUST NOT expose app-facing governed assembly through `@manifesto-ai/world` re-exports |
-| SDK-ROLE-4 | MUST | SDK MUST define only the present-only base runtime contract; lineage and governance verb promotion belong to their owning packages |
-| SDK-ROLE-5 | MUST NOT | SDK v3 MUST NOT preserve v2 compatibility aliases or helper surfaces that compete with the activation model |
-| SDK-ROLE-6 | MUST | SDK MAY continue to pass through selected Core and Host exports, but those pass-through exports are not the subject of this SDK-owned contract unless referenced explicitly by SDK-owned signatures below |
+| SDK-ROLE-1 | MUST | SDK MUST own `createManifesto()` as the base public entrypoint. |
+| SDK-ROLE-2 | MUST | `createManifesto()` MUST return `ComposableManifesto<TDomain, "base">`, not a ready runtime instance. |
+| SDK-ROLE-3 | MUST | SDK MUST define the common `ManifestoApp` action-candidate grammar for all runtime modes. |
+| SDK-ROLE-4 | MUST NOT | SDK MUST NOT compute semantic meaning, execute effects directly, own authority policy, or own lineage storage semantics. |
+| SDK-ROLE-5 | MUST NOT | SDK MUST NOT expose app-facing governed assembly through `@manifesto-ai/world` re-exports. |
+| SDK-ROLE-6 | MUST | Lineage and Governance packages MUST own their mode-specific decorators and settlement semantics. |
+| SDK-ROLE-7 | MUST | SDK MAY pass through selected Core and Host public exports, but those pass-through exports are not SDK-owned runtime surface unless referenced explicitly here. |
 
 ## 4. Phase Model
 
-SDK v3 has two phases:
+SDK v5 has two phases:
 
-1. **Law composition** — `createManifesto()` returns a composable manifesto with no live runtime verbs.
-2. **Runtime execution** — `activate()` opens the runtime and returns the final instance for the currently composed laws.
-
-### 4.1 Phase Marker Types
-
-```typescript
-type BaseLaws = { readonly __kind: "BaseLaws" };
-type LineageLaws = { readonly __kind: "LineageLaws" };
-type GovernanceLaws = { readonly __kind: "GovernanceLaws" };
-```
-
-These are phantom marker types. Their representation is compile-time only. Runtime presence is implementation-defined.
-
-### 4.2 Composable Manifesto
+1. **Law composition** - `createManifesto()` returns a composable manifesto with
+   no live runtime verbs.
+2. **Runtime activation** - `activate()` opens the runtime and returns the final
+   `ManifestoApp<TDomain, TMode>` for the currently composed runtime mode.
 
 ```typescript
-type ComposableManifesto<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws = BaseLaws,
+export type RuntimeMode = "base" | "lineage" | "governance";
+
+export type ComposableManifesto<
+  TDomain extends ManifestoDomainShape,
+  TMode extends RuntimeMode = "base",
 > = {
-  readonly _laws: Laws;
+  readonly mode: TMode;
   readonly schema: DomainSchema;
-  activate(): ActivatedInstance<T, Laws>;
+  activate(): ManifestoApp<TDomain, TMode>;
 };
 ```
 
-### 4.3 Activation Result Mapping
+Decorators from other packages promote the mode:
 
 ```typescript
-type ActivatedInstance<
-  T extends ManifestoDomainShape,
-  Laws,
-> =
-  Laws extends GovernanceLaws
-    ? GovernanceInstance<T>
-    : Laws extends LineageLaws
-      ? LineageInstance<T>
-      : ManifestoBaseInstance<T>;
+// Owned by @manifesto-ai/lineage
+declare function withLineage<TDomain extends ManifestoDomainShape>(
+  app: ComposableManifesto<TDomain, "base">,
+  options: LineageOptions,
+): ComposableManifesto<TDomain, "lineage">;
+
+// Owned by @manifesto-ai/governance
+declare function withGovernance<TDomain extends ManifestoDomainShape>(
+  app: ComposableManifesto<TDomain, "lineage">,
+  options: GovernanceOptions,
+): ComposableManifesto<TDomain, "governance">;
 ```
 
-`LineageInstance<T>` and `GovernanceInstance<T>` are boundary names owned by their packages. Their full runtime members are intentionally not restated in this SDK spec.
+The signatures above are boundary sketches only. Their full contracts belong to
+Lineage and Governance SPECs.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| SDK-PHASE-1 | MUST NOT | Pre-activation composable manifesto objects MUST NOT expose `dispatchAsync`, `dispatchAsyncWithReport`, `proposeAsync`, `subscribe`, `on`, `getSnapshot`, or `dispose` |
-| SDK-PHASE-2 | MUST | `activate()` MUST be the only SDK boundary that produces a runtime instance |
-| SDK-PHASE-3 | MUST | `activate()` MUST be one-shot; the second call on the same composable manifesto MUST throw `AlreadyActivatedError` |
-| SDK-PHASE-4 | MUST NOT | No path from runtime instance back to composable state may exist |
-| SDK-PHASE-5 | MUST NOT | SDK MUST NOT define a competing top-level runtime helper path that bypasses activation |
-| SDK-PHASE-6 | MUST | `ComposableManifesto.schema` MUST expose the normalized schema actually used for activation |
+| SDK-PHASE-1 | MUST NOT | Pre-activation composable manifesto objects MUST NOT expose runtime verbs or reads such as `submit`, `snapshot`, `observe`, `inspect`, or `dispose`. |
+| SDK-PHASE-2 | MUST | `activate()` MUST be the only SDK boundary that produces a runtime instance. |
+| SDK-PHASE-3 | MUST | `activate()` MUST be one-shot; a second call on the same composable manifesto MUST throw `AlreadyActivatedError`. |
+| SDK-PHASE-4 | MUST NOT | No path from runtime instance back to mutable composable state may exist. |
+| SDK-PHASE-5 | MUST NOT | SDK MUST NOT define a top-level helper path that bypasses activation. |
+| SDK-PHASE-6 | MUST | `ComposableManifesto.schema` MUST expose the normalized schema used for activation. |
 
 ## 5. Public Types
 
 ### 5.1 Domain Shape
 
 ```typescript
-type ManifestoDomainShape = {
-  readonly actions: Record<string, (...args: unknown[]) => unknown>;
+export type ActionFunction = {
+  bivarianceHack(...args: unknown[]): unknown;
+}["bivarianceHack"];
+
+export type ManifestoDomainShape = {
+  readonly actions: Record<string, ActionFunction>;
   readonly state: Record<string, unknown>;
   readonly computed: Record<string, unknown>;
 };
+
+export type ActionName<TDomain extends ManifestoDomainShape> =
+  keyof TDomain["actions"] & string;
 ```
 
-This is the minimum type shape required for SDK generic propagation.
+`ManifestoDomainShape` is the minimum type shape required for SDK generic
+propagation. It is not a serialized schema format. `ActionFunction` is
+intentionally bivariant so ordinary domain function declarations can satisfy the
+shape without forcing every user action parameter to accept `unknown`.
 
-### 5.2 Snapshot and Effect Types
+### 5.2 Snapshot Types
+
+SDK v5 follows ADR-025. Domain state is `snapshot.state`; platform, runtime, and
+tooling bookkeeping lives under `snapshot.namespaces`.
 
 ```typescript
-type CanonicalPlatformNamespaces = {
-  $host?: Record<string, unknown>;
-  $mel?: Record<string, unknown>;
-  [k: `$${string}`]: unknown;
-};
-
-type Snapshot<T = unknown> = {
-  readonly data: T;
-  readonly computed: Record<string, unknown>;
+export type ProjectedSnapshot<TDomain extends ManifestoDomainShape> = {
+  readonly state: Readonly<TDomain["state"]>;
+  readonly computed: Readonly<TDomain["computed"]>;
   readonly system: {
     readonly status: "idle" | "computing" | "pending" | "error";
     readonly lastError: ErrorValue | null;
@@ -152,74 +179,89 @@ type Snapshot<T = unknown> = {
   };
 };
 
-type CanonicalSnapshot<T = unknown> = Omit<CoreSnapshot, "data"> & {
-  readonly data: T & CanonicalPlatformNamespaces;
+export type CanonicalSnapshot = CoreSnapshot;
+```
+
+`ProjectedSnapshot` is the app-facing visible snapshot. It MUST NOT expose
+`namespaces`, `input`, `system.pendingRequirements`, `system.currentAction`,
+or host-provided operational metadata. `CanonicalSnapshot` is the full
+substrate, including those fields, and is reachable only through
+`inspect.canonicalSnapshot()`.
+
+### 5.3 Effect Types
+
+```typescript
+export type EffectContext<TDomain extends ManifestoDomainShape = ManifestoDomainShape> = {
+  readonly snapshot: Readonly<ProjectedSnapshot<TDomain>>;
 };
 
-type EffectContext<T = unknown> = {
-  readonly snapshot: Readonly<Snapshot<T>>;
-};
-
-type EffectHandler = (
+export type EffectHandler = (
   params: unknown,
   ctx: EffectContext,
 ) => Promise<readonly Patch[]>;
 ```
 
-### 5.3 Reference Types
+Effect handlers return patches. They do not return semantic values to Core.
+
+### 5.4 Typed References
 
 ```typescript
-type TypedActionRef<
-  T extends ManifestoDomainShape,
-  K extends keyof T["actions"] = keyof T["actions"],
+export type TypedActionRef<
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain> = ActionName<TDomain>,
 > = {
   readonly __kind: "ActionRef";
-  readonly name: K;
+  readonly name: Name;
 };
 
-type FieldRef<TValue> = {
+export type FieldRef<TValue> = {
   readonly __kind: "FieldRef";
   readonly name: string;
   readonly _type?: TValue;
 };
 
-type ComputedRef<TValue> = {
+export type ComputedRef<TValue> = {
   readonly __kind: "ComputedRef";
   readonly name: string;
   readonly _type?: TValue;
 };
 ```
 
-`TypedActionRef.name`, `FieldRef.name`, and `ComputedRef.name` are the normative identity carriers for SDK references. Implementations MAY attach additional runtime fields, but those extra fields remain non-normative and callers MUST NOT depend on them.
+Typed refs remain the canonical user-facing reference surface. String paths are
+not user-facing APIs.
 
-### 5.4 Typed MEL Surface
+### 5.5 Typed MEL Surface
 
 ```typescript
-type TypedMEL<T extends ManifestoDomainShape> = {
+export type TypedMEL<TDomain extends ManifestoDomainShape> = {
   readonly actions: {
-    readonly [K in keyof T["actions"]]: TypedActionRef<T, K>;
+    readonly [Name in ActionName<TDomain>]: TypedActionRef<TDomain, Name>;
   };
   readonly state: {
-    readonly [K in keyof T["state"]]: FieldRef<T["state"][K]>;
+    readonly [Name in keyof TDomain["state"]]: FieldRef<TDomain["state"][Name]>;
   };
   readonly computed: {
-    readonly [K in keyof T["computed"]]: ComputedRef<T["computed"][K]>;
+    readonly [Name in keyof TDomain["computed"]]: ComputedRef<TDomain["computed"][Name]>;
   };
 };
 ```
 
-### 5.5 Effect Authoring Subpath
+The typed MEL surface is still available for authoring helpers and advanced
+protocol work. It is no longer the default runtime action path.
 
-The root SDK contract remains centered on `createManifesto()`. Typed effect authoring helpers live on the adjunct `@manifesto-ai/sdk/effects` subpath.
+### 5.6 Effect Authoring Subpath
+
+The root SDK contract remains centered on `createManifesto()`. Typed effect
+authoring helpers live on `@manifesto-ai/sdk/effects`.
 
 ```typescript
-type MergeableObject<TValue> = TValue extends readonly unknown[]
+export type MergeableObject<TValue> = TValue extends readonly unknown[]
   ? never
   : TValue extends object
     ? TValue
     : never;
 
-type PatchBuilder = {
+export type PatchBuilder = {
   set<TValue>(ref: FieldRef<TValue>, value: TValue): Patch;
   unset<TValue>(ref: FieldRef<TValue>): Patch;
   merge<TValue>(
@@ -228,1285 +270,1101 @@ type PatchBuilder = {
   ): Patch;
 };
 
-declare function defineEffects<T extends ManifestoDomainShape>(
+declare function defineEffects<TDomain extends ManifestoDomainShape>(
   factory: (
     ops: PatchBuilder,
-    MEL: TypedMEL<T>,
+    MEL: TypedMEL<TDomain>,
   ) => Record<string, EffectHandler>,
 ): Record<string, EffectHandler>;
 ```
 
-`defineEffects()` is an authoring helper, not a runtime seam. It MUST return the same `Record<string, EffectHandler>` contract consumed by `createManifesto(schema, effects)`. v1 lowering is limited to top-level `MEL.state.*` refs via `FieldRef.name`. Implementations MAY attach runtime metadata to refs internally, but effect handlers MUST still return concrete `Patch[]`.
+`defineEffects()` is an authoring helper, not a runtime seam. It MUST return the
+same `Record<string, EffectHandler>` contract consumed by `createManifesto()`.
 
-### 5.6 Runtime Helper Types
+### 5.7 Action Input Helpers
 
 ```typescript
-type ActionArgs<
-  T extends ManifestoDomainShape,
-  K extends keyof T["actions"],
-> = T["actions"][K] extends (...args: infer P) => unknown ? P : never;
+export type ActionArgs<
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain>,
+> = TDomain["actions"][Name] extends (...args: infer P) => unknown ? P : never;
 
-type ActionObjectBindingArgs<
-  T extends ManifestoDomainShape,
-  K extends keyof T["actions"],
-> = ActionArgs<T, K> extends [unknown, ...unknown[]]
-  ? readonly [Record<string, unknown>]
-  : never;
+export type ActionInput<
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain>,
+> = ActionArgs<TDomain, Name> extends []
+  ? undefined
+  : ActionArgs<TDomain, Name> extends [infer One]
+    ? One
+    : Readonly<ActionArgs<TDomain, Name>>;
+```
 
-type CreateIntentArgs<
-  T extends ManifestoDomainShape,
-  K extends keyof T["actions"],
-> = ActionArgs<T, K> | ActionObjectBindingArgs<T, K>;
+`ActionArgs` is the public call-site tuple. `ActionInput` is the SDK-bound
+candidate input preserved on `BoundAction.input`; it is not necessarily the same
+value as Core `Intent.input`.
 
-type Selector<T, R> = (snapshot: Snapshot<T>) => R;
-type Unsubscribe = () => void;
+When `BoundAction.intent()` returns a non-null `Intent`, SDK MUST pack the
+candidate into Core's canonical action-input shape using the activated action
+contract:
 
-type TypedActionMetadata<
-  T extends ManifestoDomainShape,
-  K extends keyof T["actions"] = keyof T["actions"],
-> = {
-  readonly name: K;
-  readonly params: readonly string[];
-  readonly input: unknown;
-  readonly hasDispatchableGate: boolean;
-  readonly description?: string;
+- zero public arguments -> `Intent.input === undefined`
+- one public argument for an object-shaped single input -> direct value
+- one or more positional parameters -> object keyed by the compiled action
+  parameter names, preserving declared order
+
+The parameter-name metadata used for this packing MUST come from the activated
+schema or compiler-produced action contract, not from runtime argument
+introspection.
+
+### 5.8 Invocation Options, Diffs, and Reports
+
+```typescript
+export type PreviewOptions = {
+  readonly __kind: "PreviewOptions";
+  readonly diagnostics?: "none" | "summary" | "trace";
+  readonly includeAvailableActions?: boolean;
 };
 
-type TypedGetActionMetadata<T extends ManifestoDomainShape> = {
-  (): readonly TypedActionMetadata<T>[];
-  <K extends keyof T["actions"]>(name: K): TypedActionMetadata<T, K>;
+export type SubmitOptions = {
+  readonly __kind: "SubmitOptions";
+  readonly report?: "none" | "summary";
 };
 
-type DispatchBlocker = {
-  readonly layer: "available" | "dispatchable";
-  readonly expression: ExprNode;
-  readonly evaluatedResult: unknown;
-  readonly description?: string;
+export type PathSegment = string | number;
+
+export type ChangedPath = {
+  readonly path: readonly PathSegment[];
+  readonly kind: "set" | "unset" | "changed";
 };
 
-type TypedIntent<
-  T extends ManifestoDomainShape,
-  K extends keyof T["actions"] = keyof T["actions"],
-> = Intent & {
-  readonly __typedIntent__?: {
-    readonly domain: T;
-    readonly action: K;
-  };
+export type PreviewDiagnostics = {
+  readonly trace?: TraceGraph;
+  readonly warnings?: readonly Diagnostic[];
+  readonly detail?: Readonly<Record<string, unknown>>;
 };
 
-type TypedCreateIntent<T extends ManifestoDomainShape> = <
-  K extends keyof T["actions"],
->(
-  action: TypedActionRef<T, K>,
-  ...args: CreateIntentArgs<T, K>
-) => TypedIntent<T, K>;
-
-type TypedDispatchAsync<T extends ManifestoDomainShape> = (
-  intent: Intent,
-) => Promise<Snapshot<T["state"]>>;
-
-type TypedIsIntentDispatchable<T extends ManifestoDomainShape> = <
-  K extends keyof T["actions"],
->(
-  action: TypedActionRef<T, K>,
-  ...args: CreateIntentArgs<T, K>
-) => boolean;
-
-type TypedGetIntentBlockers<T extends ManifestoDomainShape> = <
-  K extends keyof T["actions"],
->(
-  action: TypedActionRef<T, K>,
-  ...args: CreateIntentArgs<T, K>
-) => readonly DispatchBlocker[];
-
-type TypedSubscribe<T extends ManifestoDomainShape> = <R>(
-  selector: Selector<T["state"], R>,
-  listener: (value: R) => void,
-) => Unsubscribe;
-
-type SchemaGraphNodeKind = "state" | "computed" | "action";
-
-type SchemaGraphNodeId =
-  | `state:${string}`
-  | `computed:${string}`
-  | `action:${string}`;
-
-type SchemaGraphNode = {
-  readonly id: SchemaGraphNodeId;
-  readonly kind: SchemaGraphNodeKind;
-  readonly name: string;
-};
-
-type SchemaGraphEdgeRelation = "feeds" | "mutates" | "unlocks";
-
-type SchemaGraphEdge = {
-  readonly from: SchemaGraphNodeId;
-  readonly to: SchemaGraphNodeId;
-  readonly relation: SchemaGraphEdgeRelation;
-};
-
-type SchemaGraphNodeRef =
-  | TypedActionRef<ManifestoDomainShape>
-  | FieldRef<unknown>
-  | ComputedRef<unknown>;
-
-type SchemaGraph = {
-  readonly nodes: readonly SchemaGraphNode[];
-  readonly edges: readonly SchemaGraphEdge[];
-  traceUp(ref: SchemaGraphNodeRef): SchemaGraph;
-  traceUp(nodeId: SchemaGraphNodeId): SchemaGraph;
-  traceDown(ref: SchemaGraphNodeRef): SchemaGraph;
-  traceDown(nodeId: SchemaGraphNodeId): SchemaGraph;
-};
-
-type SimulateResult<T extends ManifestoDomainShape = ManifestoDomainShape> = {
-  readonly snapshot: Snapshot<T["state"]>;
-
-  /**
-   * Inspection/debug-only diff of the projected public snapshot.
-   * Callers MUST NOT treat these display paths as the canonical branching API.
-   */
-  readonly changedPaths: readonly string[];
-
-  readonly newAvailableActions: readonly (keyof T["actions"])[];
+export type BaseWriteReport = {
+  readonly mode: "base";
+  readonly action: string;
+  readonly changes: readonly ChangedPath[];
   readonly requirements: readonly Requirement[];
-  readonly status: "complete" | "pending" | "halted" | "error";
-  readonly diagnostics?: SimulationDiagnostics;
-};
-
-type SimulationDiagnostics = {
-  readonly trace: TraceGraph;
-};
-
-type IntentExplanation<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> =
-  | {
-      readonly kind: "blocked";
-      readonly actionName: keyof T["actions"] & string;
-      readonly available: false;
-      readonly dispatchable: false;
-      readonly blockers: readonly DispatchBlocker[];
-    }
-  | {
-      readonly kind: "blocked";
-      readonly actionName: keyof T["actions"] & string;
-      readonly available: true;
-      readonly dispatchable: false;
-      readonly blockers: readonly DispatchBlocker[];
-    }
-  | {
-      readonly kind: "admitted";
-      readonly actionName: keyof T["actions"] & string;
-      readonly available: true;
-      readonly dispatchable: true;
-      readonly status: ComputeStatus;
-      readonly requirements: readonly Requirement[];
-      readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
-      readonly snapshot: Snapshot<T["state"]>;
-      readonly newAvailableActions: readonly (keyof T["actions"])[];
-      readonly changedPaths: readonly string[];
-    };
-```
-
-`TypedActionMetadata<T, K>.input` MUST carry the same machine-readable action input schema that the runtime uses for validation and inspection.
-
-`TypedActionMetadata<T, K>.hasDispatchableGate` MUST expose whether the action declares `dispatchable when` in the compiled schema.
-
-`TypedIntent<T, K>` is the SDK's typed view of a Core `Intent`. Its runtime branding strategy is implementation-defined.
-
-`IntentExplanation<T>.dispatchable` in blocked results reflects admission state. In the `available: false` branch, `dispatchable: false` MUST NOT be interpreted as evidence that dispatchability was evaluated.
-
-`IntentExplanation<T>.canonicalSnapshot` is a canonical inspection surface. The stable parity surface for repeated explanation reads is the projected `snapshot` plus the summary fields documented below. Host-managed canonical metadata such as logical `timestamp` is not the intended byte-for-byte comparison surface across repeated dry-run reads.
-
-### 5.6 Event Types
-
-```typescript
-interface ManifestoEventMap<T extends ManifestoDomainShape> {
-  "dispatch:completed": {
-    readonly intentId: string;
-    readonly intent: Intent;
-    readonly snapshot: Snapshot<T["state"]>;
-  };
-  "dispatch:rejected": {
-    readonly intentId: string;
-    readonly intent: Intent;
-    readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT";
-    readonly reason: string;
-  };
-  "dispatch:failed": {
-    readonly intentId: string;
-    readonly intent: Intent;
-    readonly error: Error;
-    readonly snapshot?: Snapshot<T["state"]>;
-  };
-}
-
-type ManifestoEvent =
-  | "dispatch:completed"
-  | "dispatch:rejected"
-  | "dispatch:failed";
-type ManifestoEventPayload<T extends ManifestoDomainShape> =
-  ManifestoEventMap<T>[ManifestoEvent];
-
-type TypedOn<T extends ManifestoDomainShape> = <
-  K extends ManifestoEvent,
->(
-  event: K,
-  handler: (payload: ManifestoEventMap<T>[K]) => void,
-) => Unsubscribe;
-```
-
-### 5.7 Error Types
-
-```typescript
-class ManifestoError extends Error {
-  readonly code: string;
-}
-
-class CompileError extends ManifestoError {
-  readonly diagnostics: readonly CompileDiagnostic[];
-}
-
-class ReservedEffectError extends ManifestoError {
-  readonly effectType: string;
-}
-
-class DisposedError extends ManifestoError {}
-class AlreadyActivatedError extends ManifestoError {}
-```
-
-```typescript
-type CompileDiagnostic = {
-  readonly severity: "error" | "warning" | "info";
-  readonly code: string;
-  readonly message: string;
-  readonly location: {
-    readonly start: {
-      readonly line: number;
-      readonly column: number;
-      readonly offset: number;
-    };
-    readonly end: {
-      readonly line: number;
-      readonly column: number;
-      readonly offset: number;
-    };
-  };
-  readonly source?: string;
-  readonly suggestion?: string;
+  readonly outcome: ExecutionOutcome;
 };
 ```
 
-| Rule ID | Level | Description |
-|---------|-------|-------------|
-| SDK-TYPE-1 | MUST | The public names in §5 are frozen for the current SDK v3 surface |
-| SDK-TYPE-2 | MUST | `TypedMEL<T>` MUST preserve the key sets of `T["actions"]`, `T["state"]`, and `T["computed"]` exactly |
-| SDK-TYPE-3 | MUST | `TypedCreateIntent<T>` MUST derive its argument list from the referenced action and MUST surface object binding when the action input is object-shaped |
-| SDK-TYPE-4 | MUST | `TypedDispatchAsync<T>` MUST accept any Core `Intent`, including intents not created by `TypedCreateIntent<T>` |
-| SDK-TYPE-5 | MUST | `TypedOn<T>` payload typing MUST narrow by event name |
-| SDK-TYPE-6 | MUST | `TypedActionRef.name`, `FieldRef.name`, and `ComputedRef.name` MUST be stable public identifiers for the referenced action/state/computed node |
-| SDK-TYPE-7 | MUST NOT | SDK-owned introspection depend on implementation-defined extra runtime fields on refs |
-| SDK-TYPE-8 | MUST | `SchemaGraph` string lookup overloads use kind-prefixed node ids (`state:*`, `computed:*`, `action:*`); ref lookup remains the canonical surface |
-| SDK-TYPE-9 | MUST | `DispatchBlocker.layer` MUST distinguish coarse action availability from fine intent dispatchability |
-| SDK-TYPE-10 | MUST | `dispatch:rejected` event payloads MUST expose a stable machine-readable rejection `code` |
+`PreviewOptions` and `SubmitOptions` use explicit `__kind` discriminants to keep
+SDK option bags distinguishable from domain action input objects.
+
+`LineageWriteReport` and `GovernanceSettlementReport` are boundary names owned
+by Lineage and Governance. SDK fixes only where those reports attach in the
+common result skeleton; their field-level meaning belongs to the owning SPECs.
+
+### 5.9 Boundary Type Sources
+
+The snippets in this SPEC reference the following boundary types without
+redefining their owning semantics:
+
+```typescript
+export type Unsubscribe = () => void;
+
+// Core-owned public types
+type DomainSchema = import("@manifesto-ai/core").DomainSchema;
+type CoreSnapshot = import("@manifesto-ai/core").Snapshot;
+type ErrorValue = import("@manifesto-ai/core").ErrorValue;
+type Intent = import("@manifesto-ai/core").Intent;
+type Patch = import("@manifesto-ai/core").Patch;
+type Requirement = import("@manifesto-ai/core").Requirement;
+type TraceGraph = import("@manifesto-ai/core").TraceGraph;
+type Diagnostic = Readonly<Record<string, unknown>>;
+
+// Compiler-owned public types
+type SchemaGraph = import("@manifesto-ai/compiler").SchemaGraph;
+
+// Lineage-owned public types
+type WorldRecord = import("@manifesto-ai/lineage").WorldRecord;
+type LineageWriteReport = import("@manifesto-ai/lineage").LineageWriteReport;
+
+// Governance-owned public types
+type ProposalRef = import("@manifesto-ai/governance").ProposalRef;
+type DecisionRecord = import("@manifesto-ai/governance").DecisionRecord;
+type GovernanceSettlementReport =
+  import("@manifesto-ai/governance").GovernanceSettlementReport;
+```
+
+These imports are illustrative ownership markers. The SDK MUST NOT import
+lineage or governance internals; only public boundary types may cross package
+surfaces.
 
 ## 6. `createManifesto()`
 
 ### 6.1 Signature
 
 ```typescript
-function createManifesto<T extends ManifestoDomainShape>(
+export type ActionAnnotations = Readonly<Record<string, ActionAnnotation>>;
+
+export type CreateManifestoOptions = {
+  readonly annotations?: ActionAnnotations;
+};
+
+declare function createManifesto<TDomain extends ManifestoDomainShape>(
   schema: DomainSchema | string,
-  effects: Record<string, EffectHandler>,
-): ComposableManifesto<T, BaseLaws>;
+  effects?: Record<string, EffectHandler>,
+  options?: CreateManifestoOptions,
+): ComposableManifesto<TDomain, "base">;
 ```
 
-`createManifesto()` is a positional API in v3.
+`schema` MAY be a normalized `DomainSchema` or MEL source text. Compiler tooling
+artifacts such as `DomainModule` MUST NOT be accepted in place of `DomainSchema`.
 
-`ManifestoConfig` is removed. Guard callbacks, restore snapshots, and governed-world inputs are not part of the v3 SDK factory surface.
+`options.annotations` is the only caller-provided v5 route for compiler-produced
+`@meta` annotations to reach `ActionHandle.info()`. This preserves the runtime
+entrypoint as `DomainSchema`-first while allowing tooling metadata to travel as
+an explicit sidecar.
+
+When `schema` is MEL source text and the SDK compiles it internally, any
+annotations produced by that compilation are SDK-resolved annotations. If
+`options.annotations` is also supplied, SDK MUST shallow-merge annotations by
+action name with caller-provided annotations taking precedence over
+compiler-resolved annotations for the same action key.
+
+When `schema` is already a `DomainSchema`, SDK MUST NOT infer annotations from
+the schema. Callers that need action metadata beyond the schema contract MUST
+provide `options.annotations`.
 
 ### 6.2 Schema Resolution and Normalization
 
-If `schema` is a string, SDK MUST compile it as MEL domain source before exposing the resulting composable manifesto.
+If `schema` is MEL text, the SDK MUST compile it before activation. Compilation
+failures MUST throw `CompileError` with collected diagnostics.
 
-If `schema` is a compiled `DomainSchema`, SDK MUST still normalize it before exposing `ComposableManifesto.schema`.
+If `schema` is already a `DomainSchema`, the SDK MUST normalize it before
+exposing `ComposableManifesto.schema`.
 
-Compiler tooling artifacts that bundle schema-side metadata, such as `DomainModule`, are outside this runtime seam. Callers MUST pass `DomainSchema` only.
+### 6.3 Reserved Effects and Namespaces
 
-Normalization includes:
+SDK MUST reject user effects that override reserved effect types with
+`ReservedEffectError`.
 
-- platform namespace injection for `$host`
-- platform namespace injection for `$mel.guards.intent`
-- reserved namespace validation
+SDK MUST reject domain identifiers using reserved platform namespace prefixes
+with `ManifestoError` code `RESERVED_NAMESPACE`.
 
-The exposed `ComposableManifesto.schema` MUST be the normalized schema, not the raw caller input.
-
-### 6.3 Reserved Effect and Namespace Protection
-
-The SDK owns the reserved compiler/system effect channel `system.get`.
-
-User-provided effects MUST NOT override that effect type.
-
-User action names MUST NOT use the reserved namespace prefix `system.`.
-
-If the caller explicitly declares `$host`, `$mel`, `$mel.guards`, or `$mel.guards.intent` as non-object fields, SDK MUST reject schema normalization with `ManifestoError` code `SCHEMA_ERROR`.
-
-### 6.4 Effect Handler Contract
-
-The activation model does not change the SDK-owned effect handler shape. The SDK-facing handler remains the simplified two-parameter contract in §5.2 and MUST be adapted internally to the Host execution contract.
-
-The `snapshot` in `EffectContext` MUST reflect the current projected snapshot visible to the activated runtime at effect execution time. It MUST NOT expose canonical-only substrate such as `data.$*`, `system.pendingRequirements`, `system.currentAction`, `input`, `meta.version`, `meta.timestamp`, or `meta.randomSeed`.
+### 6.4 Rules
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| SDK-CREATE-1 | MUST | `createManifesto()` MUST accept `schema` as the first positional argument and `effects` as the second |
-| SDK-CREATE-2 | MUST | SDK MUST normalize or compile schema input before exposing `ComposableManifesto.schema` |
-| SDK-CREATE-3 | MUST | SDK MUST preserve the simplified SDK `EffectHandler` contract and adapt it internally to Host requirements |
-| SDK-CREATE-4 | MUST NOT | SDK MUST NOT accept a config object shape such as `ManifestoConfig` in v3 |
-| SDK-CREATE-5 | MUST NOT | SDK MUST NOT accept guard callbacks, restore snapshots, or governed-world inputs at factory time |
-| SDK-CREATE-6 | MUST NOT | SDK MUST NOT expose a ready-to-use runtime instance directly from `createManifesto()` |
-| SDK-CREATE-7 | MUST | When `schema` is MEL text, compilation failures MUST throw `CompileError` with collected diagnostics |
-| SDK-CREATE-8 | MUST | SDK MUST reject user effects that override reserved effect types with `ReservedEffectError` |
-| SDK-CREATE-9 | MUST | SDK MUST reject action names using reserved namespace prefixes with `ManifestoError` code `RESERVED_NAMESPACE` |
-| SDK-CREATE-10 | MUST | SDK MUST inject platform namespaces needed by compiler/host coordination before activation |
-| SDK-CREATE-11 | MUST NOT | SDK MUST NOT accept compiler tooling artifacts such as `DomainModule` in place of `DomainSchema` |
+| SDK-CREATE-1 | MUST | `createManifesto()` MUST accept schema as the first positional argument and effects as the second. |
+| SDK-CREATE-2 | MUST | `createManifesto()` MAY accept `CreateManifestoOptions` as the third positional argument. |
+| SDK-CREATE-3 | MUST | `options.annotations` MUST be the only caller-provided SDK v5 sidecar for `@meta` propagation into `ActionHandle.info()`. |
+| SDK-CREATE-4 | MUST NOT | SDK MUST NOT accept `DomainModule` in place of `DomainSchema`. |
+| SDK-CREATE-5 | MUST NOT | SDK MUST NOT accept guard callbacks, restore snapshots, lineage stores, or governance authorities at factory time. |
+| SDK-CREATE-6 | MUST NOT | SDK MUST NOT expose a ready runtime instance directly from `createManifesto()`. |
+| SDK-CREATE-7 | MUST | SDK MUST preserve the simplified SDK `EffectHandler` contract and adapt it internally to Host requirements. |
+| SDK-CREATE-8 | MUST | For MEL source strings, compiler-resolved annotations MUST be available to `ActionHandle.info()` unless overridden by `options.annotations`. |
+| SDK-CREATE-9 | MUST | For `DomainSchema` inputs, annotations MUST come only from `options.annotations`. |
 
-## 7. Activated Base Surface
-
-Activating an undecorated composable manifesto returns the present-only base runtime instance:
+## 7. Runtime Root Surface
 
 ```typescript
-type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
-  readonly createIntent: TypedCreateIntent<T>;
-  readonly dispatchAsync: TypedDispatchAsync<T>;
-  readonly dispatchAsyncWithReport: (
-    intent: TypedIntent<T>
-  ) => Promise<DispatchReport<T>>;
-  readonly subscribe: TypedSubscribe<T>;
-  readonly on: TypedOn<T>;
-  readonly getSnapshot: () => Snapshot<T["state"]>;
-  readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
-  readonly getAvailableActions: () => readonly (keyof T["actions"])[];
-  readonly isActionAvailable: (name: keyof T["actions"]) => boolean;
-  readonly isIntentDispatchable: TypedIsIntentDispatchable<T>;
-  readonly getIntentBlockers: TypedGetIntentBlockers<T>;
-  readonly explainIntent: (intent: TypedIntent<T>) => IntentExplanation<T>;
-  readonly why: (intent: TypedIntent<T>) => IntentExplanation<T>;
-  readonly whyNot: (intent: TypedIntent<T>) => readonly DispatchBlocker[] | null;
-  readonly getActionMetadata: TypedGetActionMetadata<T>;
-  readonly getSchemaGraph: () => SchemaGraph;
-  readonly simulate: <K extends keyof T["actions"]>(
-    action: TypedActionRef<T, K>,
-    ...args: CreateIntentArgs<T, K>
-  ) => SimulateResult<T>;
-  readonly simulateIntent: <K extends keyof T["actions"]>(
-    intent: TypedIntent<T, K>
-  ) => SimulateResult<T>;
-  readonly MEL: TypedMEL<T>;
-  readonly schema: DomainSchema;
-  readonly dispose: () => void;
-};
-```
-
-The canonical public surface is the instance object. Destructuring is optional ergonomics only.
-
-`dispatchAsyncWithReport()` in §7.2.1 is an additive companion to the canonical base execution verb `dispatchAsync()`.
-
-The read-oriented members in §7.3.1-§7.5 remain SDK conveniences layered over the same activated schema and canonical runtime substrate.
-
-The SDK also defines additive helper-boundary aliases:
-
-```typescript
-type ManifestoLegalityRuntime<T extends ManifestoDomainShape> = Pick<
-  ManifestoBaseInstance<T>,
-  "createIntent" | "whyNot" | "simulate" | "simulateIntent" | "MEL"
->;
-
-type ManifestoDispatchRuntime<T extends ManifestoDomainShape> = Pick<
-  ManifestoBaseInstance<T>,
-  "dispatchAsync" | "dispatchAsyncWithReport"
->;
-```
-
-These aliases are capability names for helper authors. They MUST NOT be interpreted as a cross-decorator common execution story. `dispatchAsync()` remains base-only.
-
-### 7.1 `createIntent()`
-
-`createIntent()` is instance-owned and typed from `MEL.actions.*`.
-
-The canonical forms are:
-
-```typescript
-const positionalIntent = instance.createIntent(instance.MEL.actions.someAction, ...args);
-const objectIntent = instance.createIntent(instance.MEL.actions.someAction, { ...params });
-```
-
-The SDK MUST NOT treat string action names as the canonical SDK v3 creation path.
-
-`createIntent()` MUST always return a valid Core `Intent` with a non-empty `intentId`.
-
-If the referenced action has zero parameters, `Intent.input` MUST be `undefined`.
-
-If the referenced action has one or more parameters, `createIntent()` MUST synthesize `Intent.input` in the canonical object shape expected by the compiled action, preserving MEL-declared parameter names and declared order. `TypedActionRef` is the carrier of the metadata required for that packing step.
-
-For compiled actions with positional metadata, positional and object forms are both valid public contract. This includes single-parameter actions, where object form means `{ paramName: value }` when the single parameter is not itself object-like. If the single parameter is object-like, the runtime preserves direct-value packing to avoid ambiguous double interpretation.
-
-For actions whose public input is already a single object shape without positional metadata, only object form is guaranteed.
-
-### 7.2 `dispatchAsync()`
-
-`dispatchAsync()` is the sole base-runtime execution verb.
-
-It MUST serialize intents per activated base instance. Concurrent calls on the same instance MUST be processed FIFO.
-
-Action availability and intent dispatchability MUST be evaluated at **dequeue time**, not call time. This guarantees that an earlier queued intent can change the snapshot before a later queued intent is admitted or rejected.
-
-The dequeue-time admission order is normative:
-
-1. evaluate `isActionAvailable()`
-2. if available, validate bound intent input against the activated action contract
-3. if input is valid, evaluate `isIntentDispatchable()`
-
-If the action is unavailable at dequeue time, `dispatchAsync()` MUST reject without mutating the visible snapshot, MUST emit `dispatch:rejected` with code `ACTION_UNAVAILABLE`, and MUST NOT notify subscribers.
-
-If the action is available but the bound intent input is invalid at dequeue time, `dispatchAsync()` MUST reject without mutating the visible snapshot, MUST emit `dispatch:rejected` with code `INVALID_INPUT`, and MUST NOT notify subscribers.
-
-If the action is available but the bound intent is not dispatchable at dequeue time, `dispatchAsync()` MUST reject without mutating the visible snapshot, MUST emit `dispatch:rejected` with code `INTENT_NOT_DISPATCHABLE`, and MUST NOT notify subscribers.
-
-If execution succeeds, `dispatchAsync()` MUST publish the new terminal snapshot, notify subscribers, emit `dispatch:completed`, and resolve with that same snapshot.
-
-If Host execution produces a terminal error result that also carries a new terminal snapshot, SDK MUST publish that snapshot, notify subscribers, emit `dispatch:failed` with the published snapshot attached, and reject the Promise with the associated error.
-
-If execution fails before a new terminal snapshot exists, SDK MUST emit `dispatch:failed`, MUST leave the visible snapshot unchanged, and MUST reject the Promise.
-
-### 7.2.1 `dispatchAsyncWithReport()`
-
-`dispatchAsyncWithReport()` is an additive report companion to `dispatchAsync()`.
-
-It returns a `DispatchReport<T>` that packages the already-computed admission outcome, before/after snapshots, projected diff, availability delta, canonical completion state, and optional debug diagnostics for the same dequeue-time execution path.
-
-`dispatchAsyncWithReport()` is a public family-surface API.
-However, SDK implementations MUST derive it from one shared internal report substrate rather than reimplementing legality ordering, projected diff semantics, or failure classification as a second independent execution path.
-
-Illustrative shared internal helpers:
-
-```typescript
-type SharedReportSubstrate<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
+export type BaseManifestoApp<
+  TDomain extends ManifestoDomainShape,
+  TMode extends RuntimeMode,
 > = {
-  deriveIntentAdmission(
-    snapshot: CanonicalSnapshot<T["state"]>,
-    intent: TypedIntent<T>,
-  ): IntentAdmission<T>;
+  readonly actions: ActionSurface<TDomain, TMode>;
+  readonly observe: ObserveSurface<TDomain>;
+  readonly inspect: InspectSurface<TDomain>;
 
-  deriveExecutionOutcome(
-    beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>,
-    afterCanonicalSnapshot: CanonicalSnapshot<T["state"]>,
-  ): ExecutionOutcome<T>;
+  snapshot(): ProjectedSnapshot<TDomain>;
 
-  classifyExecutionFailure(
-    error: unknown,
-    context: { readonly stage: "host" | "seal" },
-  ): ExecutionFailureInfo;
+  action<Name extends ActionName<TDomain>>(
+    name: Name,
+  ): ActionHandle<TDomain, Name, TMode>;
+
+  dispose(): void;
+};
+
+export type GovernanceSettlementSurface<
+  TDomain extends ManifestoDomainShape,
+> = {
+  waitForSettlement(
+    ref: ProposalRef,
+  ): Promise<GovernanceSettlementResult<TDomain, ActionName<TDomain>>>;
+};
+
+type EmptySurface = Record<never, never>;
+
+export type ManifestoApp<
+  TDomain extends ManifestoDomainShape,
+  TMode extends RuntimeMode,
+> = BaseManifestoApp<TDomain, TMode>
+  & ([TMode] extends ["governance"]
+      ? GovernanceSettlementSurface<TDomain>
+      : EmptySurface);
+```
+
+`actions.*` is the ergonomic property accessor. `action(name)` is the normative
+collision-safe accessor.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-ROOT-1 | MUST | `ManifestoApp` MUST expose exactly the canonical root groups shown above plus mode-specific extensions. |
+| SDK-ROOT-2 | MUST | `snapshot()` MUST be the only root-level snapshot read in the canonical v5 public surface. |
+| SDK-ROOT-3 | MUST | `action(name)` MUST work for every declared action name, including names that collide with runtime or JavaScript reserved properties. |
+| SDK-ROOT-4 | MUST | User action names MUST NOT corrupt root members such as `then`, `constructor`, `bind`, `inspect`, `snapshot`, `dispose`, or `action`. |
+| SDK-ROOT-5 | MUST | Governance `waitForSettlement(ref)` MUST be type-level reachable only on governance-mode runtimes. |
+| SDK-ROOT-6 | MUST | The `ManifestoApp` governance extension conditional MUST use a non-distributive form equivalent to `[TMode] extends ["governance"]`. |
+| SDK-ROOT-7 | MUST NOT | The empty-surface branch MUST NOT use `Record<string, never>`. |
+
+## 8. Action Candidate Surface
+
+### 8.1 Action Surface
+
+```typescript
+export type ActionSurface<
+  TDomain extends ManifestoDomainShape,
+  TMode extends RuntimeMode,
+> = {
+  readonly [Name in ActionName<TDomain>]:
+    ActionHandle<TDomain, Name, TMode>;
 };
 ```
 
-The helper names above are illustrative only.
-Equivalent implementation names are allowed.
+### 8.2 Action Handle
 
 ```typescript
-type InvalidInputInfo = {
-  readonly code: "INVALID_INPUT";
-  readonly message: string;
+export type ActionHandle<
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain>,
+  TMode extends RuntimeMode,
+> = {
+  info(): ActionInfo<Name>;
+  available(): boolean;
+  check(...args: ActionArgs<TDomain, Name>): Admission<Name>;
+  preview(
+    ...args: [...ActionArgs<TDomain, Name>, PreviewOptions?]
+  ): PreviewResult<TDomain, Name>;
+  submit(
+    ...args: [...ActionArgs<TDomain, Name>, SubmitOptions?]
+  ): Promise<SubmitResultFor<TMode, TDomain, Name>>;
+  bind(...args: ActionArgs<TDomain, Name>): BoundAction<TDomain, Name, TMode>;
+};
+```
+
+### 8.3 Bound Action
+
+```typescript
+export type BoundAction<
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain>,
+  TMode extends RuntimeMode,
+> = {
+  readonly action: Name;
+  readonly input: ActionInput<TDomain, Name>;
+
+  check(): Admission<Name>;
+  preview(options?: PreviewOptions): PreviewResult<TDomain, Name>;
+  submit(options?: SubmitOptions): Promise<SubmitResultFor<TMode, TDomain, Name>>;
+
+  intent(): Intent | null;
+};
+```
+
+`bind()` makes an action candidate a first-class value. `intent()` is a method,
+not an always-present property, because invalid input cannot produce a valid raw
+protocol `Intent`.
+
+### 8.4 Action Info
+
+```typescript
+export type ActionInfo<Name extends string = string> = {
+  readonly name: Name;
+  readonly title?: string;
+  readonly description?: string;
+  readonly parameters: readonly ActionParameterInfo[];
+  readonly annotations?: ActionAnnotation;
 };
 
-type IntentAdmissionFailure =
-  | {
-      readonly kind: "unavailable";
-      readonly blockers: readonly DispatchBlocker[];
-    }
-  | {
-      readonly kind: "invalid_input";
-      readonly error: InvalidInputInfo;
-    }
-  | {
-      readonly kind: "not_dispatchable";
-      readonly blockers: readonly DispatchBlocker[];
-    };
+export type ActionParameterInfo = {
+  readonly name: string;
+  readonly required: boolean;
+  readonly type?: string;
+  readonly description?: string;
+};
 
-type IntentAdmission<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
+export type ActionAnnotation = Readonly<Record<string, unknown>>;
+```
+
+`ActionInfo.annotations` is populated from resolved action annotations:
+compiler-produced annotations from MEL source plus caller-provided
+`createManifesto(..., { annotations })` sidecar values, with caller values taking
+precedence. The SDK MUST NOT infer or invent annotation values from unrelated
+runtime state.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-ACTION-1 | MUST | `ActionHandle` MUST expose `info`, `available`, `check`, `preview`, `submit`, and `bind`. |
+| SDK-ACTION-2 | MUST | `BoundAction` MUST expose `check`, `preview`, `submit`, and nullable method-style `intent()`. |
+| SDK-ACTION-3 | MUST | `available()` MUST be input-free and snapshot-bound. |
+| SDK-ACTION-4 | MUST | `info()` MUST return static/public action contract metadata. |
+| SDK-ACTION-5 | MUST NOT | `info()` MUST NOT read hidden execution state or act as an authority decision channel. |
+| SDK-ACTION-6 | MUST | `ActionInfo.annotations` MUST be derived only from resolved action annotations. |
+
+### 8.5 Option Argument Disambiguation
+
+`ActionHandle.preview()` and `ActionHandle.submit()` accept inline options only
+when the call has exactly one more argument than the action's public arity and
+the final argument carries the matching SDK option discriminant:
+
+```typescript
+app.actions.addTodo.preview(
+  { title: "Ship v5" },
+  { __kind: "PreviewOptions", diagnostics: "summary" },
+);
+
+await app.actions.addTodo.submit(
+  { title: "Ship v5" },
+  { __kind: "SubmitOptions", report: "summary" },
+);
+```
+
+If the final value is part of the action's declared public arity, it MUST be
+treated as domain input even if it structurally resembles an SDK option bag.
+
+`BoundAction.preview(options?)` and `BoundAction.submit(options?)` do not have
+this ambiguity because the action input has already been bound.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-ACTION-7 | MUST | Inline `PreviewOptions` MUST be recognized only as an extra final argument with `__kind: "PreviewOptions"`. |
+| SDK-ACTION-8 | MUST | Inline `SubmitOptions` MUST be recognized only as an extra final argument with `__kind: "SubmitOptions"`. |
+| SDK-ACTION-9 | MUST | Values inside the declared action arity MUST be treated as domain input, not SDK options. |
+
+## 9. Admission
+
+`check()` is the canonical admission API.
+
+```typescript
+export type Admission<Name extends string = string> =
+  | AdmissionOk<Name>
+  | AdmissionFailure<Name>;
+
+export type AdmissionOk<Name extends string = string> = {
+  readonly ok: true;
+  readonly action: Name;
+};
+
+export type AdmissionFailure<Name extends string = string> = {
+  readonly ok: false;
+  readonly action: Name;
+  readonly layer: "availability" | "input" | "dispatchability";
+  readonly code:
+    | "ACTION_UNAVAILABLE"
+    | "INVALID_INPUT"
+    | "INTENT_NOT_DISPATCHABLE";
+  readonly message: string;
+  readonly blockers: readonly Blocker[];
+};
+
+export type Blocker = {
+  readonly path: ReadonlyArray<string | number>;
+  readonly code: string;
+  readonly message: string;
+  readonly detail?: Readonly<Record<string, unknown>>;
+};
+```
+
+Admission evaluates the same semantic ordering as the v3 caller ladder, but now
+through one discriminated union:
+
+1. availability
+2. input validation
+3. dispatchability
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-ADMISSION-1 | MUST | `check()` MUST evaluate availability before input validation. |
+| SDK-ADMISSION-2 | MUST NOT | `check()` MUST NOT evaluate dispatchability when availability fails. |
+| SDK-ADMISSION-3 | MUST NOT | `check()` MUST NOT evaluate dispatchability when input validation fails. |
+| SDK-ADMISSION-4 | MUST | `check()` MUST return only the first failing layer. |
+| SDK-ADMISSION-5 | MUST | Known candidate-admission failures MUST be returned as values, not thrown. |
+| SDK-ADMISSION-6 | MAY | Unknown action names, disposed runtime access, or malformed internal runtime state MAY throw programmer errors. |
+
+This contract supersedes the public need for `isIntentDispatchable()`,
+`getIntentBlockers()`, `why()`, `whyNot()`, and `explainIntent()` in the
+canonical v5 path.
+
+## 10. Preview
+
+`preview()` replaces public `simulate()` and `simulateIntent()` in the canonical
+v5 action path.
+
+```typescript
+export type PreviewResult<
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain>,
 > =
   | {
-      readonly kind: "admitted";
-      readonly actionName: keyof T["actions"] & string;
+      readonly admitted: false;
+      readonly admission: AdmissionFailure<Name>;
     }
   | {
-      readonly kind: "blocked";
-      readonly actionName: keyof T["actions"] & string;
-      readonly failure: IntentAdmissionFailure;
-    };
-
-type AvailableActionDelta<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
-  readonly before: readonly (keyof T["actions"])[];
-  readonly after: readonly (keyof T["actions"])[];
-  readonly unlocked: readonly (keyof T["actions"])[];
-  readonly locked: readonly (keyof T["actions"])[];
-};
-
-type ProjectedDiff<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
-  readonly beforeSnapshot: Snapshot<T["state"]>;
-  readonly afterSnapshot: Snapshot<T["state"]>;
-  readonly changedPaths: readonly string[];
-  readonly availability: AvailableActionDelta<T>;
-};
-
-type CanonicalOutcome<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
-  readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
-  readonly afterCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
-  readonly pendingRequirements: readonly Requirement[];
-  readonly status: CanonicalSnapshot<T["state"]>["system"]["status"];
-};
-
-type ExecutionOutcome<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
-  readonly projected: ProjectedDiff<T>;
-  readonly canonical: CanonicalOutcome<T>;
-};
-
-type ExecutionFailureInfo = {
-  readonly message: string;
-  readonly code?: string;
-  readonly name?: string;
-  readonly stage?: "host" | "seal";
-};
-
-type ExecutionDiagnostics = {
-  readonly hostTraces?: readonly TraceGraph[];
-};
-
-type DispatchReport<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> =
-  | {
-      readonly kind: "completed";
-      readonly intent: TypedIntent<T>;
-      readonly admission: {
-        readonly kind: "admitted";
-        readonly actionName: keyof T["actions"] & string;
-      };
-      readonly outcome: ExecutionOutcome<T>;
-      readonly diagnostics?: ExecutionDiagnostics;
-    }
-  | {
-      readonly kind: "rejected";
-      readonly intent: TypedIntent<T>;
-      readonly admission: Extract<IntentAdmission<T>, { readonly kind: "blocked" }>;
-      readonly beforeSnapshot: Snapshot<T["state"]>;
-      readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
-      readonly rejection: {
-        readonly code: "ACTION_UNAVAILABLE" | "INVALID_INPUT" | "INTENT_NOT_DISPATCHABLE";
-        readonly reason: string;
-      };
-    }
-  | {
-      readonly kind: "failed";
-      readonly intent: TypedIntent<T>;
-      readonly admission: {
-        readonly kind: "admitted";
-        readonly actionName: keyof T["actions"] & string;
-      };
-      readonly beforeSnapshot: Snapshot<T["state"]>;
-      readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
-      readonly error: ExecutionFailureInfo;
-      readonly published: boolean;
-      readonly diagnostics?: ExecutionDiagnostics;
-      readonly outcome?: ExecutionOutcome<T>;
+      readonly admitted: true;
+      readonly status: "complete" | "pending" | "halted" | "error";
+      readonly before: ProjectedSnapshot<TDomain>;
+      readonly after: ProjectedSnapshot<TDomain>;
+      readonly changes: readonly ChangedPath[];
+      readonly requirements: readonly Requirement[];
+      readonly newAvailableActions?: readonly ActionInfo[];
+      readonly diagnostics?: PreviewDiagnostics;
+      readonly error?: ErrorValue | null;
     };
 ```
 
-Semantics:
-
-- `changedPaths` is the projected diff over `beforeSnapshot` and `afterSnapshot`
-- `availability.before` and `availability.after` are public action-name sets derived using the same availability semantics as `getAvailableActions()`, evaluated against the canonical before/after snapshots
-- `availability.unlocked` and `availability.locked` are set differences over those public action-name sets
-- `ExecutionDiagnostics` is optional, best-effort, and debug-grade; callers MUST treat `Snapshot` as the semantic truth and MUST NOT rely on diagnostics for correctness
-- `ExecutionFailureInfo.stage` reserves `"seal"` for decorator-owned promoted runtimes that reuse the same shared report substrate; the base SDK runtime itself SHOULD emit `"host"` or omit `stage`
-
-### 7.2.2 Report And Shared-Substrate Semantics
-
-`dispatchAsyncWithReport()` MUST preserve the same dequeue-time legality ordering and publication semantics as `dispatchAsync()`.
-
-If the action is unavailable at dequeue time, `dispatchAsyncWithReport()` MUST resolve a rejected report with `ACTION_UNAVAILABLE`, the first failing admission layer, and the before snapshots.
-
-If the action is available but the bound intent input is invalid at dequeue time, `dispatchAsyncWithReport()` MUST resolve a rejected report with `INVALID_INPUT`, the first failing admission layer, and the before snapshots.
-
-If the action is available but the bound intent is not dispatchable at dequeue time, `dispatchAsyncWithReport()` MUST resolve a rejected report with `INTENT_NOT_DISPATCHABLE`, the first failing admission layer, and the before snapshots.
-
-If execution succeeds, `dispatchAsyncWithReport()` MUST publish the same new terminal snapshot as `dispatchAsync()` and MUST resolve a completed report whose `ExecutionOutcome<T>` reflects that same published result.
-
-If Host execution produces a terminal error result that also carries a new published terminal snapshot, `dispatchAsyncWithReport()` MUST publish that snapshot and MUST resolve a failed report with `published: true` and `outcome`.
-
-If execution fails before a new terminal snapshot exists, `dispatchAsyncWithReport()` MUST resolve a failed report with `published: false` and MUST NOT fabricate `outcome`.
-
-### 7.2.3 Failure Observation Surfaces
-
-`dispatchAsyncWithReport()` is the recommended SDK path when a caller needs a
-first-party per-attempt execution result. Callers SHOULD prefer it over
-combining `try/catch`, runtime events, `snapshot.system.lastError`, and
-canonical substrate probing.
-
-`snapshot.system.lastError` is the current semantic error surface of the
-Snapshot. It is present on both projected `getSnapshot()` reads and canonical
-`getCanonicalSnapshot()` reads.
-
-`data.$host.lastError` is Host-owned execution diagnostic state. It is visible
-only on the canonical substrate, is omitted from projected app-facing
-Snapshots, and exists for deep debugging of effect/Host execution. SDK MUST NOT
-automatically promote `data.$host.lastError` into `system.lastError` and MUST
-NOT add a second generic `getLastError()` helper that merges those surfaces.
-
-### 7.3 Availability, Dispatchability, Explanation, and Metadata Queries
-
-`getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, `explainIntent()`, `why()`, `whyNot()`, and `getActionMetadata()` are observational reads over the current visible snapshot plus the activated schema metadata.
-
-`getAvailableActions()` and `isActionAvailable()` are **snapshot-bound present-tense reads**, not durable capability grants or lease-like tokens. A name returned now MAY become unavailable after any later publication, restore, or other state change. Callers MUST re-read current legality instead of treating a prior action name as a stable future promise.
-
-Availability and dispatchability reads MUST delegate to Core legality semantics rather than reconstructing policy in SDK.
-
-`getActionMetadata()` MUST expose the SDK-known action metadata only:
-
-- action name
-- parameter names
-- machine-readable input schema
-- `hasDispatchableGate`
-- optional description
-
-`getActionMetadata()` MUST NOT invent app-defined extension fields or richer ownership/routing protocols.
-
-`getIntentBlockers()` is an SDK-owned explanation surface. It MUST return:
-
-- an empty list when the bound intent is dispatchable
-- one or more `DispatchBlocker` values when the action is unavailable or the bound intent fails `dispatchable`
-
-#### 7.3.1 Intent Explanation Reads
-
-`explainIntent(intent)` returns `IntentExplanation<T>` for a bound typed intent against the runtime's current visible canonical snapshot.
-
-It MUST be observationally pure and MUST delegate to the extension-kernel explanation substrate rather than reimplementing a second explanation path.
-
-The legality ordering is normative:
-
-1. evaluate action availability
-2. if available, validate bound intent input against the activated action contract
-3. if input is valid, evaluate bound-intent dispatchability
-4. if admitted, perform the same dry-run transition contract as `simulateIntent()`
-
-The intended public legality ladder is:
-
-1. coarse availability via `getAvailableActions()` / `isActionAvailable()`
-2. first-failing-layer blocker or explanation reads via `getIntentBlockers()`, `whyNot()`, or `explainIntent()`
-3. admitted dry-run via `simulateIntent()` or `simulate()`
-4. runtime execution via `dispatchAsync()` or the additive report companion `dispatchAsyncWithReport()`
-
-`getIntentBlockers()` and `whyNot()` are the lightweight first-failing-layer reads. `getIntentBlockers()` is the pre-bind blocker query surface; `whyNot()` is the bound-intent convenience projection. `simulateIntent(intent)` is the admitted dry-run step for callers that already hold a typed intent. `simulate(action, ...args)` remains the action-ref convenience form. SDK MUST NOT require a second agent-only legality surface for that caller decision path.
-
-If the action is unavailable, explanation reads MUST return the unavailable blocked result and MUST NOT surface invalid-input failures hidden behind that unavailable action.
-
-If the action is available but the supplied bound intent input is invalid, `explainIntent()` MUST throw `ManifestoError` with code `INVALID_INPUT` before dispatchability evaluation or blocker projection. `why()` and `whyNot()` inherit the same validation semantics.
-
-Blocked results MUST expose blockers for the first failing layer only. They MUST NOT combine availability and dispatchability blockers into one mixed result.
-
-Admitted results MUST expose the canonical simulated snapshot, the projected public snapshot, status, requirements, new available actions, and changed paths.
-
-`why(intent)` is a convenience alias of `explainIntent(intent)`.
-
-`whyNot(intent)` is a convenience projection over `explainIntent(intent)`. It MUST return blockers for the first failing layer, or `null` if the intent is admitted.
-
-`whyNot()` does not replace `getIntentBlockers()`. `getIntentBlockers()` remains the empty-array current-snapshot blocker query surface; `whyNot()` is an additive convenience read with a `null` admitted sentinel.
-
-### 7.4 `getSchemaGraph()`
-
-`getSchemaGraph()` returns the current instance's projected static dependency graph.
-
-The graph MUST be derived from the activated `DomainSchema` alone. It MUST NOT depend on the current snapshot or dispatch history.
-Compiler-side annotation sidecars or other tooling-only metadata MUST NOT participate in graph derivation.
-
-The SDK SHOULD compute the graph once at activation time and cache it for the lifetime of the instance.
-
-Graph nodes use kind-prefixed ids for debug lookup and a bare `name` for canonical ref identity mapping:
-
-- `state:tasks` corresponds to `instance.MEL.state.tasks`
-- `computed:todoCount` corresponds to `instance.MEL.computed.todoCount`
-- `action:createTask` corresponds to `instance.MEL.actions.createTask`
-
-`traceUp(ref)` and `traceDown(ref)` are the canonical query surface. The string overloads are convenience/debug-only and MUST accept only kind-prefixed node ids.
-
-`getSchemaGraph()` MUST expose the projected graph only:
-
-- `data.$host`, `data.$mel`, and every other `data.$*` namespace are excluded
-- edges touching any excluded `$*` node are excluded
-- computed nodes whose transitive dependency closure touches `data.$*` are excluded, consistent with the projection boundary of `getSnapshot()`
-
-The only supported graph relations are `feeds`, `mutates`, and `unlocks`.
-
-Input-dependent `dispatchable when` predicates MUST NOT be projected into `SchemaGraph`. The public graph remains a static schema-derived artifact over `available when`, writes, and computed dependencies only.
-
-### 7.5 `simulateIntent()` and `simulate()`
-
-`simulateIntent(intent)` performs a pure dry-run of an existing typed intent against the current canonical snapshot without committing the result.
-
-`simulate(action, ...args)` is the action-ref convenience form. It MUST bind the intent through the same SDK-owned packing rules as `createIntent()` and then use the same bound-intent dry-run semantics as `simulateIntent(intent)`.
-
-Both dry-run forms MUST use the same deterministic HostContext construction as `dispatchAsync()`.
-
-If the action is unavailable against the current canonical snapshot, both dry-run forms MUST throw `ManifestoError` with code `ACTION_UNAVAILABLE`.
-
-If the action is available but the bound intent input is invalid against the current canonical snapshot, both dry-run forms MUST throw `ManifestoError` with code `INVALID_INPUT`.
-
-If the action is available but the bound intent is not dispatchable against the current canonical snapshot, both dry-run forms MUST throw `ManifestoError` with code `INTENT_NOT_DISPATCHABLE`.
-
-For a successful dry-run, both dry-run forms MUST:
-
-1. call Core `computeSync()`
-2. apply the emitted patches with Core `apply()`
-3. apply the emitted system transition with Core `applySystemDelta()`
-4. project the resulting canonical snapshot through the same public lens as `getSnapshot()`
-
-The returned `snapshot` is the projected public snapshot that would become visible if the action ran now.
-
-`changedPaths` is an inspection/debug-only diff of the projected public snapshot. Callers SHOULD use `snapshot`, `getAvailableActions()`, `isActionAvailable()`, or explicit snapshot reads for programmatic branching instead of branching on display-path strings.
-
-`newAvailableActions` MUST be evaluated against the canonical simulated snapshot, not the projected snapshot, because action availability may depend on canonical-only substrate even when that substrate is excluded from the public projection.
-
-`newAvailableActions` remains the coarse action-family read. It MUST NOT be reinterpreted as a list of fully dispatchable bound intents.
-
-`status` MUST mirror Core `ComputeStatus` exactly: `complete`, `pending`, `halted`, or `error`.
-
-`diagnostics` is optional, best-effort, and inspection-only. If present, `diagnostics.trace` MUST be derived from the Core `ComputeResult.trace` produced by the exact admitted dry-run `computeSync()` pass that also produced the simulated snapshot, status, and requirements. SDK implementations MAY normalize volatile host-time fields such as trace-node timestamps or duration to keep repeated dry-runs stable. Callers MUST treat `snapshot`, `status`, `requirements`, `changedPaths`, and `newAvailableActions` as the semantic dry-run surface, and MUST NOT rely on diagnostics for correctness or branching.
-
-### 7.6 `subscribe()`
-
-`subscribe()` observes visible projected snapshot publication through selector projection.
-
-It MUST NOT fire synchronously upon registration.
-
-It MUST fire at most once per published terminal snapshot for a given subscription.
-
-Selector-based change detection MUST use `Object.is` on the selected value.
-
-`subscribe()` MUST NOT fire for rejected dispatches, and MUST NOT fire for failures that do not publish a new terminal snapshot.
-
-Canonical-only changes that do not affect any projected field MUST NOT trigger subscribers.
-
-Exceptions thrown by selectors or listeners MUST NOT alter dispatch outcome, visible snapshot state, queue state, or event emission. Implementations MAY swallow or externally report those callback errors, but MUST isolate them from runtime semantics.
-
-### 7.7 `on()`
-
-`on()` is the SDK telemetry channel.
-
-It carries intent lifecycle events only. It MUST NOT be used for state change notification.
-
-Exceptions thrown by event handlers MUST NOT alter dispatch outcome, visible snapshot state, queue state, or other event handlers.
-
-### 7.8 `getSnapshot()`
-
-`getSnapshot()` returns the current visible **projected** terminal snapshot synchronously.
-
-The returned value MUST be protected from external mutation. The implementation MAY use freezing, cloning, proxies, or equivalent defensive techniques, but callers MUST NOT be able to mutate internal runtime state by mutating the returned value.
-
-### 7.9 `getCanonicalSnapshot()`
-
-`getCanonicalSnapshot()` returns the current visible **canonical** runtime substrate synchronously.
-
-This is the explicit inspection seam for persistence-aware tooling, Lineage World snapshot alignment, and low-level debugging. It is not the default application-facing read surface.
-
-### 7.10 `@manifesto-ai/sdk/extensions`
-
-ADR-019 defines the SDK seam for post-activation, arbitrary-snapshot, observationally pure tooling:
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-PREVIEW-1 | MUST | `preview()` MUST be pure and non-committing. |
+| SDK-PREVIEW-2 | MUST NOT | `preview()` MUST NOT publish state. |
+| SDK-PREVIEW-3 | MUST NOT | `preview()` MUST NOT enqueue runtime work. |
+| SDK-PREVIEW-4 | MUST | `preview()` MUST apply the same admission ordering as `check()`. |
+| SDK-PREVIEW-5 | MUST | `preview()` MUST preserve Core status: `complete`, `pending`, `halted`, or `error`. |
+| SDK-PREVIEW-6 | MUST | `admitted: true` MUST mean dry-run computation was admitted, not that the action would settle successfully. |
+| SDK-PREVIEW-7 | MUST | `admitted: false` MUST include the same first-failing admission layer as `check()`. |
+
+## 11. Submit
+
+`submit()` is the v5 law-aware ingress verb.
 
 ```typescript
-import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
-
-const ext = getExtensionKernel(instance);
+await app.actions.addTodo.submit({ title: "Ship v5" });
 ```
 
-`getExtensionKernel()` accepts an activated SDK runtime:
+`submit()` means: submit this bound action candidate to the currently active
+runtime law boundary.
+
+It does not mean direct execution, immediate mutation, world sealing, governance
+approval, or authority bypass. Authority differences are visible through result
+types and decorator-owned implementations.
+
+### 11.1 Execution Outcome
 
 ```typescript
-getExtensionKernel<T extends ManifestoDomainShape, Laws extends BaseLaws>(
-  app: ActivatedInstance<T, Laws>,
-): ExtensionKernel<T>;
+export type ExecutionOutcome =
+  | { readonly kind: "ok"; readonly detail?: ExecutionDetail }
+  | { readonly kind: "stop"; readonly reason: string; readonly detail?: ExecutionDetail }
+  | { readonly kind: "fail"; readonly error: ErrorValue; readonly detail?: ExecutionDetail };
+
+export type ExecutionDetail = Readonly<Record<string, unknown>>;
 ```
 
-It MUST NOT accept a pre-activation `ComposableManifesto`.
+`ExecutionOutcome` represents what the domain action did. Pending governance
+settlement is not an `ExecutionOutcome`; it is runtime settlement state.
 
-The public surface is:
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-RESULT-1 | MUST | Core `complete` MUST map to `ExecutionOutcome { kind: "ok" }`. |
+| SDK-RESULT-2 | MUST | Core `halted` MUST map to `ExecutionOutcome { kind: "stop", reason }`. |
+| SDK-RESULT-3 | MUST | Core `error` MUST map to `ExecutionOutcome { kind: "fail", error }`. |
+| SDK-RESULT-4 | MUST NOT | Core `pending` MUST NOT be represented as an `ExecutionOutcome`. |
 
-```typescript
-interface ExtensionKernel<T extends ManifestoDomainShape> {
-  readonly MEL: TypedMEL<T>;
-  readonly schema: DomainSchema;
+### 11.2 Result Envelope
 
-  createIntent: TypedCreateIntent<T>;
-  getCanonicalSnapshot(): CanonicalSnapshot<T["state"]>;
+`result.ok` represents protocol/admission envelope success. It is not domain
+success.
 
-  projectSnapshot(
-    snapshot: CanonicalSnapshot<T["state"]>,
-  ): Snapshot<T["state"]>;
-
-  simulateSync(
-    snapshot: CanonicalSnapshot<T["state"]>,
-    intent: TypedIntent<T>,
-  ): ExtensionSimulateResult<T>;
-
-  getAvailableActionsFor(
-    snapshot: CanonicalSnapshot<T["state"]>,
-  ): readonly (keyof T["actions"])[];
-
-  isActionAvailableFor(
-    snapshot: CanonicalSnapshot<T["state"]>,
-    actionName: keyof T["actions"],
-  ): boolean;
-
-  isIntentDispatchableFor(
-    snapshot: CanonicalSnapshot<T["state"]>,
-    intent: TypedIntent<T>,
-  ): boolean;
-
-  explainIntentFor(
-    snapshot: CanonicalSnapshot<T["state"]>,
-    intent: TypedIntent<T>,
-  ): IntentExplanation<T>;
-}
-
-type ExtensionSimulateResult<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
-  readonly snapshot: CanonicalSnapshot<T["state"]>;
-  readonly patches: readonly Patch[];
-  readonly requirements: readonly Requirement[];
-  readonly status: ComputeStatus;
-  readonly diagnostics?: SimulationDiagnostics;
-};
-```
-
-`ExtensionKernel.MEL`, `schema`, `createIntent`, and `getCanonicalSnapshot()` are observational equivalents of the corresponding activated-runtime members. The extension seam narrows capability, not meaning.
-
-All arbitrary-snapshot operations accept **canonical** snapshots only. Passing projected `Snapshot` values, or canonical snapshots that do not conform to the activated runtime's schema, is out of contract.
-
-The Extension Kernel is the safe public subset for helper and tool authors. It MUST remain observationally pure: no publication, execution, event emission, queue control, or visible runtime mutation.
-
-`ExtensionSimulateResult` is intentionally canonical and minimal. `simulateSync()` itself does not bundle projected `changedPaths`, `newAvailableActions`, or blocker explanations. Optional debug-grade `diagnostics.trace` is allowed because it re-exposes the same dry-run Core trace, or a stability-normalized projection of that trace, without adding projected convenience fields or execution control. Callers that need structured intent explanation SHOULD use `explainIntentFor()`. Callers that need lower-level composition MAY still combine `projectSnapshot()`, `getAvailableActionsFor()`, and `isIntentDispatchableFor()` explicitly.
-
-Extension-kernel acquisition and use are post-activation only, but they are not part of runtime execution. The seam remains analytical after `dispose()`: observationally pure methods MUST NOT reject solely because the source runtime has been disposed.
-
-#### 7.10.1 `explainIntentFor()`
-
-`explainIntentFor(snapshot, intent)` provides structured intent-level explanation over a caller-supplied canonical snapshot and returns `IntentExplanation<T>` as defined in §5.5.
-
-Its purpose is to compose, in one observationally pure call:
-
-1. coarse availability check
-2. input validation against the activated action contract
-3. fine dispatchability check
-4. structured blocker construction for the first failing layer
-5. dry-run simulation when the bound intent is admitted
-
-It MUST remain post-activation and observationally pure.
-
-It MUST NOT publish, mutate, dispatch, enqueue, subscribe, emit runtime events, or expose provider-only runtime-control surfaces.
-
-If the action is unavailable, `explainIntentFor()` MUST return the unavailable blocked result and MUST NOT surface invalid-input failures hidden behind that unavailable action.
-
-If the action is available but the supplied bound intent input is invalid, `explainIntentFor()` MUST throw `ManifestoError` with code `INVALID_INPUT` before dispatchability evaluation, blocker projection, or dry-run simulation.
-
-Blocked results MUST expose blockers for the first failing layer only. They MUST NOT combine availability and dispatchability blockers into one mixed result.
-
-Blocker construction reuses the same internal blocker path as the base runtime's `getIntentBlockers()`. No new public `getIntentBlockersFor()` is added to the extension seam.
-
-For `snapshot === app.getCanonicalSnapshot()` and an intent created from the same activated runtime:
-
-- blocked results MUST be semantically equivalent to `getIntentBlockers()` at the first failing layer
-- admitted results MUST be semantically equivalent to the public current-snapshot dry-run surface for projected snapshot, status, requirements, new available actions, and changed paths
-
-#### 7.10.2 `createSimulationSession()`
-
-`@manifesto-ai/sdk/extensions` also exposes a first-party immutable branching helper:
+This is valid:
 
 ```typescript
-createSimulationSession<T extends ManifestoDomainShape, Laws extends BaseLaws>(
-  app: ActivatedInstance<T, Laws>,
-): SimulationSession<T>;
-```
-
-The helper is intentionally thin over the Extension Kernel:
-
-```typescript
-type SimulationSessionStatus = ComputeStatus | "idle";
-
-type SimulationActionRef<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = TypedActionRef<T, keyof T["actions"]>;
-
-type SimulationSessionStep<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
-  readonly intent: TypedIntent<T>;
-  readonly snapshot: Snapshot<T["state"]>;
-  readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
-  readonly availableActions: readonly SimulationActionRef<T>[];
-  readonly requirements: readonly Requirement[];
-  readonly status: ComputeStatus;
-  readonly isTerminal: boolean;
-};
-
-type SimulationSessionResult<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
-  readonly snapshot: Snapshot<T["state"]>;
-  readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
-  readonly depth: number;
-  readonly trajectory: readonly SimulationSessionStep<T>[];
-  readonly availableActions: readonly SimulationActionRef<T>[];
-  readonly requirements: readonly Requirement[];
-  readonly status: SimulationSessionStatus;
-  readonly isTerminal: boolean;
-};
-
-interface SimulationSession<T extends ManifestoDomainShape> {
-  readonly snapshot: Snapshot<T["state"]>;
-  readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
-  readonly depth: number;
-  readonly trajectory: readonly SimulationSessionStep<T>[];
-  readonly availableActions: readonly SimulationActionRef<T>[];
-  readonly requirements: readonly Requirement[];
-  readonly status: SimulationSessionStatus;
-  readonly isTerminal: boolean;
-
-  next<K extends keyof T["actions"]>(
-    action: TypedActionRef<T, K>,
-    ...args: CreateIntentArgs<T, K>
-  ): SimulationSession<T>;
-
-  next(intent: TypedIntent<T>): SimulationSession<T>;
-
-  finish(): SimulationSessionResult<T>;
+{
+  ok: true,
+  status: "settled",
+  outcome: { kind: "fail", error }
 }
 ```
 
-The root session starts from the current canonical runtime snapshot and projects that snapshot to the normal public `Snapshot` surface. Each `next()` call performs one arbitrary-snapshot `simulateSync()` step and returns a new branch. The original session MUST remain unchanged.
-
-### 7.11 `dispose()`
-
-`dispose()` is idempotent.
-
-After disposal:
-
-- `dispatchAsync()` MUST reject with `DisposedError`
-- `dispatchAsyncWithReport()` MUST reject with `DisposedError`
-- `subscribe()` MUST return a no-op unsubscriber and MUST NOT register the listener
-- `on()` MUST return a no-op unsubscriber and MUST NOT register the handler
-- `getSnapshot()` MUST continue returning the last visible terminal snapshot
-- `getCanonicalSnapshot()` MUST continue returning the last visible canonical snapshot
-- `explainIntent()`, `why()`, and `whyNot()` MUST continue operating as observational reads over the last visible canonical snapshot
-
-Dispose MUST release all SDK-owned resources for the activated base instance, including subscription storage, telemetry listeners, and queued runtime bookkeeping.
-
-| Rule ID | Level | Description |
-|---------|-------|-------------|
-| SDK-BASE-1 | MUST | `ManifestoBaseInstance<T>` MUST expose the fields shown in §7 as part of the activated base runtime contract |
-| SDK-BASE-2 | MUST | `dispatchAsync()` MUST be the canonical base execution verb |
-| SDK-BASE-3 | MUST | `createIntent()` MUST be typed from `MEL.actions.*`, not raw string action names |
-| SDK-BASE-4 | MUST | `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, `getIntentBlockers()`, and `getActionMetadata()` MUST be typed from `keyof T["actions"]` |
-| SDK-BASE-5 | MUST | The canonical public surface MUST be the instance object; destructuring is optional ergonomics only |
-| SDK-BASE-6 | MUST NOT | The base SDK contract MUST NOT define top-level `dispatchAsync(instance, intent)` or `dispatchAsyncWithReport(instance, intent)` as normative execution surfaces |
-| SDK-BASE-7 | MUST | `getSchemaGraph()`, `simulateIntent()`, and `simulate()` MUST remain read-only instance conveniences; they MUST NOT commit or publish runtime state |
-| SDK-EXPLAIN-RT-1 | MUST | `explainIntent()` MUST evaluate against the runtime's current visible canonical snapshot only |
-| SDK-EXPLAIN-RT-2 | MUST | `explainIntent()` MUST be observationally pure |
-| SDK-EXPLAIN-RT-3 | MUST | `explainIntent()` MUST delegate to the extension-kernel explanation substrate rather than reimplementing a second explanation model |
-| SDK-EXPLAIN-RT-4 | MUST | `why()` MUST be provided as an alias of `explainIntent()` |
-| SDK-EXPLAIN-RT-5 | MUST | `whyNot()` MUST be provided as a convenience projection over blocked explanations |
-| SDK-EXPLAIN-RT-6 | MUST | `whyNot()` MUST return `null` for admitted intents, not an empty array |
-| SDK-EXPLAIN-RT-7 | MUST | If the action is available but the bound intent input is invalid, `explainIntent()`, `why()`, and `whyNot()` MUST throw `ManifestoError` code `INVALID_INPUT` before blocker projection or dispatchability evaluation |
-| SDK-EXPLAIN-RT-7a | MUST | If the action is unavailable, `explainIntent()`, `why()`, and `whyNot()` MUST short-circuit before invalid-input evaluation and return the unavailable blocked result |
-| SDK-DISPATCH-1 | MUST | `dispatchAsync()` MUST serialize intent processing FIFO per activated base instance |
-| SDK-DISPATCH-2 | MUST | availability checks for queued intents MUST run at dequeue time against the then-current visible snapshot |
-| SDK-DISPATCH-3 | MUST | if the action is available, bound intent input validation for queued intents MUST run at dequeue time against the then-current visible snapshot before dispatchability checks |
-| SDK-DISPATCH-3a | MUST | if the action is available and input is valid, dispatchability checks for queued intents MUST also run at dequeue time against the then-current visible snapshot |
-| SDK-DISPATCH-4 | MUST | unavailable actions MUST reject without snapshot publication |
-| SDK-DISPATCH-4a | MUST | invalid-input intents MUST reject without snapshot publication |
-| SDK-DISPATCH-5 | MUST | available but non-dispatchable intents MUST reject without snapshot publication |
-| SDK-DISPATCH-6 | MUST | `dispatch:rejected` payloads MUST distinguish `ACTION_UNAVAILABLE`, `INVALID_INPUT`, and `INTENT_NOT_DISPATCHABLE` |
-| SDK-DISPATCH-7 | MUST | successful completion MUST resolve with the same snapshot that became visible through `getSnapshot()` and `dispatch:completed` |
-| SDK-DISPATCH-8 | MUST | terminal failures with a new published snapshot MUST reject and emit `dispatch:failed` with that snapshot attached |
-| SDK-DISPATCH-9 | MUST | pre-publication failures MUST reject without changing the visible snapshot |
-| SDK-REPORT-SUB-1 | MUST | Implementations of `dispatchAsyncWithReport()` MUST reuse one internal admission-derivation story rather than reimplement legality ordering as a second independent path |
-| SDK-REPORT-SUB-2 | MUST | Shared report admission derivation MUST preserve the current legality order: availability -> input validation -> dispatchability |
-| SDK-REPORT-SUB-3 | MUST | Shared report admission derivation MUST continue to hide invalid-input failures behind an unavailable action |
-| SDK-REPORT-SUB-4 | MUST | First-failing-layer behavior MUST remain aligned with current blocker/explanation and rejected-dispatch semantics |
-| SDK-REPORT-SUB-5 | MUST | Projected changed-path derivation MUST reuse the same projected diff semantics already used by public dry-run results and admitted `explainIntent()` |
-| SDK-REPORT-SUB-6 | MUST | Failure classification MUST distinguish host-stage failure from reserved promoted-runtime seal-stage failure without fabricating a completed outcome |
-| SDK-REPORT-1 | MUST | `dispatchAsyncWithReport()` MUST preserve the same dequeue-time legality ordering and publication semantics as `dispatchAsync()` |
-| SDK-REPORT-2 | MUST NOT | `dispatchAsyncWithReport()` MUST NOT change the behavior or return contract of `dispatchAsync()` |
-| SDK-REPORT-3 | MUST | Rejected reports MUST expose the first failing legality layer as `admission` data plus stable rejection code |
-| SDK-REPORT-4 | MUST | Completed reports MUST expose `ExecutionOutcome<T>` for the same published result as `dispatchAsync()` |
-| SDK-REPORT-5 | MUST | if execution fails after a terminal snapshot was published, the failed report MUST include `published: true` plus `outcome` |
-| SDK-REPORT-6 | MUST | if execution fails before a new terminal snapshot exists, the failed report MUST include `published: false` and MUST NOT fabricate `outcome` |
-| SDK-REPORT-7 | SHOULD | Completed and failed reports MAY include optional debug-grade `diagnostics.hostTraces` when Host already returned trace data |
-| SDK-REPORT-8 | MUST | The presence or absence of `diagnostics` MUST NOT change semantic runtime outcome or publication behavior |
-| SDK-REPORT-9 | MUST | `dispatchAsyncWithReport()` MUST resolve report unions for normal operational outcomes (`completed`, `rejected`, `failed`) instead of rejecting for those outcomes |
-| SDK-REPORT-10 | MUST | Calls made after disposal MUST continue to reject with `DisposedError` rather than being remapped into a report union |
-| SDK-REPORT-11 | MUST NOT | This additive report surface MUST NOT expose provider-only runtime-control helpers or become a new execution-control seam |
-| SDK-FAILOBS-1 | SHOULD | Callers that need per-attempt execution outcome SHOULD use `dispatchAsyncWithReport()` instead of combining `try/catch`, events, and Snapshot probing |
-| SDK-FAILOBS-2 | MUST | `snapshot.system.lastError` remains the current semantic Snapshot error surface on projected and canonical reads |
-| SDK-FAILOBS-3 | MUST | `data.$host.lastError` remains canonical-only Host-owned diagnostic state and MUST NOT appear in projected app-facing Snapshots |
-| SDK-FAILOBS-4 | MUST NOT | SDK MUST NOT automatically promote `data.$host.lastError` into `system.lastError` or expose a generic helper that merges the two surfaces |
-| SDK-GRAPH-1 | MUST | `getSchemaGraph()` MUST expose a static graph derived from the activated `DomainSchema` alone, with no snapshot dependency |
-| SDK-GRAPH-2 | MUST | the public graph MUST exclude `data.$*` nodes, edges touching excluded `$*` nodes, and computed nodes tainted by transitive `$*` dependencies |
-| SDK-GRAPH-3 | SHOULD | the SDK SHOULD compute the graph once at activation time and cache it for the instance lifetime |
-| SDK-GRAPH-4 | MUST | the only public relation labels are `feeds`, `mutates`, and `unlocks` |
-| SDK-GRAPH-5 | MUST | `traceUp()` and `traceDown()` ref overloads are the canonical SDK query surface |
-| SDK-GRAPH-6 | MUST | string lookup overloads MUST accept only kind-prefixed node ids and MUST be treated as convenience/debug-only |
-| SDK-SIM-1 | MUST NOT | SDK implementations let `simulateIntent()` or `simulate()` mutate, commit, or publish runtime state |
-| SDK-SIM-2 | MUST | unavailable simulated actions MUST throw `ManifestoError` code `ACTION_UNAVAILABLE` before dry-run compute begins |
-| SDK-SIM-2b | MUST | available but invalid-input simulated intents MUST throw `ManifestoError` code `INVALID_INPUT` before dispatchability evaluation or dry-run compute begins |
-| SDK-SIM-2a | MUST | available but non-dispatchable simulated intents MUST throw `ManifestoError` code `INTENT_NOT_DISPATCHABLE` before dry-run compute begins |
-| SDK-SIM-3 | MUST | `simulate(action, ...args)` MUST use the same intent packing as `createIntent()` before dry-run |
-| SDK-SIM-3a | MUST | `simulateIntent(intent)` MUST accept the existing typed intent directly without requiring callers to unpack or re-bind `intent.input` |
-| SDK-SIM-3b | MUST | Both dry-run forms MUST use the same HostContext construction as normal dispatch |
-| SDK-SIM-4 | MUST | Both dry-run forms MUST apply both Core `apply()` and Core `applySystemDelta()` to produce a complete simulated snapshot |
-| SDK-SIM-5 | MUST | Dry-run result `snapshot` MUST return the same projected surface shape as `getSnapshot()` |
-| SDK-SIM-6 | MUST | Dry-run result `newAvailableActions` MUST be evaluated against the canonical simulated snapshot |
-| SDK-SIM-7 | MUST | Dry-run result `changedPaths` MUST be diffed from the projected public snapshot only and MUST be treated as inspection/debug-only, not as the canonical branching API |
-| SDK-SIM-8 | MUST | Dry-run result `status` MUST mirror Core `ComputeStatus` exactly, including `halted` |
-| SDK-SIM-9 | MUST | If dry-run `diagnostics` is present, `diagnostics.trace` MUST be derived from the Core `ComputeResult.trace` from the same admitted dry-run compute pass, and MAY normalize volatile host-time fields such as node timestamps or duration |
-| SDK-SIM-10 | MUST | The presence or absence of dry-run `diagnostics` MUST NOT change legality, snapshot projection, status, requirements, changed paths, or new available actions |
-| SDK-EXT-1 | MUST | `getExtensionKernel()` MUST accept only activated runtime instances and MUST return a frozen, bound Extension Kernel |
-| SDK-EXT-2 | MUST | `ExtensionKernel.projectSnapshot()` MUST apply the same public projection boundary as `getSnapshot()` |
-| SDK-EXT-3 | MUST | `ExtensionKernel.projectSnapshot()` MUST be observationally pure; it MUST NOT be implemented by mutating the visible runtime snapshot and reading it back |
-| SDK-EXT-4 | MUST | `ExtensionKernel.simulateSync()` MUST use the same `computeSync -> apply -> applySystemDelta` transition contract as public dry-run |
-| SDK-EXT-5 | MUST | `ExtensionKernel.simulateSync()` MUST preserve the same unavailable-action and non-dispatchable-intent rejection semantics as public dry-run |
-| SDK-EXT-6 | MUST | `ExtensionKernel.getAvailableActionsFor()`, `isActionAvailableFor()`, and `isIntentDispatchableFor()` MUST evaluate against the caller-provided canonical snapshot |
-| SDK-EXT-7 | MUST NOT | `@manifesto-ai/sdk/extensions` MUST expose publication-control, execution-control, queue-control, or provider-activation helpers |
-| SDK-EXT-8 | MUST NOT | Calls through `ExtensionKernel` MUST mutate the visible runtime snapshot, trigger subscribers, emit runtime events, or enqueue work on the source runtime |
-| SDK-EXT-9 | MUST | `ExtensionKernel.MEL`, `schema`, `createIntent`, and `getCanonicalSnapshot()` MUST remain observationally equivalent to the corresponding activated-runtime members |
-| SDK-EXT-10 | MUST | `ExtensionSimulateResult` MUST remain canonical and minimal; projected `changedPaths` and `newAvailableActions` belong to public dry-run results or explicit follow-up extension calls, not to `simulateSync()` |
-| SDK-EXT-10a | MAY | `ExtensionSimulateResult` MAY include optional debug-grade `diagnostics.trace` sourced from the same dry-run Core `ComputeResult.trace`, with volatile host-time fields normalized for stability |
-| SDK-EXT-10b | MUST | Optional `diagnostics.trace` on `ExtensionSimulateResult` MUST NOT be treated as projected convenience data or execution control, and MUST NOT change the observational purity of the extension seam |
-| SDK-EXT-11 | MUST | For `snapshot === app.getCanonicalSnapshot()` and an intent created from the same activated runtime, `projectSnapshot(result.snapshot)`, `result.status`, `result.requirements`, and `getAvailableActionsFor(result.snapshot)` from `simulateSync(snapshot, intent)` MUST match public dry-run semantics |
-| SDK-EXT-12 | MUST | Observationally pure `ExtensionKernel` methods MUST remain callable after `dispose()` and MUST NOT reject solely because the source runtime has been disposed |
-| SDK-EXT-13 | MUST | `createSimulationSession()` MUST share the same safe substrate as `ExtensionKernel`; it MUST NOT require provider-only access or bypass the extension boundary with provider-only capabilities |
-| SDK-EXT-14 | MUST | The root `SimulationSession` MUST start from `getCanonicalSnapshot()` and expose both the projected `snapshot` and the canonical substrate explicitly as `canonicalSnapshot` |
-| SDK-EXT-15 | MUST | `SimulationSession.next()` MUST be immutable: it returns a new session branch and MUST NOT mutate the original session |
-| SDK-EXT-16 | MUST | `SimulationSession.availableActions` MUST expose typed MEL action refs for the current branch state, derived from `getAvailableActionsFor(canonicalSnapshot)` |
-| SDK-EXT-17 | MUST | Terminal `SimulationSession` states (`pending`, `halted`, `error`) MUST reject further `next()` calls with an SDK error; `finish()` MUST remain available |
-| SDK-EXT-EXPLAIN-1 | MUST | `explainIntentFor()` MUST be observationally pure and MUST NOT modify visible runtime state, canonical runtime state, subscriptions, events, or queues |
-| SDK-EXT-EXPLAIN-2 | MUST | `explainIntentFor()` MUST preserve legality ordering: availability first, input validation second, dispatchability third, simulation fourth |
-| SDK-EXT-EXPLAIN-3 | MUST | If the action is unavailable, `explainIntentFor()` MUST return a blocked result with `available: false` and MUST NOT evaluate input validation or dispatchability |
-| SDK-EXT-EXPLAIN-3a | MUST | If the action is available but the bound intent input is invalid, `explainIntentFor()` MUST throw `ManifestoError` code `INVALID_INPUT` before dispatchability evaluation, blocker projection, or dry-run simulation |
-| SDK-EXT-EXPLAIN-4 | MUST | If the action is available but the bound intent is not dispatchable, `explainIntentFor()` MUST return a blocked result with `available: true, dispatchable: false` and MUST NOT perform dry-run simulation |
-| SDK-EXT-EXPLAIN-5 | MUST | If the bound intent is admitted, `explainIntentFor()` MUST perform the same dry-run transition contract as `simulateSync()` over the supplied canonical snapshot |
-| SDK-EXT-EXPLAIN-6 | MUST | For admitted intents, the projected snapshot MUST equal `projectSnapshot(simulateSync(snapshot, intent).snapshot)` |
-| SDK-EXT-EXPLAIN-7 | MUST | Blocked results MUST expose blockers for the first failing layer only. They MUST NOT combine availability and dispatchability blockers into one mixed result |
-| SDK-EXT-EXPLAIN-8 | SHOULD | Admitted results SHOULD expose the resulting canonical snapshot, projected public snapshot, status, requirements, new available actions, and changed paths |
-| SDK-EXT-EXPLAIN-9 | MUST | `changedPaths` in explanation results remain inspection/debug-only, consistent with `SDK-SIM-7` |
-| SDK-EXT-EXPLAIN-10 | MUST | Blocked result blockers MUST be semantically equivalent to what `getIntentBlockers()` would return for the same snapshot and intent at the first failing layer |
-| SDK-EXT-EXPLAIN-11 | MUST | Blocker construction MUST delegate to the existing internal blocker path, not reimplement blocker assembly |
-| SDK-SUB-1 | MUST | `subscribe()` MUST NOT fire synchronously on registration |
-| SDK-SUB-2 | MUST | `subscribe()` listeners MUST fire only after visible terminal snapshot publication |
-| SDK-SUB-3 | MUST | selector change detection MUST use `Object.is` |
-| SDK-SUB-4 | MUST NOT | rejected dispatches MUST NOT trigger subscribers |
-| SDK-SUB-5 | MUST NOT | canonical-only substrate changes MUST NOT trigger subscribers when the projected Snapshot is unchanged |
-| SDK-EVENT-1 | MUST | `on()` MUST support exactly the event names defined in §5.6 for the base runtime instance |
-| SDK-EVENT-2 | MUST | all event payloads MUST include `intentId` for correlation |
-| SDK-EVENT-3 | MUST NOT | `on()` MUST NOT be a state-change channel |
-| SDK-SNAP-1 | MUST | `getSnapshot()` MUST return the current visible terminal snapshot synchronously |
-| SDK-SNAP-2 | MUST | `getSnapshot()` MUST return the projected Snapshot surface, not the canonical substrate |
-| SDK-SNAP-3 | MUST | `getCanonicalSnapshot()` MUST return the current visible canonical substrate synchronously |
-| SDK-SNAP-4 | MUST | returned snapshots and selector inputs MUST be mutation-safe |
-| SDK-DISPOSE-1 | MUST | `dispose()` MUST be idempotent |
-| SDK-DISPOSE-2 | MUST | post-dispose `dispatchAsync()` MUST reject with `DisposedError` |
-| SDK-DISPOSE-3 | MUST | post-dispose `subscribe()` and `on()` MUST be inert registrations |
-| SDK-DISPOSE-4 | MUST | post-dispose `explainIntent()`, `why()`, and `whyNot()` MUST remain callable as read-only views over the last visible canonical snapshot |
-
-## 8. Decorator Boundary
-
-The SDK does not define lineage or governance behavior, but it MUST define the composable boundary those packages consume:
+Callers that care about domain success MUST narrow twice:
 
 ```typescript
-// @manifesto-ai/lineage
-function withLineage<T extends ManifestoDomainShape, L extends BaseLaws>(
-  manifesto: ComposableManifesto<T, L>,
-  config: LineageConfig,
-): ComposableManifesto<T, L & LineageLaws>;
+const result = await app.actions.addTodo.submit({ title: "Ship v5" });
 
-// @manifesto-ai/governance
-function withGovernance<T extends ManifestoDomainShape, L extends BaseLaws>(
-  manifesto: ComposableManifesto<T, L>,
-  config: GovernanceConfig<T, L>,
-): ComposableManifesto<T, L & LineageLaws & GovernanceLaws>;
+if (!result.ok) {
+  result.admission;
+} else if (result.status === "settled" && result.outcome.kind === "ok") {
+  result.after;
+}
 ```
 
-Those APIs are owned by their packages, not by SDK. SDK v3 guarantees only that its composable manifesto is the canonical input to that decorator chain.
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-RESULT-5 | MUST | `result.ok` MUST represent protocol/admission envelope success, not domain success. |
+| SDK-RESULT-6 | MUST | Domain success, stop, or fail MUST be carried by `ExecutionOutcome`. |
+| SDK-RESULT-7 | SHOULD NOT | Examples SHOULD NOT use `if (result.ok)` as a one-step domain success check unless the caller explicitly does not need domain outcome. |
 
-The post-activation extension seam lives at `@manifesto-ai/sdk/extensions`.
-That subpath is for helper and tool authors who need safe arbitrary-snapshot read-only operations on an activated runtime.
+### 11.3 Mode-Specific Result Typing
 
-The public decorator/provider authoring seam lives at `@manifesto-ai/sdk/provider`.
-That subpath exposes `RuntimeKernel`, `RuntimeKernelFactory`, focused consumer aliases such as `LineageRuntimeKernel`, `GovernanceRuntimeKernel`, and `WaitForProposalRuntimeKernel`, plus the activation-state helpers used by `withLineage()` and `withGovernance()`.
-It also exposes `createBaseRuntimeInstance(kernel)` as the standard helper for
-reifying the base SDK runtime contract from a provider-authored kernel.
+```typescript
+export type SubmitResultFor<
+  TMode extends RuntimeMode,
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain>,
+> =
+  TMode extends "base"
+    ? BaseSubmissionResult<TDomain, Name>
+    : TMode extends "lineage"
+      ? LineageSubmissionResult<TDomain, Name>
+      : TMode extends "governance"
+        ? GovernanceSubmissionResult<TDomain, Name>
+        : SubmissionResult<TDomain, Name>;
 
-`RuntimeKernel` remains the compatibility aggregate for provider authors. Focused consumer aliases are narrower views over that same provider seam and MUST NOT weaken the compatibility contract of `RuntimeKernel`.
+export type SubmissionResult<
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain>,
+> =
+  | BaseSubmissionResult<TDomain, Name>
+  | LineageSubmissionResult<TDomain, Name>
+  | GovernanceSubmissionResult<TDomain, Name>;
+```
 
-For decorator authors that need hypothetical planning or dry-run analysis against caller-provided canonical snapshots, `RuntimeKernel` MUST additionally expose:
+### 11.4 Base Result
 
-- `simulateSync(snapshot, intent)`
-- `getAvailableActionsFor(snapshot)`
-- `isActionAvailableFor(snapshot, actionName)`
+```typescript
+export type BaseSubmissionResult<
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain>,
+> =
+  | {
+      readonly ok: true;
+      readonly mode: "base";
+      readonly status: "settled";
+      readonly action: Name;
+      readonly before: ProjectedSnapshot<TDomain>;
+      readonly after: ProjectedSnapshot<TDomain>;
+      readonly outcome: ExecutionOutcome;
+      readonly report?: BaseWriteReport;
+    }
+  | {
+      readonly ok: false;
+      readonly mode: "base";
+      readonly action: Name;
+      readonly admission: AdmissionFailure<Name>;
+    };
+```
 
-Those methods are provider-authoring seams only. They operate on caller-provided canonical snapshots and MUST NOT mutate or publish the visible runtime snapshot.
+The SDK owns the full base result shape.
 
-Post-activation pure extension does not reopen pre-activation composition. `@manifesto-ai/sdk/extensions` is not a decorator seam and MUST NOT be used to model identity-changing capabilities.
+### 11.5 Lineage Result Skeleton
 
-The three SDK layers are intentionally distinct:
+```typescript
+export type LineageSubmissionResult<
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain>,
+> =
+  | {
+      readonly ok: true;
+      readonly mode: "lineage";
+      readonly status: "settled";
+      readonly action: Name;
+      readonly before: ProjectedSnapshot<TDomain>;
+      readonly after: ProjectedSnapshot<TDomain>;
+      readonly world: WorldRecord;
+      readonly outcome: ExecutionOutcome;
+      readonly report?: LineageWriteReport;
+    }
+  | {
+      readonly ok: false;
+      readonly mode: "lineage";
+      readonly action: Name;
+      readonly admission: AdmissionFailure<Name>;
+    };
+```
 
-| Subpath | Audience | Capability Level |
-|---------|----------|------------------|
-| `@manifesto-ai/sdk` | App consumers | Safe current-snapshot runtime |
-| `@manifesto-ai/sdk/extensions` | Helper and tool authors | Safe arbitrary-snapshot read-only runtime |
-| `@manifesto-ai/sdk/provider` | Decorator/runtime authors | Full provider-authoring seam |
+SDK fixes the discriminant and common result envelope. The full meaning of
+`WorldRecord`, lineage sealing, branch/head behavior, and `LineageWriteReport`
+belongs to the Lineage SPEC.
 
-This SDK spec does not restate:
+### 11.6 Governance Result Skeleton
 
-- lineage seal semantics
-- lineage publication boundary semantics
-- governance proposal lifecycle
-- governance lineage auto-guarantee details
+```typescript
+export type GovernanceSubmissionResult<
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain>,
+> =
+  | {
+      readonly ok: true;
+      readonly mode: "governance";
+      readonly status: "pending";
+      readonly action: Name;
+      readonly proposal: ProposalRef;
+      waitForSettlement(): Promise<GovernanceSettlementResult<TDomain, Name>>;
+    }
+  | {
+      readonly ok: false;
+      readonly mode: "governance";
+      readonly action: Name;
+      readonly admission: AdmissionFailure<Name>;
+    };
 
-Those are defined by ADR-017 and their owning package specs.
+export type GovernanceSettlementResult<
+  TDomain extends ManifestoDomainShape,
+  Name extends ActionName<TDomain>,
+> =
+  | {
+      readonly ok: true;
+      readonly mode: "governance";
+      readonly status: "settled";
+      readonly action: Name;
+      readonly proposal: ProposalRef;
+      readonly world: WorldRecord;
+      readonly before: ProjectedSnapshot<TDomain>;
+      readonly after: ProjectedSnapshot<TDomain>;
+      readonly outcome: ExecutionOutcome;
+      readonly report?: GovernanceSettlementReport;
+    }
+  | {
+      readonly ok: true;
+      readonly mode: "governance";
+      readonly status: "rejected" | "superseded" | "expired" | "cancelled";
+      readonly action: Name;
+      readonly proposal: ProposalRef;
+      readonly decision?: DecisionRecord;
+      readonly report?: GovernanceSettlementReport;
+    }
+  | {
+      readonly ok: false;
+      readonly mode: "governance";
+      readonly status: "settlement_failed";
+      readonly action: Name;
+      readonly proposal: ProposalRef;
+      readonly error: ErrorValue;
+      readonly report?: GovernanceSettlementReport;
+    };
+```
+
+SDK fixes the discriminant, proposal-bearing pending result, and durable
+reattachment surface. The full meaning of `ProposalRef`, decision states,
+authority policy, and governance reports belongs to the Governance SPEC.
+
+`ProposalRef` MUST be serializable to a stable string representation and stable
+across runtime restarts. The exact representation is governance-owned.
+
+### 11.7 Submit Payload Size Guidance
+
+Base and settled lineage/governance submit results carry `before` and `after`
+projected snapshots as part of the v5 result contract. SDK MUST NOT silently
+omit, truncate, or replace those projected snapshots with opaque refs based on
+payload size.
+
+Large-result optimization belongs to explicit additive surfaces:
+
+- callers MAY ask for smaller additive write reports through `SubmitOptions`
+- Lineage and Governance MAY define report-specific compaction in their owning
+  report types
+- future streaming or ref-based payload APIs MUST be additive and explicitly
+  named, not hidden behind the default `submit()` result
+
+This keeps `submit()` deterministic at the public contract boundary: the same
+terminal state produces the same result shape regardless of payload size.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| SDK-BOUNDARY-1 | MUST | `ComposableManifesto<T, Laws>` MUST be the canonical input contract for package-level decorators |
-| SDK-BOUNDARY-2 | MUST NOT | SDK MUST NOT re-export `createWorld()`, `GovernedWorldStore`, or other world facade assembly types |
-| SDK-BOUNDARY-3 | MUST NOT | SDK MUST NOT present `@manifesto-ai/world` as part of the SDK public contract in v3 |
-| SDK-BOUNDARY-4 | MUST | governed composition from the SDK story MUST be expressed as `createManifesto() -> withLineage() -> withGovernance() -> activate()` |
-| SDK-BOUNDARY-5 | MUST | once lineage or governance laws are composed, `activate()` MUST return the runtime type defined by the owning package rather than the base SDK runtime |
-| SDK-BOUNDARY-6 | MUST | `@manifesto-ai/sdk/provider` MUST expose arbitrary-snapshot `RuntimeKernel` helpers `simulateSync()`, `getAvailableActionsFor()`, and `isActionAvailableFor()` for decorator authors |
-| SDK-BOUNDARY-6a | MUST | `@manifesto-ai/sdk/provider` MAY expose focused consumer aliases, but those aliases MUST remain narrower views over the same provider seam and MUST NOT replace `RuntimeKernel` as the compatibility aggregate |
-| SDK-BOUNDARY-6b | MUST | `@manifesto-ai/sdk/provider` MUST expose `createBaseRuntimeInstance(kernel)` as the standard helper for wrapping a provider-authored `RuntimeKernel` back into the base SDK runtime contract |
-| SDK-BOUNDARY-7 | MUST NOT | provider-seam arbitrary-snapshot helpers MUST NOT mutate, publish, or otherwise replace the visible runtime snapshot |
-| SDK-BOUNDARY-8 | MUST | `@manifesto-ai/sdk/extensions` MUST expose post-activation observationally pure arbitrary-snapshot helpers for activated runtimes |
-| SDK-BOUNDARY-9 | MUST NOT | `@manifesto-ai/sdk/extensions` MUST NOT expose runtime-control methods or provider-only activation/composition helpers |
-| SDK-BOUNDARY-10 | MUST NOT | `@manifesto-ai/sdk/extensions` MUST NOT be treated as a decorator or law-composition seam; identity-changing capabilities remain pre-activation concerns |
+| SDK-SUBMIT-14 | MUST | Settled `submit()` results MUST include full projected `before` and `after` snapshots where their result type declares those fields. |
+| SDK-SUBMIT-15 | MUST NOT | SDK MUST NOT omit, truncate, or replace projected submit snapshots because a payload is large. |
+| SDK-SUBMIT-16 | MUST | Any compact, streaming, or ref-based submit payload mode MUST be explicit and additive rather than the default result shape. |
 
-## 9. Hard-Cut Removals
-
-The following v2 surfaces are removed from the v3 SDK contract:
-
-- `ManifestoConfig`
-- `ManifestoInstance`
-- synchronous `dispatch()`
-- top-level `dispatchAsync(instance, intent)`
-- `defineOps()` and typed operation-helper surface
-- SDK thin world re-exports such as `createWorld()`
-- string-name canonical intent creation
-- v2 compatibility framing built around ready-to-use instances
-
-The additive `@manifesto-ai/sdk/effects` subpath does not revive the removed v2 helper-first runtime surface. `defineEffects()` is constrained to effect authoring and does not alter the root `createManifesto()` contract.
-
-This is an intentional hard cut. v2 usage patterns are not compatibility targets for the v3 spec.
+### 11.8 Submit Rules
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| SDK-HC-1 | MUST NOT | SDK v3 MUST NOT carry forward removed v2 runtime handles or helper-first APIs as normative surface |
-| SDK-HC-2 | MUST NOT | SDK v3 MUST NOT retain `@manifesto-ai/world` re-export surface for app-facing use |
-| SDK-HC-3 | MUST | any runtime execution story in the SDK spec MUST begin after `activate()` |
-| SDK-HC-4 | MUST NOT | string action names may not be documented as the canonical SDK v3 intent-construction path |
+| SDK-SUBMIT-1 | MUST | `submit()` MUST run admission before entering the runtime write boundary. |
+| SDK-SUBMIT-2 | MUST | `submit()` MUST re-check legality against the then-current runtime state. |
+| SDK-SUBMIT-3 | MUST NOT | Prior `available()` or `check()` results MUST NOT be treated as capability tokens. |
+| SDK-SUBMIT-4 | MUST | `submit()` MUST be implemented by each active runtime or decorator. |
+| SDK-SUBMIT-5 | MUST NOT | A generic public helper that bypasses decorator authority MUST NOT exist. |
+| SDK-SUBMIT-6 | MAY | Base `submit()` MAY delegate internally to base dispatch implementation. |
+| SDK-SUBMIT-7 | MUST | Lineage `submit()` MUST preserve lineage sealing and continuity semantics. |
+| SDK-SUBMIT-8 | MUST | Governance `submit()` MUST create or enter the proposal path. |
+| SDK-SUBMIT-9 | MUST NOT | Governed runtimes MUST NOT expose lower-authority direct execution through `submit()` or any other canonical public verb. |
+| SDK-SUBMIT-10 | MUST | When runtime mode is statically known, result types MUST be mode-specific. |
+| SDK-SUBMIT-11 | MUST | In generic mode, callers MUST narrow `SubmissionResult` by `mode` before consuming mode-specific fields. |
+| SDK-SUBMIT-12 | MUST | Governance settlement observation MUST be named `waitForSettlement()`, not `settle()`. |
+| SDK-SUBMIT-13 | MUST | `ProposalRef` alone MUST be sufficient to re-observe governance settlement after process restart or agent handoff. |
 
-## 10. Error Model
+### 11.9 Operational Failure Before Settlement
 
-SDK-owned errors remain exceptions, not snapshot values. They describe SDK boundary failures, not domain semantics.
+Admission failures are represented by `ok: false` result values. Domain
+stop/fail after a terminal snapshot exists is represented by `ok: true` plus
+`ExecutionOutcome`.
 
-`CompileError`, `ReservedEffectError`, `DisposedError`, and `AlreadyActivatedError` are the named SDK-owned failure types.
+If the runtime cannot produce a terminal result after admission has passed, the
+`submit()` Promise MUST reject with `SubmissionFailedError` and emit
+`submission:failed`. SDK MUST NOT fabricate a projected `after` snapshot or an
+`ExecutionOutcome` when no terminal snapshot exists.
 
-`ManifestoError` is the base SDK error. When no more specific subclass applies, SDK MAY use `ManifestoError` with a stable `code`.
-
-Required stable codes:
-
-| Code | Meaning |
-|------|---------|
-| `COMPILE_ERROR` | MEL compilation or SDK-side schema compilation failure |
-| `RESERVED_EFFECT` | caller attempted to override a reserved effect type |
-| `RESERVED_NAMESPACE` | caller used a reserved action namespace |
-| `SCHEMA_ERROR` | caller declared a reserved platform namespace with the wrong shape |
-| `DISPOSED` | post-dispose runtime call |
-| `ALREADY_ACTIVATED` | second activation attempt on the same composable manifesto |
-| `ACTION_UNAVAILABLE` | queued dispatch reached the front of the queue but the action was unavailable against the current visible snapshot |
-| `INVALID_INPUT` | the action was available, but the bound intent input failed SDK validation against the activated action contract |
-| `INTENT_NOT_DISPATCHABLE` | the action was available, but the bound intent failed the dispatchability gate against the current visible snapshot |
+If a terminal snapshot exists and its domain outcome is failure, `submit()` MUST
+resolve with `ok: true`, `status: "settled"`, and
+`outcome.kind === "fail"`. That case is not an operational rejection.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| SDK-ERR-1 | MUST | `ManifestoError` MUST expose a stable string `code` |
-| SDK-ERR-2 | MUST | `CompileError` MUST expose structured diagnostics |
-| SDK-ERR-3 | MUST | `ReservedEffectError` MUST expose the attempted effect type |
-| SDK-ERR-4 | MUST | `AlreadyActivatedError` MUST be thrown on second activation attempt |
-| SDK-ERR-5 | MUST | unavailable queued dispatches MUST reject with `ManifestoError` code `ACTION_UNAVAILABLE` or an exact subclass carrying that code |
-| SDK-ERR-5a | MUST | invalid-input queued dispatches MUST reject with `ManifestoError` code `INVALID_INPUT` or an exact subclass carrying that code |
-| SDK-ERR-6 | MUST | available but non-dispatchable queued dispatches MUST reject with `ManifestoError` code `INTENT_NOT_DISPATCHABLE` or an exact subclass carrying that code |
+| SDK-SUBMIT-FAIL-1 | MUST | Admission failure MUST resolve as `ok: false` with `AdmissionFailure`. |
+| SDK-SUBMIT-FAIL-2 | MUST | Operational failure before terminal result MUST reject with `SubmissionFailedError` and emit `submission:failed`. |
+| SDK-SUBMIT-FAIL-3 | MUST NOT | SDK MUST NOT synthesize `ExecutionOutcome` or projected `after` snapshots for failures that produced no terminal snapshot. |
+| SDK-SUBMIT-FAIL-4 | MUST | Terminal domain failure MUST resolve as `ok: true`, `status: "settled"`, and `outcome.kind === "fail"`. |
 
-## 11. Invariants
+## 12. Snapshot Boundary
 
-- The SDK owns one concept: `createManifesto()`.
-- Runtime verbs do not exist before activation.
-- Base execution is present-only and asynchronous.
-- Governed semantics are expressed by decorator-owned verb promotion, not by SDK world assembly.
-- SDK v3 is a super hard cut, not a migration layer.
-- Re-activating the same composable manifesto is a programmer error.
-- The visible snapshot is always mutation-safe from the caller side.
-- Runtime schema input remains `DomainSchema | string`; tooling-only compiler artifacts such as `DomainModule` are not accepted by `createManifesto()`.
+The root snapshot read is:
 
-## 12. Compliance Checklist
+```typescript
+app.snapshot();
+```
 
-An SDK v3.x implementation complies with this living contract only if all of the following are true:
+The canonical substrate read is:
 
-- `createManifesto()` returns a composable manifesto, not a runtime instance.
-- Pre-activation objects expose no runtime verbs.
-- `activate()` is one-shot and throws `AlreadyActivatedError` on repeat use.
-- `ManifestoConfig` does not exist in the v3 contract.
-- SDK no longer presents `@manifesto-ai/world` as part of its public story.
-- The base activated runtime exposes `createIntent`, `dispatchAsync`, `dispatchAsyncWithReport`, `subscribe`, `on`, `getSnapshot`, `getCanonicalSnapshot`, availability queries, dispatchability queries, intent explanation reads, `getSchemaGraph`, `simulateIntent`, `simulate`, `MEL`, `schema`, and `dispose`.
-- `createIntent()` is keyed by `MEL.actions.*`, not raw string action names.
-- `dispatchAsync()` is FIFO per instance and evaluates availability, then input validation, then dispatchability at dequeue time.
-- `dispatchAsyncWithReport()` is additive, reuses the same legality ordering and projected diff semantics, and does not change `dispatchAsync()` publication behavior.
-- Failure observation keeps per-attempt reports, semantic `system.lastError`, and canonical-only `$host.lastError` diagnostics distinct.
-- `createManifesto()` accepts MEL source or `DomainSchema`, but not tooling-only compiler artifacts such as `DomainModule`.
-- `getSchemaGraph()` exposes the projected static graph only and accepts refs as the canonical lookup surface.
-- `simulateIntent()` is the bound-intent pure dry-run, and `simulate()` is the action-ref convenience form; both apply `apply()` and `applySystemDelta()` and treat `changedPaths` as inspection/debug-only.
-- `@manifesto-ai/sdk/extensions` exposes `getExtensionKernel()` with pure canonical-input arbitrary-snapshot helpers, including `explainIntentFor()`, and no runtime-control methods.
-- `explainIntent()`, `why()`, and `whyNot()` remain current-snapshot read-only conveniences layered over the same extension-kernel explanation substrate.
-- `INVALID_INPUT` is a stable rejection/error code across dispatch, explanation, and dry-run validation paths.
-- Subscribers fire only after visible terminal snapshot publication and use selector change detection.
-- Event payloads are typed and correlated by `intentId`.
-- Reserved effect override and reserved namespace misuse are rejected at factory time.
-- Snapshot reads and callback inputs are protected from external mutation.
+```typescript
+app.inspect.canonicalSnapshot();
+```
 
-## 13. References
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-SNAPSHOT-1 | MUST | `snapshot()` MUST return the projected app-facing snapshot. |
+| SDK-SNAPSHOT-2 | MUST | `snapshot()` MUST NOT expose `namespaces`. |
+| SDK-SNAPSHOT-3 | MUST | `snapshot()` MUST NOT expose canonical-only `input`, `system.pendingRequirements`, `system.currentAction`, `meta.version`, `meta.timestamp`, or `meta.randomSeed`. |
+| SDK-SNAPSHOT-4 | MUST | Canonical substrate reads MUST live under `inspect`. |
+| SDK-SNAPSHOT-5 | MUST | `inspect.canonicalSnapshot()` MUST return the full canonical substrate. |
+| SDK-SNAPSHOT-6 | MUST NOT | SDK MUST NOT introduce a root `getCanonicalSnapshot()` compatibility alias in the canonical v5 surface. |
 
-- [SDK Version Index](VERSION-INDEX.md)
-- [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md)
-- [Core SPEC v4.2.0](../../core/docs/core-SPEC.md)
-- [Host Contract v4.0.0](../../host/docs/host-SPEC.md)
-- [Compiler SPEC v1.1.0](../../compiler/docs/SPEC-v1.1.0.md)
-- [SDK FDR v3.1.0 Rationale Companion](FDR-v3.1.0.md)
+## 13. Observe Surface
+
+```typescript
+export type ObserveSurface<TDomain extends ManifestoDomainShape> = {
+  state<S>(
+    selector: (snapshot: ProjectedSnapshot<TDomain>) => S,
+    listener: (next: S, prev: S) => void,
+  ): Unsubscribe;
+
+  event<Event extends ManifestoEventName>(
+    event: Event,
+    listener: (payload: ManifestoEventPayload<Event>) => void,
+  ): Unsubscribe;
+};
+```
+
+Event payloads are telemetry, not semantic truth. They are intentionally compact
+and reference-oriented; callers that need authoritative state MUST read
+`snapshot()`, `inspect.canonicalSnapshot()`, `SubmitResult`, `WorldRecord`, or
+Governance records from their owning surfaces.
+
+```typescript
+export type SubmissionEventBase = {
+  readonly action: string;
+  readonly mode: RuntimeMode;
+  readonly intentId?: string;
+  readonly schemaHash: string;
+  readonly snapshotVersion?: number;
+};
+
+export type ProposalEventBase = {
+  readonly proposal: ProposalRef;
+  readonly action: string;
+  readonly schemaHash: string;
+};
+
+export type ManifestoEventPayloadMap = {
+  readonly "submission:admitted": SubmissionEventBase & {
+    readonly admission: AdmissionOk;
+  };
+
+  readonly "submission:rejected": SubmissionEventBase & {
+    readonly admission: AdmissionFailure;
+  };
+
+  readonly "submission:submitted": SubmissionEventBase;
+
+  readonly "submission:pending": SubmissionEventBase & {
+    readonly mode: "governance";
+    readonly proposal: ProposalRef;
+  };
+
+  readonly "submission:settled": SubmissionEventBase & {
+    readonly mode: "base" | "lineage" | "governance";
+    readonly outcome: ExecutionOutcome;
+    readonly proposal?: ProposalRef;
+    readonly worldId?: string;
+  };
+
+  readonly "submission:failed": SubmissionEventBase & {
+    readonly stage: "runtime" | "settlement";
+    readonly error: ErrorValue;
+    readonly proposal?: ProposalRef;
+  };
+
+  readonly "proposal:created": ProposalEventBase;
+
+  readonly "proposal:decided": ProposalEventBase & {
+    readonly decision: DecisionRecord;
+  };
+
+  readonly "proposal:superseded": ProposalEventBase & {
+    readonly supersededBy?: ProposalRef;
+  };
+
+  readonly "proposal:expired": ProposalEventBase & {
+    readonly reason?: string;
+  };
+
+  readonly "proposal:cancelled": ProposalEventBase & {
+    readonly reason?: string;
+  };
+};
+
+export type ManifestoEventName = keyof ManifestoEventPayloadMap;
+
+export type ManifestoEventPayload<Event extends ManifestoEventName> =
+  ManifestoEventPayloadMap[Event];
+```
+
+V5 lifecycle events use the `submission:*` namespace as the primary taxonomy:
+
+```text
+submission:admitted
+submission:rejected
+submission:submitted
+submission:pending
+submission:settled
+submission:failed
+
+proposal:created
+proposal:decided
+proposal:superseded
+proposal:expired
+proposal:cancelled
+```
+
+The payload types above are normative for SDK v5. `worldId` and `proposal`
+fields in telemetry are correlation hints only; they do not replace the
+authoritative lineage or governance records.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-OBSERVE-1 | MUST | State observation and runtime telemetry MUST remain separate channels. |
+| SDK-OBSERVE-2 | MUST | `observe.state()` MUST observe projected snapshot values only. |
+| SDK-OBSERVE-3 | MUST | `observe.event()` MUST observe runtime lifecycle events. |
+| SDK-OBSERVE-4 | MUST NOT | Telemetry MUST NOT be used as semantic truth for lineage world identity or governance proposal identity. |
+| SDK-OBSERVE-5 | MUST | V5 event taxonomy MUST align with submission lifecycle rather than base dispatch lifecycle. |
+| SDK-OBSERVE-6 | MUST | Event payloads MUST use the `ManifestoEventPayloadMap` shapes defined in this section. |
+| SDK-OBSERVE-7 | MUST NOT | Event payloads MUST NOT embed full projected or canonical snapshots. |
+
+## 14. Inspect Surface
+
+```typescript
+export type InspectSurface<TDomain extends ManifestoDomainShape> = {
+  graph(): SchemaGraph;
+  canonicalSnapshot(): CanonicalSnapshot;
+  action<Name extends ActionName<TDomain>>(name: Name): ActionInfo<Name>;
+  availableActions(): readonly ActionInfo[];
+  schemaHash(): string;
+};
+```
+
+`inspect.*` is the advanced/debug/tooling namespace.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-INSPECT-1 | MUST | `inspect.graph()` MUST expose the schema graph formerly reached as `getSchemaGraph()`. |
+| SDK-INSPECT-2 | MUST | `inspect.action(name)` MUST expose the same static action metadata as `actions.x.info()` for the named action. |
+| SDK-INSPECT-3 | MUST | `inspect.availableActions()` MUST return currently available action info values. |
+| SDK-INSPECT-4 | MUST | `inspect.canonicalSnapshot()` MUST be the only canonical snapshot read in the canonical SDK root object graph. |
+| SDK-INSPECT-5 | MUST NOT | `actions.$available()` or other mixed action-meta names MUST NOT be introduced. |
+
+## 15. Extension Kernel Boundary
+
+`@manifesto-ai/sdk/extensions` remains explicit:
+
+```typescript
+import {
+  createSimulationSession,
+  getExtensionKernel,
+} from "@manifesto-ai/sdk/extensions";
+```
+
+The extension kernel operates on static schemas and hypothetical snapshots. It
+does not enter the active runtime's law boundary.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-EXT-1 | MUST | Extension kernel APIs MUST remain under `@manifesto-ai/sdk/extensions` for v5. |
+| SDK-EXT-2 | MUST NOT | SDK MUST NOT introduce `app.kernel` as a root property. |
+| SDK-EXT-3 | MUST NOT | Extension kernel APIs MUST NOT become runtime mutation backdoors. |
+| SDK-EXT-4 | MUST | Arbitrary-snapshot preview/session APIs MUST remain read-only and non-committing. |
+
+## 16. Disposal
+
+`dispose()` closes the activated runtime and releases SDK-owned subscriptions and
+runtime resources.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-DISPOSE-1 | MUST | `dispose()` MUST be idempotent. |
+| SDK-DISPOSE-2 | MUST | Post-dispose `submit()` MUST reject with `DisposedError`. |
+| SDK-DISPOSE-3 | MUST | Post-dispose `observe.state()` and `observe.event()` registrations MUST be inert no-op registrations. |
+| SDK-DISPOSE-4 | MUST | `snapshot()` and `inspect.canonicalSnapshot()` MAY continue returning the last visible terminal snapshots after disposal. |
+
+## 17. v3 Hard-Cut Removals
+
+SDK v5 removes the v3 canonical public surface entirely. No
+`@manifesto-ai/sdk/compat-v4` package is part of the v5 contract.
+
+The following names MUST NOT appear on the canonical v5 runtime root:
+
+```text
+createIntent
+dispatchAsync
+dispatchAsyncWithReport
+commitAsync
+commitAsyncWithReport
+proposeAsync
+waitForProposal
+waitForProposalWithReport
+getSnapshot
+getCanonicalSnapshot
+getAvailableActions
+isActionAvailable
+isIntentDispatchable
+getIntentBlockers
+why
+whyNot
+explainIntent
+getActionMetadata
+getSchemaGraph
+simulate
+simulateIntent
+subscribe
+on
+```
+
+The migration map is:
+
+| v3 API | v5 API |
+|--------|--------|
+| `getSnapshot()` | `snapshot()` |
+| `getCanonicalSnapshot()` | `inspect.canonicalSnapshot()` |
+| `getSchemaGraph()` | `inspect.graph()` |
+| `getActionMetadata(name)` | `inspect.action(name)` or `actions.x.info()` |
+| `getAvailableActions()` | `inspect.availableActions()` |
+| `isActionAvailable(name)` | `actions.x.available()` |
+| `createIntent(MEL.actions.x, input)` | `actions.x.bind(input).intent()` |
+| `getIntentBlockers(intent)` | `actions.x.check(input).blockers` after narrowing |
+| `isIntentDispatchable(intent)` | `actions.x.check(input).ok` |
+| `whyNot(intent)` | `actions.x.check(input)` |
+| `why(intent)` | `actions.x.check(input)` plus `preview().diagnostics` |
+| `simulate(action, ...args)` | `actions.x.preview(...args)` |
+| `simulateIntent(intent)` | `actions.x.bind(input).preview()` |
+| `dispatchAsync(intent)` | `actions.x.submit(input)` on base runtime |
+| `commitAsync(intent)` | `actions.x.submit(input)` on lineage runtime |
+| `proposeAsync(intent)` | `actions.x.submit(input)` on governance runtime |
+| `waitForProposal(id)` | `submission.waitForSettlement()` or `app.waitForSettlement(ref)` |
+| `subscribe(selector, listener)` | `observe.state(selector, listener)` |
+| `on(event, handler)` | `observe.event(event, handler)` |
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-HC-1 | MUST | v3 root runtime methods listed above MUST NOT be present on the canonical v5 runtime root. |
+| SDK-HC-2 | MUST NOT | SDK v5 MUST NOT ship a canonical `compat-v4` subpath. |
+| SDK-HC-3 | MUST | Migration documentation MAY reference v3 names only as historical mapping guidance. |
+
+## 18. Error Model
+
+Known domain and admission failures are values. SDK programmer errors may throw.
+
+### 18.1 Failure Observation Surfaces
+
+`snapshot.system.lastError` is the current semantic error surface.
+
+`namespaces.host.lastError` is Host-owned execution diagnostic state. It is
+visible only through the canonical substrate and MUST NOT be automatically
+promoted into `snapshot.system.lastError`.
+
+`getLastError()` MUST NOT be introduced as a canonical v5 SDK root method.
+Callers read semantic state from `snapshot().system.lastError`, per-attempt
+domain outcome from `submit()` results, and Host diagnostics from
+`inspect.canonicalSnapshot().namespaces.host.lastError`.
+
+```typescript
+export class AlreadyActivatedError extends Error {}
+export class DisposedError extends Error {}
+export class CompileError extends Error {
+  readonly diagnostics: readonly Diagnostic[];
+}
+export class ReservedEffectError extends Error {
+  readonly effectType: string;
+}
+export class SubmissionFailedError extends Error {
+  readonly error: ErrorValue;
+  readonly stage: "runtime" | "settlement";
+}
+export class ManifestoError extends Error {
+  readonly code: string;
+}
+```
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-ERR-1 | MUST | Admission failures MUST be represented as `AdmissionFailure` values. |
+| SDK-ERR-2 | MUST | Domain execution outcomes MUST be represented as `ExecutionOutcome` values. |
+| SDK-ERR-3 | MUST | SDK failure observation MUST keep `snapshot.system.lastError`, `submit()` results, and `namespaces.host.lastError` distinct. |
+| SDK-ERR-4 | MUST NOT | SDK MUST NOT introduce `getLastError()` as a canonical v5 root method. |
+| SDK-ERR-5 | MUST | Operational submit failures before terminal result MUST reject with `SubmissionFailedError`. |
+| SDK-ERR-6 | MAY | Compile failures, double activation, disposed access, unknown action names, or malformed SDK inputs MAY throw programmer errors. |
+
+## 19. Compliance Checklist
+
+An implementation satisfies this SPEC when:
+
+- `createManifesto()` returns a composable manifesto and `activate()` returns `ManifestoApp<TDomain, TMode>`.
+- The root exposes `snapshot`, `actions`, `action`, `observe`, `inspect`, and `dispose`.
+- `ActionHandle` exposes `info`, `available`, `check`, `preview`, `submit`, and `bind`.
+- `BoundAction.intent()` returns `Intent | null`.
+- `check()` returns the first failing admission layer.
+- `preview()` is non-mutating and preserves Core status.
+- `submit()` returns mode-specific result types and re-checks legality at submit time.
+- `ExecutionOutcome` is the canonical `ok | stop | fail` domain-outcome union.
+- `result.ok` is documented and implemented as protocol envelope success, not domain success.
+- settled submit results preserve full projected `before` and `after` snapshots; large payloads do not change the default result shape.
+- `snapshot()` returns projected state and never exposes canonical-only fields.
+- `inspect.canonicalSnapshot()` returns the canonical substrate.
+- `observe.state()` and `observe.event()` remain separate channels.
+- Extension kernel APIs remain under `@manifesto-ai/sdk/extensions`.
+- v3 root APIs are absent from the canonical v5 runtime root.
+- resolved action annotations are the only SDK-owned path for `@meta` into `ActionHandle.info()`.
+- inline `PreviewOptions` and `SubmitOptions` use explicit `__kind` discriminants and cannot be mistaken for action input.
+- `observe.event()` payloads use the normative `ManifestoEventPayloadMap` shapes and do not embed snapshots.
+
+## 20. CTS and Hardening Requirements
+
+The SDK v5 CTS suite MUST cover:
+
+- `check()` first-failing-layer ordering: availability before input before dispatchability.
+- `preview()` does not mutate, publish, enqueue, or collapse `halted`/`error` into admission failure.
+- Base `submit()` publishes a settled result and maps Core terminal status to `ExecutionOutcome`.
+- `result.ok: true` with `outcome.kind: "stop"` and `outcome.kind: "fail"` are valid combinations.
+- Settled `submit()` results include full projected `before` and `after` snapshots even for large payloads.
+- Generic `SubmissionResult` requires narrowing by `mode` before mode-specific field access.
+- Operational submit failure before terminal result rejects with `SubmissionFailedError` and emits `submission:failed`.
+- Governance-only `waitForSettlement(ref)` is type-level reachable only on governance runtimes.
+- `ProposalRef` can reattach settlement observation through a later governance runtime instance.
+- Action names colliding with `then`, `bind`, `constructor`, `inspect`, `snapshot`, `dispose`, or `action` remain accessible through `action(name)`.
+- `snapshot()` excludes canonical-only fields; `inspect.canonicalSnapshot()` includes the canonical substrate.
+- MEL source annotations populate `ActionHandle.info()`, and caller-provided `options.annotations` overrides same-action compiler annotations.
+- Inline option objects are recognized only as extra final arguments with matching `__kind` discriminants.
+- `observe.event()` payloads match `ManifestoEventPayloadMap` and contain no full snapshot payloads.
+- The v3 root API removal list is absent from canonical v5 runtime types.
+
+## 21. References
+
+- [ADR-017 Capability Decorator Pattern](../../../docs/internals/adr/017-capability-decorator-pattern.md)
+- [ADR-019 Post-Activation Extension Kernel](../../../docs/internals/adr/019-post-activation-extension-kernel.md)
+- [ADR-020 Intent-Level Dispatchability](../../../docs/internals/adr/020-intent-level-dispatchability.md)
+- [ADR-025 Snapshot Ontology Hard Cut](../../../docs/internals/adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation.md)
+- [ADR-026 SDK v5 Action Candidate Surface and Law-Aware `submit()` Ingress](../../../docs/internals/adr/026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress.md)
+- [Core SPEC](../../core/docs/core-SPEC.md)
+- [Host SPEC](../../host/docs/host-SPEC.md)
+- [Lineage SPEC](../../lineage/docs/lineage-SPEC.md)
+- [Governance SPEC](../../governance/docs/governance-SPEC.md)

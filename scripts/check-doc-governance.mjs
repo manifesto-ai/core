@@ -151,9 +151,9 @@ const requiredAnchors = [
   {
     path: "docs/internals/spec/current-contract.md",
     tokens: [
-      "dispatchAsyncWithReport()",
-      "commitAsyncWithReport()",
-      "waitForProposalWithReport()",
+      "ADR-026 v5 SDK Surface Baseline",
+      "ActionHandle.submit(input)",
+      "mode-specific result types",
       "snapshot.system.lastError",
       "namespaces.host.lastError",
       "MUST NOT automatically promote",
@@ -162,16 +162,16 @@ const requiredAnchors = [
   {
     path: "packages/sdk/docs/sdk-SPEC.md",
     tokens: [
-      "### 7.2.3 Failure Observation Surfaces",
+      "### 18.1 Failure Observation Surfaces",
       "`snapshot.system.lastError` is the current semantic error surface",
-      "`data.$host.lastError` is Host-owned execution diagnostic state",
+      "`namespaces.host.lastError` is Host-owned execution diagnostic state",
       "getLastError()",
     ],
   },
   {
     path: "packages/host/docs/host-SPEC.md",
     tokens: [
-      "`$host.lastError` is an execution diagnostic owned by Host",
+      "`namespaces.host.lastError` is an execution diagnostic owned by Host",
       "MUST NOT be automatically promoted",
       "SDK/Lineage/Governance report helpers",
     ],

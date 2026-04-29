@@ -96,6 +96,36 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
       notes: "Compile-time fixtures are enforced through tsc --noEmit with @ts-expect-error against the current package-level runtime types.",
     },
   ),
+  ...inventoryMany(
+    [
+      "ACTS-V5-ROOT-1",
+      "ACTS-V5-ACTION-1",
+      "ACTS-V5-ADMISSION-1",
+      "ACTS-V5-PREVIEW-1",
+      "ACTS-V5-SUBMIT-1",
+      "ACTS-V5-SUBMIT-2",
+      "ACTS-V5-SUBMIT-3",
+      "ACTS-V5-OBSERVE-1",
+    ],
+    "SDK SPEC v5 §7/§8/§9/§10/§11/§13/§17",
+    "MUST",
+    "base",
+    {
+      notes: "ADR-026 v5 action-candidate CTS rules. During the pre-development slice these are registered with todo runtime cases and become executable as the SDK v5 source surface lands.",
+    },
+  ),
+  ...inventoryMany(
+    [
+      "ACTS-V5-TYPE-1",
+      "ACTS-V5-TYPE-2",
+    ],
+    "SDK SPEC v5 §5/§7/§8/§11",
+    "MUST",
+    "types",
+    {
+      notes: "ADR-026 v5 type rules. The initial fixture records expected missing public exports until the source slice replaces it with positive type assertions.",
+    },
+  ),
 ] as const;
 
 export function getInventoryRuleOrThrow(

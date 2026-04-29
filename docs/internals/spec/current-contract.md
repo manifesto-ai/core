@@ -23,7 +23,7 @@ If a historical document conflicts with this page or with an owning package SPEC
 The current governed runtime composition path is:
 
 ```ts
-createManifesto(schema, options)
+createManifesto(schema, effects)
   -> withLineage(config)
   -> withGovernance(config)
   -> activate();
@@ -37,7 +37,7 @@ This is the canonical entry story for new integrations.
 |---------|------------------|------|
 | `@manifesto-ai/core` | [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (current through v5.0.0 ADR-025 baseline) | Pure semantic runtime, schema validation, patch/apply semantics |
 | `@manifesto-ai/host` | [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (current through v4.0.0) | Effect execution, compute loop orchestration, canonical snapshot substrate |
-| `@manifesto-ai/sdk` | [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (current v3.x surface) | Activation-first application surface, intent creation/dispatch, additive base write reports, simulation, projected introspection |
+| `@manifesto-ai/sdk` | [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (current v5.0.0 ADR-026 surface) | Action-candidate application surface, projected reads, observe/inspect, law-aware `submit()` ingress |
 | `@manifesto-ai/compiler` | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v1.3.0 in-place) | Full current MEL compiler contract |
 | `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v3.x decorator surface) | Seal-aware continuity, additive lineage write reports, canonical snapshot persistence, restore |
 | `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v3.x decorator surface) | Proposal legitimacy, governed runtime gate over lineage-composed manifesto, settlement observation and settlement reports |
@@ -60,6 +60,29 @@ Schema hash verification result:
 - `hashSchema()` / `hashSchemaSync()` default to semantic mode and exclude pre-v5 `$`-prefixed state fields such as `$host` and `$mel`.
 - `hashSchemaEffective()` / `hashSchemaEffectiveSync()` include those fields and remain internal/effective-hash utilities.
 - Therefore ADR-025's semantic `schemaHash` continuity requirement is satisfied for the current Core hash path; no semantic schemaHash epoch is introduced by pre-v5 platform namespace augmentation.
+
+## ADR-026 v5 SDK Surface Baseline
+
+The v5 branch adopts ADR-026 as the current SDK public-surface baseline:
+
+- `createManifesto(schema, effects)` remains the base SDK entrypoint and returns
+  a composable manifesto, not a live runtime.
+- `activate()` opens the runtime and returns a `ManifestoApp`.
+- The canonical root surface is `snapshot()`, `actions`, `action(name)`,
+  `observe`, `inspect`, and `dispose()`.
+- The canonical action ladder is `info()`, `available()`, `check()`,
+  `preview()`, `submit()`, and `bind()`.
+- `submit()` is a law-aware ingress verb, not a promise of direct execution.
+  Base, Lineage, and Governance modes expose authority differences through
+  mode-specific result types and decorator-owned implementations.
+- Raw `Intent` construction remains an advanced protocol escape hatch through
+  `BoundAction.intent()`, not the primary app path.
+- Canonical v3 root runtime verbs such as `createIntent()`, `dispatchAsync()`,
+  `simulate()`, `subscribe()`, and `on()` are retired from the v5 public root.
+
+ADR-025 and ADR-026 are the two required layers of the same v5 hard cut:
+ADR-025 defines the canonical Snapshot substrate, and ADR-026 defines the SDK
+surface that exposes that substrate to application and agent callers.
 
 ## Core Runtime Contract
 
@@ -102,33 +125,37 @@ Current contract highlights:
 
 - `createManifesto()` returns a composable manifesto, not an already-running instance.
 - Runtime verbs appear only after `activate()`.
-- `createIntent()` is anchored on the generated `MEL.actions.*` surface.
-- `dispatchAsync()` is the canonical base-runtime execution verb.
-- `dispatchAsyncWithReport()` is the additive base write-report companion.
-- `simulateIntent(intent)` is the bound-intent non-committing dry-run surface and may expose debug-grade `diagnostics.trace`.
-- `simulate(action, ...args)` remains the action-ref convenience dry-run surface and delegates to the same bound-intent semantics.
-- `getSchemaGraph()` is the projected static graph read.
-- `isActionAvailable()` remains the coarse gate query.
-- `isIntentDispatchable()` and `getIntentBlockers()` are the fine legality/introspection queries.
-- helper-safe shared activated-runtime surface is legality/read/introspection only; there is no cross-decorator common write verb.
+- `snapshot()` is the projected app-facing read surface.
+- `actions.*` exposes typed action-candidate handles.
+- `action(name)` is the collision-safe accessor for every declared action name.
+- `ActionHandle.info()` returns static action metadata and resolved annotations.
+- `ActionHandle.available()` is the input-free coarse action-family query.
+- `ActionHandle.check(input)` returns first-failing admission state.
+- `ActionHandle.preview(input)` is the non-committing dry-run surface.
+- `ActionHandle.submit(input)` submits the candidate to the active runtime law boundary.
+- `ActionHandle.bind(input)` creates a reusable bound candidate with nullable `intent()`.
+- `observe.state()` and `observe.event()` separate projected state observation from runtime telemetry.
+- `inspect.graph()`, `inspect.action()`, `inspect.availableActions()`, `inspect.schemaHash()`, and `inspect.canonicalSnapshot()` are the advanced/tooling reads.
+- helper-safe arbitrary-snapshot reads remain under `@manifesto-ai/sdk/extensions`.
 
 Current failure observation:
 
-- Use write-report companions for per-attempt call outcomes: base `dispatchAsyncWithReport()`, lineage `commitAsyncWithReport()`, and governed `waitForProposalWithReport()`.
+- Use `submit()` results for per-attempt admission and terminal domain outcomes.
+- Use mode-specific reports attached to `submit()` or governance settlement results for additive write-report details.
 - Use `snapshot.system.lastError` to read the current semantic error state of the canonical or projected Snapshot.
 - Use canonical `namespaces.host.lastError` only for Host-owned effect/execution diagnostics during deep debugging.
 - The runtime MUST NOT automatically promote `namespaces.host.lastError` into `system.lastError`; such promotion would turn Host diagnostics into semantic Snapshot state without domain or governance authority.
 
 Current rejection split:
 
-- `ACTION_UNAVAILABLE`: coarse action gate failed
-- `INVALID_INPUT`: action is available, but bound intent input failed SDK validation
-- `INTENT_NOT_DISPATCHABLE`: action is available, but the bound intent failed the fine gate
+- `unavailable`: coarse action gate failed
+- `invalid_input`: action is available, but bound candidate input failed SDK validation
+- `not_dispatchable`: action is available, but the bound candidate failed the fine gate
 
 Current extension seam:
 
 - `@manifesto-ai/sdk/extensions` is the first-party arbitrary-snapshot seam after activation.
-- `simulateSync()`, `explainIntentFor()`, and `isIntentDispatchableFor()` align to the same availability/dispatchability ordering as the public runtime.
+- extension-kernel reads align to the same availability/dispatchability ordering as the public runtime but do not enter the active runtime law boundary.
 
 ## Compiler and MEL Contract
 
