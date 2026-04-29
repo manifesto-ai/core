@@ -657,7 +657,7 @@ describe("CCTS Lowering and IR Suite", () => {
     const ctxKeys = Object.keys(
       createEvaluationContext({
         meta: { intentId: "i1" },
-        snapshot: { data: {}, computed: {} },
+        snapshot: { state: {}, computed: {} },
         input: {},
       })
     ).sort();
@@ -695,7 +695,7 @@ describe("CCTS Lowering and IR Suite", () => {
     const ctx = createEvaluationContext({
       meta: { intentId: "i1" },
       snapshot: {
-        data: {
+        state: {
           source: createRecordingObject(
             [
               ["b", 1],
@@ -793,7 +793,7 @@ describe("CCTS Lowering and IR Suite", () => {
   it(caseTitle(CCTS_CASES.IR_TOTAL_EVALUATION, "(A3/A35, AD-COMP-LOW-003) expression evaluation stays total"), () => {
     const ctx = createEvaluationContext({
       meta: { intentId: "i1" },
-      snapshot: { data: { count: 1 }, computed: {} },
+      snapshot: { state: { count: 1 }, computed: {} },
     });
 
     const division = evaluateExpr(
@@ -977,7 +977,7 @@ describe("CCTS Lowering and IR Suite", () => {
     const ctx = createEvaluationContext({
       meta: { intentId: "i1" },
       snapshot: {
-        data: {
+        state: {
           observed: 8,
           predicted: 5,
           score: 14,
@@ -1046,7 +1046,7 @@ describe("CCTS Lowering and IR Suite", () => {
           compiled.value!.computed.fields["code"].expr,
           createEvaluationContext({
             meta: { intentId: "i1" },
-            snapshot: { data: { status: "open" }, computed: {} },
+            snapshot: { state: { status: "open" }, computed: {} },
           })
         )
       : null;
@@ -1055,7 +1055,7 @@ describe("CCTS Lowering and IR Suite", () => {
           compiled.value!.computed.fields["code"].expr,
           createEvaluationContext({
             meta: { intentId: "i1" },
-            snapshot: { data: { status: "pending" }, computed: {} },
+            snapshot: { state: { status: "pending" }, computed: {} },
           })
         )
       : null;
@@ -1111,7 +1111,7 @@ describe("CCTS Lowering and IR Suite", () => {
     const ctx = createEvaluationContext({
       meta: { intentId: "i1" },
       snapshot: {
-        data: {
+        state: {
           aOk: true,
           bOk: true,
           cOk: false,

@@ -15,10 +15,10 @@ import { parsePath } from "@manifesto-ai/core";
  */
 export interface EvaluationSnapshot {
   /**
-   * Domain data (matches StateSpec).
+   * Domain state (matches StateSpec).
    * Path resolution default target.
    */
-  data: unknown;
+  state: unknown;
 
   /**
    * Computed values (matches ComputedSpec).
@@ -60,7 +60,7 @@ export interface EvaluationMeta {
 export interface EvaluationContext {
   /**
    * Current snapshot for state lookups.
-   * Paths resolve to snapshot.data.* by default.
+   * Paths resolve to snapshot.state.* by default.
    */
   snapshot: EvaluationSnapshot;
 
@@ -93,7 +93,7 @@ export function createEvaluationContext(
   options: Partial<EvaluationContext> & { meta: EvaluationMeta }
 ): EvaluationContext {
   return {
-    snapshot: options.snapshot ?? { data: {}, computed: {} },
+    snapshot: options.snapshot ?? { state: {}, computed: {} },
     meta: options.meta,
     input: options.input ?? {},
     item: options.item,
@@ -112,14 +112,12 @@ export function applyPatchToWorkingSnapshot(
   path: string,
   value: unknown
 ): EvaluationSnapshot {
-  // Deep clone data
-  const newData = structuredClone(snapshot.data) as Record<string, unknown>;
+  const newState = structuredClone(snapshot.state) as Record<string, unknown>;
 
-  // Apply patch at path
-  setValueAtPath(newData, path, value);
+  setValueAtPath(newState, path, value);
 
   return {
-    data: newData,
+    state: newState,
     computed: snapshot.computed,
   };
 }

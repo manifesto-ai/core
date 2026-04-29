@@ -157,7 +157,7 @@ function runCompileMelPatchCycle(
     createEvaluationContext({
       meta: { intentId },
       snapshot: {
-        data: createPatchEvaluationData(snapshot),
+        state: createPatchEvaluationData(snapshot),
         computed: snapshot.computed,
       },
       input,

@@ -224,7 +224,7 @@ function evaluateNode(expr: ExprNode, ctx: EvaluationContext): unknown {
  * - input.* → ctx.input
  * - $item.* → ctx.item
  * - computed.* → ctx.snapshot.computed
- * - (other) → ctx.snapshot.data
+ * - (other) → ctx.snapshot.state
  *
  * @see SPEC v0.4.0 §18.7
  */
@@ -255,8 +255,8 @@ function resolvePath(path: string, ctx: EvaluationContext): unknown {
     return ctx.snapshot.computed[path];
   }
 
-  // Default: resolve in snapshot.data
-  return getValueAtPath(ctx.snapshot.data, parts);
+  // Default: resolve in snapshot.state
+  return getValueAtPath(ctx.snapshot.state, parts);
 }
 
 /**

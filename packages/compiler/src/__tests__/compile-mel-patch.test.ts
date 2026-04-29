@@ -132,7 +132,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-1" },
         snapshot: {
-          data: {},
+          state: {},
           computed: {},
         },
         input: { increment: 2 },
@@ -190,7 +190,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-2" },
         snapshot: {
-          data: {},
+          state: {},
           computed: {},
         },
         input: { increment: 2 },
@@ -222,7 +222,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-2" },
         snapshot: {
-          data: {},
+          state: {},
           computed: {},
         },
         input: { increment: 0 },
@@ -306,7 +306,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-3" },
         snapshot: {
-          data: { count: 0 },
+          state: { count: 0 },
           computed: {},
         },
         input: {},
@@ -331,7 +331,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-3" },
         snapshot: {
-          data: { count: 1 },
+          state: { count: 1 },
           computed: {},
         },
         input: {},
@@ -361,7 +361,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-enter-snapshot" },
         snapshot: {
-          data: { count: 0, flag: null },
+          state: { count: 0, flag: null },
           computed: {},
         },
         input: {},
@@ -386,7 +386,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-enter-snapshot" },
         snapshot: {
-          data: { count: 5, flag: null },
+          state: { count: 5, flag: null },
           computed: {},
         },
         input: {},
@@ -416,7 +416,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-1" },
         snapshot: {
-          data: {},
+          state: {},
           computed: {},
         },
         input: {},
@@ -441,7 +441,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-1" },
         snapshot: {
-          data: {
+          state: {
             onceMarker: "intent-1",
           },
           computed: {},
@@ -473,7 +473,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-1" },
         snapshot: {
-          data: { count: 0 },
+          state: { count: 0 },
           computed: {},
         },
         input: {},
@@ -503,7 +503,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-1" },
         snapshot: {
-          data: {
+          state: {
             count: 1,
             status: "done",
             onceMarker: "intent-1",
@@ -540,7 +540,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-2" },
         snapshot: {
-          data: { count: 0 },
+          state: { count: 0 },
           computed: {},
         },
         input: {},
@@ -572,7 +572,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-2" },
         snapshot: {
-          data: {
+          state: {
             count: 1,
             status: "done",
             $mel: {
@@ -611,7 +611,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-3" },
         snapshot: {
-          data: {
+          state: {
             records: [{ title: "A", meta: { level: 3 } }],
           },
           computed: {},
@@ -672,7 +672,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-object-spread" },
         snapshot: {
-          data: {
+          state: {
             draft: {
               customerId: "customer-1",
               appliedCouponId: "coupon-1",
@@ -864,7 +864,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-4" },
         snapshot: {
-          data: {},
+          state: {},
           computed: {},
         },
         input: { amount: 7 },
@@ -897,7 +897,7 @@ describe("compileMelPatch", () => {
       createEvaluationContext({
         meta: { intentId: "intent-5" },
         snapshot: {
-          data: {
+          state: {
             record: {
               "a.b": "outer",
               a: { b: "nested" },
@@ -1036,7 +1036,7 @@ describe("compileMelPatch", () => {
       result.ops,
       createEvaluationContext({
         meta: { intentId: "intent-dynamic-path-index" },
-        snapshot: { data: { items: [] }, computed: {} },
+        snapshot: { state: { items: [] }, computed: {} },
         input: { i: 0 },
       })
     );

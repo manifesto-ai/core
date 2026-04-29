@@ -46,7 +46,7 @@ function createTestContext(
   return createEvaluationContext({
     meta: { intentId: "test-intent-123" },
     snapshot: {
-      data: { count: 10, name: "Alice", items: [1, 2, 3] },
+      state: { count: 10, name: "Alice", items: [1, 2, 3] },
       computed: { total: 100 },
     },
     input: { title: "Hello", value: 42 },
@@ -84,7 +84,7 @@ describe("evaluateExpr", () => {
   });
 
   describe("get (path resolution)", () => {
-    it("should resolve data paths", () => {
+    it("should resolve state paths", () => {
       const ctx = createTestContext();
       expect(evaluateExpr({ kind: "get", path: "count" }, ctx)).toBe(10);
       expect(evaluateExpr({ kind: "get", path: "name" }, ctx)).toBe("Alice");
@@ -322,7 +322,7 @@ describe("evaluateExpr", () => {
       const accesses: string[] = [];
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             flags: createRecordingObject(
               [
                 ["left", false],
@@ -372,7 +372,7 @@ describe("evaluateExpr", () => {
       const accesses: string[] = [];
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             branches: createRecordingObject(
               [
                 ["then", "accepted"],
@@ -815,7 +815,7 @@ describe("evaluateCondition", () => {
     it("should evaluate merge expression", () => {
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             base: { a: 1, b: 2 },
             count: 10,
             name: "Alice",
@@ -837,7 +837,7 @@ describe("evaluateCondition", () => {
     it("should evaluate keys/values/entries expressions", () => {
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             obj: { x: 1, y: 2 },
             count: 10,
             name: "Alice",
@@ -855,7 +855,7 @@ describe("evaluateCondition", () => {
       const accesses: string[] = [];
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             source: createRecordingObject(
               [
                 ["b", 1],
@@ -986,10 +986,10 @@ describe("evaluateConditionalPatchOps", () => {
   });
 
   it("should implement sequential evaluation semantics", () => {
-    // Create context with initial data
+    // Create context with initial state
     const ctx = createEvaluationContext({
       meta: { intentId: "test" },
-      snapshot: { data: { value: 0 }, computed: {} },
+      snapshot: { state: { value: 0 }, computed: {} },
       input: {},
     });
 
@@ -1024,7 +1024,7 @@ describe("evaluateConditionalPatchOps", () => {
 
     expect(result.patches).toHaveLength(2);
     expect(result.skipped).toHaveLength(0);
-    expect(result.finalSnapshot.data).toEqual({
+    expect(result.finalSnapshot.state).toEqual({
       value: 10,
       result: "success",
     });
@@ -1097,7 +1097,7 @@ describe("evaluateRuntimePatches", () => {
     it("should evaluate patch paths with escaped segments", () => {
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             history: {
               files: {},
             },
@@ -1145,7 +1145,7 @@ describe("evaluateRuntimePatches", () => {
   });
 
   describe("value expression evaluation", () => {
-    it("should evaluate expressions referencing snapshot data", () => {
+    it("should evaluate expressions referencing snapshot state", () => {
       const ctx = createTestContext();
       const ops: RuntimeConditionalPatchOp[] = [
         {
@@ -1328,7 +1328,7 @@ describe("evaluateRuntimePatches", () => {
     it("should apply patches sequentially (later patches see earlier changes)", () => {
       const ctx = createEvaluationContext({
         meta: { intentId: "test" },
-        snapshot: { data: { count: 0 }, computed: {} },
+        snapshot: { state: { count: 0 }, computed: {} },
         input: {},
       });
 
@@ -1362,13 +1362,13 @@ describe("evaluateRuntimePatches", () => {
         path: "doubled",
         value: 20,
       });
-      expect(result.finalSnapshot.data).toEqual({ count: 10, doubled: 20 });
+      expect(result.finalSnapshot.state).toEqual({ count: 10, doubled: 20 });
     });
 
     it("should handle conditions based on previous patches", () => {
       const ctx = createEvaluationContext({
         meta: { intentId: "test" },
-        snapshot: { data: { status: null }, computed: {} },
+        snapshot: { state: { status: null }, computed: {} },
         input: {},
       });
 
@@ -1403,7 +1403,7 @@ describe("evaluateRuntimePatches", () => {
     it("should handle unset in sequence", () => {
       const ctx = createEvaluationContext({
         meta: { intentId: "test" },
-        snapshot: { data: { temp: "value", final: null }, computed: {} },
+        snapshot: { state: { temp: "value", final: null }, computed: {} },
         input: {},
       });
 

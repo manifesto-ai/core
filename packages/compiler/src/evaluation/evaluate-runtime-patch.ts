@@ -220,21 +220,21 @@ function applyConcretePatchToWorkingSnapshot(
   snapshot: EvaluationSnapshot,
   patch: Patch
 ): EvaluationSnapshot {
-  const baseData = snapshot.data;
+  const baseState = snapshot.state;
 
-  const nextData = (() => {
+  const nextState = (() => {
     switch (patch.op) {
       case "set":
-        return setByPatchPath(baseData, patch.path, patch.value);
+        return setByPatchPath(baseState, patch.path, patch.value);
       case "unset":
-        return unsetByPatchPath(baseData, patch.path);
+        return unsetByPatchPath(baseState, patch.path);
       case "merge":
-        return mergeAtPatchPath(baseData, patch.path, patch.value);
+        return mergeAtPatchPath(baseState, patch.path, patch.value);
     }
   })();
 
   return {
-    data: nextData,
+    state: nextState,
     computed: snapshot.computed,
   };
 }
