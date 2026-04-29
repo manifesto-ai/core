@@ -441,6 +441,7 @@ _Source: `packages/core/src/index.ts`_
 - `AndExpr`
 - `AppendExpr`
 - `apply`
+- `applyNamespaceDeltas`
 - `applySystemDelta`
 - `AtExpr`
 - `buildDependencyGraph`
@@ -461,6 +462,7 @@ _Source: `packages/core/src/index.ts`_
 - `createCore`
 - `createError`
 - `createFlowState`
+- `createInitialNamespaces`
 - `createInitialSystemState`
 - `createIntent`
 - `createSnapshot`
@@ -519,6 +521,7 @@ _Source: `packages/core/src/index.ts`_
 - `HasKeyExpr`
 - `hasPath`
 - `HostContext`
+- `HostNamespace`
 - `IfExpr`
 - `IfFlow`
 - `IncludesExpr`
@@ -544,6 +547,7 @@ _Source: `packages/core/src/index.ts`_
 - `MapExpr`
 - `MaxArrayExpr`
 - `MaxExpr`
+- `MelNamespace`
 - `mergeAtPatchPath`
 - `mergeAtPath`
 - `MergeExpr`
@@ -552,6 +556,8 @@ _Source: `packages/core/src/index.ts`_
 - `MinExpr`
 - `ModExpr`
 - `MulExpr`
+- `NamespaceDelta`
+- `NamespacePatchFlow`
 - `NegExpr`
 - `NeqExpr`
 - `NotExpr`
@@ -588,6 +594,7 @@ _Source: `packages/core/src/index.ts`_
 - `SliceExpr`
 - `Snapshot`
 - `SnapshotMeta`
+- `SnapshotNamespaces`
 - `SomeExpr`
 - `sortKeys`
 - `SplitExpr`
@@ -685,6 +692,7 @@ _Source: `packages/core/src/index.ts`_
 - `HaltFlow`
 - `HasKeyExpr`
 - `HostContext`
+- `HostNamespace`
 - `IfExpr`
 - `IfFlow`
 - `IncludesExpr`
@@ -701,12 +709,15 @@ _Source: `packages/core/src/index.ts`_
 - `MapExpr`
 - `MaxArrayExpr`
 - `MaxExpr`
+- `MelNamespace`
 - `MergeExpr`
 - `MergePatch`
 - `MinArrayExpr`
 - `MinExpr`
 - `ModExpr`
 - `MulExpr`
+- `NamespaceDelta`
+- `NamespacePatchFlow`
 - `NegExpr`
 - `NeqExpr`
 - `NotExpr`
@@ -735,6 +746,7 @@ _Source: `packages/core/src/index.ts`_
 - `SliceExpr`
 - `Snapshot`
 - `SnapshotMeta`
+- `SnapshotNamespaces`
 - `SomeExpr`
 - `SplitExpr`
 - `SqrtExpr`
@@ -1091,8 +1103,8 @@ _Source: `packages/sdk/src/index.ts`_
 - `AvailableActionDelta`
 - `BaseComposableLaws`
 - `BaseLaws`
+- `CanonicalNamespaces`
 - `CanonicalOutcome`
-- `CanonicalPlatformNamespaces`
 - `CanonicalSnapshot`
 - `CompileDiagnostic`
 - `ComposableManifesto`
