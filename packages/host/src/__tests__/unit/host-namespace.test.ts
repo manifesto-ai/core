@@ -2,7 +2,7 @@
  * Host Namespace Compliance Tests (v2.0.2)
  *
  * Verifies that Host does NOT write to Core-owned fields in the snapshot.
- * Intent slots are stored in data.$host to comply with HOST-NS-1 and INV-SNAP-4.
+ * Intent slots are stored in namespaces.host to comply with HOST-NS-1 and INV-SNAP-4.
  *
  * @see host-SPEC-v2.0.2.md §3.3.1 HOST-NS-1
  */
@@ -16,6 +16,7 @@ import type { DomainSchema } from "@manifesto-ai/core";
 import {
   createTestSchema,
   createTestIntent,
+  createMinimalSnapshot,
   stripHostState,
 } from "../helpers/index.js";
 
@@ -80,7 +81,7 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       expect(resultSnapshot.system.currentAction).not.toBe(intent.intentId);
     });
 
-    it("should store intent slots in data.$host for effect result injection", async () => {
+    it("should store intent slots in namespaces.host for effect result injection", async () => {
       const host = createHost(schema, { initialData: {} });
       const key = "test-key";
       const intent = createTestIntent("simpleAction");
@@ -92,7 +93,7 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       await host.drain(key);
 
       const resultSnapshot = host.getContextSnapshot(key)!;
-      const hostState = getHostState(resultSnapshot.data);
+      const hostState = getHostState(resultSnapshot);
 
       expect(hostState?.intentSlots?.[intent.intentId!]).toMatchObject({
         type: intent.type,
@@ -107,7 +108,7 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
   });
 
   describe("snapshot data integrity", () => {
-    it("should create $host namespace in snapshot data", async () => {
+    it("should create host namespace in snapshot namespaces", async () => {
       const host = createHost(schema, { initialData: {} });
       const key = "test-key";
       const intent = createTestIntent("simpleAction");
@@ -118,9 +119,9 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       host.submitIntent(key, intent);
       await host.drain(key);
 
-      // Verify $host is in snapshot data
+      // Verify host-owned state is in snapshot namespaces.
       const resultSnapshot = host.getContextSnapshot(key)!;
-      const hostState = getHostState(resultSnapshot.data);
+      const hostState = getHostState(resultSnapshot);
 
       expect(hostState).toBeDefined();
     });
@@ -138,24 +139,45 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
 
       // Verify original data is preserved (excluding $host)
       const resultSnapshot = host.getContextSnapshot(key)!;
-      expect(stripHostState(resultSnapshot.data)).toEqual(initialData);
+      expect(stripHostState(resultSnapshot.state)).toEqual(initialData);
     });
   });
 
   describe("getHostState utility", () => {
-    it("should return undefined for data without $host", () => {
-      const data = { foo: "bar" };
-      expect(getHostState(data)).toBeUndefined();
+    it("should return undefined for snapshot without host namespace", () => {
+      const snapshot = {
+        ...createMinimalSnapshot({ foo: "bar" }),
+        namespaces: {},
+      };
+      expect(getHostState(snapshot)).toBeUndefined();
     });
 
-    it("should return HostOwnedState for data with $host", () => {
-      const data = {
+    it("should return HostOwnedState for snapshot with host namespace", () => {
+      const snapshot = {
+        ...createMinimalSnapshot({}),
+        namespaces: {
+          host: {
+            intentSlots: { "intent-1": { type: "test" } },
+            currentIntentId: "intent-1",
+          },
+        },
+      };
+      const hostState = getHostState(snapshot);
+
+      expect(hostState).toEqual({
+        intentSlots: { "intent-1": { type: "test" } },
+        currentIntentId: "intent-1",
+      });
+    });
+
+    it("should still read legacy data-root $host for persisted fixtures", () => {
+      const legacyData = {
         $host: {
           intentSlots: { "intent-1": { type: "test" } },
           currentIntentId: "intent-1",
         },
       };
-      const hostState = getHostState(data);
+      const hostState = getHostState(legacyData);
 
       expect(hostState).toEqual({
         intentSlots: { "intent-1": { type: "test" } },

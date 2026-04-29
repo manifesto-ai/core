@@ -1104,6 +1104,7 @@ describe("V-009: default type validation", () => {
   it("should fail when state.fieldTypes contains unresolved refs", () => {
     const schema = createValidSchema({
       state: {
+        fields: {},
         fieldTypes: {
           count: { kind: "ref", name: "MissingType" },
         },
@@ -1259,6 +1260,7 @@ describe("V-009: default type validation", () => {
   it("should fail when typing seams declare record keys that are not strings", () => {
     const schema = createValidSchema({
       state: {
+        fields: {},
         fieldTypes: {
           count: {
             kind: "record",

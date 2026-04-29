@@ -83,7 +83,7 @@ describe("EffectExecutor", () => {
       await executor.execute(requirement, snapshot);
 
       expect(Object.isFrozen(receivedContext.snapshot)).toBe(true);
-      expect(Object.isFrozen(receivedContext.snapshot.data)).toBe(true);
+      expect(Object.isFrozen(receivedContext.snapshot.state)).toBe(true);
       expect(Object.isFrozen(receivedContext.snapshot.system)).toBe(true);
     });
 
@@ -103,11 +103,11 @@ describe("EffectExecutor", () => {
         createTestSnapshot({ payload: cyclic }),
       );
 
-      expect(receivedContext.snapshot.data.payload).toBeDefined();
-      expect(receivedContext.snapshot.data.payload.self).toBe(
-        receivedContext.snapshot.data.payload,
+      expect(receivedContext.snapshot.state.payload).toBeDefined();
+      expect(receivedContext.snapshot.state.payload.self).toBe(
+        receivedContext.snapshot.state.payload,
       );
-      expect(Object.isFrozen(receivedContext.snapshot.data.payload)).toBe(true);
+      expect(Object.isFrozen(receivedContext.snapshot.state.payload)).toBe(true);
     });
 
     it("should allow typed array snapshot values in frozen handler context", async () => {
@@ -127,13 +127,13 @@ describe("EffectExecutor", () => {
         snapshot,
       );
 
-      expect(receivedContext.snapshot.data.payload.bytes).toBeInstanceOf(Uint8Array);
-      expect(Array.from(receivedContext.snapshot.data.payload.bytes)).toEqual([1, 2, 3]);
-      expect(Object.isFrozen(receivedContext.snapshot.data.payload)).toBe(true);
+      expect(receivedContext.snapshot.state.payload.bytes).toBeInstanceOf(Uint8Array);
+      expect(Array.from(receivedContext.snapshot.state.payload.bytes)).toEqual([1, 2, 3]);
+      expect(Object.isFrozen(receivedContext.snapshot.state.payload)).toBe(true);
 
-      receivedContext.snapshot.data.payload.bytes[0] = 9;
-      expect(Array.from(receivedContext.snapshot.data.payload.bytes)).toEqual([9, 2, 3]);
-      expect(Array.from((snapshot.data as { payload: { bytes: Uint8Array } }).payload.bytes)).toEqual([1, 2, 3]);
+      receivedContext.snapshot.state.payload.bytes[0] = 9;
+      expect(Array.from(receivedContext.snapshot.state.payload.bytes)).toEqual([9, 2, 3]);
+      expect(Array.from((snapshot.state as { payload: { bytes: Uint8Array } }).payload.bytes)).toEqual([1, 2, 3]);
     });
 
     it("should provide a frozen requirement to handler", async () => {

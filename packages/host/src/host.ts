@@ -4,7 +4,7 @@
  * Event-loop execution model with Mailbox + Runner + Job architecture.
  *
  * Changes from v2.0.1:
- * - Intent slots stored in data.$host (HOST-NS-1)
+ * - Intent slots stored in namespaces.host (HOST-NS-1)
  * - Host no longer writes to system.* (INV-SNAP-4)
  *
  * @see host-SPEC-v2.0.2.md
@@ -12,6 +12,7 @@
 
 import {
   createCore,
+  createInitialNamespaces,
   createSnapshot,
   evaluateComputed,
   isOk,
@@ -20,6 +21,7 @@ import {
   type DomainSchema,
   type Snapshot,
   type Intent,
+  type NamespaceDelta,
   type TraceGraph,
   type Patch,
 } from "@manifesto-ai/core";
@@ -38,7 +40,6 @@ import type { ExecutionKey, Runtime } from "./types/execution.js";
 import type { TraceEvent } from "./types/trace.js";
 import { createStartIntentJob, createFulfillEffectJob } from "./types/job.js";
 import { defaultRuntime } from "./types/execution.js";
-import { getHostState } from "./types/host-state.js";
 
 /**
  * Host result returned from dispatch
@@ -119,7 +120,7 @@ type PendingEffect = {
  * - Single-runner with lost-wakeup prevention (RUN-1~4, LIVE-1~4)
  * - Run-to-completion job model (JOB-1~5)
  * - Frozen context per job (CTX-1~5)
- * - Intent slots in data.$host (HOST-NS-1)
+ * - Intent slots in namespaces.host (HOST-NS-1)
  */
 export class ManifestoHost {
   private core: ManifestoCore;
@@ -149,17 +150,35 @@ export class ManifestoHost {
   }
 
   private normalizeResetSnapshot(candidate: unknown): Snapshot {
-    const normalized = typeof candidate === "object" &&
-      candidate !== null &&
-      "data" in candidate &&
-      "computed" in candidate &&
-      "system" in candidate &&
-      "meta" in candidate
-      ? {
-          ...(candidate as Record<string, unknown>),
-          input: (candidate as Record<string, unknown>).input ?? null,
-        }
-      : null;
+    let normalized: Record<string, unknown> | null = null;
+
+    if (typeof candidate === "object" && candidate !== null) {
+      const record = candidate as Record<string, unknown>;
+      if (
+        "state" in record &&
+        "namespaces" in record &&
+        "computed" in record &&
+        "system" in record &&
+        "meta" in record
+      ) {
+        normalized = {
+          ...record,
+          input: record.input ?? null,
+        };
+      } else if (
+        "data" in record &&
+        "computed" in record &&
+        "system" in record &&
+        "meta" in record
+      ) {
+        normalized = {
+          ...record,
+          state: record.data,
+          namespaces: createInitialNamespaces(),
+          input: record.input ?? null,
+        };
+      }
+    }
 
     if (!normalized) {
       throw createHostError("INVALID_STATE", "Host.reset() requires a canonical Snapshot payload");
@@ -507,7 +526,7 @@ export class ManifestoHost {
    * Check if a fatal error has been recorded for a key.
    *
    * Fatal errors are tracked in a separate map and are NOT written to
-   * snapshot.system.lastError (only to data.$host.lastError as best-effort).
+   * snapshot.system.lastError (only to namespaces.host.lastError as best-effort).
    * The drain loop must check this so it doesn't report "completed" after
    * a fatal failure.
    *
@@ -565,12 +584,10 @@ export class ManifestoHost {
     );
     this.fatalErrors.set(key, hostError);
 
-    // Mark execution as failed (best-effort) in data.$host
+    // Mark execution as failed (best-effort) in namespaces.host
     const ctx = this.executionContexts.get(key);
     if (ctx) {
       try {
-        const snapshot = ctx.getSnapshot();
-        const hostState = getHostState(snapshot.data);
         const frozenContext = ctx.getFrozenContext();
         const errorValue = {
           code: "FATAL_ERROR",
@@ -578,17 +595,15 @@ export class ManifestoHost {
           source: { actionId: intentId, nodePath: "host.fatal" },
           timestamp: frozenContext.now,
         };
-        const patches: Patch[] = [
-          {
-            op: "merge",
-            path: [{ kind: "prop", name: "$host" }],
-            value: {
-              ...(hostState ? hostState : {}),
-              lastError: errorValue,
-            },
-          },
-        ];
-        ctx.applyPatches(patches, "fatal-error");
+        const deltas: NamespaceDelta[] = [{
+          namespace: "host",
+          patches: [{
+            op: "set",
+            path: [{ kind: "prop", name: "lastError" }],
+            value: errorValue,
+          }],
+        }];
+        ctx.applyNamespaceDeltas(deltas, "fatal-error");
       } catch {
         // Best-effort only
       }
@@ -701,11 +716,12 @@ export class ManifestoHost {
     requirementId: string,
     intentId: string,
     patches: Patch[],
-    intent?: Intent
+    intent?: Intent,
+    namespaceDelta?: readonly NamespaceDelta[]
   ): void {
     const mailbox = this.mailboxManager.get(key);
     if (mailbox) {
-      // Try to get intent from data.$host if not provided (v2.0.2 HOST-NS-1)
+      // Try to get intent from namespaces.host if not provided (v2.0.2 HOST-NS-1)
       const ctx = this.executionContexts.get(key);
       let effectIntent = intent;
       if (!effectIntent && ctx) {
@@ -719,7 +735,14 @@ export class ManifestoHost {
         }
       }
 
-      const job = createFulfillEffectJob(intentId, requirementId, patches, effectIntent);
+      const job = createFulfillEffectJob(
+        intentId,
+        requirementId,
+        patches,
+        effectIntent,
+        undefined,
+        namespaceDelta
+      );
       mailbox.enqueue(job);
     }
   }

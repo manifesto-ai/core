@@ -245,6 +245,9 @@ importers:
 
   packages/core:
     devDependencies:
+      '@manifesto-ai/cts-kit':
+        specifier: workspace:*
+        version: link:../../cts/cts-kit
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

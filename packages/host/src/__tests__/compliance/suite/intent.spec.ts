@@ -75,7 +75,7 @@ describe("HCTS Intent Processing Tests", () => {
       expect(executionCount).toBe(1);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.data as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
       expect(response.fetched).toBe(true);
     });
 
@@ -134,8 +134,8 @@ describe("HCTS Intent Processing Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).step1).toBe(true);
-      expect((finalSnapshot.data as Record<string, unknown>).step2).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step1).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step2).toBe(true);
     });
   });
 
@@ -173,7 +173,7 @@ describe("HCTS Intent Processing Tests", () => {
       const finalSnapshot = adapter.getSnapshot(executionKey);
 
       // All state visible in Snapshot
-      const response = (finalSnapshot.data as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
       expect(response.progress).toBe(100);
     });
   });
@@ -215,7 +215,7 @@ describe("HCTS Intent Processing Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.data as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
       expect(response.checked).toBe(true);
     });
   });
@@ -291,8 +291,8 @@ describe("HCTS Intent Processing Tests", () => {
 
       // Verify both steps completed (proving multiple compute cycles)
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).step1).toBe(true);
-      expect((finalSnapshot.data as Record<string, unknown>).step2).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step1).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step2).toBe(true);
 
       // Intent ID should have remained stable (same as originally submitted)
       expect(intent.intentId).toBe(originalIntentId);

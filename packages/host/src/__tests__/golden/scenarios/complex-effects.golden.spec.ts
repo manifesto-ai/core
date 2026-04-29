@@ -206,7 +206,7 @@ describe("Golden: Complex Effect Scenarios", () => {
       const result = await runner.execute(scenario);
 
       // Verify loading was set and then unset by effect
-      expect(result.finalSnapshot.data).toMatchObject({
+      expect(result.finalSnapshot.state).toMatchObject({
         loading: false,
         response: { url: "/api/test", success: true },
         lastUrl: "/api/test",
@@ -238,8 +238,8 @@ describe("Golden: Complex Effect Scenarios", () => {
       const result = await runner.execute(scenario);
 
       // Fetch count should be 3 from the 3 increment intents
-      expect((result.finalSnapshot.data as any).fetchCount).toBe(3);
-      expect((result.finalSnapshot.data as any).lastUrl).toBe("/api/simple");
+      expect((result.finalSnapshot.state as any).fetchCount).toBe(3);
+      expect((result.finalSnapshot.state as any).lastUrl).toBe("/api/simple");
     });
   });
 
@@ -263,8 +263,8 @@ describe("Golden: Complex Effect Scenarios", () => {
       const result = await runner.execute(scenario);
 
       // Should have error message, not response
-      expect((result.finalSnapshot.data as any).errorMessage).toBe("No fetches yet");
-      expect((result.finalSnapshot.data as any).response).toBeNull();
+      expect((result.finalSnapshot.state as any).errorMessage).toBe("No fetches yet");
+      expect((result.finalSnapshot.state as any).response).toBeNull();
     });
 
     it("should execute effect when condition is true", async () => {
@@ -286,11 +286,11 @@ describe("Golden: Complex Effect Scenarios", () => {
       const result = await runner.execute(scenario);
 
       // Should have response from effect, error message unchanged
-      expect((result.finalSnapshot.data as any).response).toEqual({
+      expect((result.finalSnapshot.state as any).response).toEqual({
         url: "/api/conditional",
         success: true,
       });
-      expect((result.finalSnapshot.data as any).lastUrl).toBe("/api/conditional");
+      expect((result.finalSnapshot.state as any).lastUrl).toBe("/api/conditional");
     });
   });
 
@@ -322,21 +322,21 @@ describe("Golden: Complex Effect Scenarios", () => {
       expect(result.stateHistory).toHaveLength(4);
 
       // After first fetch
-      expect(result.stateHistory[0].snapshot.data).toMatchObject({
+      expect(result.stateHistory[0].snapshot.state).toMatchObject({
         lastUrl: "/api/simple",
       });
 
       // After increment
-      expect((result.stateHistory[1].snapshot.data as any).fetchCount).toBe(1);
+      expect((result.stateHistory[1].snapshot.state as any).fetchCount).toBe(1);
 
       // After reset
-      expect(result.stateHistory[2].snapshot.data).toMatchObject({
+      expect(result.stateHistory[2].snapshot.state).toMatchObject({
         response: null,
         lastUrl: "",
       });
 
       // After conditional fetch (fetchCount=1 > 0, so it executes)
-      expect(result.stateHistory[3].snapshot.data).toMatchObject({
+      expect(result.stateHistory[3].snapshot.state).toMatchObject({
         lastUrl: "/api/conditional",
       });
     });
@@ -368,12 +368,12 @@ describe("Golden: Complex Effect Scenarios", () => {
 
       // All runs should have same final state
       const states = verification.results.map((r) =>
-        JSON.stringify(stripHostState(r.finalSnapshot.data))
+        JSON.stringify(stripHostState(r.finalSnapshot.state))
       );
       expect(new Set(states).size).toBe(1);
 
       // Verify the expected final state
-      const finalData = verification.results[0].finalSnapshot.data as any;
+      const finalData = verification.results[0].finalSnapshot.state as any;
       expect(finalData.fetchCount).toBe(2);
       expect(finalData.lastUrl).toBe("/api/conditional");
     });
@@ -458,7 +458,7 @@ describe("Golden: Complex Effect Scenarios", () => {
       };
 
       const result = await runner.execute(scenario);
-      const data = result.finalSnapshot.data as any;
+      const data = result.finalSnapshot.state as any;
 
       // Verify final state
       expect(data.fetchCount).toBe(2);
@@ -491,7 +491,7 @@ describe("Golden: Complex Effect Scenarios", () => {
       expect(verification.deterministic).toBe(true);
 
       // First run state check
-      const finalData = verification.results[0].finalSnapshot.data as any;
+      const finalData = verification.results[0].finalSnapshot.state as any;
       expect(finalData.fetchCount).toBe(2);
       expect(finalData.errorMessage).toBe("No fetches yet"); // Set by first conditional
       expect(finalData.lastUrl).toBe("/api/conditional"); // From the second conditionalFetch

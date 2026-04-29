@@ -9,9 +9,10 @@
  * Key requirements:
  * - FULFILL-0: FulfillEffect MUST verify requirementId exists in pendingRequirements before applying
  * - FULFILL-1: FulfillEffect MUST apply result patches (only if FULFILL-0 passes)
+ * - FULFILL-NS-1: FulfillEffect MUST apply namespace deltas before clear/continue
  * - FULFILL-2: FulfillEffect MUST clear requirement from pendingRequirements
  * - FULFILL-3: FulfillEffect MUST enqueue ContinueCompute
- * - FULFILL-4: Steps 0, 1, 2, 3 MUST be executed in one job (no splitting)
+ * - FULFILL-4: Steps 0, 1, NS, 2, 3 MUST be executed in one job (no splitting)
  * - ERR-FE-1: FulfillEffect MUST guarantee requirement is removed from pending, even on error
  * - ERR-FE-2: Apply failure does NOT exempt from clear obligation
  * - ERR-FE-3: If clear itself fails, escalate to ExecutionKey-level fatal
@@ -23,7 +24,6 @@ import type { Patch, Requirement } from "@manifesto-ai/core";
 import type { ExecutionContext } from "../types/execution.js";
 import type { FulfillEffectJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";
-import { getHostState } from "../types/host-state.js";
 
 /**
  * Handle FulfillEffect job
@@ -31,8 +31,9 @@ import { getHostState } from "../types/host-state.js";
  * This handler implements the complete requirement lifecycle atomically:
  * 1. Stale check (FULFILL-0)
  * 2. Apply result patches (FULFILL-1)
- * 3. Clear requirement (FULFILL-2)
- * 4. Enqueue ContinueCompute (FULFILL-3)
+ * 3. Apply namespace deltas (FULFILL-NS-1)
+ * 4. Clear requirement (FULFILL-2)
+ * 5. Enqueue ContinueCompute (FULFILL-3)
  *
  * @see SPEC §10.7.3 Implementation (Stale-Safe)
  * @see SPEC §13.4.3 Safe FulfillEffect Pattern
@@ -89,11 +90,12 @@ export function handleFulfillEffect(
 
   let applyError: Error | null = null;
 
-  // Step 1: Attempt apply (FULFILL-1) - may fail
+  // Step 1: Attempt apply (FULFILL-1, FULFILL-NS-1) - may fail
   try {
     if (job.resultPatches.length > 0) {
       ctx.applyPatches(job.resultPatches, "effect");
     }
+    ctx.applyNamespaceDeltas(job.namespaceDelta ?? [], "effect-namespace");
     ctx.trace({
       t: "effect:fulfill:apply",
       key: ctx.key,
@@ -210,7 +212,6 @@ function applyHostErrorPatch(
 ): void {
   const snapshot = ctx.getSnapshot();
   const frozenContext = ctx.getFrozenContext();
-  const hostState = getHostState(snapshot.data);
 
   const errorValue = {
     code: error.code,
@@ -227,16 +228,15 @@ function applyHostErrorPatch(
     },
   };
 
-  const patches: Patch[] = [
-    {
-      op: "merge",
-      path: [{ kind: "prop", name: "$host" }],
-      value: {
-        ...(hostState ? hostState : {}),
-        lastError: errorValue,
-      },
-    },
-  ];
-
-  ctx.applyPatches(patches, "error");
+  ctx.applyNamespaceDeltas(
+    [{
+      namespace: "host",
+      patches: [{
+        op: "set",
+        path: [{ kind: "prop", name: "lastError" }],
+        value: errorValue,
+      }],
+    }],
+    "error",
+  );
 }

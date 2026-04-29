@@ -53,8 +53,8 @@ export function handleStartIntent(
     randomSeed: frozenContext.randomSeed,
   });
 
-  // Store intent slot in data.$host (HOST-NS-1)
-  const hostState = getHostState(snapshot.data);
+  // Store intent slot in namespaces.host (HOST-NS-1)
+  const hostState = getHostState(snapshot);
   const intentSlots = hostState?.intentSlots ?? {};
   const intentSlot =
     job.intent.input === undefined
@@ -64,14 +64,15 @@ export function handleStartIntent(
     ...intentSlots,
     [job.intentId]: intentSlot,
   };
-  ctx.applyPatches(
-    [
-      {
-        op: "merge",
-        path: [{ kind: "prop", name: "$host" }],
-        value: { intentSlots: nextSlots },
-      },
-    ],
+  ctx.applyNamespaceDeltas(
+    [{
+      namespace: "host",
+      patches: [{
+        op: "set",
+        path: [{ kind: "prop", name: "intentSlots" }],
+        value: nextSlots,
+      }],
+    }],
     "host-intent-slot"
   );
   snapshot = ctx.getSnapshot();
@@ -92,8 +93,9 @@ export function handleStartIntent(
     iteration: 1,
   });
 
-  // Interlock order: apply(patches) -> applySystemDelta(systemDelta) -> dispatch
+  // Interlock order: apply(patches) -> applyNamespaceDeltas(namespaceDelta) -> applySystemDelta(systemDelta) -> dispatch
   ctx.applyPatches(result.patches, "compute");
+  ctx.applyNamespaceDeltas(result.namespaceDelta ?? [], "compute");
   ctx.applySystemDelta(result.systemDelta, "compute");
 
   // Check terminal states

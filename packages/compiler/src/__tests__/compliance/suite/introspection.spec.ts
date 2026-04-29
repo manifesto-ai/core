@@ -479,6 +479,56 @@ describe("CCTS Introspection Suite", () => {
       ]);
     },
   );
+
+  it(
+    caseTitle(
+      CCTS_CASES.INTROSPECTION_PROJECTION,
+      "(SGRAPH-12) compiler-owned onceIntent namespace writes stay outside SchemaGraph.",
+    ),
+    () => {
+      const compiled = adapter.compile(`
+        domain Demo {
+          state { count: number = 0 }
+
+          action bump() {
+            onceIntent {
+              patch count = add(count, 1)
+            }
+          }
+        }
+      `);
+
+      const graph = extractSchemaGraph(compiled.value!);
+      const nodeIds = graph.nodes.map((node) => node.id);
+      const edges = graph.edges.map((edge) => `${edge.from}|${edge.relation}|${edge.to}`);
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("SGRAPH-7"),
+          edges.includes("action:bump|mutates|state:count"),
+          {
+            passMessage: "onceIntent body patches still emit domain mutates edges.",
+            failMessage: "onceIntent body patch mutation was lost from SchemaGraph.",
+            evidence: [noteEvidence("Observed edges", edges)],
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("SGRAPH-12"),
+          compiled.success
+            && !nodeIds.some((id) => id.includes("$mel") || id.includes("guards"))
+            && !edges.some((edge) => edge.includes("$mel") || edge.includes("guards")),
+          {
+            passMessage: "Compiler-owned onceIntent namespace writes stay outside SchemaGraph.",
+            failMessage: "onceIntent namespace bookkeeping leaked into SchemaGraph.",
+            evidence: [
+              noteEvidence("Observed node ids", nodeIds),
+              noteEvidence("Observed edges", edges),
+            ],
+          },
+        ),
+      ]);
+    },
+  );
 });
 
 function compareSchemaGraphEdges(

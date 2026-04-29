@@ -60,6 +60,7 @@ Records of significant architectural decisions:
 | [ADR-022](./adr/022-compiler-owned-source-location-sidecar-source-map-index) | Compiler-Owned Source Location Sidecar (`SourceMapIndex`) | Accepted |
 | [ADR-023](./adr/023-object-spread-sugar-in-mel) | Object Spread Sugar in MEL | Accepted |
 | [ADR-024](./adr/024-compiler-owned-mel-source-fragment-editing-primitive) | Compiler-Owned MEL Source Fragment Editing Primitive | Accepted |
+| [ADR-025](./adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation) | Snapshot Ontology Hard Cut — `data` Retirement and Namespace Separation | Accepted |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 

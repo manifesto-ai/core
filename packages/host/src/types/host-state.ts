@@ -1,13 +1,13 @@
 /**
  * Host-Owned State Namespace
  *
- * Defines the Host-owned state stored at `data.$host` in the Snapshot.
+ * Defines the Host-owned state stored at `namespaces.host` in the Snapshot.
  * This namespace is exclusively managed by Host and should not be modified by Core.
  *
  * @see host-SPEC.md §3.3.1
  */
 
-import type { ErrorValue } from "@manifesto-ai/core";
+import type { ErrorValue, Snapshot } from "@manifesto-ai/core";
 
 /**
  * Intent slot storing type and input for an intent
@@ -20,7 +20,7 @@ export interface IntentSlot {
 /**
  * Host-owned state namespace structure
  *
- * Stored at `data.$host` in the Snapshot
+ * Stored at `namespaces.host` in the Snapshot
  */
 export interface HostOwnedState {
   /**
@@ -41,29 +41,47 @@ export interface HostOwnedState {
 }
 
 /**
- * Extract Host-owned state from snapshot data
+ * Extract Host-owned state from a canonical snapshot.
  *
- * @param data - Snapshot.data object
+ * Accepts legacy data-root payloads only for compatibility with old tests and
+ * persisted fixtures.
+ *
+ * @param snapshotOrData - Core Snapshot or legacy Snapshot.data object
  * @returns HostOwnedState if present, undefined otherwise
  */
-export function getHostState(data: unknown): HostOwnedState | undefined {
-  if (typeof data === "object" && data !== null && "$host" in data) {
-    return (data as { $host: HostOwnedState }).$host;
+export function getHostState(snapshotOrData: unknown): HostOwnedState | undefined {
+  if (!isObjectRecord(snapshotOrData)) {
+    return undefined;
+  }
+
+  if ("namespaces" in snapshotOrData) {
+    const namespaces = (snapshotOrData as Pick<Snapshot, "namespaces">).namespaces;
+    const host = namespaces.host;
+    return isObjectRecord(host) ? host as HostOwnedState : undefined;
+  }
+
+  if ("$host" in snapshotOrData) {
+    const host = (snapshotOrData as { $host: unknown }).$host;
+    return isObjectRecord(host) ? host as HostOwnedState : undefined;
   }
   return undefined;
 }
 
 /**
- * Get a specific intent slot from snapshot data
+ * Get a specific intent slot from a canonical snapshot.
  *
- * @param data - Snapshot.data object
+ * @param snapshotOrData - Core Snapshot or legacy Snapshot.data object
  * @param intentId - Intent ID to look up
  * @returns IntentSlot if found, undefined otherwise
  */
 export function getIntentSlot(
-  data: unknown,
+  snapshotOrData: unknown,
   intentId: string
 ): IntentSlot | undefined {
-  const hostState = getHostState(data);
+  const hostState = getHostState(snapshotOrData);
   return hostState?.intentSlots?.[intentId];
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }

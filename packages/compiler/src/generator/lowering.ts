@@ -70,7 +70,7 @@ export function lowerSystemValues(schema: DomainSchema): DomainSchema {
   }
 
   const { hash: _hash, ...schemaWithoutHash } = result;
-  const nextHash = hashSchemaSync(schemaWithoutHash as Omit<CoreDomainSchema, "hash">);
+  const nextHash = hashSchemaSync(schemaWithoutHash as unknown as Omit<CoreDomainSchema, "hash">);
   return {
     ...schemaWithoutHash,
     hash: nextHash,
@@ -166,6 +166,12 @@ function collectSystemRefs(flow: CoreFlowNode, ctx: LoweringContext): void {
       break;
 
     case "patch":
+      if (flow.value) {
+        collectSystemRefsFromExpr(flow.value, ctx);
+      }
+      break;
+
+    case "namespacePatch":
       if (flow.value) {
         collectSystemRefsFromExpr(flow.value, ctx);
       }
@@ -331,6 +337,15 @@ function transformFlow(flow: CoreFlowNode, ctx: LoweringContext): CoreFlowNode {
     case "patch":
       return {
         kind: "patch",
+        op: flow.op,
+        path: flow.path,
+        value: flow.value ? transformExpr(flow.value, ctx) : undefined,
+      };
+
+    case "namespacePatch":
+      return {
+        kind: "namespacePatch",
+        namespace: flow.namespace,
         op: flow.op,
         path: flow.path,
         value: flow.value ? transformExpr(flow.value, ctx) : undefined,

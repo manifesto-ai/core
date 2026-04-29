@@ -16,6 +16,9 @@ import type { TraceEvent } from "../hcts-types.js";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV1Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
+import type { ExecutionContext } from "../../../types/execution.js";
+import { handleStartIntent } from "../../../job-handlers/start-intent.js";
+import { createStartIntentJob } from "../../../types/job.js";
 import {
   assertApplyBeforeDispatch,
   expectCompliance,
@@ -25,6 +28,7 @@ import {
   createTestSchema,
   createTestIntent,
   createTestSnapshot,
+  createTestRequirement,
 } from "../../helpers/index.js";
 import { createTestEffectRunner } from "../hcts-adapter.js";
 
@@ -80,7 +84,7 @@ describe("HCTS Interlock Tests", () => {
 
       effectRunner.register("http", async (_type, _params, context) => {
         // Capture what the snapshot looks like when effect runs
-        snapshotAtEffectTime = context.snapshot.data as Record<string, unknown>;
+        snapshotAtEffectTime = context.snapshot.state as Record<string, unknown>;
         return [{ op: "set", path: pp("response"), value: { data: "fetched" } }];
       });
 
@@ -154,13 +158,97 @@ describe("HCTS Interlock Tests", () => {
       const finalSnapshot = adapter.getSnapshot(executionKey);
 
       // Counter should be set
-      expect((finalSnapshot.data as Record<string, unknown>).counter).toBe(42);
+      expect((finalSnapshot.state as Record<string, unknown>).counter).toBe(42);
 
       // The effect should have received the counter value from expression evaluation
       // Note: In v1.x, the expression { kind: "get", path: "counter" } is evaluated
       // during compute, which reads from the already-patched state
       expect(receivedCounterValue).toBe(42);
-      expect((finalSnapshot.data as Record<string, unknown>).effectSawValue).toBe(42);
+      expect((finalSnapshot.state as Record<string, unknown>).effectSawValue).toBe(42);
+    });
+
+    it("HCTS-INTERLOCK-001c: Omitted namespaceDelta is treated as empty before systemDelta", () => {
+      const schema = createTestSchema({
+        actions: {
+          omittedNamespace: {
+            flow: { kind: "effect", type: "manual", params: {} },
+          },
+        },
+      });
+      const intent = createTestIntent("omittedNamespace");
+      const requirement = createTestRequirement("manual", {}, {
+        id: "req-omitted-namespace",
+        actionId: "omittedNamespace",
+      });
+
+      let snapshot = createTestSnapshot({}, schema.hash);
+      const order: string[] = [];
+
+      const ctx = {
+        key: executionKey,
+        schema,
+        core: {
+          computeSync: () => ({
+            patches: [{ op: "set", path: pp("ready"), value: true }],
+            systemDelta: {
+              status: "pending",
+              currentAction: intent.type,
+              addRequirements: [requirement],
+            },
+            status: "pending",
+          }),
+        },
+        getSnapshot: () => snapshot,
+        setSnapshot: (next: typeof snapshot) => {
+          snapshot = next;
+        },
+        resetFrozenContext: () => {},
+        getFrozenContext: () => ({ now: 0, randomSeed: intent.intentId, durationMs: 0 }),
+        applyPatches: () => {
+          order.push("patches");
+          snapshot = {
+            ...snapshot,
+            state: {
+              ...(snapshot.state as Record<string, unknown>),
+              ready: true,
+            },
+          };
+          return snapshot;
+        },
+        applyNamespaceDeltas: (deltas: readonly unknown[], source: string) => {
+          order.push(source === "compute" ? `compute-namespace:${deltas.length}` : source);
+          return snapshot;
+        },
+        applySystemDelta: () => {
+          order.push("system");
+          snapshot = {
+            ...snapshot,
+            system: {
+              ...snapshot.system,
+              status: "pending",
+              currentAction: intent.type,
+              pendingRequirements: [requirement],
+            },
+          };
+          return snapshot;
+        },
+        trace: () => {},
+        requestEffectExecution: () => {
+          order.push("dispatch");
+        },
+      } as unknown as ExecutionContext;
+
+      handleStartIntent(createStartIntentJob(intent), ctx);
+
+      expect(order).toEqual([
+        "host-intent-slot",
+        "patches",
+        "compute-namespace:0",
+        "system",
+        "dispatch",
+      ]);
+      expect((snapshot.state as Record<string, unknown>).ready).toBe(true);
+      expect(snapshot.system.pendingRequirements).toEqual([requirement]);
     });
   });
 

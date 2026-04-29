@@ -8,12 +8,12 @@ import { isOk, isErr } from "../schema/common.js";
 
 // Helper to create a minimal test context
 function createTestContext(
-  data: unknown = {},
+  state: unknown = {},
   input?: unknown,
   meta?: { intentId: string; actionName: string | null; timestamp: number }
 ): ReturnType<typeof createContext> {
   const snapshot: Snapshot = {
-    data,
+    state,
     computed: {},
     system: {
       status: "idle",
@@ -27,6 +27,10 @@ function createTestContext(
       timestamp: meta?.timestamp ?? 0,
       randomSeed: "seed",
       schemaHash: "test-hash",
+    },
+    namespaces: {
+      host: {},
+      mel: { guards: { intent: {} } },
     },
   };
 
@@ -88,7 +92,7 @@ describe("Expression Evaluator", () => {
       expect(evaluate({ kind: "lit", value: { a: 1 } })).toEqual({ a: 1 });
     });
 
-    it("get - should get values from data", () => {
+    it("get - should get values from state", () => {
       const ctx = createTestContext({ count: 10, user: { name: "Alice" } });
       expect(evaluate({ kind: "get", path: "count" }, ctx)).toBe(10);
       expect(evaluate({ kind: "get", path: "user.name" }, ctx)).toBe("Alice");
@@ -109,6 +113,27 @@ describe("Expression Evaluator", () => {
     it("get - should get values from system", () => {
       const ctx = createTestContext();
       expect(evaluate({ kind: "get", path: "system.status" }, ctx)).toBe("idle");
+    });
+
+    it("get - should get values from platform namespaces", () => {
+      const ctx = createTestContext();
+      const namespaceCtx = {
+        ...ctx,
+        snapshot: {
+          ...ctx.snapshot,
+          namespaces: {
+            ...ctx.snapshot.namespaces,
+            host: {
+              intentSlots: {
+                "intent-1": { type: "submit" },
+              },
+            },
+          },
+        },
+      };
+
+      expect(evaluate({ kind: "get", path: "$host.intentSlots.intent-1.type" }, namespaceCtx)).toBe("submit");
+      expect(evaluate({ kind: "get", path: "$host.missing" }, namespaceCtx)).toBeNull();
     });
 
     it("get - should get values from meta", () => {

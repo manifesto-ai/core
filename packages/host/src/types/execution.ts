@@ -13,6 +13,7 @@ import type {
   HostContext,
   Intent,
   ManifestoCore,
+  NamespaceDelta,
   Patch,
   SystemDelta,
   Snapshot,
@@ -137,6 +138,16 @@ export interface ExecutionContext {
    * @returns The new snapshot after applying patches
    */
   applyPatches(patches: Patch[], source: string): Snapshot;
+
+  /**
+   * Apply namespace deltas to the current snapshot.
+   *
+   * This is used for Host/runtime-owned Snapshot namespaces that are outside
+   * the domain state schema.
+   *
+   * @returns The new snapshot after applying namespace deltas
+   */
+  applyNamespaceDeltas(deltas: readonly NamespaceDelta[], source: string): Snapshot;
 
   /**
    * Apply a system delta emitted by Core.compute().

@@ -105,8 +105,8 @@ describe("HCTS Ordering Tests", () => {
       expect(executionOrder).toEqual(["effect1", "effect2"]);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).step1).toBe(true);
-      expect((finalSnapshot.data as Record<string, unknown>).step2).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step1).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step2).toBe(true);
     });
   });
 
@@ -154,7 +154,7 @@ describe("HCTS Ordering Tests", () => {
 
       // Verify final state
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).result).toBe("completed");
+      expect((finalSnapshot.state as Record<string, unknown>).result).toBe("completed");
     });
 
     it("HCTS-ORD-003: Multi-step effects complete with guards", async () => {
@@ -216,8 +216,8 @@ describe("HCTS Ordering Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).step1).toBe(true);
-      expect((finalSnapshot.data as Record<string, unknown>).step2).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step1).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step2).toBe(true);
     });
   });
 
@@ -265,7 +265,7 @@ describe("HCTS Ordering Tests", () => {
       expect(effectExecuted).toBe(true);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.data as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
       expect(response.first).toBe(true);
       expect(response.second).toBe(true);
     });

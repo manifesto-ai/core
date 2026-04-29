@@ -8,6 +8,7 @@ describe("core", () => {
     expect(core.compute).toBeInstanceOf(Function);
     expect(core.computeSync).toBeInstanceOf(Function);
     expect(core.apply).toBeInstanceOf(Function);
+    expect(core.applyNamespaceDeltas).toBeInstanceOf(Function);
     expect(core.applySystemDelta).toBeInstanceOf(Function);
     expect(core.validate).toBeInstanceOf(Function);
     expect(core.explain).toBeInstanceOf(Function);

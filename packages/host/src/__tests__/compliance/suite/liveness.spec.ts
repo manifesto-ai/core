@@ -66,7 +66,7 @@ describe("HCTS Liveness Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).wasProcessed).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).wasProcessed).toBe(true);
     });
 
     it("HCTS-LIVE-003: Effects are eventually fulfilled", async () => {
@@ -100,7 +100,7 @@ describe("HCTS Liveness Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const data = finalSnapshot.data as Record<string, unknown>;
+      const data = finalSnapshot.state as Record<string, unknown>;
       expect(data.response).toEqual({ success: true });
     });
   });
@@ -169,7 +169,7 @@ describe("HCTS Liveness Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const data = finalSnapshot.data as Record<string, unknown>;
+      const data = finalSnapshot.state as Record<string, unknown>;
 
       // Both steps should complete (no lost wakeup)
       expect(data.step1).toBe(true);

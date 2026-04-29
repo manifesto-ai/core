@@ -80,6 +80,15 @@ function lowerFlow(flow: CompilerFlowNode): CoreFlowNode {
         value: flow.value ? lowerActionExpr(flow.value) : undefined,
       };
 
+    case "namespacePatch":
+      return {
+        kind: "namespacePatch",
+        namespace: flow.namespace,
+        op: flow.op,
+        path: flow.path,
+        value: flow.value ? lowerActionExpr(flow.value) : undefined,
+      };
+
     case "effect":
       return {
         kind: "effect",

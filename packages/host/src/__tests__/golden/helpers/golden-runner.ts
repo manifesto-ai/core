@@ -12,7 +12,7 @@
  */
 
 import type { DomainSchema, Snapshot, Intent, Patch, Requirement, FieldType } from "@manifesto-ai/core";
-import { hashSchemaSync } from "@manifesto-ai/core";
+import { createSnapshot, hashSchemaSync } from "@manifesto-ai/core";
 import type { TraceEvent, ExecutionKey } from "../../compliance/hcts-types.js";
 import type { DeterministicRuntime } from "../../compliance/hcts-runtime.js";
 import { createTestRuntime } from "../../compliance/hcts-runtime.js";
@@ -34,7 +34,7 @@ export interface GoldenScenario {
   /** Domain schema for the scenario */
   schema: DomainSchema;
 
-  /** Initial state data */
+  /** Initial domain state */
   initialData: Record<string, unknown>;
 
   /** Effect handlers for the scenario */
@@ -203,8 +203,8 @@ export class GoldenRunner {
 
       // Compare final state
       if (
-        JSON.stringify(stripHostState(baseline.finalSnapshot.data)) !==
-        JSON.stringify(stripHostState(current.finalSnapshot.data))
+        JSON.stringify(stripHostState(baseline.finalSnapshot.state)) !==
+        JSON.stringify(stripHostState(current.finalSnapshot.state))
       ) {
         differences.push(`Run ${i + 1}: Final state differs from baseline`);
       }
@@ -242,23 +242,11 @@ export function createGoldenSnapshot(
   data: Record<string, unknown>,
   schemaHash: string
 ): Snapshot {
-  return {
-    data,
-    computed: {},
-    system: {
-      status: "idle",
-      pendingRequirements: [],
-      lastError: null,
-      currentAction: null,
-    },
-    meta: {
-      version: 0,
-      timestamp: 0, // Deterministic
-      randomSeed: "golden-seed",
-      schemaHash,
-    },
-    input: null,
-  };
+  return createSnapshot(data, schemaHash, {
+    now: 0,
+    randomSeed: "golden-seed",
+    durationMs: 0,
+  });
 }
 
 /**
@@ -366,10 +354,10 @@ export function compareGoldenResults(
 
   // Compare final state
   if (
-    JSON.stringify(stripHostState(expected.finalSnapshot.data)) !==
-    JSON.stringify(stripHostState(actual.finalSnapshot.data))
+    JSON.stringify(stripHostState(expected.finalSnapshot.state)) !==
+    JSON.stringify(stripHostState(actual.finalSnapshot.state))
   ) {
-    differences.push("Final snapshot data differs");
+    differences.push("Final snapshot state differs");
   }
 
   // Compare normalized trace
@@ -415,7 +403,6 @@ export function createGoldenSchema(config: {
     types: {},
     state: {
       fields: {
-        $host: { type: "object", required: false },
         ...Object.fromEntries(
           Object.entries(config.fields).map(([name, spec]) => [
             name,

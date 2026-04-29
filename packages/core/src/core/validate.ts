@@ -97,6 +97,8 @@ export function validate(schema: unknown): ValidationResult {
     });
   }
 
+  errors.push(...validateReservedStateIdentifiers(domainSchema));
+
   if (Object.keys(domainSchema.computed.fields).length === 0) {
     errors.push({
       code: "SCHEMA_ERROR",
@@ -118,6 +120,8 @@ export function validate(schema: unknown): ValidationResult {
   errors.push(...validateStateDefaults(domainSchema, "state.fields"));
 
   errors.push(...validateComputedDeps(domainSchema));
+
+  errors.push(...validateComputedRuntimeIsolation(domainSchema));
 
   errors.push(...validateComputedExprPaths(domainSchema));
 
@@ -158,6 +162,48 @@ export function validate(schema: unknown): ValidationResult {
   }
 
   return validResult();
+}
+
+function validateReservedStateIdentifiers(
+  schema: import("../schema/domain.js").DomainSchema,
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  const visitFields = (
+    fields: Record<string, import("../schema/field.js").FieldSpec>,
+    path: string,
+  ): void => {
+    for (const [name, field] of Object.entries(fields)) {
+      const fieldPath = `${path}.${name}`;
+      if (name.startsWith("$")) {
+        errors.push({
+          code: "SCHEMA_ERROR",
+          message: `State field "${name}" uses reserved namespace prefix "$"`,
+          path: fieldPath,
+        });
+      }
+
+      if (field.type === "object" && field.fields) {
+        visitFields(field.fields, fieldPath);
+      }
+    }
+  };
+
+  visitFields(schema.state.fields, "state.fields");
+
+  if (schema.state.fieldTypes) {
+    for (const name of Object.keys(schema.state.fieldTypes)) {
+      if (name.startsWith("$")) {
+        errors.push({
+          code: "SCHEMA_ERROR",
+          message: `state.fieldTypes.${name} uses reserved namespace prefix "$"`,
+          path: `state.fieldTypes.${name}`,
+        });
+      }
+    }
+  }
+
+  return errors;
 }
 
 /**
@@ -614,6 +660,46 @@ function validateComputedExprPaths(
   return errors;
 }
 
+function validateComputedRuntimeIsolation(
+  schema: import("../schema/domain.js").DomainSchema
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  for (const [path, spec] of Object.entries(schema.computed.fields)) {
+    const exprPaths = collectGetPathsFromExpr(spec.expr);
+
+    for (const exprPath of exprPaths) {
+      if (!isForbiddenComputedRuntimePath(exprPath)) {
+        continue;
+      }
+
+      errors.push({
+        code: "V-012",
+        message: `Computed expression must not read runtime or namespace path: ${exprPath}`,
+        path: `computed.fields.${path}`,
+      });
+    }
+  }
+
+  return errors;
+}
+
+function isForbiddenComputedRuntimePath(path: string): boolean {
+  if (path === "input" || path.startsWith("input.")) {
+    return true;
+  }
+  if (path.startsWith("system.")) {
+    return true;
+  }
+  if (path.startsWith("meta.")) {
+    return true;
+  }
+  if (path.startsWith("$")) {
+    return !isAllowedLexicalPath(path);
+  }
+  return false;
+}
+
 function validateComputedDepsCoverage(
   schema: import("../schema/domain.js").DomainSchema
 ): ValidationError[] {
@@ -671,6 +757,13 @@ function validateActionExprPaths(
 
     for (const exprPath of exprPaths) {
       if (exprPath.startsWith("$")) {
+        if (!isAllowedActionDollarPath(exprPath)) {
+          errors.push({
+            code: "V-003",
+            message: `Namespace or reserved runtime path is not allowed in action expression: ${exprPath}`,
+            path: `actions.${actionName}`,
+          });
+        }
         continue;
       }
 
@@ -720,4 +813,18 @@ function validateActionExprPaths(
   }
 
   return errors;
+}
+
+function isAllowedLexicalPath(path: string): boolean {
+  return path === "$item" || path.startsWith("$item.") || path === "$index" || path === "$array";
+}
+
+function isAllowedActionDollarPath(path: string): boolean {
+  return isAllowedLexicalPath(path)
+    || path.startsWith("$system.")
+    || isAllowedCompilerMelNamespacePath(path);
+}
+
+function isAllowedCompilerMelNamespacePath(path: string): boolean {
+  return path.startsWith("$mel.guards.intent.");
 }

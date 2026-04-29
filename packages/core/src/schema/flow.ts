@@ -13,6 +13,7 @@ export type FlowNode =
   | SeqFlow
   | IfFlow
   | PatchFlow
+  | NamespacePatchFlow
   | EffectFlow
   | CallFlow
   | HaltFlow
@@ -56,6 +57,20 @@ export const PatchFlow = z.object({
   value: ExprNodeSchema.optional(),
 });
 export type PatchFlow = z.infer<typeof PatchFlow>;
+
+/**
+ * namespacePatch - Compiler-owned namespace mutation declaration.
+ *
+ * Current registry: MEL onceIntent may write snapshot.namespaces.mel.
+ */
+export const NamespacePatchFlow = z.object({
+  kind: z.literal("namespacePatch"),
+  namespace: z.literal("mel"),
+  op: PatchOp,
+  path: PatchPath,
+  value: ExprNodeSchema.optional(),
+});
+export type NamespacePatchFlow = z.infer<typeof NamespacePatchFlow>;
 
 /**
  * effect - External operation requirement declaration
@@ -105,6 +120,7 @@ export const FlowNodeSchema: z.ZodType<FlowNode> = z.union([
   SeqFlow,
   IfFlow,
   PatchFlow,
+  NamespacePatchFlow,
   EffectFlow,
   CallFlow,
   HaltFlow,
@@ -114,5 +130,5 @@ export const FlowNodeSchema: z.ZodType<FlowNode> = z.union([
 /**
  * Flow node kinds enum
  */
-export const FlowKind = z.enum(["seq", "if", "patch", "effect", "call", "halt", "fail"]);
+export const FlowKind = z.enum(["seq", "if", "patch", "namespacePatch", "effect", "call", "halt", "fail"]);
 export type FlowKind = z.infer<typeof FlowKind>;

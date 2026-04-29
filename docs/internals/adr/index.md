@@ -55,6 +55,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-022](./022-compiler-owned-source-location-sidecar-source-map-index) | Compiler-Owned Source Location Sidecar (`SourceMapIndex`) | Accepted | 2026-04-16 | Compiler, Tooling, Docs |
 | [ADR-023](./023-object-spread-sugar-in-mel) | Object Spread Sugar in MEL | Accepted | 2026-04-23 | Compiler, Docs |
 | [ADR-024](./024-compiler-owned-mel-source-fragment-editing-primitive) | Compiler-Owned MEL Source Fragment Editing Primitive | Accepted | 2026-04-25 | Compiler, Studio/authoring tools |
+| [ADR-025](./025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation) | Snapshot Ontology Hard Cut — `data` Retirement and Namespace Separation | Accepted | 2026-04-29 | Core, Host, SDK, Compiler, Lineage, Governance, Studio, Agent tooling, Constitution, Docs |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -150,6 +151,13 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-024 is accepted as the compiler-owned source-fragment editing primitive decision for Studio and external Author layer integrations.
 - The accepted boundary is narrow: compiler validates and materializes exactly one source edit; the Author layer owns request interpretation, sequencing, retries, acceptance policy, and edit-attempt lineage.
 - ADR-024 is reflected in the current Compiler SPEC v1.3.0 contract, updated in place at `packages/compiler/docs/SPEC-v1.2.0.md`.
+
+### ADR-025 Companion Notes
+
+- ADR-025 is accepted as the v5 Snapshot ontology hard-cut decision: domain state moves from `Snapshot.data` to `Snapshot.state`, and platform/runtime/tooling namespaces move under `Snapshot.namespaces`.
+- ADR-025 retracts the prior `Snapshot.data` normative commitments in SPEC §13.3, the Constitution/`CLAUDE.md` canonical Snapshot block, and ADR-009 §2.8; those follow-up edits are part of the PR-1 implementation work described in ADR-025.
+- The non-normative ADR-025 roadmap is currently maintained as a temporary working checklist in `temp/025-roadmap.md`.
+- ADR-025 implementation is tracked on `feature/v5`; package-specific source cuts land through the PR series described in the roadmap.
 
 ### ADR-017 Version Notes
 

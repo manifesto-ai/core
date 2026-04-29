@@ -200,6 +200,8 @@ function collectMutationRootsFromFlow(
         }
         return;
       }
+      case "namespacePatch":
+        return;
       case "effect": {
         const root = rootFromEffectInto(node.params.into);
         if (root) {

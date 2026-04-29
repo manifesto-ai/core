@@ -125,7 +125,7 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
 
   complianceCase(CCTS_CASES.ACTIONS_GUARDED_BODY, "actions-and-control", "Action mutations remain guarded."),
   complianceCase(CCTS_CASES.ACTIONS_ONCE_DESUGARING, "actions-and-control", "once() desugars to intent-guarded marker writes."),
-  complianceCase(CCTS_CASES.ACTIONS_ONCE_INTENT_DESUGARING, "actions-and-control", "onceIntent lowers to map-level guard merges."),
+  complianceCase(CCTS_CASES.ACTIONS_ONCE_INTENT_DESUGARING, "actions-and-control", "onceIntent lowers to MEL namespace guard merges."),
   complianceCase(CCTS_CASES.ACTIONS_FAIL_STOP_LOWERING, "actions-and-control", "fail/stop lower to flow-control nodes."),
   complianceCase(CCTS_CASES.ACTIONS_FAIL_STOP_DIAGNOSTICS, "actions-and-control", "Guard requirements for fail/stop remain visible."),
   complianceCase(CCTS_CASES.ACTIONS_AGGREGATION, "actions-and-control", "Aggregation rules stay constrained."),

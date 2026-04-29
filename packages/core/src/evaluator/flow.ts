@@ -1,11 +1,14 @@
 import type { FlowNode } from "../schema/flow.js";
-import type { Snapshot, Requirement, ErrorValue } from "../schema/snapshot.js";
+import type { Snapshot, Requirement, ErrorValue, MelNamespace as MelNamespaceValue } from "../schema/snapshot.js";
+import { MelNamespace } from "../schema/snapshot.js";
 import type { Patch, PatchPath, PatchSegment } from "../schema/patch.js";
+import type { NamespaceDelta } from "../schema/result.js";
 import type { TraceNode } from "../schema/trace.js";
 import type { FieldSpec } from "../schema/field.js";
 import { createTraceNode } from "../schema/trace.js";
 import { createError } from "../errors.js";
 import {
+  isSafePatchPath,
   mergeAtPatchPath,
   patchPathToDisplayString,
   semanticPathToPatchPath,
@@ -33,6 +36,7 @@ export type FlowState = {
   readonly snapshot: Snapshot;
   readonly status: FlowStatus;
   readonly patches: readonly Patch[];
+  readonly namespaceDelta: readonly NamespaceDelta[];
   readonly requirements: readonly Requirement[];
   readonly error: ErrorValue | null;
 };
@@ -53,6 +57,7 @@ export function createFlowState(snapshot: Snapshot): FlowState {
     snapshot,
     status: "running",
     patches: [],
+    namespaceDelta: [],
     requirements: [],
     error: null,
   };
@@ -62,17 +67,17 @@ export function createFlowState(snapshot: Snapshot): FlowState {
  * Apply a patch to flow state
  */
 function applyPatchToState(state: FlowState, patch: Patch): FlowState {
-  let newData = state.snapshot.data;
+  let newSnapshotState = state.snapshot.state;
 
   switch (patch.op) {
     case "set":
-      newData = setByPatchPath(newData, patch.path, patch.value);
+      newSnapshotState = setByPatchPath(newSnapshotState, patch.path, patch.value);
       break;
     case "unset":
-      newData = unsetByPatchPath(newData, patch.path);
+      newSnapshotState = unsetByPatchPath(newSnapshotState, patch.path);
       break;
     case "merge":
-      newData = mergeAtPatchPath(newData, patch.path, patch.value);
+      newSnapshotState = mergeAtPatchPath(newSnapshotState, patch.path, patch.value);
       break;
   }
 
@@ -80,10 +85,49 @@ function applyPatchToState(state: FlowState, patch: Patch): FlowState {
     ...state,
     snapshot: {
       ...state.snapshot,
-      data: newData,
+      state: newSnapshotState,
     },
     patches: [...state.patches, patch],
   };
+}
+
+/**
+ * Apply a namespace patch to flow state for same-cycle namespace reads.
+ */
+function applyNamespacePatchToState(
+  state: FlowState,
+  namespace: "mel",
+  namespaceRoot: MelNamespaceValue,
+  patch: Patch
+): FlowState {
+  return {
+    ...state,
+    snapshot: {
+      ...state.snapshot,
+      namespaces: {
+        ...state.snapshot.namespaces,
+        [namespace]: namespaceRoot,
+      },
+    },
+    namespaceDelta: [
+      ...state.namespaceDelta,
+      {
+        namespace,
+        patches: [patch],
+      },
+    ],
+  };
+}
+
+function applyNamespacePatch(namespaceRoot: MelNamespaceValue, patch: Patch): unknown {
+  switch (patch.op) {
+    case "set":
+      return setByPatchPath(namespaceRoot, patch.path, patch.value);
+    case "unset":
+      return unsetByPatchPath(namespaceRoot, patch.path);
+    case "merge":
+      return mergeAtPatchPath(namespaceRoot, patch.path, patch.value);
+  }
 }
 
 /**
@@ -134,6 +178,9 @@ export function evaluateFlowSync(
 
     case "patch":
       return evaluatePatch(flow, ctx, state, nodePath);
+
+    case "namespacePatch":
+      return evaluateNamespacePatch(flow, ctx, state, nodePath);
 
     case "effect":
       return evaluateEffect(flow, ctx, state, nodePath);
@@ -309,6 +356,127 @@ function evaluatePatch(
   return {
     state: newState,
     trace: createTraceNode(ctx.trace, "patch", nodePath, { op: flow.op, path: displayPath }, patchValue, []),
+  };
+}
+
+function evaluateNamespacePatch(
+  flow: { namespace: "mel"; op: "set" | "unset" | "merge"; path: PatchPath; value?: import("../schema/expr.js").ExprNode },
+  ctx: EvalContext,
+  state: FlowState,
+  nodePath: string
+): FlowResult {
+  let patchValue: unknown = undefined;
+  const displayPath = patchPathToDisplayString(flow.path);
+
+  if (!isSafePatchPath(flow.path)) {
+    return {
+      state: setError(state, createError(
+        "PATH_NOT_FOUND",
+        `Unsafe namespace patch path: mel.${displayPath}`,
+        ctx.currentAction ?? "",
+        nodePath,
+        ctx.trace.timestamp
+      )),
+      trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+    };
+  }
+
+  if (flow.op !== "unset" && flow.value) {
+    const valueResult = evaluateExpr(flow.value, ctx);
+    if (!valueResult.ok) {
+      return {
+        state: setError(state, valueResult.error),
+        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+      };
+    }
+    patchValue = valueResult.value;
+  }
+
+  const existingRoot = state.snapshot.namespaces[flow.namespace];
+  let namespaceRoot: MelNamespaceValue = { guards: { intent: {} } };
+  if (existingRoot !== undefined) {
+    const parsedRoot = MelNamespace.safeParse(existingRoot);
+    if (!parsedRoot.success) {
+      return {
+        state: setError(state, createError(
+          "TYPE_MISMATCH",
+          `Invalid namespace root: ${flow.namespace} must match the MEL namespace shape`,
+          ctx.currentAction ?? "",
+          nodePath,
+          ctx.trace.timestamp
+        )),
+        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+      };
+    }
+    namespaceRoot = parsedRoot.data;
+  }
+
+  if (flow.op === "merge") {
+    if (!isObjectRecord(patchValue)) {
+      return {
+        state: setError(state, createError(
+          "TYPE_MISMATCH",
+          `Invalid namespace merge value at mel.${displayPath}: value must be an object`,
+          ctx.currentAction ?? "",
+          nodePath,
+          ctx.trace.timestamp
+        )),
+        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+      };
+    }
+
+    if (!isMergeTargetCompatible(namespaceRoot, flow.path)) {
+      return {
+        state: setError(state, createError(
+          "TYPE_MISMATCH",
+          `Invalid namespace merge target at mel.${displayPath}: target path must be an object or absent`,
+          ctx.currentAction ?? "",
+          nodePath,
+          ctx.trace.timestamp
+        )),
+        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+      };
+    }
+  }
+
+  const patch: Patch = flow.op === "unset"
+    ? { op: "unset", path: flow.path }
+    : flow.op === "merge"
+      ? { op: "merge", path: flow.path, value: patchValue as Record<string, unknown> }
+      : { op: "set", path: flow.path, value: patchValue };
+
+  const patchedNamespaceRoot = applyNamespacePatch(namespaceRoot, patch);
+  const parsedPatchedNamespaceRoot = MelNamespace.safeParse(patchedNamespaceRoot);
+  if (!parsedPatchedNamespaceRoot.success) {
+    return {
+      state: setError(state, createError(
+        "TYPE_MISMATCH",
+        `Invalid MEL namespace patch at mel.${displayPath}`,
+        ctx.currentAction ?? "",
+        nodePath,
+        ctx.trace.timestamp
+      )),
+      trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+    };
+  }
+
+  const newState = applyNamespacePatchToState(
+    state,
+    flow.namespace,
+    parsedPatchedNamespaceRoot.data,
+    patch
+  );
+
+  return {
+    state: newState,
+    trace: createTraceNode(
+      ctx.trace,
+      "namespaceDelta",
+      nodePath,
+      { namespace: flow.namespace, op: flow.op, path: displayPath },
+      patchValue,
+      []
+    ),
   };
 }
 
@@ -545,6 +713,38 @@ function toPatchPath(value: unknown): PatchPath | null {
   }
 
   return segments.length > 0 ? segments : null;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isMergeTargetCompatible(root: unknown, path: PatchPath): boolean {
+  let current: unknown = root;
+
+  for (const segment of path) {
+    if (current === undefined) {
+      return true;
+    }
+
+    if (segment.kind === "prop") {
+      if (!isObjectRecord(current)) {
+        return false;
+      }
+      current = current[segment.name];
+      continue;
+    }
+
+    if (!Array.isArray(current)) {
+      return false;
+    }
+    current = current[segment.index];
+  }
+
+  if (current === undefined) {
+    return true;
+  }
+  return isObjectRecord(current);
 }
 
 function evaluateCall(

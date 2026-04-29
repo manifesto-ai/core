@@ -89,7 +89,7 @@ describe("HCTS Job Tests", () => {
       expectCompliance(result);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const data = finalSnapshot.data as Record<string, unknown>;
+      const data = finalSnapshot.state as Record<string, unknown>;
       expect(data.step1).toBe(true);
       expect(data.step2).toBe(true);
       expect(data.step3).toBe(true);
@@ -135,7 +135,7 @@ describe("HCTS Job Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const data = finalSnapshot.data as Record<string, unknown>;
+      const data = finalSnapshot.state as Record<string, unknown>;
 
       // All patches applied together
       expect(data.a).toBe(1);
@@ -220,7 +220,7 @@ describe("HCTS Job Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const data = finalSnapshot.data as Record<string, unknown>;
+      const data = finalSnapshot.state as Record<string, unknown>;
 
       // The flow should have continued after effect
       expect(data.effectDone).toBe(true);

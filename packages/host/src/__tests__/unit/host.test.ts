@@ -64,7 +64,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("increment"));
 
       expect(result.status).toBe("complete");
-      expect(stripHostState(result.snapshot.data)).toEqual({ count: 1 });
+      expect(stripHostState(result.snapshot.state)).toEqual({ count: 1 });
     });
 
     it("should accumulate state across dispatches", async () => {
@@ -75,7 +75,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("increment"));
 
       expect(result.status).toBe("complete");
-      expect(stripHostState(result.snapshot.data)).toEqual({ count: 3 });
+      expect(stripHostState(result.snapshot.state)).toEqual({ count: 3 });
     });
 
     it("should handle intent with input", async () => {
@@ -84,7 +84,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("setName", { name: "Alice" }));
 
       expect(result.status).toBe("complete");
-      expect(stripHostState(result.snapshot.data)).toEqual({ name: "Alice" });
+      expect(stripHostState(result.snapshot.state)).toEqual({ name: "Alice" });
     });
 
     it("should return error for unknown action", async () => {
@@ -134,7 +134,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("fetchData"));
 
       expect(result.status).toBe("complete");
-      expect(stripHostState(result.snapshot.data)).toEqual({
+      expect(stripHostState(result.snapshot.state)).toEqual({
         response: { url: "https://api.test.com" },
       });
     });
@@ -182,7 +182,7 @@ describe("ManifestoHost", () => {
 
       const snapshot = await host.getSnapshot();
 
-      expect(stripHostState(snapshot?.data ?? {})).toEqual({ count: 5 });
+      expect(stripHostState(snapshot?.state ?? {})).toEqual({ count: 5 });
     });
 
     it("should persist snapshot after dispatch", async () => {
@@ -191,7 +191,7 @@ describe("ManifestoHost", () => {
       await host.dispatch(createTestIntent("increment"));
       const snapshot = await host.getSnapshot();
 
-      expect(stripHostState(snapshot?.data ?? {})).toEqual({ count: 1 });
+      expect(stripHostState(snapshot?.state ?? {})).toEqual({ count: 1 });
       expect(snapshot?.meta.version).toBe(2);
     });
 
@@ -199,12 +199,12 @@ describe("ManifestoHost", () => {
       const host = createHost(schema, { initialData: { count: 100 } });
 
       await host.dispatch(createTestIntent("increment"));
-      expect(stripHostState((await host.getSnapshot())?.data ?? {})).toEqual({ count: 101 });
+      expect(stripHostState((await host.getSnapshot())?.state ?? {})).toEqual({ count: 101 });
 
       await host.reset(createTestSnapshot({ count: 0 }, schema.hash, DEFAULT_HOST_CONTEXT));
 
       const snapshot = await host.getSnapshot();
-      expect(stripHostState(snapshot?.data ?? {})).toEqual({ count: 0 });
+      expect(stripHostState(snapshot?.state ?? {})).toEqual({ count: 0 });
       expect(snapshot?.meta.version).toBe(0);
     });
 
@@ -219,13 +219,13 @@ describe("ManifestoHost", () => {
 
       const nextSnapshot: Snapshot = {
         ...restored,
-        data: { count: 999 },
+        state: { count: 999 },
       };
 
       host.reset(nextSnapshot);
 
       const snapshot = await host.getSnapshot();
-      expect(snapshot?.data).toEqual({ count: 999 });
+      expect(snapshot?.state).toEqual({ count: 999 });
       expect(snapshot?.meta.version).toBe(restored.meta.version);
       expect(snapshot?.meta.timestamp).toBe(restored.meta.timestamp);
       expect(snapshot?.meta.randomSeed).toBe(restored.meta.randomSeed);
@@ -259,7 +259,7 @@ describe("ManifestoHost", () => {
 
       const result = await host.dispatch(createTestIntentWithId("increment", "intent-restore"));
 
-      expect(stripHostState(result.snapshot.data)).toEqual({ count: 8 });
+      expect(stripHostState(result.snapshot.state)).toEqual({ count: 8 });
       expect(result.snapshot.meta.timestamp).toBe(100);
       expect(result.snapshot.meta.randomSeed).toBe("intent-restore");
       expect(result.snapshot.input).toBeNull();
@@ -371,7 +371,7 @@ describe("ManifestoHost", () => {
 
       const snapshot = await host.getSnapshot();
 
-      expect(stripHostState(snapshot?.data ?? {})).toEqual({ itemsTotal: 150, shipping: 10 });
+      expect(stripHostState(snapshot?.state ?? {})).toEqual({ itemsTotal: 150, shipping: 10 });
       expect(snapshot?.computed["total"]).toBe(160);
     });
 
@@ -404,7 +404,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("fetchWithRetry"));
 
       expect(result.status).toBe("complete");
-      expect(stripHostState(result.snapshot.data)).toEqual({ data: "success" });
+      expect(stripHostState(result.snapshot.state)).toEqual({ data: "success" });
       expect(attempts).toBe(3);
     });
   });
@@ -491,7 +491,7 @@ describe("ManifestoHost", () => {
       // Check what the shared snapshot looks like after a max-iterations error
       const snapshotAfter = host.getSnapshot();
       const currentAction = snapshotAfter?.system.currentAction;
-      const pending = (snapshotAfter?.data as Record<string, unknown>)?.pending;
+      const pending = (snapshotAfter?.state as Record<string, unknown>)?.pending;
 
       // Log the actual state for documentation
       // currentAction may or may not be "run" depending on Host's cleanup behavior
@@ -511,7 +511,7 @@ describe("ManifestoHost", () => {
       // Availability IS bypassed. But the flow's state guard prevents harmful side effects:
       // pending is "intent-A" → if isNull(pending) is false → branch skipped → no-op.
       expect(result2.snapshot.system.lastError?.code).not.toBe("ACTION_UNAVAILABLE");
-      expect((result2.snapshot.data as Record<string, unknown>).pending).toBe("intent-A");
+      expect((result2.snapshot.state as Record<string, unknown>).pending).toBe("intent-A");
     });
 
     it("SCENARIO: normal sequential dispatch does NOT leak currentAction", async () => {

@@ -16,7 +16,11 @@ export const PatchSegment = z.discriminatedUnion("kind", [
 export type PatchSegment = z.infer<typeof PatchSegment>;
 
 /**
- * PatchPath - Path segments rooted at snapshot.data.
+ * PatchPath - Root-relative path segments.
+ *
+ * The transition channel determines the root:
+ * - ComputeResult.patches: snapshot.state
+ * - NamespaceDelta.patches: snapshot.namespaces[namespace]
  */
 export const PatchPath = z.array(PatchSegment).min(1);
 export type PatchPath = z.infer<typeof PatchPath>;

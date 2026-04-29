@@ -81,7 +81,7 @@ describe("HCTS Reinjection Tests", () => {
 
       // Result should be applied
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).result).toBe("completed");
+      expect((finalSnapshot.state as Record<string, unknown>).result).toBe("completed");
     });
   });
 
@@ -124,7 +124,7 @@ describe("HCTS Reinjection Tests", () => {
 
       // Effect should have been executed
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).effectDone).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).effectDone).toBe(true);
     });
   });
 
@@ -209,9 +209,9 @@ describe("HCTS Reinjection Tests", () => {
       expect(executionOrder).toEqual(["step1", "step2", "step3"]);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).step1).toBe(true);
-      expect((finalSnapshot.data as Record<string, unknown>).step2).toBe(true);
-      expect((finalSnapshot.data as Record<string, unknown>).step3).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step1).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step2).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step3).toBe(true);
     });
   });
 
@@ -265,7 +265,7 @@ describe("HCTS Reinjection Tests", () => {
 
       // Effect result should be applied
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.data as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
       expect(response.executed).toBe(true);
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
     });

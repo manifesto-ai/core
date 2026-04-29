@@ -2,7 +2,7 @@ import type { DomainSchema } from "../schema/domain.js";
 import type { Snapshot } from "../schema/snapshot.js";
 import type { ErrorValue, Requirement } from "../schema/snapshot.js";
 import type { Intent, Patch } from "../schema/patch.js";
-import type { ComputeResult, ComputeStatus, SystemDelta } from "../schema/result.js";
+import type { ComputeResult, ComputeStatus, NamespaceDelta, SystemDelta } from "../schema/result.js";
 import type { TraceGraph } from "../schema/trace.js";
 import type { FieldSpec } from "../schema/field.js";
 import { createError } from "../errors.js";
@@ -106,19 +106,21 @@ export function computeSync(
   const status = mapFlowStatus(flowResult.state.status);
   const systemDelta = createSystemDeltaForFlow(currentSnapshot, intent, status, flowResult.state.error, flowResult.state.requirements);
   const patches = [...flowResult.state.patches];
+  const namespaceDelta: NamespaceDelta[] = [...flowResult.state.namespaceDelta];
 
   const trace: TraceGraph = {
     root: flowResult.trace,
     nodes: collectTraceNodes(flowResult.trace),
     intent: { type: intent.type, input: intent.input },
     baseVersion: currentSnapshot.meta.version,
-    resultVersion: estimateResultVersion(currentSnapshot, patches, systemDelta),
+    resultVersion: estimateResultVersion(currentSnapshot, patches, namespaceDelta, systemDelta),
     duration: context.durationMs ?? 0,
     terminatedBy: mapFlowStatusToTermination(flowResult.state.status),
   };
 
   return {
     patches,
+    namespaceDelta,
     systemDelta,
     trace,
     status,
@@ -251,13 +253,14 @@ function createErrorResult(
     nodes: {},
     intent: { type: intent.type, input: intent.input },
     baseVersion: snapshot.meta.version,
-    resultVersion: estimateResultVersion(snapshot, [], systemDelta),
+    resultVersion: estimateResultVersion(snapshot, [], [], systemDelta),
     duration: context.durationMs ?? 0,
     terminatedBy: "error",
   };
 
   return {
     patches: [],
+    namespaceDelta: [],
     systemDelta,
     trace,
     status: "error",
@@ -287,12 +290,21 @@ function createSystemDeltaForFlow(
   };
 }
 
-function estimateResultVersion(snapshot: Snapshot, patches: readonly Patch[], delta: SystemDelta): number {
+function estimateResultVersion(
+  snapshot: Snapshot,
+  patches: readonly Patch[],
+  namespaceDelta: readonly NamespaceDelta[],
+  delta: SystemDelta
+): number {
   let version = snapshot.meta.version;
 
   // Host interlock always executes core.apply() first, even for empty patch arrays.
   // apply() increments snapshot version by exactly 1.
   version += 1;
+
+  if (namespaceDelta.length > 0) {
+    version += 1;
+  }
 
   const applied = applySystemDelta(snapshot, delta);
   if (applied !== snapshot) {

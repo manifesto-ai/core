@@ -72,8 +72,8 @@ describe("HCTS Mailbox Tests", () => {
       const result1 = adapter.getSnapshot(key1);
       const result2 = adapter.getSnapshot(key2);
 
-      expect((result1.data as Record<string, unknown>).counter).toBe(1);
-      expect((result2.data as Record<string, unknown>).counter).toBe(1);
+      expect((result1.state as Record<string, unknown>).counter).toBe(1);
+      expect((result2.state as Record<string, unknown>).counter).toBe(1);
     });
 
     it("HCTS-MAIL-002: ExecutionKeys are isolated during concurrent processing", async () => {
@@ -120,8 +120,8 @@ describe("HCTS Mailbox Tests", () => {
       const result1 = adapter.getSnapshot(key1);
       const result2 = adapter.getSnapshot(key2);
 
-      expect((result1.data as Record<string, unknown>).result).toBe("completed");
-      expect((result2.data as Record<string, unknown>).result).toBe("completed");
+      expect((result1.state as Record<string, unknown>).result).toBe("completed");
+      expect((result2.state as Record<string, unknown>).result).toBe("completed");
     });
   });
 
@@ -159,7 +159,7 @@ describe("HCTS Mailbox Tests", () => {
         await adapter.drain(key);
 
         const result = adapter.getSnapshot(key);
-        expect((result.data as Record<string, unknown>).done).toBe(true);
+        expect((result.state as Record<string, unknown>).done).toBe(true);
       }
     });
   });
@@ -293,7 +293,7 @@ describe("HCTS Mailbox Tests", () => {
 
       const result = adapter.getSnapshot(executionKey);
       // All three increments should have been processed: 0 -> 1 -> 2 -> 3
-      expect((result.data as Record<string, unknown>).counter).toBe(3);
+      expect((result.state as Record<string, unknown>).counter).toBe(3);
     });
   });
 

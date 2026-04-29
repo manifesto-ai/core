@@ -155,7 +155,7 @@ const requiredAnchors = [
       "commitAsyncWithReport()",
       "waitForProposalWithReport()",
       "snapshot.system.lastError",
-      "data.$host.lastError",
+      "namespaces.host.lastError",
       "MUST NOT automatically promote",
     ],
   },

@@ -48,12 +48,12 @@ const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
 
 // Helper to create a minimal test context
 function createTestContext(
-  data: unknown = {},
+  state: unknown = {},
   input?: unknown,
   actions: DomainSchema["actions"] = {}
 ): ReturnType<typeof createContext> {
   const snapshot: Snapshot = {
-    data,
+    state,
     computed: {},
     system: {
       status: "idle",
@@ -67,6 +67,10 @@ function createTestContext(
       timestamp: 0,
       randomSeed: "seed",
       schemaHash: "test-hash",
+    },
+    namespaces: {
+      host: {},
+      mel: { guards: { intent: {} } },
     },
   };
 
@@ -83,9 +87,9 @@ function createTestContext(
   return createContext(snapshot, schema, "testAction", "test", "test-intent-id", 0);
 }
 
-function createTestFlowState(data: unknown = {}): FlowState {
+function createTestFlowState(state: unknown = {}): FlowState {
   const snapshot: Snapshot = {
-    data,
+    state,
     computed: {},
     system: {
       status: "idle",
@@ -99,6 +103,10 @@ function createTestFlowState(data: unknown = {}): FlowState {
       timestamp: 0,
       randomSeed: "seed",
       schemaHash: "test-hash",
+    },
+    namespaces: {
+      host: {},
+      mel: { guards: { intent: {} } },
     },
   };
   return createFlowState(snapshot);
@@ -120,7 +128,7 @@ describe("Flow Evaluator", () => {
       const result = await evaluateFlow(flow, ctx, state, "test");
 
       expect(result.state.status).toBe("running");
-      expect(result.state.snapshot.data).toEqual({ a: 1, b: 2 });
+      expect(result.state.snapshot.state).toEqual({ a: 1, b: 2 });
       expect(result.state.patches).toHaveLength(2);
     });
 
@@ -139,7 +147,7 @@ describe("Flow Evaluator", () => {
       const result = await evaluateFlow(flow, ctx, state, "test");
 
       expect(result.state.status).toBe("halted");
-      expect(result.state.snapshot.data).toEqual({ a: 1 });
+      expect(result.state.snapshot.state).toEqual({ a: 1 });
       expect(result.state.patches).toHaveLength(1);
     });
 
@@ -158,7 +166,7 @@ describe("Flow Evaluator", () => {
       const result = await evaluateFlow(flow, ctx, state, "test");
 
       expect(result.state.status).toBe("error");
-      expect(result.state.snapshot.data).toEqual({ a: 1 });
+      expect(result.state.snapshot.state).toEqual({ a: 1 });
       expect(result.state.error).not.toBeNull();
     });
 
@@ -177,7 +185,7 @@ describe("Flow Evaluator", () => {
       const result = await evaluateFlow(flow, ctx, state, "test");
 
       expect(result.state.status).toBe("pending");
-      expect(result.state.snapshot.data).toEqual({ a: 1 });
+      expect(result.state.snapshot.state).toEqual({ a: 1 });
       expect(result.state.requirements).toHaveLength(1);
     });
   });
@@ -195,7 +203,7 @@ describe("Flow Evaluator", () => {
       const state = createTestFlowState();
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.data).toEqual({ result: "then" });
+      expect(result.state.snapshot.state).toEqual({ result: "then" });
     });
 
     it("should execute else branch when condition is false", async () => {
@@ -210,7 +218,7 @@ describe("Flow Evaluator", () => {
       const state = createTestFlowState();
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.data).toEqual({ result: "else" });
+      expect(result.state.snapshot.state).toEqual({ result: "else" });
     });
 
     it("should skip else when not provided and condition is false", async () => {
@@ -224,7 +232,7 @@ describe("Flow Evaluator", () => {
       const state = createTestFlowState();
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.data).toEqual({});
+      expect(result.state.snapshot.state).toEqual({});
       expect(result.state.status).toBe("running");
     });
 
@@ -240,7 +248,7 @@ describe("Flow Evaluator", () => {
       const state = createTestFlowState({ enabled: true });
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.data).toEqual({ enabled: true, result: "enabled" });
+      expect(result.state.snapshot.state).toEqual({ enabled: true, result: "enabled" });
     });
   });
 
@@ -256,7 +264,7 @@ describe("Flow Evaluator", () => {
       const state = createTestFlowState();
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.data).toEqual({ count: 42 });
+      expect(result.state.snapshot.state).toEqual({ count: 42 });
       expect(result.state.patches).toEqual([{ op: "set", path: pp("count"), value: 42 }]);
     });
 
@@ -271,10 +279,10 @@ describe("Flow Evaluator", () => {
       const state = createTestFlowState();
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.data).toEqual({ user: { name: "Alice" } });
+      expect(result.state.snapshot.state).toEqual({ user: { name: "Alice" } });
     });
 
-    it("should reject system-field patch paths at data root", async () => {
+    it("should reject system-field patch paths at state root", async () => {
       const flow: FlowNode = {
         kind: "patch",
         op: "set", path: pp("system.status"),
@@ -287,7 +295,7 @@ describe("Flow Evaluator", () => {
 
       expect(result.state.snapshot.system.status).toBe("idle");
       expect(result.state.error?.code).toBe("PATH_NOT_FOUND");
-      expect(result.state.snapshot.data).toEqual({});
+      expect(result.state.snapshot.state).toEqual({});
     });
 
     it("should unset a value", async () => {
@@ -300,7 +308,7 @@ describe("Flow Evaluator", () => {
       const state = createTestFlowState({ toRemove: "value", keep: "this" });
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.data).toEqual({ keep: "this" });
+      expect(result.state.snapshot.state).toEqual({ keep: "this" });
     });
 
     it("should merge objects", async () => {
@@ -314,7 +322,7 @@ describe("Flow Evaluator", () => {
       const state = createTestFlowState({ user: { name: "Alice" } });
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.data).toEqual({ user: { name: "Alice", age: 30, city: "Seoul" } });
+      expect(result.state.snapshot.state).toEqual({ user: { name: "Alice", age: 30, city: "Seoul" } });
     });
 
     it("should evaluate expression for value", async () => {
@@ -330,7 +338,7 @@ describe("Flow Evaluator", () => {
 
       const ctx = createTestContext({}, { value: 21 });
       const state = createFlowState({
-        data: {},
+        state: {},
         computed: {},
         system: {
           status: "idle",
@@ -340,10 +348,14 @@ describe("Flow Evaluator", () => {
         },
         input: { value: 21 },
         meta: { version: 0, timestamp: 0, randomSeed: "seed", schemaHash: "test-hash" },
+        namespaces: {
+          host: {},
+          mel: { guards: { intent: {} } },
+        },
       });
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.data).toEqual({ doubled: 42 });
+      expect(result.state.snapshot.state).toEqual({ doubled: 42 });
     });
   });
 
@@ -406,7 +418,7 @@ describe("Flow Evaluator", () => {
       const state = createTestFlowState();
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.data).toEqual({
+      expect(result.state.snapshot.state).toEqual({
         before: true,
         fromHelper: true,
         after: true,
@@ -529,17 +541,17 @@ describe("Flow Evaluator", () => {
       const ctx1 = createTestContext({ value: 25 });
       const state1 = createTestFlowState({ value: 25 });
       const result1 = await evaluateFlow(flow, ctx1, state1, "test");
-      expect(result1.state.snapshot.data).toEqual({ value: 25, category: "high" });
+      expect(result1.state.snapshot.state).toEqual({ value: 25, category: "high" });
 
       const ctx2 = createTestContext({ value: 15 });
       const state2 = createTestFlowState({ value: 15 });
       const result2 = await evaluateFlow(flow, ctx2, state2, "test");
-      expect(result2.state.snapshot.data).toEqual({ value: 15, category: "medium" });
+      expect(result2.state.snapshot.state).toEqual({ value: 15, category: "medium" });
 
       const ctx3 = createTestContext({ value: 5 });
       const state3 = createTestFlowState({ value: 5 });
       const result3 = await evaluateFlow(flow, ctx3, state3, "test");
-      expect(result3.state.snapshot.data).toEqual({ value: 5, category: "low" });
+      expect(result3.state.snapshot.state).toEqual({ value: 5, category: "low" });
     });
 
     it("should handle loop-like pattern with filter/map", async () => {
@@ -571,7 +583,7 @@ describe("Flow Evaluator", () => {
       const state = createTestFlowState({ items: [{ active: true }, { active: false }, { active: true }] });
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.data).toMatchObject({
+      expect(result.state.snapshot.state).toMatchObject({
         activeItems: [{ active: true }, { active: true }],
         activeCount: 2,
       });

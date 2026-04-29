@@ -2,13 +2,13 @@
  * Host Test Adapter Interface
  *
  * Defines the contract for adapting different Host implementations
- * to the HCTS test suite. This allows testing v1.x and v2.0 hosts
+ * to the HCTS test suite. This allows testing Host implementations
  * with the same compliance tests.
  *
  * @see host-SPEC-compilance-test-suite.md §1.1
  */
 
-import type { Snapshot, Intent, Patch, DomainSchema } from "@manifesto-ai/core";
+import type { Snapshot, Intent, Patch, DomainSchema, NamespaceDelta } from "@manifesto-ai/core";
 import type { ExecutionKey, TraceEvent } from "./hcts-types.js";
 import type { DeterministicRuntime } from "./hcts-runtime.js";
 import type { EffectHandler } from "../../effects/types.js";
@@ -84,12 +84,14 @@ export interface HostTestAdapter {
   submitIntent(key: ExecutionKey, intent: Intent): void;
 
   /**
-   * Inject effect result patches directly (for testing fulfillment)
+   * Inject effect result patches and optional namespace deltas directly
+   * (for testing fulfillment)
    */
   injectEffectResult(
     key: ExecutionKey,
     requirementId: string,
-    patches: Patch[]
+    patches: Patch[],
+    namespaceDelta?: readonly NamespaceDelta[]
   ): void;
 
   /**

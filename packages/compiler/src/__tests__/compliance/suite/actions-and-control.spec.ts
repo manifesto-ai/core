@@ -107,7 +107,7 @@ describe("CCTS Actions and Control Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.ACTIONS_ONCE_INTENT_DESUGARING, "(COMPILER-MEL-1) onceIntent lowers to map-level guard merges"), () => {
+  it(caseTitle(CCTS_CASES.ACTIONS_ONCE_INTENT_DESUGARING, "(COMPILER-MEL-1) onceIntent lowers to MEL namespace guard merges"), () => {
     const result = adapter.compile(`
       domain Demo {
         state { count: number = 0 }
@@ -129,14 +129,15 @@ describe("CCTS Actions and Control Suite", () => {
     const satisfied =
       result.success &&
       flow?.kind === "if" &&
-      firstStep?.kind === "patch" &&
+      firstStep?.kind === "namespacePatch" &&
+      firstStep.namespace === "mel" &&
       firstStep.op === "merge" &&
-      JSON.stringify(firstStep.path) === JSON.stringify(semanticPathToPatchPath("$mel.guards.intent"));
+      JSON.stringify(firstStep.path) === JSON.stringify(semanticPathToPatchPath("guards.intent"));
 
     expectAllCompliance([
       evaluateRule(getRuleOrThrow("COMPILER-MEL-1"), satisfied, {
-        passMessage: "onceIntent lowers to a map-level guard merge at $mel.guards.intent.",
-        failMessage: "onceIntent no longer lowers to the expected map-level guard merge.",
+        passMessage: "onceIntent lowers to a MEL namespace guard merge at guards.intent.",
+        failMessage: "onceIntent no longer lowers to the expected MEL namespace guard merge.",
         evidence: [noteEvidence("Observed first step", firstStep)],
       }),
     ]);

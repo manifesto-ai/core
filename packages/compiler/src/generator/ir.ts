@@ -39,7 +39,6 @@ import {
   semanticPathToPatchPath,
   sha256Sync,
   type ExprNode as RuntimeExprNode,
-  type FlowNode as RuntimeFlowNode,
   type PatchPath,
 } from "@manifesto-ai/core";
 import { lowerCanonicalSchema } from "./runtime-lowering.js";
@@ -56,12 +55,21 @@ export type CompilerExprNode = MelExprNode;
 /**
  * Core FlowNode types (matching core/schema/flow.ts)
  */
-export type CoreFlowNode = RuntimeFlowNode;
+export type CoreFlowNode =
+  | { kind: "seq"; steps: CoreFlowNode[] }
+  | { kind: "if"; cond: CoreExprNode; then: CoreFlowNode; else?: CoreFlowNode }
+  | { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CoreExprNode }
+  | { kind: "namespacePatch"; namespace: "mel"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CoreExprNode }
+  | { kind: "effect"; type: string; params: Record<string, CoreExprNode> }
+  | { kind: "call"; flow: string }
+  | { kind: "halt"; reason?: string }
+  | { kind: "fail"; code: string; message?: CoreExprNode };
 
 export type CompilerFlowNode =
   | { kind: "seq"; steps: CompilerFlowNode[] }
   | { kind: "if"; cond: CompilerExprNode; then: CompilerFlowNode; else?: CompilerFlowNode }
   | { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CompilerExprNode }
+  | { kind: "namespacePatch"; namespace: "mel"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CompilerExprNode }
   | { kind: "effect"; type: string; params: Record<string, CompilerExprNode> }
   | { kind: "call"; flow: string }
   | { kind: "halt"; reason?: string }
@@ -1456,11 +1464,12 @@ function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): Co
     cond = callExpr("and", [cond, extraCond]);
   }
 
-  // Guard write: semantic target is guardPath, lowered as map-level merge.
+  // Guard write: compiler-owned MEL namespace merge.
   const markerPatch: CompilerFlowNode = {
-    kind: "patch",
+    kind: "namespacePatch",
+    namespace: "mel",
     op: "merge",
-    path: toPatchPath("$mel.guards.intent"),
+    path: toPatchPath("guards.intent"),
     value: objExpr({ [guardId]: intentIdExpr }),
   };
 

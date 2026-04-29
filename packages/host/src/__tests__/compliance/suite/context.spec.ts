@@ -80,7 +80,7 @@ describe("HCTS Context Determinism Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const data = finalSnapshot.data as Record<string, unknown>;
+      const data = finalSnapshot.state as Record<string, unknown>;
 
       // Both timestamps should be identical (time frozen during compute)
       expect(data.firstTimestamp).toBe(data.secondTimestamp);
@@ -135,7 +135,7 @@ describe("HCTS Context Determinism Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const data = finalSnapshot.data as Record<string, unknown>;
+      const data = finalSnapshot.state as Record<string, unknown>;
 
       // Both seeds should be the same intent ID (v1.x uses intentId as seed)
       expect(data.firstSeed).toBe(data.secondSeed);
@@ -207,7 +207,7 @@ describe("HCTS Context Determinism Tests", () => {
       adapter.submitIntent(executionKey, createTestIntent("captureIntentId"));
       await adapter.drain(executionKey);
       const result1 = adapter.getSnapshot(executionKey);
-      const data1 = result1.data as Record<string, unknown>;
+      const data1 = result1.state as Record<string, unknown>;
 
       // Second intent with different key
       const executionKey2 = "context-test-2";
@@ -216,7 +216,7 @@ describe("HCTS Context Determinism Tests", () => {
       adapter.submitIntent(executionKey2, createTestIntent("captureIntentId"));
       await adapter.drain(executionKey2);
       const result2 = adapter.getSnapshot(executionKey2);
-      const data2 = result2.data as Record<string, unknown>;
+      const data2 = result2.state as Record<string, unknown>;
 
       // The captured intentIds should be different
       // v1.x uses intentId as the randomSeed, so different intents = different seeds

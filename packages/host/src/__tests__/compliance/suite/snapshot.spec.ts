@@ -1,10 +1,10 @@
 /**
  * HCTS Snapshot Ownership Test Suite
  *
- * Tests for snapshot type alignment rules in the current Host v4 contract:
+ * Tests for snapshot type alignment rules in the current Host v5 contract:
  * - HOST-SNAP-1~4: Core Snapshot type usage
- * - HOST-NS-1~5: Host-owned state namespace
- * - HOST-RESTORE-1~3: restore-normalized resume boundary
+ * - HOST-NS-1~8: Host-owned state namespace
+ * - HOST-RESTORE-1~4: restore-normalized resume boundary
  *
  * @see host-SPEC.md §3.3
  */
@@ -66,12 +66,16 @@ describe("HCTS Snapshot Ownership Tests", () => {
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
 
-      // Verify Core's canonical Snapshot structure
-      expect(finalSnapshot).toHaveProperty("data");
+      // Verify Core's canonical v5 Snapshot structure
+      expect(finalSnapshot).toHaveProperty("state");
       expect(finalSnapshot).toHaveProperty("computed");
       expect(finalSnapshot).toHaveProperty("system");
       expect(finalSnapshot).toHaveProperty("input");
       expect(finalSnapshot).toHaveProperty("meta");
+      expect(finalSnapshot).toHaveProperty("namespaces");
+      expect(finalSnapshot).not.toHaveProperty("data");
+      expect(finalSnapshot.namespaces).toHaveProperty("host");
+      expect(finalSnapshot.namespaces).toHaveProperty("mel");
 
       // Verify SystemState structure
       expect(finalSnapshot.system).toHaveProperty("status");
@@ -133,15 +137,15 @@ describe("HCTS Snapshot Ownership Tests", () => {
       // Version incremented (Core semantics)
       expect(finalSnapshot.meta.version).toBeGreaterThan(initialSnapshot.meta.version);
 
-      // Original data preserved alongside new data
-      expect((finalSnapshot.data as Record<string, unknown>).existing).toBe("value");
-      expect((finalSnapshot.data as Record<string, unknown>).step1).toBe(true);
-      expect((finalSnapshot.data as Record<string, unknown>).step2).toBe(true);
+      // Original state preserved alongside new state
+      expect((finalSnapshot.state as Record<string, unknown>).existing).toBe("value");
+      expect((finalSnapshot.state as Record<string, unknown>).step1).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step2).toBe(true);
     });
   });
 
-  describe("HOST-NS-1: Host-owned state in data.$host namespace", () => {
-    it("HCTS-NS-001: Host stores its state in data.$host", async () => {
+  describe("HOST-NS-1/HOST-NS-7: Host-owned state in namespaces.host", () => {
+    it("HCTS-NS-001: Host stores its state in namespaces.host, not domain state", async () => {
       const schema = createTestSchema({
         actions: {
           withEffect: {
@@ -172,12 +176,13 @@ describe("HCTS Snapshot Ownership Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const hostState = getHostState(finalSnapshot.data);
+      const hostState = getHostState(finalSnapshot);
 
-      // Host-owned state should be in $host namespace
       expect(hostState).toBeDefined();
+      expect(finalSnapshot.namespaces.host).toBe(hostState);
+      expect((finalSnapshot.state as Record<string, unknown>).$host).toBeUndefined();
 
-      // Error should be recorded in $host, not system.*
+      // Error should be recorded in namespaces.host, not system.*
       expect(hostState?.lastError).toHaveProperty("code");
       expect(hostState?.lastError).toHaveProperty("message");
     });
@@ -214,9 +219,11 @@ describe("HCTS Snapshot Ownership Tests", () => {
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
 
-      // getHostState should retrieve $host namespace
-      const hostState = getHostState(finalSnapshot.data);
+      // getHostState should retrieve namespaces.host from the canonical Snapshot.
+      const hostState = getHostState(finalSnapshot);
       expect(hostState).toBeDefined();
+      expect(hostState).toBe(finalSnapshot.namespaces.host);
+      expect((finalSnapshot.state as Record<string, unknown>).$host).toBeUndefined();
     });
   });
 
@@ -253,21 +260,15 @@ describe("HCTS Snapshot Ownership Tests", () => {
         "pendingRequirements",
         "currentAction",
       ];
-      const allowedLegacyFields = ["errors"];
-
-      // Host must not introduce custom system fields. Legacy Core v3 `errors`
-      // is tolerated during the shared epoch, but HCTS no longer treats it as required.
       for (const key of requiredCoreSystemFields) {
         expect(systemKeys).toContain(key);
       }
-      for (const key of systemKeys) {
-        expect([...requiredCoreSystemFields, ...allowedLegacyFields]).toContain(key);
-      }
+      expect(systemKeys.sort()).toEqual([...requiredCoreSystemFields].sort());
     });
   });
 
-  describe("HOST-NS-5: Host error reporting uses $host namespace", () => {
-    it("HCTS-NS-004: Effect execution errors recorded in $host.lastError", async () => {
+  describe("HOST-NS-5: Host error reporting uses namespaces.host", () => {
+    it("HCTS-NS-004: Effect execution errors recorded in namespaces.host.lastError", async () => {
       const schema = createTestSchema({
         actions: {
           failingEffect: {
@@ -298,14 +299,16 @@ describe("HCTS Snapshot Ownership Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const hostState = getHostState(finalSnapshot.data);
+      const hostState = getHostState(finalSnapshot);
 
       expect(hostState?.lastError).toBeDefined();
       expect(hostState?.lastError?.code).toBe("EFFECT_EXECUTION_FAILED");
       expect(hostState?.lastError?.message).toContain("Effect execution failed");
+      expect((finalSnapshot.state as Record<string, unknown>).$host).toBeUndefined();
+      expect(finalSnapshot.system.lastError).toBeNull();
     });
 
-    it("HCTS-NS-005: Unknown effect type error recorded in $host", async () => {
+    it("HCTS-NS-005: Unknown effect type error recorded in namespaces.host", async () => {
       const schema = createTestSchema({
         actions: {
           unknownEffect: {
@@ -334,15 +337,17 @@ describe("HCTS Snapshot Ownership Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const hostState = getHostState(finalSnapshot.data);
+      const hostState = getHostState(finalSnapshot);
 
       expect(hostState?.lastError).toBeDefined();
       expect(hostState?.lastError?.code).toBe("UNKNOWN_EFFECT");
+      expect((finalSnapshot.state as Record<string, unknown>).$host).toBeUndefined();
+      expect(finalSnapshot.system.lastError).toBeNull();
     });
   });
 
-  describe("HOST-RESTORE-1~3: Restore-normalized snapshots resume as fresh execution boundaries", () => {
-    it("HCTS-RESTORE-001: Resume from a restore-normalized snapshot uses fresh per-job context and fresh $host bookkeeping", async () => {
+  describe("HOST-RESTORE-1~4: Restore-normalized snapshots resume as fresh execution boundaries", () => {
+    it("HCTS-RESTORE-001: Resume from a restore-normalized snapshot uses fresh per-job context and fresh namespaces.host bookkeeping", async () => {
       const schema = createTestSchema({
         actions: {
           resume: {
@@ -374,13 +379,14 @@ describe("HCTS Snapshot Ownership Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const hostState = getHostState(finalSnapshot.data);
+      const hostState = getHostState(finalSnapshot);
 
-      expect((finalSnapshot.data as Record<string, unknown>).processed).toBe(true);
-      expect(finalSnapshot.input).toBeNull();
+      expect((finalSnapshot.state as Record<string, unknown>).processed).toBe(true);
+      expect(finalSnapshot.input).toBeUndefined();
       expect(finalSnapshot.system.currentAction).toBeNull();
       expect(finalSnapshot.meta.timestamp).toBe(100);
       expect(finalSnapshot.meta.randomSeed).toBe("intent-restore");
+      expect((finalSnapshot.state as Record<string, unknown>).$host).toBeUndefined();
       expect(hostState?.intentSlots?.["intent-restore"]).toEqual({
         type: "resume",
         input: undefined,
@@ -415,7 +421,7 @@ describe("HCTS Snapshot Ownership Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).processed).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).processed).toBe(true);
     });
   });
 });

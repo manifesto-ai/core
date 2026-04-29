@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { apply } from "../core/apply.js";
+import { apply, applyNamespaceDeltas } from "../core/apply.js";
 import { compute } from "../core/compute.js";
 import { applySystemDelta } from "../core/system-delta.js";
 import { createIntent, createSnapshot } from "../factories.js";
@@ -57,7 +57,7 @@ describe("ADR-009 core acceptance", () => {
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({
+    expect(result.state).toEqual({
       history: {
         files: {
           "file:///proof.lean": "ok",
@@ -103,7 +103,7 @@ describe("ADR-009 core acceptance", () => {
       HOST_CONTEXT
     );
 
-    const metrics = (result.data as { metrics: unknown }).metrics;
+    const metrics = (result.state as { metrics: unknown }).metrics;
     expect(Array.isArray(metrics)).toBe(false);
     expect(metrics).toEqual({ "2024": 7 });
   });
@@ -131,7 +131,7 @@ describe("ADR-009 core acceptance", () => {
       HOST_CONTEXT
     );
 
-    const items = (result.data as { items: unknown[] }).items;
+    const items = (result.state as { items: unknown[] }).items;
     expect(items).toHaveLength(3);
     expect(items[0]).toBeUndefined();
     expect(items[1]).toBe("B");
@@ -166,7 +166,7 @@ describe("ADR-009 core acceptance", () => {
       HOST_CONTEXT
     );
 
-    expect(dottedResult.data).toEqual({ history: { files: { "TACTIC_FAILED:simp": "safe" } } });
+    expect(dottedResult.state).toEqual({ history: { files: { "TACTIC_FAILED:simp": "safe" } } });
 
     const polluted = apply(
       schema,
@@ -180,7 +180,7 @@ describe("ADR-009 core acceptance", () => {
     expect(polluted.system.lastError?.code).toBe("PATH_NOT_FOUND");
   });
 
-  it("ADR §9.6: bypasses schema-walk for $host/$mel roots", () => {
+  it("ADR §9.6: keeps platform namespaces outside domain state patches", () => {
     const schema = createSchema(
       {
         count: { type: "number", required: true },
@@ -196,18 +196,26 @@ describe("ADR-009 core acceptance", () => {
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({
-      count: 1,
-      $host: {
+    expect(result.state).toEqual({ count: 1 });
+    expect(result.system.status).toBe("error");
+    expect(result.system.lastError?.code).toBe("PATH_NOT_FOUND");
+
+    const namespaceResult = applyNamespaceDeltas(
+      snapshot,
+      [{ namespace: "host", patches: [{ op: "merge", path: pp("runtime"), value: { marker: "ok" } }] }],
+      HOST_CONTEXT
+    );
+
+    expect(namespaceResult.state).toEqual({ count: 1 });
+    expect(namespaceResult.namespaces.host).toEqual({
         runtime: {
           marker: "ok",
         },
-      },
     });
-    expect(result.system.status).toBe("idle");
+    expect(namespaceResult.system.status).toBe("idle");
   });
 
-  it("ADR §9.7: applies patch path at snapshot.data root, not snapshot.system", () => {
+  it("ADR §9.7: applies patch path at snapshot.state root, not snapshot.system", () => {
     const schema = createSchema(
       {
         system: {
@@ -229,7 +237,7 @@ describe("ADR-009 core acceptance", () => {
       HOST_CONTEXT
     );
 
-    expect((result.data as { system: { status: string } }).system.status).toBe("domain-updated");
+    expect((result.state as { system: { status: string } }).system.status).toBe("domain-updated");
     expect(result.system.status).toBe("idle");
   });
 
@@ -271,7 +279,7 @@ describe("ADR-009 core acceptance", () => {
 
     const withPatches = apply(schema, snapshot, result.patches, HOST_CONTEXT);
     const finalSnapshot = applySystemDelta(withPatches, result.systemDelta);
-    expect(finalSnapshot.data).toEqual({ count: 1 });
+    expect(finalSnapshot.state).toEqual({ count: 1 });
   });
 
   it("applySystemDelta is deterministic and applies remove->add ordering", () => {

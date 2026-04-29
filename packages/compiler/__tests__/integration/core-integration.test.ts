@@ -10,9 +10,10 @@ import {
   createCore,
   createSnapshot,
   createIntent,
+  semanticPathToPatchPath,
   type DomainSchema as CoreDomainSchema,
   type Snapshot,
-} from "@manifesto-ai/core";
+} from "../../../core/src/index.js";
 
 // Helper to adapt MEL schema to Core schema if needed
 function adaptSchema(melSchema: MelDomainSchema): CoreDomainSchema {
@@ -48,7 +49,12 @@ function applyComputeResult(
   result: ComputeResult
 ): Snapshot {
   const patchedSnapshot = core.apply(schema, snapshot, result.patches, HOST_CONTEXT);
-  return core.applySystemDelta(patchedSnapshot, result.systemDelta);
+  const namespacedSnapshot = core.applyNamespaceDeltas(
+    patchedSnapshot,
+    result.namespaceDelta ?? [],
+    HOST_CONTEXT
+  );
+  return core.applySystemDelta(namespacedSnapshot, result.systemDelta);
 }
 
 describe("Core Integration", () => {
@@ -167,7 +173,7 @@ describe("Core Integration", () => {
       const computeResult = await computeWithContext(core, schema, snapshot, intent);
 
       expect(computeResult.status).toBe("complete");
-      expect(computeResult.snapshot.data.count).toBe(1);
+      expect((computeResult.snapshot.state as { count: number }).count).toBe(1);
     });
 
     it("executes action with parameters", async () => {
@@ -196,7 +202,7 @@ describe("Core Integration", () => {
       const computeResult = await computeWithContext(core, schema, snapshot, intent);
 
       expect(computeResult.status).toBe("complete");
-      expect(computeResult.snapshot.data.count).toBe(15);
+      expect((computeResult.snapshot.state as { count: number }).count).toBe(15);
     });
 
     it("respects when guard conditions", async () => {
@@ -224,13 +230,13 @@ describe("Core Integration", () => {
       const snapshot1 = createTestSnapshot({ count: 0 }, schema.hash);
       const intent1 = createTestIntent("decrement");
       const result1 = await computeWithContext(core, schema, snapshot1, intent1);
-      expect(result1.snapshot.data.count).toBe(0); // Should not change
+      expect((result1.snapshot.state as { count: number }).count).toBe(0); // Should not change
 
       // When count is positive, decrement should work
       const snapshot2 = createTestSnapshot({ count: 5 }, schema.hash);
       const intent2 = createTestIntent("decrement");
       const result2 = await computeWithContext(core, schema, snapshot2, intent2);
-      expect(result2.snapshot.data.count).toBe(4);
+      expect((result2.snapshot.state as { count: number }).count).toBe(4);
     });
 
     it("computes computed values", async () => {
@@ -260,7 +266,7 @@ describe("Core Integration", () => {
       const computeResult = await computeWithContext(core, schema, snapshot, intent);
 
       expect(computeResult.status).toBe("complete");
-      expect(computeResult.snapshot.data.count).toBe(6);
+      expect((computeResult.snapshot.state as { count: number }).count).toBe(6);
       expect(computeResult.snapshot.computed["doubled"]).toBe(12);
       expect(computeResult.snapshot.computed["isPositive"]).toBe(true);
     });
@@ -292,17 +298,77 @@ describe("Core Integration", () => {
       const snapshot1 = createTestSnapshot({ count: 0, lastIntent: "" }, schema.hash);
       const intent1 = createIntent("increment", "intent-1");
       const result1 = await computeWithContext(core, schema, snapshot1, intent1);
-      expect(result1.snapshot.data.count).toBe(1);
-      expect(result1.snapshot.data.lastIntent).toBe("intent-1");
+      expect((result1.snapshot.state as { count: number }).count).toBe(1);
+      expect((result1.snapshot.state as { lastIntent: string }).lastIntent).toBe("intent-1");
 
       // Second call with same intent should NOT increment (idempotent)
       const result2 = await computeWithContext(core, schema, result1.snapshot, intent1);
-      expect(result2.snapshot.data.count).toBe(1); // Still 1
+      expect((result2.snapshot.state as { count: number }).count).toBe(1); // Still 1
 
       // Call with different intent should increment
       const intent2 = createIntent("increment", "intent-2");
       const result3 = await computeWithContext(core, schema, result2.snapshot, intent2);
-      expect(result3.snapshot.data.count).toBe(2);
+      expect((result3.snapshot.state as { count: number }).count).toBe(2);
+    });
+
+    it("handles onceIntent through namespaceDelta materialization", async () => {
+      const result = compile(`
+        domain Counter {
+          state { count: number = 0 }
+          computed countValue = count
+          action increment() {
+            onceIntent {
+              patch count = add(count, 1)
+            }
+          }
+        }
+      `);
+
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+
+      const schema = adaptSchema(result.schema);
+      const core = createCore();
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent1 = createIntent("increment", "intent-1");
+
+      const result1 = await computeWithContext(core, schema, snapshot, intent1);
+      expect(result1.status).toBe("complete");
+      expect(result1.namespaceDelta).toEqual([
+        {
+          namespace: "mel",
+          patches: [
+            {
+              op: "merge",
+              path: semanticPathToPatchPath("guards.intent"),
+              value: expect.objectContaining({}),
+            },
+          ],
+        },
+      ]);
+      const firstNamespacePatch = result1.namespaceDelta?.[0]?.patches[0];
+      expect(firstNamespacePatch?.op).toBe("merge");
+      if (firstNamespacePatch?.op === "merge") {
+        expect(Object.values(firstNamespacePatch.value)).toEqual(["intent-1"]);
+      }
+      expect((result1.snapshot.state as { count: number }).count).toBe(1);
+      expect(Object.values(result1.snapshot.namespaces.mel?.guards.intent ?? {})).toContain("intent-1");
+
+      const result2 = await computeWithContext(core, schema, result1.snapshot, intent1);
+      expect(result2.status).toBe("complete");
+      expect(result2.namespaceDelta).toEqual([]);
+      expect((result2.snapshot.state as { count: number }).count).toBe(1);
+
+      const intent2 = createIntent("increment", "intent-2");
+      const result3 = await computeWithContext(core, schema, result2.snapshot, intent2);
+      expect(result3.status).toBe("complete");
+      const thirdNamespacePatch = result3.namespaceDelta?.[0]?.patches[0];
+      expect(thirdNamespacePatch?.op).toBe("merge");
+      if (thirdNamespacePatch?.op === "merge") {
+        expect(Object.values(thirdNamespacePatch.value)).toEqual(["intent-2"]);
+      }
+      expect((result3.snapshot.state as { count: number }).count).toBe(2);
+      expect(Object.values(result3.snapshot.namespaces.mel?.guards.intent ?? {})).toContain("intent-2");
     });
 
     it("handles multiple patches in sequence", async () => {
@@ -335,9 +401,9 @@ describe("Core Integration", () => {
       const computeResult = await computeWithContext(core, schema, snapshot, intent);
 
       expect(computeResult.status).toBe("complete");
-      expect(computeResult.snapshot.data.a).toBe(1);
-      expect(computeResult.snapshot.data.b).toBe(2);
-      expect(computeResult.snapshot.data.c).toBe(3);
+      expect((computeResult.snapshot.state as { a: number }).a).toBe(1);
+      expect((computeResult.snapshot.state as { b: number }).b).toBe(2);
+      expect((computeResult.snapshot.state as { c: number }).c).toBe(3);
     });
 
     it("handles nested when guards", async () => {
@@ -367,17 +433,17 @@ describe("Core Integration", () => {
       // Both x and y are 0 - should not update
       const snapshot1 = createTestSnapshot({ x: 0, y: 0 }, schema.hash);
       const result1 = await computeWithContext(core, schema, snapshot1, createTestIntent("update"));
-      expect(result1.snapshot.data.x).toBe(0);
+      expect((result1.snapshot.state as { x: number }).x).toBe(0);
 
       // Only x > 0 - should not update (inner guard fails)
       const snapshot2 = createTestSnapshot({ x: 5, y: 0 }, schema.hash);
       const result2 = await computeWithContext(core, schema, snapshot2, createTestIntent("update"));
-      expect(result2.snapshot.data.x).toBe(5);
+      expect((result2.snapshot.state as { x: number }).x).toBe(5);
 
       // Both x > 0 and y > 0 - should update
       const snapshot3 = createTestSnapshot({ x: 5, y: 3 }, schema.hash);
       const result3 = await computeWithContext(core, schema, snapshot3, createTestIntent("update"));
-      expect(result3.snapshot.data.x).toBe(8);
+      expect((result3.snapshot.state as { x: number }).x).toBe(8);
     });
   });
 
@@ -416,8 +482,8 @@ describe("Core Integration", () => {
       );
 
       expect(result1.status).toBe("complete");
-      expect(result1.snapshot.data.items).toHaveLength(1);
-      expect((result1.snapshot.data.items as any[])[0]).toMatchObject({
+      expect((result1.snapshot.state as { items: unknown[] }).items).toHaveLength(1);
+      expect((result1.snapshot.state as { items: unknown[] }).items[0]).toMatchObject({
         id: 1,
         title: "Buy milk",
         done: false,
@@ -431,7 +497,7 @@ describe("Core Integration", () => {
         createTestIntent("addTodo", { title: "Walk dog" })
       );
 
-      expect(result2.snapshot.data.items).toHaveLength(2);
+      expect((result2.snapshot.state as { items: unknown[] }).items).toHaveLength(2);
       expect(result2.snapshot.computed["itemCount"]).toBe(2);
     });
 

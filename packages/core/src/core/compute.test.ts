@@ -160,7 +160,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ count: 1 });
+      expect(result.snapshot.state).toEqual({ count: 1 });
       expect(result.snapshot.meta.version).toBe(1);
     });
 
@@ -194,7 +194,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ name: "Alice" });
+      expect(result.snapshot.state).toEqual({ name: "Alice" });
     });
 
     it("should reject intent without intentId", async () => {
@@ -240,7 +240,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ value: intent.intentId });
+      expect(result.snapshot.state).toEqual({ value: intent.intentId });
       expect(result.snapshot.input).toBeUndefined();
     });
   });
@@ -274,7 +274,7 @@ describe("compute", () => {
       const result1 = await computeWithContext(schema, snapshot1, intent1);
 
       expect(result1.status).toBe("complete");
-      expect(result1.snapshot.data).toEqual({ balance: 50 });
+      expect(result1.snapshot.state).toEqual({ balance: 50 });
 
       // Should fail when balance = 0
       const snapshot2 = createTestSnapshot({ balance: 0 }, schema.hash);
@@ -543,7 +543,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ a: 100, b: 20 });
+      expect(result.snapshot.state).toEqual({ a: 100, b: 20 });
       expect(result.snapshot.computed["total"]).toBe(120);
     });
   });
@@ -576,7 +576,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("pending");
-      expect(result.snapshot.data).toEqual({ loading: true });
+      expect(result.snapshot.state).toEqual({ loading: true });
       expect(result.snapshot.system.pendingRequirements).toHaveLength(1);
       expect(result.snapshot.system.pendingRequirements[0].type).toBe("http");
     });
@@ -609,7 +609,7 @@ describe("compute", () => {
       const result1 = await computeWithContext(schema, snapshot1, intent1);
 
       expect(result1.status).toBe("halted");
-      expect(result1.snapshot.data).toEqual({ started: true });
+      expect(result1.snapshot.state).toEqual({ started: true });
 
       // Without halt
       const snapshot2 = createTestSnapshot({}, schema.hash);
@@ -617,7 +617,7 @@ describe("compute", () => {
       const result2 = await computeWithContext(schema, snapshot2, intent2);
 
       expect(result2.status).toBe("complete");
-      expect(result2.snapshot.data).toEqual({ started: true, completed: true });
+      expect(result2.snapshot.state).toEqual({ started: true, completed: true });
     });
   });
 
@@ -650,7 +650,7 @@ describe("compute", () => {
       const result2 = await computeWithContext(schema, snapshot2, intent2);
 
       expect(result2.status).toBe("complete");
-      expect(result2.snapshot.data).toEqual({ value: "test" });
+      expect(result2.snapshot.state).toEqual({ value: "test" });
     });
   });
 
@@ -800,7 +800,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({
+      expect(result.snapshot.state).toEqual({
         fromBalance: 70,
         toBalance: 80,
       });
@@ -945,7 +945,7 @@ describe("compute", () => {
 
       const afterEffect = {
         ...first.snapshot,
-        data: { ...(first.snapshot.data as Record<string, unknown>), result: "done" },
+        state: { ...(first.snapshot.state as Record<string, unknown>), result: "done" },
         system: {
           ...first.snapshot.system,
           pendingRequirements: [],
@@ -1012,7 +1012,7 @@ describe("compute", () => {
       const result1 = await compute(schema, snapshot1, intent, HOST_CONTEXT);
 
       expect(result1.status).toBe("pending");
-      expect(result1.snapshot.data).toEqual(
+      expect(result1.snapshot.state).toEqual(
         expect.objectContaining({ pending: "intent-run-1" })
       );
       expect(result1.snapshot.system.currentAction).toBe("run");
@@ -1022,7 +1022,7 @@ describe("compute", () => {
       // The snapshot has currentAction === "run" (set during 1st compute pending).
       const reEntrySnapshot = {
         ...result1.snapshot,
-        data: { ...result1.snapshot.data as Record<string, unknown>, result: "done" },
+        state: { ...result1.snapshot.state as Record<string, unknown>, result: "done" },
         system: {
           ...result1.snapshot.system,
           // currentAction remains "run" — this signals re-entry
@@ -1101,7 +1101,7 @@ describe("compute", () => {
       // pending is already "intent-A", so the if-branch is skipped → no patches, no effects.
       // Result: completes as no-op, does NOT corrupt state.
       expect(resultB.snapshot.system.lastError?.code).not.toBe("ACTION_UNAVAILABLE");
-      expect((resultB.snapshot.data as Record<string, unknown>).pending).toBe("intent-A"); // unchanged
+      expect((resultB.snapshot.state as Record<string, unknown>).pending).toBe("intent-A"); // unchanged
     });
 
     it("SCENARIO: different action type on pending snapshot still checks availability", async () => {

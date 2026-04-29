@@ -75,8 +75,9 @@ export function handleContinueCompute(
     iteration,
   });
 
-  // Interlock order: apply(patches) -> applySystemDelta(systemDelta) -> dispatch
+  // Interlock order: apply(patches) -> applyNamespaceDeltas(namespaceDelta) -> applySystemDelta(systemDelta) -> dispatch
   ctx.applyPatches(result.patches, "compute");
+  ctx.applyNamespaceDeltas(result.namespaceDelta ?? [], "compute");
   ctx.applySystemDelta(result.systemDelta, "compute");
 
   // Check terminal states

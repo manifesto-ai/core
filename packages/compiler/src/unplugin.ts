@@ -7,8 +7,8 @@
 import { createHash } from "node:crypto";
 import * as nodePath from "node:path";
 import { createUnplugin } from "unplugin";
-import type { DomainSchema } from "@manifesto-ai/core";
 import { compileMelDomain } from "./api/index.js";
+import type { DomainSchema } from "./generator/ir.js";
 import { formatDiagnostic, renderSchemaModuleCode } from "./mel-module.js";
 
 export type MelCodegenArtifact = {

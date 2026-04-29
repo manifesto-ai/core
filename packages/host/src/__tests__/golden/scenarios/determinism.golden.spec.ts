@@ -178,7 +178,7 @@ describe("Golden: Determinism Verification", () => {
 
       // All final states should be identical
       const states = verification.results.map((r) =>
-        JSON.stringify(stripHostState(r.finalSnapshot.data))
+        JSON.stringify(stripHostState(r.finalSnapshot.state))
       );
       const uniqueStates = new Set(states);
       expect(uniqueStates.size).toBe(1);
@@ -209,7 +209,7 @@ describe("Golden: Determinism Verification", () => {
       expect(verification.deterministic).toBe(true);
 
       // Final state should have flag=true
-      const finalState = verification.results[0].finalSnapshot.data as any;
+      const finalState = verification.results[0].finalSnapshot.state as any;
       expect(finalState.flag).toBe(true);
       expect(finalState.counter).toBe(6);
     });
@@ -238,7 +238,7 @@ describe("Golden: Determinism Verification", () => {
       const verification = await runner.verifyDeterminism(scenario, 3);
       expect(verification.deterministic).toBe(true);
 
-      const finalState = verification.results[0].finalSnapshot.data as any;
+      const finalState = verification.results[0].finalSnapshot.state as any;
       // 5 + 5 + 1 + 5 + 1 + 5 = 22
       expect(finalState.counter).toBe(22);
       expect(finalState.label).toBe("multi-patched");

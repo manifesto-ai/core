@@ -12,11 +12,11 @@ import type { DomainSchema } from "./schema/domain.js";
 import type { Snapshot } from "./schema/snapshot.js";
 import type { Intent, Patch } from "./schema/patch.js";
 import type { SemanticPath } from "./schema/common.js";
-import type { ComputeResult, ValidationResult, ExplainResult, SystemDelta } from "./schema/result.js";
+import type { ComputeResult, ValidationResult, ExplainResult, NamespaceDelta, SystemDelta } from "./schema/result.js";
 import type { HostContext } from "./schema/host-context.js";
 
 import { compute, computeSync, validateIntentInput } from "./core/compute.js";
-import { apply } from "./core/apply.js";
+import { apply, applyNamespaceDeltas } from "./core/apply.js";
 import { applySystemDelta } from "./core/system-delta.js";
 import { validate } from "./core/validate.js";
 import { explain } from "./core/explain.js";
@@ -61,6 +61,15 @@ export interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot,
     patches: readonly Patch[],
+    context: HostContext
+  ): Snapshot;
+
+  /**
+   * Apply namespace transitions to a snapshot.
+   */
+  applyNamespaceDeltas(
+    snapshot: Snapshot,
+    deltas: readonly NamespaceDelta[],
     context: HostContext
   ): Snapshot;
 
@@ -118,6 +127,7 @@ export function createCore(): ManifestoCore {
     compute,
     computeSync,
     apply,
+    applyNamespaceDeltas,
     applySystemDelta,
     validate,
     explain,
@@ -150,6 +160,7 @@ export {
   computeSync,
   validateIntentInput,
   apply,
+  applyNamespaceDeltas,
   applySystemDelta,
   validate,
   explain,

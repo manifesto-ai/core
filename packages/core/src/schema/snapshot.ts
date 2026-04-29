@@ -143,14 +143,50 @@ export const SnapshotMeta = z.object({
 export type SnapshotMeta = z.infer<typeof SnapshotMeta>;
 
 /**
+ * HostNamespace - Host-owned operational bookkeeping.
+ */
+export const HostNamespace = z.record(z.string(), z.unknown());
+export type HostNamespace = z.infer<typeof HostNamespace>;
+
+export type MelNamespace = {
+  readonly guards: {
+    readonly intent: Record<string, string>;
+  };
+  readonly [key: string]: unknown;
+};
+
+/**
+ * MelNamespace - Compiler/MEL-owned operational bookkeeping.
+ */
+export const MelNamespace: z.ZodType<MelNamespace> = z.object({
+  guards: z.object({
+    intent: z.record(z.string(), z.string()),
+  }),
+}).catchall(z.unknown());
+
+export type SnapshotNamespaces = {
+  readonly host?: HostNamespace;
+  readonly mel?: MelNamespace;
+  readonly [namespace: string]: unknown;
+};
+
+/**
+ * SnapshotNamespaces - Platform/runtime/compiler/tooling namespaces.
+ */
+export const SnapshotNamespaces: z.ZodType<SnapshotNamespaces> = z.object({
+  host: HostNamespace.optional(),
+  mel: MelNamespace.optional(),
+}).catchall(z.unknown());
+
+/**
  * Snapshot - Immutable, point-in-time representation of world state.
  * This is the ONLY medium of communication between Core and Host.
  */
 export const Snapshot = z.object({
   /**
-   * Domain data (matches StateSpec)
+   * Domain state (matches StateSpec)
    */
-  data: z.unknown(),
+  state: z.unknown(),
 
   /**
    * Computed values (matches ComputedSpec)
@@ -171,6 +207,11 @@ export const Snapshot = z.object({
    * Snapshot metadata
    */
   meta: SnapshotMeta,
+
+  /**
+   * Platform/runtime/compiler/tooling namespaces
+   */
+  namespaces: SnapshotNamespaces,
 });
 export type Snapshot = z.infer<typeof Snapshot>;
 
@@ -183,5 +224,15 @@ export function createInitialSystemState(): SystemState {
     lastError: null,
     pendingRequirements: [],
     currentAction: null,
+  };
+}
+
+/**
+ * Create initial platform namespaces.
+ */
+export function createInitialNamespaces(): SnapshotNamespaces {
+  return {
+    host: {},
+    mel: { guards: { intent: {} } },
   };
 }

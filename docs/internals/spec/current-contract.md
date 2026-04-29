@@ -1,7 +1,7 @@
 # Current Contract
 
 > **Status:** Living Document
-> **Last Updated:** 2026-04-25
+> **Last Updated:** 2026-04-29
 > **Purpose:** Single-source current contract for external consumers, canonical-doc exports, and current-surface onboarding
 
 This document is the current-only contract summary for the active Manifesto workspace.
@@ -35,12 +35,31 @@ This is the canonical entry story for new integrations.
 
 | Package | Current Contract | Role |
 |---------|------------------|------|
-| `@manifesto-ai/core` | [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (current through v4.2.0) | Pure semantic runtime, schema validation, patch/apply semantics |
+| `@manifesto-ai/core` | [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (current through v5.0.0 ADR-025 baseline) | Pure semantic runtime, schema validation, patch/apply semantics |
 | `@manifesto-ai/host` | [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (current through v4.0.0) | Effect execution, compute loop orchestration, canonical snapshot substrate |
 | `@manifesto-ai/sdk` | [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (current v3.x surface) | Activation-first application surface, intent creation/dispatch, additive base write reports, simulation, projected introspection |
 | `@manifesto-ai/compiler` | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v1.3.0 in-place) | Full current MEL compiler contract |
 | `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v3.x decorator surface) | Seal-aware continuity, additive lineage write reports, canonical snapshot persistence, restore |
 | `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v3.x decorator surface) | Proposal legitimacy, governed runtime gate over lineage-composed manifesto, settlement observation and settlement reports |
+
+## ADR-025 v5 Ontology Baseline
+
+The v5 branch adopts ADR-025 as the current Snapshot ontology baseline:
+
+- Domain-owned state is `snapshot.state`.
+- `Snapshot.data` is retired from the current public/canonical contract.
+- Platform/runtime/compiler/tooling state lives under `snapshot.namespaces`.
+- Host diagnostics live under `snapshot.namespaces.host.*`.
+- Compiler/MEL operational guards live under `snapshot.namespaces.mel.*`.
+- `computed`, `system`, `input`, and `meta` remain top-level Snapshot partitions.
+
+Current package SPECs remain authoritative while their v5 patches land. When this page and an owning package SPEC disagree, the owning current package SPEC wins.
+
+Schema hash verification result:
+
+- `hashSchema()` / `hashSchemaSync()` default to semantic mode and exclude pre-v5 `$`-prefixed state fields such as `$host` and `$mel`.
+- `hashSchemaEffective()` / `hashSchemaEffectiveSync()` include those fields and remain internal/effective-hash utilities.
+- Therefore ADR-025's semantic `schemaHash` continuity requirement is satisfied for the current Core hash path; no semantic schemaHash epoch is introduced by pre-v5 platform namespace augmentation.
 
 ## Core Runtime Contract
 
@@ -49,7 +68,8 @@ This is the canonical entry story for new integrations.
 Current contract highlights:
 
 - `compute(schema, snapshot, intent)` is pure and deterministic.
-- `apply(schema, snapshot, patches)` is the only state-application boundary.
+- `apply(schema, snapshot, patches)` applies domain patches rooted at `snapshot.state`.
+- Namespace transitions are separate from domain patches and are rooted at `snapshot.namespaces[namespace]`.
 - `available` remains the coarse action-family gate.
 - `isIntentDispatchable(schema, snapshot, intent)` is the fine bound-intent legality query.
 - `FieldSpec` remains the compatibility and coarse-introspection seam.
@@ -72,7 +92,7 @@ Current contract highlights:
 - Host executes effect requirements and applies the resulting patches.
 - Host does not reinterpret domain legality or policy.
 - Host remains aligned to the current Core snapshot contract and does not use accumulated `system.errors`.
-- Host-owned execution diagnostics live under canonical `data.$host.*`. In particular, `data.$host.lastError` is a canonical-only diagnostic, not the semantic Snapshot error surface.
+- Host-owned execution diagnostics live under canonical `namespaces.host.*`. In particular, `namespaces.host.lastError` is a canonical-only diagnostic, not the semantic Snapshot error surface.
 
 ## SDK Contract
 
@@ -96,8 +116,8 @@ Current failure observation:
 
 - Use write-report companions for per-attempt call outcomes: base `dispatchAsyncWithReport()`, lineage `commitAsyncWithReport()`, and governed `waitForProposalWithReport()`.
 - Use `snapshot.system.lastError` to read the current semantic error state of the canonical or projected Snapshot.
-- Use canonical `data.$host.lastError` only for Host-owned effect/execution diagnostics during deep debugging.
-- The runtime MUST NOT automatically promote `data.$host.lastError` into `system.lastError`; such promotion would turn Host diagnostics into semantic Snapshot state without domain or governance authority.
+- Use canonical `namespaces.host.lastError` only for Host-owned effect/execution diagnostics during deep debugging.
+- The runtime MUST NOT automatically promote `namespaces.host.lastError` into `system.lastError`; such promotion would turn Host diagnostics into semantic Snapshot state without domain or governance authority.
 
 Current rejection split:
 
@@ -172,7 +192,7 @@ Current contract highlights:
 
 - lineage owns sealed continuity and stored canonical snapshot lookup
 - lineage promotes the base write verb to `commitAsync()` and the additive report companion to `commitAsyncWithReport()`
-- lineage derives sealed failure outcome from the terminal Snapshot's `system.lastError` and pending requirements, not from Host-owned `data.$host.lastError` alone
+- lineage derives sealed failure outcome from the terminal Snapshot's `system.lastError` and pending requirements, not from Host-owned `namespaces.host.lastError` alone
 - governance composes on top of lineage, not beside it
 - decorated runtimes inherit the base read-only legality surface, including `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`
 - inherited decorator-runtime legality queries preserve the base SDK ordering: availability first, dispatchability second
@@ -180,7 +200,7 @@ Current contract highlights:
 - helper authors may share legality helpers across decorators, but execution helpers must stay verb-specific: base `dispatchAsync()`, lineage `commitAsync()`, governance `proposeAsync()`
 - the active governed path is `withLineage(...)->withGovernance(...)->activate()`
 - governed runtimes intentionally omit direct base/lineage execution verbs and their report companions, and use `waitForProposal()` / `waitForProposalWithReport()` as additive settlement observers
-- governance settlement failure reports read semantic failure from terminal Snapshot state when a `resultWorld` exists; Host-owned diagnostics remain canonical-substrate debugging data
+- governance settlement failure reports read semantic failure from terminal Snapshot state when a `resultWorld` exists; Host-owned namespace diagnostics remain canonical-substrate debugging data
 - there is no separate current `@manifesto-ai/world` package surface
 
 ## What External Consumers Should Read

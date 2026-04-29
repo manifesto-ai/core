@@ -86,7 +86,7 @@ describe("onceIntent", () => {
     expect(result.errors).toHaveLength(0);
   });
 
-  it("lowers onceIntent to map-level guard merge with unique guard ids", () => {
+  it("lowers onceIntent to MEL namespace guard merge with unique guard ids", () => {
     const mel = `
       domain Test {
         state { count: number }
@@ -117,10 +117,11 @@ describe("onceIntent", () => {
       expect(thenSeq).not.toBeNull();
       if (!thenSeq) continue;
       const firstStep = thenSeq.steps[0] as CoreFlowNode;
-      expect(firstStep.kind).toBe("patch");
-      if (firstStep.kind === "patch") {
+      expect(firstStep.kind).toBe("namespacePatch");
+      if (firstStep.kind === "namespacePatch") {
+        expect(firstStep.namespace).toBe("mel");
         expect(firstStep.op).toBe("merge");
-        expect(firstStep.path).toEqual(semanticPathToPatchPath("$mel.guards.intent"));
+        expect(firstStep.path).toEqual(semanticPathToPatchPath("guards.intent"));
         const value = firstStep.value as CoreExprNode;
         expect(value.kind).toBe("object");
         if (value.kind === "object") {

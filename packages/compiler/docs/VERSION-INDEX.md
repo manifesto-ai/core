@@ -7,12 +7,12 @@
 
 ## Latest Version
 
-- **Current Full SPEC:** [v1.3.0](SPEC-v1.2.0.md) (Full, in-place current file)
+- **Current Full SPEC:** [v5.0.0](SPEC-v1.2.0.md) (Full, in-place current file)
 - **FDR:** [v0.5.0](FDR-v0.5.0.md) (Full)
 
-**Note:** [v1.3.0](SPEC-v1.2.0.md) is the current integrated compiler contract. It carries forward the v1.2.0 baseline and adds `compileFragmentInContext()` as the compiler-owned, authoring-time MEL source-fragment editing primitive while preserving the existing runtime-facing `DomainSchema` contract.
+**Note:** [v5.0.0](SPEC-v1.2.0.md) is the current integrated compiler contract. It carries forward the v1.3.0 baseline and aligns the compiler contract to ADR-025: MEL `state {}` maps to runtime `snapshot.state`, compiler-owned bookkeeping uses `snapshot.namespaces.mel`, and `onceIntent` writes through the `NamespaceDelta` channel.
 
-**ADR Sources:** [ADR-021](../../../docs/internals/adr/021-mel-structural-annotation-system-meta-sidecar.md) defines the current structural-annotation sidecar contract, [ADR-022](../../../docs/internals/adr/022-compiler-owned-source-location-sidecar-source-map-index.md) defines the current source-location sidecar contract, and [ADR-024](../../../docs/internals/adr/024-compiler-owned-mel-source-fragment-editing-primitive.md) defines the current source-fragment editing boundary.
+**ADR Sources:** [ADR-021](../../../docs/internals/adr/021-mel-structural-annotation-system-meta-sidecar.md) defines the current structural-annotation sidecar contract, [ADR-022](../../../docs/internals/adr/022-compiler-owned-source-location-sidecar-source-map-index.md) defines the current source-location sidecar contract, [ADR-024](../../../docs/internals/adr/024-compiler-owned-mel-source-fragment-editing-primitive.md) defines the current source-fragment editing boundary, and [ADR-025](../../../docs/internals/adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation.md) defines the v5 Snapshot ontology and namespace separation.
 
 ---
 
@@ -20,7 +20,8 @@
 
 | Version | SPEC | FDR | Type | Status |
 |---------|------|-----|------|--------|
-| v1.3.0 | [SPEC](SPEC-v1.2.0.md) | [FDR](FDR-v0.5.0.md) | Full | Current |
+| v5.0.0 | [SPEC](SPEC-v1.2.0.md) | [FDR](FDR-v0.5.0.md) | Full | Current |
+| v1.3.0 | — (same file path before in-place v5.0.0 update) | [FDR](FDR-v0.5.0.md) | Historical Full Predecessor | Superseded |
 | v1.2.0 | — (same file path before in-place v1.3.0 update) | [FDR](FDR-v0.5.0.md) | Historical Full Predecessor | Superseded |
 | v1.1.0 | [SPEC](SPEC-v1.1.0.md) | [FDR](FDR-v0.5.0.md) | Historical Full Predecessor | Superseded |
 | v1.0.0 | [SPEC](SPEC-v1.0.0.md) | [FDR](FDR-v0.5.0.md) | Historical Full Predecessor | Superseded |
@@ -43,11 +44,12 @@
 
 ### For Current
 
-1. Read [SPEC-v1.2.0.md](SPEC-v1.2.0.md) for the current full compiler contract (currently v1.3.0 in-place).
+1. Read [SPEC-v1.2.0.md](SPEC-v1.2.0.md) for the current full compiler contract (currently v5.0.0 in-place).
 2. Use [SPEC-v0.8.0.md](SPEC-v0.8.0.md) and [SPEC-v0.9.0.md](SPEC-v0.9.0.md) only for historical addendum context.
 3. For rationale history, use [FDR-v0.5.0.md](FDR-v0.5.0.md).
 4. If you are working on tooling sidecars, read [SPEC-v1.2.0.md](SPEC-v1.2.0.md), then [ADR-021](../../../docs/internals/adr/021-mel-structural-annotation-system-meta-sidecar.md) and [ADR-022](../../../docs/internals/adr/022-compiler-owned-source-location-sidecar-source-map-index.md) for architectural rationale.
 5. If you are working on authoring-time compiler source edits, read [ADR-024](../../../docs/internals/adr/024-compiler-owned-mel-source-fragment-editing-primitive.md) for the boundary rationale behind `compileFragmentInContext()`.
+6. If you are working on `onceIntent`, namespace lowering, or Snapshot ontology, read [ADR-025](../../../docs/internals/adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation.md).
 
 ### For v0.4.0 (Historical Patch)
 

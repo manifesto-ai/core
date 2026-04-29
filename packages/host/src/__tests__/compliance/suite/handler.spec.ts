@@ -72,7 +72,7 @@ describe("HCTS Effect Handler Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.data as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
 
       expect(response.success).toBe(true);
       expect(response.timestamp).toBe(123);
@@ -112,7 +112,7 @@ describe("HCTS Effect Handler Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const hostState = getHostState(finalSnapshot.data);
+      const hostState = getHostState(finalSnapshot);
 
       // Error should be recorded in host state
       expect(hostState?.lastError).toBeDefined();
@@ -155,7 +155,7 @@ describe("HCTS Effect Handler Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.data as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
 
       // Error expressed as data patches
       expect(response.error).toBe(true);
@@ -206,7 +206,7 @@ describe("HCTS Effect Handler Tests", () => {
 
       // Handler output applied correctly
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.data as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
       expect(response.echoed).toBe("test-input");
     });
   });

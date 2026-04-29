@@ -14,6 +14,7 @@ import type {
   HostContext,
   Intent,
   ManifestoCore,
+  NamespaceDelta,
   Patch,
   SystemDelta,
   Snapshot,
@@ -119,38 +120,41 @@ export class ExecutionContextImpl implements ExecutionContext {
   /**
    * Store an intent slot (v2.0.2 HOST-NS-1)
    *
-   * Intent slots are stored in data.$host to keep Host-owned state in Snapshot.
+   * Intent slots are stored in namespaces.host to keep Host-owned state in Snapshot.
    */
   setIntentSlot(intentId: string, slot: IntentSlot): void {
-    const hostState = getHostState(this.snapshot.data);
+    const hostState = getHostState(this.snapshot);
     const intentSlots = hostState?.intentSlots ?? {};
     const nextSlots = {
       ...intentSlots,
       [intentId]: slot,
     };
-    const patches: Patch[] = [
-      {
-        op: "merge",
-        path: [{ kind: "prop", name: "$host" }],
-        value: { intentSlots: nextSlots },
-      },
-    ];
 
-    this.applyPatches(patches, "host-intent-slot");
+    this.applyNamespaceDeltas(
+      [{
+        namespace: "host",
+        patches: [{
+          op: "set",
+          path: [{ kind: "prop", name: "intentSlots" }],
+          value: nextSlots,
+        }],
+      }],
+      "host-intent-slot",
+    );
   }
 
   /**
    * Get an intent slot by ID (v2.0.2 HOST-NS-1)
    */
   getIntentSlot(intentId: string): IntentSlot | undefined {
-    return getIntentSlot(this.snapshot.data, intentId);
+    return getIntentSlot(this.snapshot, intentId);
   }
 
   /**
    * Get all intent slots
    */
   getAllIntentSlots(): ReadonlyMap<string, IntentSlot> {
-    const hostState = getHostState(this.snapshot.data);
+    const hostState = getHostState(this.snapshot);
     const intentSlots = hostState?.intentSlots ?? {};
     return new Map(Object.entries(intentSlots));
   }
@@ -194,6 +198,32 @@ export class ExecutionContextImpl implements ExecutionContext {
       t: "core:apply",
       key: this.key,
       patchCount: patches.length,
+      source,
+    });
+
+    return newSnapshot;
+  }
+
+  /**
+   * Apply namespace deltas to the current snapshot
+   */
+  applyNamespaceDeltas(deltas: readonly NamespaceDelta[], source: string): Snapshot {
+    if (deltas.length === 0) {
+      return this.snapshot;
+    }
+
+    const frozenContext = this.getFrozenContext();
+    const newSnapshot = this.core.applyNamespaceDeltas(
+      this.snapshot,
+      deltas,
+      frozenContext
+    );
+    this.snapshot = newSnapshot;
+
+    this.trace({
+      t: "core:apply",
+      key: this.key,
+      patchCount: deltas.reduce((count, delta) => count + delta.patches.length, 0),
       source,
     });
 

@@ -46,6 +46,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@manifesto-ai/cts-kit": "workspace:*",
     "typescript": "^5.9.3",
     "vite": "^8.0.8",
     "vitest": "^4.1.4",

@@ -15,6 +15,7 @@ import {
   createIntent,
   createSnapshot,
   type ComputeResult,
+  type NamespaceDelta,
   type Patch,
   type PatchPath,
   type Snapshot,
@@ -84,6 +85,41 @@ function stripInternalState(data: unknown): Record<string, unknown> | undefined 
   return projected;
 }
 
+function createPatchEvaluationData(snapshot: Snapshot): Record<string, unknown> {
+  const state = snapshot.state && typeof snapshot.state === "object" && !Array.isArray(snapshot.state)
+    ? snapshot.state as Record<string, unknown>
+    : {};
+
+  return {
+    ...state,
+    $mel: snapshot.namespaces.mel ?? { guards: { intent: {} } },
+  };
+}
+
+function splitNamespacePatches(patches: readonly Patch[]): {
+  domainPatches: Patch[];
+  namespaceDeltas: NamespaceDelta[];
+} {
+  const domainPatches: Patch[] = [];
+  const namespacePatches: Patch[] = [];
+
+  for (const patch of patches) {
+    const [root, ...rest] = patch.path;
+    if (root?.kind === "prop" && root.name === "$mel" && rest.length > 0) {
+      namespacePatches.push({ ...patch, path: rest });
+      continue;
+    }
+    domainPatches.push(patch);
+  }
+
+  return {
+    domainPatches,
+    namespaceDeltas: namespacePatches.length > 0
+      ? [{ namespace: "mel", patches: namespacePatches }]
+      : [],
+  };
+}
+
 async function runLegacyCycle(
   schema: any,
   core: ReturnType<typeof createCore>,
@@ -121,19 +157,16 @@ function runCompileMelPatchCycle(
     createEvaluationContext({
       meta: { intentId },
       snapshot: {
-        data: snapshot.data,
+        data: createPatchEvaluationData(snapshot),
         computed: snapshot.computed,
       },
       input,
     })
   );
 
-  return core.apply(
-    schema,
-    snapshot,
-    stripInternalGuards(concretePatches),
-    HOST_CONTEXT
-  );
+  const { domainPatches, namespaceDeltas } = splitNamespacePatches(stripInternalGuards(concretePatches));
+  const patched = core.apply(schema, snapshot, domainPatches, HOST_CONTEXT);
+  return core.applyNamespaceDeltas(patched, namespaceDeltas, HOST_CONTEXT);
 }
 
 function applyComputeResult(
@@ -143,7 +176,12 @@ function applyComputeResult(
   result: ComputeResult
 ): Snapshot {
   const patchedSnapshot = core.apply(schema, snapshot, result.patches, HOST_CONTEXT);
-  return core.applySystemDelta(patchedSnapshot, result.systemDelta);
+  const namespacedSnapshot = core.applyNamespaceDeltas(
+    patchedSnapshot,
+    result.namespaceDelta ?? [],
+    HOST_CONTEXT
+  );
+  return core.applySystemDelta(namespacedSnapshot, result.systemDelta);
 }
 
 async function runParityCycleBatch(options: {
@@ -202,8 +240,8 @@ async function runParityCycleBatch(options: {
       cycle.input
     );
 
-    const legacyData = stripInternalState(legacyResult.snapshot.data);
-    const melData = stripInternalState(melResult.data);
+    const legacyData = stripInternalState(legacyResult.snapshot.state);
+    const melData = stripInternalState(melResult.state);
 
     if (options.assert) {
       options.assert({
@@ -242,7 +280,7 @@ describe("compileMelPatch legacy lowering parity", () => {
       initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
       cycles: [{ intent: "when-true" }],
     });
-    expect(trueCase.history[0].mel.data).toEqual({
+    expect(trueCase.history[0].mel.state).toEqual({
       count: 1,
       status: "updated",
       flag: false,
@@ -256,7 +294,7 @@ describe("compileMelPatch legacy lowering parity", () => {
       initial: { count: 5, status: "ready", flag: false, x: 0, y: 0 },
       cycles: [{ intent: "when-false" }],
     });
-    expect(falseCase.history[0].mel.data).toEqual({
+    expect(falseCase.history[0].mel.state).toEqual({
       count: 5,
       status: "ready",
       flag: false,
@@ -295,7 +333,7 @@ describe("compileMelPatch legacy lowering parity", () => {
       initial: { count: 5, status: "ready", flag: false, x: 0, y: 0 },
       cycles: [{ intent: "when-entry-snapshot-false" }],
     });
-    expect(negative.history[0].mel.data).toEqual({
+    expect(negative.history[0].mel.state).toEqual({
       count: 5,
       status: "ready",
       flag: false,
@@ -322,7 +360,7 @@ describe("compileMelPatch legacy lowering parity", () => {
       cycles: [{ intent: "nested-when" }],
     });
 
-    expect(nestedResult.history[0].mel.data).toMatchObject({
+    expect(nestedResult.history[0].mel.state).toMatchObject({
       count: 1,
       status: "inner",
       flag: true,
@@ -347,7 +385,7 @@ describe("compileMelPatch legacy lowering parity", () => {
       cycles: [{ intent: "once-A" }, { intent: "once-A" }, { intent: "once-B" }],
     });
 
-    expect(onceResult.history[0].mel.data).toMatchObject({
+    expect(onceResult.history[0].mel.state).toMatchObject({
       count: 1,
       status: "once",
       flag: false,
@@ -355,8 +393,8 @@ describe("compileMelPatch legacy lowering parity", () => {
       x: 0,
       y: 0,
     });
-    expect(onceResult.history[1].mel.data).toEqual(onceResult.history[0].mel.data);
-    expect(onceResult.history[2].mel.data).toMatchObject({
+    expect(onceResult.history[1].mel.state).toEqual(onceResult.history[0].mel.state);
+    expect(onceResult.history[2].mel.state).toMatchObject({
       count: 2,
       status: "once",
       flag: false,
@@ -428,13 +466,13 @@ describe("compileMelPatch legacy lowering parity", () => {
       stateSource: DEFAULT_STATE_WITH_ONCE_MARKER,
       cycles: [{ intent: "once-when-A" }, { intent: "once-when-A" }],
     });
-    expect(onceWhenResult.history[0].mel.data).toMatchObject({
+    expect(onceWhenResult.history[0].mel.state).toMatchObject({
       count: 1,
       status: "once-when",
       x: 0,
       y: 0,
     });
-    expect(onceWhenResult.history[1].mel.data).toEqual(onceWhenResult.history[0].mel.data);
+    expect(onceWhenResult.history[1].mel.state).toEqual(onceWhenResult.history[0].mel.state);
 
     const onceIntentWhenBody = `
       onceIntent when eq(count, 0) {

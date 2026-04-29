@@ -32,7 +32,7 @@ If you want Codex to load Manifesto-specific guidance in another project:
 This setup is explicit. `@manifesto-ai/skills` does not auto-register itself from `postinstall`.
 For the full walkthrough, see the external `@manifesto-ai/skills` package README.
 
-**Current contract note:** The canonical Snapshot block below reflects the current Core v4.0.0 contract. Accumulated `system.errors` and `appendErrors` are no longer part of the current Snapshot/SystemDelta surface.
+**Current contract note:** The canonical Snapshot block below reflects the ADR-025 v5 ontology hard cut. Domain state is `snapshot.state`; platform/runtime/tooling namespaces live under `snapshot.namespaces`. Accumulated `system.errors` and `appendErrors` are no longer part of the current Snapshot/SystemDelta surface.
 
 ---
 
@@ -211,7 +211,7 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 
 ```typescript
 type Snapshot = {
-  data: Record<string, unknown>;     // Domain state
+  state: Record<string, unknown>;    // Domain state
   computed: Record<string, unknown>; // Derived values (recalculated, never stored)
   system: {
     status: 'idle' | 'computing' | 'pending' | 'error';
@@ -225,6 +225,11 @@ type Snapshot = {
     timestamp: number;               // Host-provided logical time
     randomSeed: string;              // Host-provided deterministic seed
     schemaHash: string;              // Schema hash this snapshot conforms to
+  };
+  namespaces: {
+    host?: Record<string, unknown>;  // Host-owned operational bookkeeping
+    mel?: Record<string, unknown>;   // Compiler/MEL-owned operational bookkeeping
+    [namespace: string]: unknown;    // Platform/runtime/tooling namespaces
   };
 };
 ```
@@ -246,6 +251,8 @@ type Snapshot = {
 - Go through `apply(schema, snapshot, patches)`
 - Result in a new Snapshot (old Snapshot unchanged)
 - Increment `meta.version` by exactly 1
+- Treat domain patch paths as rooted at `snapshot.state`
+- Use the namespace transition channel for `snapshot.namespaces`, never domain patches
 
 #### 4.3 Computed Values
 
@@ -329,11 +336,11 @@ type ErrorValue = {
 async function handler(type, params): Promise<Patch[]> {
   try {
     const result = await api.call(params);
-    return [{ op: 'set', path: 'data.result', value: result }];
+    return [{ op: 'set', path: [{ kind: 'prop', name: 'result' }], value: result }];
   } catch (error) {
     return [
-      { op: 'set', path: 'data.syncStatus', value: 'error' },
-      { op: 'set', path: 'data.errorMessage', value: error.message },
+      { op: 'set', path: [{ kind: 'prop', name: 'syncStatus' }], value: 'error' },
+      { op: 'set', path: [{ kind: 'prop', name: 'errorMessage' }], value: error.message },
     ];
   }
 }
@@ -352,7 +359,7 @@ User-facing APIs MUST NOT require string paths.
 
 ```typescript
 // FORBIDDEN
-{ path: '/data/todos/0/completed' }
+{ path: '/state/todos/0/completed' }
 
 // REQUIRED
 state.todos[0].completed  // TypeScript-checked FieldRef
@@ -474,7 +481,7 @@ Core is pure. Tests require NO mocking.
 // CORRECT - Core test
 it('computes transition', () => {
   const result = core.compute(schema, snapshot, intent);
-  expect(result.snapshot.data.count).toBe(1);
+  expect(result.snapshot.state.count).toBe(1);
 });
 ```
 
@@ -515,12 +522,12 @@ async function executeEffect(req) {
 
 ```typescript
 // FORBIDDEN
-snapshot.data.count = 5;
+snapshot.state.count = 5;
 snapshot.meta.version++;
 
 // REQUIRED
 const newSnapshot = core.apply(schema, snapshot, [
-  { op: 'set', path: 'data.count', value: 5 }
+  { op: 'set', path: [{ kind: 'prop', name: 'count' }], value: 5 }
 ]);
 ```
 
@@ -545,7 +552,7 @@ if (effectExecutionSucceeded) {  // Core cannot know this
 }
 
 // REQUIRED - Core reads from Snapshot
-if (snapshot.data.syncStatus === 'success') {
+if (snapshot.state.syncStatus === 'success') {
   // ...
 }
 ```
@@ -756,7 +763,7 @@ The `manifesto-docs-architect` agent is a custom-configured agent designed speci
 
 ```bash
 # Using manifesto-docs-architect to document a new API
-claude-code --agent manifesto-docs-architect \
+codex --agent manifesto-docs-architect \
   "Document the new withLab() API in packages/lab/docs/GUIDE.md"
 ```
 
@@ -829,25 +836,25 @@ When working with Claude Code agents on Manifesto:
 
 **Step 1: Verify constitutional compliance**
 ```bash
-claude-code "Show me where Authority types are defined and confirm \
+codex "Show me where Authority types are defined and confirm \
   they don't execute effects or apply patches (Constitution Section II)"
 ```
 
 **Step 2: Implement with boundaries enforced**
 ```bash
-claude-code "Add a new DurationAuthority that rejects Intents older than N seconds. \
+codex "Add a new DurationAuthority that rejects Intents older than N seconds. \
   Follow Authority Sovereignty rules. Must NOT execute, compute, or apply patches."
 ```
 
 **Step 3: Document the change**
 ```bash
-claude-code --agent manifesto-docs-architect \
+codex --agent manifesto-docs-architect \
   "Document DurationAuthority in packages/governance/docs/governance-SPEC.md (Layer 4)"
 ```
 
 **Step 4: Update tests**
 ```bash
-claude-code "Add tests verifying DurationAuthority respects Authority Sovereignty. \
+codex "Add tests verifying DurationAuthority respects Authority Sovereignty. \
   Follow Section 9.4 (REQUIRED Test Patterns)"
 ```
 
@@ -868,18 +875,18 @@ Review this change against CLAUDE.md Section 11 (LLM Self-Check):
 
 **For conceptual questions:**
 ```bash
-claude-code "Explain the difference between Effect and Requirement, \
+codex "Explain the difference between Effect and Requirement, \
   using definitions from packages/core/docs/SPEC.md"
 ```
 
 **For pattern identification:**
 ```bash
-claude-code "Find examples of re-entry safe Flows in apps/example-todo"
+codex "Find examples of re-entry safe Flows in apps/example-todo"
 ```
 
 **For debugging:**
 ```bash
-claude-code "Why is this Flow being executed multiple times? \
+codex "Why is this Flow being executed multiple times? \
   Check against Section 10.5 (Re-Entry Unsafe Flow)"
 ```
 

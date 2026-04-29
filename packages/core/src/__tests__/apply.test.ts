@@ -1,11 +1,29 @@
 import { describe, it, expect } from "vitest";
-import { apply } from "../core/apply.js";
+import { apply, applyNamespaceDeltas } from "../core/apply.js";
 import { createSnapshot } from "../factories.js";
 import type { DomainSchema } from "../schema/domain.js";
 import { semanticPathToPatchPath } from "../utils/patch-path.js";
 
 const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
 const pp = (path: string) => semanticPathToPatchPath(path);
+
+function createCountSchema(): DomainSchema {
+  return {
+    id: "manifesto:test",
+    version: "1.0.0",
+    hash: "test-hash",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: true },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      noop: { flow: { kind: "halt", reason: "noop" } },
+    },
+  };
+}
 
 describe("apply", () => {
   it("should surface computed evaluation errors as values", () => {
@@ -44,7 +62,7 @@ describe("apply", () => {
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({ dummy: "updated" });
+    expect(result.state).toEqual({ dummy: "updated" });
     expect(result.system.status).toBe("error");
     expect(result.system.lastError?.code).toBe("CYCLIC_DEPENDENCY");
     expect(result.computed).toEqual({});
@@ -75,7 +93,7 @@ describe("apply", () => {
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({ dummy: "initial" });
+    expect(result.state).toEqual({ dummy: "initial" });
     expect(result.system.status).toBe("error");
     expect(result.system.lastError?.code).toBe("PATH_NOT_FOUND");
   });
@@ -108,7 +126,7 @@ describe("apply", () => {
       HOST_CONTEXT,
     );
 
-    expect(result.data).toEqual({ dummy: "initial" });
+    expect(result.state).toEqual({ dummy: "initial" });
     expect(result.system.status).toBe("error");
     expect(result.system.lastError?.code).toBe("PATH_NOT_FOUND");
   });
@@ -151,7 +169,7 @@ describe("apply", () => {
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({
+    expect(result.state).toEqual({
       history: {
         files: {
           "file:///proof.lean": "recorded",
@@ -187,7 +205,7 @@ describe("apply", () => {
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({ dummy: "initial" });
+    expect(result.state).toEqual({ dummy: "initial" });
     expect(result.system.status).toBe("error");
     expect(result.system.lastError?.code).toBe("TYPE_MISMATCH");
   });
@@ -232,7 +250,7 @@ describe("apply", () => {
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({ count: 3 });
+    expect(result.state).toEqual({ count: 3 });
     expect(result.computed["double"]).toBe(6);
     expect(result.meta.version).toBe(snapshot.meta.version + 1);
   });
@@ -262,28 +280,13 @@ describe("apply", () => {
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({ name: "initial" });
+    expect(result.state).toEqual({ name: "initial" });
     expect(result.system.status).toBe("error");
     expect(result.system.lastError?.code).toBe("TYPE_MISMATCH");
   });
 
-  it("should allow merge on platform namespace paths not declared in StateSpec", () => {
-    const schema: DomainSchema = {
-      id: "manifesto:test",
-      version: "1.0.0",
-      hash: "test-hash",
-      types: {},
-      state: {
-        fields: {
-          count: { type: "number", required: true },
-        },
-      },
-      computed: { fields: {} },
-      actions: {
-        noop: { flow: { kind: "halt", reason: "noop" } },
-      },
-    };
-
+  it("should reject namespace-looking paths through domain apply", () => {
+    const schema = createCountSchema();
     const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
     const result = apply(
       schema,
@@ -292,13 +295,27 @@ describe("apply", () => {
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({
+    expect(result.state).toEqual({ count: 1 });
+    expect(result.system.status).toBe("error");
+    expect(result.system.lastError?.code).toBe("PATH_NOT_FOUND");
+  });
+
+  it("should apply namespace deltas at namespace root", () => {
+    const schema = createCountSchema();
+    const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
+    const result = applyNamespaceDeltas(
+      snapshot,
+      [{ namespace: "mel", patches: [{ op: "merge", path: pp("guards.intent"), value: { addTodo: "intent-1" } }] }],
+      HOST_CONTEXT
+    );
+
+    expect(result.state).toEqual({
       count: 1,
-      $mel: {
-        guards: {
-          intent: {
-            addTodo: "intent-1",
-          },
+    });
+    expect(result.namespaces.mel).toEqual({
+      guards: {
+        intent: {
+          addTodo: "intent-1",
         },
       },
     });
@@ -306,69 +323,41 @@ describe("apply", () => {
     expect(result.system.lastError).toBeNull();
   });
 
-  it("should allow merge on arbitrary $-prefixed platform namespaces", () => {
-    const schema: DomainSchema = {
-      id: "manifesto:test",
-      version: "1.0.0",
-      hash: "test-hash",
-      types: {},
-      state: {
-        fields: {
-          count: { type: "number", required: true },
-        },
-      },
-      computed: { fields: {} },
-      actions: {
-        noop: { flow: { kind: "halt", reason: "noop" } },
-      },
-    };
-
+  it("should apply arbitrary namespace deltas", () => {
+    const schema = createCountSchema();
     const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
+    const result = applyNamespaceDeltas(
       snapshot,
-      [{ op: "merge", path: pp("$runtime.cache"), value: { warmed: true } }],
+      [{ namespace: "runtime", patches: [{ op: "merge", path: pp("cache"), value: { warmed: true } }] }],
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({
-      count: 1,
-      $runtime: {
-        cache: {
-          warmed: true,
-        },
+    expect(result.state).toEqual({ count: 1 });
+    expect(result.namespaces.runtime).toEqual({
+      cache: {
+        warmed: true,
       },
     });
     expect(result.system.status).toBe("idle");
     expect(result.system.lastError).toBeNull();
   });
 
-  it("should record TYPE_MISMATCH for non-object values at platform namespace root", () => {
-    const schema: DomainSchema = {
-      id: "manifesto:test",
-      version: "1.0.0",
-      hash: "test-hash",
-      types: {},
-      state: {
-        fields: {
-          count: { type: "number", required: true },
+  it("should record TYPE_MISMATCH for non-object namespace roots", () => {
+    const schema = createCountSchema();
+    const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
+    const result = applyNamespaceDeltas(
+      {
+        ...snapshot,
+        namespaces: {
+          ...snapshot.namespaces,
+          runtime: "invalid",
         },
       },
-      computed: { fields: {} },
-      actions: {
-        noop: { flow: { kind: "halt", reason: "noop" } },
-      },
-    };
-
-    const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "set", path: pp("$mel"), value: "invalid" }],
+      [{ namespace: "runtime", patches: [{ op: "set", path: pp("cache"), value: "value" }] }],
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({ count: 1 });
+    expect(result.state).toEqual({ count: 1 });
     expect(result.system.status).toBe("error");
     expect(result.system.lastError?.code).toBe("TYPE_MISMATCH");
   });
@@ -410,7 +399,7 @@ describe("apply", () => {
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({
+    expect(result.state).toEqual({
       profile: {
         meta: {
           source: "import",
@@ -466,7 +455,7 @@ describe("apply", () => {
       HOST_CONTEXT
     );
 
-    expect(result.data).toEqual({
+    expect(result.state).toEqual({
       profile: {
         meta: "not-object",
       },

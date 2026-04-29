@@ -287,6 +287,21 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
     return ok(null);
   }
 
+  // Handle platform namespace reads (for example $host.intentSlots).
+  // Domain state identifiers cannot start with "$", so these paths are never
+  // ambiguous with StateSpec fields.
+  if (path.startsWith("$")) {
+    const dotIndex = path.indexOf(".");
+    const root = dotIndex === -1 ? path : path.slice(0, dotIndex);
+    const namespace = root.slice(1);
+    const namespaceRoot = ctx.snapshot.namespaces[namespace];
+    if (dotIndex === -1) {
+      return ok(normalizeMissingPathValue(namespaceRoot));
+    }
+    const subPath = path.slice(dotIndex + 1);
+    return ok(normalizeMissingPathValue(getByPath(namespaceRoot, subPath)));
+  }
+
   // Handle meta path (snapshot metadata)
   if (path.startsWith("meta.")) {
     const metaPath = path.slice(5); // Remove "meta."
@@ -319,8 +334,8 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
     return ok(normalizeMissingPathValue(getByPath(ctx.snapshot.system, subPath)));
   }
 
-  // Default: get from data
-  return ok(normalizeMissingPathValue(getByPath(ctx.snapshot.data, path)));
+  // Default: get from domain state
+  return ok(normalizeMissingPathValue(getByPath(ctx.snapshot.state, path)));
 }
 
 function normalizeMissingPathValue(value: unknown): unknown {

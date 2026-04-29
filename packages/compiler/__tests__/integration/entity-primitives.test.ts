@@ -37,7 +37,12 @@ function applyComputeResult(
   result: ComputeResult
 ): Snapshot {
   const patched = core.apply(schema, snapshot, result.patches, HOST_CONTEXT);
-  return core.applySystemDelta(patched, result.systemDelta);
+  const namespaced = core.applyNamespaceDeltas(
+    patched,
+    result.namespaceDelta ?? [],
+    HOST_CONTEXT
+  );
+  return core.applySystemDelta(namespaced, result.systemDelta);
 }
 
 describe("Entity Primitive Core Integration", () => {
@@ -77,7 +82,7 @@ describe("Entity Primitive Core Integration", () => {
     );
     const nextSnapshot = applyComputeResult(core, schema, snapshot, computeResult);
 
-    expect(nextSnapshot.data).toMatchObject({
+    expect(nextSnapshot.state).toMatchObject({
       tasks: [
         { id: "task-1", title: "A", done: false },
         { id: "task-2", title: "B", done: true },
@@ -122,7 +127,7 @@ describe("Entity Primitive Core Integration", () => {
     );
     const nextSnapshot = applyComputeResult(core, schema, snapshot, computeResult);
 
-    expect(nextSnapshot.data).toMatchObject({
+    expect(nextSnapshot.state).toMatchObject({
       tasks: [{ id: "task-2", title: "C" }],
     });
   });
