@@ -36,7 +36,7 @@ This is the canonical entry story for new integrations.
 | Package | Current Contract | Role |
 |---------|------------------|------|
 | `@manifesto-ai/core` | [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (current through v5.0.0 ADR-025 baseline) | Pure semantic runtime, schema validation, patch/apply semantics |
-| `@manifesto-ai/host` | [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (current through v4.0.0) | Effect execution, compute loop orchestration, canonical snapshot substrate |
+| `@manifesto-ai/host` | [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (current through v5.0.0 ADR-025 alignment) | Effect execution, compute loop orchestration, canonical snapshot substrate |
 | `@manifesto-ai/sdk` | [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (current v5.0.0 ADR-026 surface) | Action-candidate application surface, projected reads, observe/inspect, law-aware `submit()` ingress |
 | `@manifesto-ai/compiler` | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v1.3.0 in-place) | Full current MEL compiler contract |
 | `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v5.0.0 ADR-026 surface) | Seal-aware continuity, lineage-mode `submit()` results, canonical snapshot persistence, restore |

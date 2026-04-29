@@ -68,13 +68,13 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 ### Core
 
-- **Core SPEC** — [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (Living Document, current through v4.2.0)
-  - Updated directly in the living document; FDR rationale inlined
+- **Core SPEC** — [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (Living Document, current through v5.0.0)
+  - Updated directly in the living document; ADR-025 retires `Snapshot.data`, promotes `snapshot.state`, adds `snapshot.namespaces`, and makes patch roots channel-determined
 
 ### Host
 
-- **Host SPEC** — [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (Living Document, current through v4.0.0)
-  - Updated directly in the living document; FDR-H018~H025 inlined
+- **Host SPEC** — [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (Living Document, current through v5.0.0)
+  - Updated directly in the living document; ADR-025 aligns Host to canonical `snapshot.state`, `snapshot.namespaces`, and the domain patch / namespace delta / system delta interlock
   - Deprecated §9 (Compiler Integration) moved to Appendix D
 
 ### Lineage
@@ -91,7 +91,8 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 - **SDK SPEC** (Living Document)
   - [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md)
-  - Activation-first SDK — `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, and the current surface includes projected `SchemaGraph`, `simulate()`, dispatchability queries, and `sdk/extensions`
+  - SDK v5 action-candidate surface — `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, and the current root is `snapshot()`, `actions`, `action(name)`, `observe`, `inspect`, and `dispose()`
+  - The current action ladder is `info()`, `available()`, `check()`, `preview()`, `submit()`, and `bind()`; v3 root verbs such as `simulate()`, `dispatchAsync()`, and `createIntent()` are historical migration inputs
 
 ### Compiler (MEL)
 
@@ -113,10 +114,10 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
-| 03-31 | Core | v4.0.0 | ADR-015 current hard cut landed: accumulated `system.errors` and `appendErrors` are removed from the current Core contract |
+| 03-31 | Core | v4.0.0 | ADR-015 hard cut landed: accumulated `system.errors` and `appendErrors` were removed from the Core contract |
 | 03-31 | Lineage | v2.0.0 | ADR-015 + ADR-016 lineage contract landed: current-error hash identity, parent-linked `WorldId`, `SealAttempt`, `tip`, `headAdvancedAt`, idempotent reuse, and restore normalization |
 | 03-31 | Governance | v2.0.0 | Governance v2 landed: remove accumulated-error assumptions, remap provenance to `SealAttempt`, and align governance/world seam to the current typed surface |
-| 03-31 | Host | v4.0.0 | Current Host alignment follows the Core v4 Snapshot contract and removes `system.errors` from Host-facing Snapshot references |
+| 03-31 | Host | v4.0.0 | Host v4 alignment followed the Core v4 Snapshot contract and removed `system.errors` from Host-facing Snapshot references |
 | 03-31 | SDK | v2.0.0 | Historical pre-ADR-017 SDK surface aligned to the Core v4 Snapshot contract before the activation-first hard cut |
 | 03-28 | Governance | v1.1.0 | Governance living SPEC created; package version index added |
 | 03-28 | Lineage | v1.0.1 | Lineage living SPEC patch release: adds `BranchInfo.epoch`, `LineageService.getBranch()`, and public-contract epoch reads |
@@ -127,6 +128,9 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 04-29 | Core | v5.0.0 | ADR-025 hard cut: canonical Snapshot uses `state` and `namespaces`, retires `Snapshot.data`, and makes patch roots channel-determined |
+| 04-29 | Host | v5.0.0 | ADR-025 hard cut: Host consumes canonical v5 Snapshots and applies domain patches, namespace deltas, and system deltas through the current interlock |
+| 04-29 | SDK | v5.0.0 | ADR-026 hard cut: SDK current surface is the action-candidate ladder with `snapshot()`, `actions.*`, `action(name)`, `check()`, `preview()`, `submit()`, `observe`, and `inspect` |
 | 04-29 | Compiler | v5.0.0 | ADR-025 hard cut: MEL `state {}` maps to `snapshot.state`, `onceIntent` uses `namespaces.mel`, and compiler-owned namespace writes use `NamespaceDelta` |
 | 04-29 | Lineage | v5.0.0 | ADR-026 hard cut: lineage-mode `submit()` replaces root `commitAsync*` verbs and carries `WorldRecord` continuity refs |
 | 04-29 | Governance | v5.0.0 | ADR-026 hard cut: governance-mode `submit()` creates durable `ProposalRef` settlement handles observed through `waitForSettlement(ref)` |

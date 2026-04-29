@@ -1,14 +1,15 @@
 # Core Documentation Index
 
 > **Package:** `@manifesto-ai/core`
-> **Last Updated:** 2026-04-08
+> **Last Updated:** 2026-04-29
 
 ---
 
 ## Current Specification
 
-- **SPEC (Living Document):** [core-SPEC.md](core-SPEC.md) — Normative, current through v4.2.0
+- **SPEC (Living Document):** [core-SPEC.md](core-SPEC.md) — Normative, current through v5.0.0
   - Consolidated from v2.x living document with ADR-009 hard-cut updates
+  - ADR-025 hard cut landed: `Snapshot.data` is retired, domain state is `snapshot.state`, platform/runtime/tooling state lives under `snapshot.namespaces`, and patch roots are channel-determined
   - Includes additive availability query API: `isActionAvailable()` and `getAvailableActions()`
   - Includes additive intent dispatchability query API: `isIntentDispatchable()`
   - Uses `state.fieldTypes` / `action.inputType` as the normative runtime typing seam when present
@@ -33,6 +34,7 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 ## Notes
 
 - The Living Document replaces the patch-chain reading model. All content is in one file.
+- v5.0.0 lands ADR-025 in the current Core contract: canonical Snapshots contain `state`, `computed`, `system`, `input`, `meta`, and `namespaces`; domain patches are rooted at `snapshot.state`; namespace patches are carried only through `NamespaceDelta` rooted at `snapshot.namespaces[namespace]`.
 - v3.0.0 introduces ADR-009 structured patch paths (`PatchPath`) and `SystemDelta` system transition channel.
 - v3.1.0 additively exposes the R-002 availability check as `isActionAvailable()` and `getAvailableActions()` without changing the compute/apply loop.
 - v4.2.0 additively promotes `state.fieldTypes` / `action.inputType` / `action.params` as the normative runtime typing seam for nullable and record-aware validation while keeping `FieldSpec` as the compatibility surface.
