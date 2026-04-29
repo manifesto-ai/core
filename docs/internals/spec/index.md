@@ -7,7 +7,7 @@ If you need a single current-surface document without version-history context, s
 :::
 
 ::: tip Single Source of Truth
-Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.2.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v5.0.0 ADR-026 action-candidate surface, `@manifesto-ai/lineage` v5.0.0 continuity decorator surface, `@manifesto-ai/governance` v5.0.0 legitimacy decorator surface, `@manifesto-ai/compiler` v5.0.0 as the rolled-up MEL compiler contract aligned to ADR-025, and `@manifesto-ai/codegen` as the normative build-time code generation baseline. Draft package work that is not yet implemented is listed separately below.
+Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.2.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v5.0.0 ADR-026 action-candidate surface, `@manifesto-ai/lineage` v5.0.0 continuity decorator surface, `@manifesto-ai/governance` v5.0.0 legitimacy decorator surface, `@manifesto-ai/compiler` v5.0.0 as the rolled-up MEL compiler contract aligned to ADR-025, and `@manifesto-ai/codegen` v0.2.8 as the ADR-025/ADR-026-aligned build-time domain facade baseline. Draft package work that is not yet implemented is listed separately below.
 :::
 
 If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
@@ -40,7 +40,7 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
 | **@manifesto-ai/compiler** | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v5.0.0 in-place) | Normative full MEL compiler contract aligned to ADR-025 | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/codegen** | [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md) | Normative baseline for build-time code generation tooling | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/codegen** | [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md) (current v0.2.8 in-place) | Normative build-time domain facade baseline aligned to ADR-025 Snapshot ontology and ADR-026 SDK v5 action candidates | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/VERSION-INDEX.md) |
 
 > **Current Governed Direction:** `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
@@ -99,6 +99,12 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
   - [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md)
   - Rolls up `SchemaGraph`, `dispatchable when`, `TypeDefinition`-backed schema-position lowering, pure collection builtins, object-literal spread with presence-aware object typing, compiler-owned source-fragment editing, and ADR-025 namespace separation into the current MEL compiler contract
 
+### Codegen
+
+- **Codegen SPEC v0.2.8** (Current in-place file path)
+  - [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md)
+  - Defines the deterministic build-time plugin runner, canonical domain facade generation, SDK v5 `ActionHandle` / `ActionInput` / `ActionArgs` type alignment, `action(name)` collision-safe typing, and ADR-025 `snapshot.state` / `snapshot.namespaces` separation
+
 ---
 
 ## Version History Summary
@@ -124,6 +130,7 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 | 04-29 | Compiler | v5.0.0 | ADR-025 hard cut: MEL `state {}` maps to `snapshot.state`, `onceIntent` uses `namespaces.mel`, and compiler-owned namespace writes use `NamespaceDelta` |
 | 04-29 | Lineage | v5.0.0 | ADR-026 hard cut: lineage-mode `submit()` replaces root `commitAsync*` verbs and carries `WorldRecord` continuity refs |
 | 04-29 | Governance | v5.0.0 | ADR-026 hard cut: governance-mode `submit()` creates durable `ProposalRef` settlement handles observed through `waitForSettlement(ref)` |
+| 04-29 | Codegen | v0.2.8 | ADR-025/ADR-026 in-place spec alignment: domain facades target SDK v5 action candidates and current Snapshot ontology |
 | 04-25 | Compiler | v1.3.0 | Current full compiler spec adds `compileFragmentInContext()` as the compiler-owned authoring-time MEL source-fragment editing primitive |
 | 04-23 | Compiler | v1.2.0 | Current full compiler spec admits object-literal spread as bounded source sugar and defines presence-aware object typing / direct `merge()` parity |
 | 04-08 | Compiler | v1.1.0 | Current full compiler spec rolls up v0.7.0 + addenda and lands `TypeDefinition`-backed nullable/record schema-position lowering plus expression-level collection builtins |

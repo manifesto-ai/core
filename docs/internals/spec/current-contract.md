@@ -41,6 +41,7 @@ This is the canonical entry story for new integrations.
 | `@manifesto-ai/compiler` | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v1.3.0 in-place) | Full current MEL compiler contract |
 | `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v5.0.0 ADR-026 surface) | Seal-aware continuity, lineage-mode `submit()` results, canonical snapshot persistence, restore |
 | `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v5.0.0 ADR-026 surface) | Proposal legitimacy, governance-mode `submit()` results, durable `ProposalRef`, settlement observation, and control surface |
+| `@manifesto-ai/codegen` | [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md) (current v0.2.8, v5 facade alignment in-place) | Build-time domain facade generation aligned to ADR-025 ontology and ADR-026 SDK v5 action candidates |
 
 ## ADR-025 v5 Ontology Baseline
 
@@ -210,6 +211,22 @@ Still out of current scope:
 
 - arbitrary non-null unions in schema positions
 - recursive schema-position lowering that cannot be soundly validated at runtime
+
+## Codegen Contract
+
+`@manifesto-ai/codegen` is the build-time domain facade generator.
+
+Current contract highlights:
+
+- Codegen consumes `DomainSchema` and emits generated files; it does not run the runtime.
+- The canonical domain plugin emits `<domain>.domain.ts` facade types with `state`, `computed`, and `actions`.
+- Generated domain state models `snapshot.state`; generated facades MUST NOT reintroduce `snapshot.data`.
+- Generated facades MUST keep platform/runtime/tooling bookkeeping out of domain state by default; those fields belong under `snapshot.namespaces`.
+- `state.fieldTypes`, `action.inputType`, and `action.params` are the preferred current typing seams when present.
+- `state.fields` and `action.input` remain compatibility fallbacks.
+- SDK v5 facade types align with `ManifestoDomainShape`, `ActionHandle`, `ActionInput`, `ActionArgs`, `actions.*`, and collision-safe `action(name)`.
+- Actions named `then`, `bind`, `constructor`, `inspect`, `snapshot`, `dispose`, or `action` must remain typed through `action(name)`.
+- Codegen does not own runtime authority, execute effects, evaluate governance policy, seal lineage records, or generate canonical v5 lower-authority write backdoors such as root `dispatchAsync`, `commitAsync`, or `proposeAsync`.
 
 ## Lineage and Governance Contract
 
