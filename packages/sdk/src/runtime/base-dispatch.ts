@@ -2,7 +2,7 @@ import type {
   DispatchReport,
   ExecutionDiagnostics,
   ExecutionFailureInfo,
-  ExecutionOutcome,
+  DispatchExecutionOutcome,
   IntentAdmission,
   ManifestoDomainShape,
   Snapshot,
@@ -45,7 +45,7 @@ type FailedAttempt<T extends ManifestoDomainShape> = {
   readonly errorInfo: ExecutionFailureInfo;
   readonly published: boolean;
   readonly diagnostics?: ExecutionDiagnostics;
-  readonly outcome?: ExecutionOutcome<T>;
+  readonly outcome?: DispatchExecutionOutcome<T>;
 };
 
 type CompletedAttempt<T extends ManifestoDomainShape> = {
@@ -53,7 +53,7 @@ type CompletedAttempt<T extends ManifestoDomainShape> = {
   readonly intent: TypedIntent<T>;
   readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
   readonly publishedSnapshot: Snapshot<T["state"]>;
-  readonly outcome: ExecutionOutcome<T>;
+  readonly outcome: DispatchExecutionOutcome<T>;
   readonly diagnostics: ExecutionDiagnostics;
 };
 

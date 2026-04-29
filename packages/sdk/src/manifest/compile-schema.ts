@@ -1,7 +1,8 @@
 import {
-  compileMelDomain,
+  compileMelModule,
   parse as parseMel,
   tokenize as tokenizeMel,
+  type AnnotationIndex,
 } from "@manifesto-ai/compiler";
 import {
   hashSchemaSync,
@@ -14,12 +15,13 @@ import {
 } from "../errors.js";
 import type {
   ActionParamMetadata,
+  ActionAnnotationMap,
   ActionSingleParamObjectValueMetadata,
   CompiledSchema,
 } from "./shared.js";
 
 export function compileSchema(source: string): CompiledSchema {
-  const result = compileMelDomain(source, { mode: "domain" });
+  const result = compileMelModule(source, { mode: "module" });
 
   if (result.errors.length > 0) {
     const formatted = result.errors.map((diagnostic) => {
@@ -48,11 +50,11 @@ export function compileSchema(source: string): CompiledSchema {
     throw new CompileError(result.errors, `MEL compilation failed:\n${formatted}`);
   }
 
-  if (!result.schema) {
+  if (!result.module) {
     throw new ManifestoError("COMPILE_ERROR", "MEL compilation produced no schema");
   }
 
-  const schema = result.schema as DomainSchema;
+  const schema = result.module.schema as DomainSchema;
   return {
     schema,
     actionParamMetadata: deriveActionParamMetadata(
@@ -60,7 +62,27 @@ export function compileSchema(source: string): CompiledSchema {
       extractActionParamOrderFromMel(source),
     ),
     actionSingleParamObjectValueMetadata: deriveSingleParamObjectValueMetadata(schema),
+    actionAnnotations: deriveActionAnnotations(result.module.annotations),
   };
+}
+
+export function deriveActionAnnotations(
+  annotations?: AnnotationIndex | null,
+): ActionAnnotationMap {
+  if (!annotations) {
+    return Object.freeze({});
+  }
+
+  return Object.freeze(Object.fromEntries(
+    Object.entries(annotations.entries)
+      .filter(([target]) => target.startsWith("action:"))
+      .map(([target, entries]) => {
+        const actionName = target.slice("action:".length);
+        return [actionName, Object.freeze(Object.fromEntries(
+          entries.map((entry) => [entry.tag, entry.payload ?? true]),
+        ))];
+      }),
+  ));
 }
 
 export function deriveActionParamMetadata(

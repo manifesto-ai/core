@@ -2,7 +2,7 @@ import type {
   BaseComposableLaws,
   ComposableManifesto,
   DispatchBlocker,
-  ManifestoBaseInstance,
+  ManifestoApp,
   ManifestoDomainShape,
 } from "../../index.ts";
 import type {
@@ -61,7 +61,7 @@ const blockersFor: readonly DispatchBlocker[] = kernel.getIntentBlockersFor(cano
 const simulation: SimulateResult<DemoDomain> = kernel.simulateSync(canonical, intent);
 const projectedSimulation = kernel.simulateIntent(intent);
 const simulationTrace = simulation.diagnostics?.trace;
-const baseRuntime: ManifestoBaseInstance<DemoDomain> = createBaseRuntimeInstance(kernel);
+const baseRuntime: ManifestoApp<DemoDomain, "base"> = createBaseRuntimeInstance(kernel);
 
 void activationState;
 void availableFor;

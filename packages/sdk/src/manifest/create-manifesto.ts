@@ -9,6 +9,7 @@ import {
 import type {
   BaseComposableLaws,
   ComposableManifesto,
+  CreateManifestoOptions,
   EffectHandler,
   ManifestoDomainShape,
 } from "../types.js";
@@ -38,12 +39,13 @@ import type {
 export function createManifesto<T extends ManifestoDomainShape>(
   schemaInput: DomainSchema | string,
   effects: Record<string, EffectHandler>,
+  options?: CreateManifestoOptions,
 ): ComposableManifesto<T, BaseComposableLaws> {
   if (RESERVED_EFFECT_TYPE in effects) {
     throw new ReservedEffectError(RESERVED_EFFECT_TYPE);
   }
 
-  const resolved = resolveSchema(schemaInput);
+  const resolved = resolveSchema(schemaInput, options?.annotations);
 
   const manifesto = {
     _laws: BASE_LAWS,
@@ -67,6 +69,7 @@ export function createManifesto<T extends ManifestoDomainShape>(
             resolved.actionSingleParamObjectValueMetadata,
           ),
           createIntent: buildCreateIntent<T>(),
+          actionAnnotations: resolved.actionAnnotations,
         }),
       );
     },
@@ -89,6 +92,7 @@ export function createManifesto<T extends ManifestoDomainShape>(
         resolved.actionSingleParamObjectValueMetadata,
       ),
       createIntent: buildCreateIntent<T>(),
+      actionAnnotations: resolved.actionAnnotations,
     });
   });
 }

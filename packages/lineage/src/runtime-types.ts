@@ -3,9 +3,9 @@ import type {
   CanonicalSnapshot,
   ComposableManifesto,
   DispatchReport,
+  DispatchExecutionOutcome,
   ExecutionDiagnostics,
   ExecutionFailureInfo,
-  ExecutionOutcome,
   IntentAdmission,
   LineageLaws,
   ManifestoBaseInstance,
@@ -81,7 +81,7 @@ export type CommitReport<
       readonly resultWorld?: WorldId;
       readonly branchId?: BranchId;
       readonly headAdvanced?: false;
-      readonly sealedOutcome?: ExecutionOutcome<T>;
+      readonly sealedOutcome?: DispatchExecutionOutcome<T>;
       readonly error: ExecutionFailureInfo;
       readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
       readonly beforeSnapshot: Snapshot<T["state"]>;

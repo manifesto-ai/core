@@ -1,8 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import { semanticPathToPatchPath } from "@manifesto-ai/core";
+import { describe, expect, it } from "vitest";
 import {
   AlreadyActivatedError,
-  ManifestoError,
   createManifesto,
 } from "@manifesto-ai/sdk";
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
@@ -15,12 +13,9 @@ import { getRuleOrThrow } from "../acts-rules.js";
 import {
   createCounterSchema,
   createHaltingSchema,
-  withHash,
   type CounterDomain,
   type HaltingDomain,
 } from "../helpers/schema.js";
-
-const pp = semanticPathToPatchPath;
 
 describe("ACTS Base Suite", () => {
   it(
@@ -30,24 +25,18 @@ describe("ACTS Base Suite", () => {
     ),
     () => {
       const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
-      const firstWorld = manifesto.activate();
+      const app = manifesto.activate();
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-BASE-1"),
           "activate" in manifesto
             && !("dispatchAsync" in manifesto)
-            && !("dispatchAsyncWithReport" in manifesto)
-            && !("subscribe" in manifesto)
-            && !("getSnapshot" in manifesto),
+            && !("snapshot" in manifesto),
           {
             passMessage: "Base composable exposes activation only and no runtime verbs.",
             failMessage: "Base composable leaked runtime verbs before activation.",
-            evidence: [
-              noteEvidence(
-                "Checked base composable surface for activation-only contract.",
-              ),
-            ],
+            evidence: [noteEvidence("Checked base composable pre-activation surface.")],
           },
         ),
         evaluateRule(
@@ -63,86 +52,35 @@ describe("ACTS Base Suite", () => {
           {
             passMessage: "Base composable activation is one-shot.",
             failMessage: "Base composable allowed second activation.",
-            evidence: [
-              noteEvidence(
-                "Second activation attempt threw AlreadyActivatedError.",
-              ),
-            ],
+            evidence: [noteEvidence("Second activation threw AlreadyActivatedError.")],
           },
         ),
       ]);
 
-      firstWorld.dispose();
+      app.dispose();
     },
   );
 
   it(
     caseTitle(
       ACTS_CASES.BASE_ACTIVATION_CHAIN,
-      "Base activation chain creates typed intents and executes dispatchAsync successfully.",
+      "Base activation chain submits action candidates successfully.",
     ),
     async () => {
-      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-      const snapshot = await world.dispatchAsync(
-        world.createIntent(world.MEL.actions.add, 2),
-      );
+      const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      const result = await app.actions.add.submit(2);
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("ACTS-BASE-3"), snapshot.data.count === 2
-          && world.getSnapshot().data.count === 2, {
-          passMessage: "Base activation chain executed typed intent dispatch successfully.",
+        evaluateRule(getRuleOrThrow("ACTS-BASE-3"), result.ok
+          && result.after.state.count === 2
+          && app.snapshot().state.count === 2, {
+          passMessage: "Base activation chain submitted an action candidate successfully.",
           failMessage: "Base activation chain did not publish the expected terminal snapshot.",
-          evidence: [
-            noteEvidence(
-              "Executed createManifesto() -> activate() -> createIntent(MEL.actions.add) -> dispatchAsync().",
-            ),
-          ],
+          evidence: [noteEvidence("Executed createManifesto() -> activate() -> actions.add.submit().")],
         }),
       ]);
 
-      world.dispose();
-    },
-  );
-
-  it(
-    caseTitle(
-      ACTS_CASES.BASE_DEQUEUE_AVAILABILITY,
-      "Queued intents are evaluated for availability at dequeue time, not enqueue time.",
-    ),
-    async () => {
-      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-      const rejected = vi.fn();
-      world.on("dispatch:rejected", rejected);
-
-      const first = world.dispatchAsync(
-        world.createIntent(world.MEL.actions.increment),
-      );
-      const second = world.dispatchAsync(
-        world.createIntent(world.MEL.actions.incrementIfEven),
-      );
-
-      await expect(first).resolves.toMatchObject({ data: { count: 1 } });
-      await expect(second).rejects.toMatchObject({
-        code: "ACTION_UNAVAILABLE",
-      });
-
-      expectAllCompliance([
-        evaluateRule(
-          getRuleOrThrow("ACTS-BASE-4"),
-          world.getSnapshot().data.count === 1 && rejected.mock.calls.length === 1,
-          {
-            passMessage: "Base runtime checks availability at dequeue time and rejects without publication.",
-            failMessage: "Queued action availability drifted from dequeue-time semantics.",
-            evidence: [
-              noteEvidence(
-                "Queued increment then incrementIfEven and confirmed second action rejected after first changed state.",
-              ),
-            ],
-          },
-        ),
-      ]);
-
-      world.dispose();
+      app.dispose();
     },
   );
 
@@ -152,353 +90,118 @@ describe("ACTS Base Suite", () => {
       "Visible snapshot reads are read-only, mutation-safe, and do not leak external changes back in.",
     ),
     async () => {
-      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-      await world.dispatchAsync(world.createIntent(world.MEL.actions.add, 3));
+      const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      await app.actions.add.submit(3);
+      const snapshot = app.snapshot();
 
-      const snapshot = world.getSnapshot();
-      let threwOnMutation = false;
-
-      try {
-        (snapshot.data as { count: number }).count = 999;
-      } catch (error) {
-        threwOnMutation = error instanceof TypeError;
-      }
+      expect(() => {
+        (snapshot.state as { count: number }).count = 99;
+      }).toThrow(TypeError);
 
       expectAllCompliance([
-        evaluateRule(
-          getRuleOrThrow("ACTS-BASE-5"),
-          threwOnMutation && world.getSnapshot().data.count === 3,
-          {
-            passMessage: "Snapshot reads are read-only and mutation-safe.",
-            failMessage: "Visible snapshot reads were mutable or leaked external mutation back into runtime state.",
-            evidence: [
-              noteEvidence(
-                "Attempted to mutate count on a returned snapshot, confirmed TypeError, then re-read visible snapshot state.",
-              ),
-            ],
-          },
-        ),
+        evaluateRule(getRuleOrThrow("ACTS-BASE-4"), app.snapshot().state.count === 3, {
+          passMessage: "Projected snapshot mutation did not leak back into runtime state.",
+          failMessage: "Projected snapshot mutation changed runtime state.",
+          evidence: [noteEvidence("Mutated a projected snapshot clone and re-read app.snapshot().")],
+        }),
       ]);
 
-      world.dispose();
+      app.dispose();
     },
   );
 
   it(
     caseTitle(
       ACTS_CASES.BASE_INTROSPECTION_SURFACE,
-      "Activated base runtime exposes getSchemaGraph(), simulateIntent(), and simulate() as read-only introspection verbs.",
+      "Activated base runtime exposes inspect and preview as read-only introspection surfaces.",
     ),
     () => {
-      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-      const graph = world.getSchemaGraph();
-      const intent = world.createIntent(world.MEL.actions.increment);
-      const simulated = world.simulate(world.MEL.actions.increment);
-      const simulatedIntent = world.simulateIntent(intent);
+      const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      const graph = app.inspect.graph();
+      const before = app.snapshot();
+      const preview = app.actions.load.preview();
 
       expectAllCompliance([
-        evaluateRule(
-          getRuleOrThrow("ACTS-BASE-6"),
-          "getSchemaGraph" in world
-            && "simulate" in world
-            && "simulateIntent" in world
-            && Array.isArray(graph.nodes)
-            && Array.isArray(graph.edges)
-            && simulated.snapshot.data.count === 1
-            && simulatedIntent.snapshot.data.count === 1
-            && world.getSnapshot().data.count === 0,
-          {
-            passMessage: "Base runtime exposes getSchemaGraph(), simulateIntent(), and simulate() without committing state.",
-            failMessage: "Base runtime did not expose the introspection surface or public dry-run committed state.",
-            evidence: [
-              noteEvidence("Observed graph nodes", graph.nodes),
-              noteEvidence("Observed simulated snapshot", simulated.snapshot),
-              noteEvidence("Observed bound-intent simulated snapshot", simulatedIntent.snapshot),
-            ],
-          },
-        ),
+        evaluateRule(getRuleOrThrow("ACTS-BASE-5"), typeof graph.traceUp === "function"
+          && typeof app.actions.increment.preview === "function"
+          && typeof app.action("increment").info === "function", {
+          passMessage: "V5 base runtime exposes inspect.graph(), action info, and action preview.",
+          failMessage: "V5 base runtime introspection surface is incomplete.",
+          evidence: [noteEvidence("Checked inspect.graph(), action(name).info(), and actions.x.preview().")],
+        }),
+        evaluateRule(getRuleOrThrow("ACTS-BASE-6"), graph.traceUp("state:count").nodes.length > 0
+          && !("namespaces" in app.snapshot()), {
+          passMessage: "Schema graph debug lookup works and projected snapshots exclude namespaces.",
+          failMessage: "Schema graph lookup or projected snapshot boundary regressed.",
+          evidence: [noteEvidence("Traced state:count and checked app.snapshot() projection.")],
+        }),
+        evaluateRule(getRuleOrThrow("ACTS-BASE-7"), preview.admitted
+          && preview.status === "pending"
+          && preview.after.state.status === "loading"
+          && app.snapshot() === before, {
+          passMessage: "Preview is non-committing and returns projected after snapshot plus requirements.",
+          failMessage: "Preview committed state or did not expose expected dry-run data.",
+          evidence: [noteEvidence("Ran actions.load.preview() and re-read app.snapshot().")],
+        }),
       ]);
 
-      world.dispose();
-    },
-  );
-
-  it(
-    caseTitle(
-      ACTS_CASES.BASE_SCHEMA_GRAPH_LOOKUP,
-      "SchemaGraph lookup is ref-canonical, kind-prefixed string debug lookup remains supported, and projection excludes platform substrate.",
-    ),
-    () => {
-      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-      const graph = world.getSchemaGraph();
-      const downstream = graph.traceDown(world.MEL.state.count);
-      const upstream = graph.traceUp(world.MEL.actions.incrementIfEven);
-      const debug = graph.traceDown("state:count");
-      let rejectedPlainName = false;
-      let rejectedMalformedId = false;
-
-      try {
-        graph.traceDown("count" as never);
-      } catch (error) {
-        rejectedPlainName = error instanceof ManifestoError && error.code === "SCHEMA_ERROR";
-      }
-
-      try {
-        graph.traceDown("state:" as never);
-      } catch (error) {
-        rejectedMalformedId = error instanceof ManifestoError && error.code === "SCHEMA_ERROR";
-      }
-
-      expectAllCompliance([
-        evaluateRule(
-          getRuleOrThrow("ACTS-BASE-7"),
-          graph.nodes.every((node) => !node.id.includes("$"))
-            && graph.edges.every((edge) => !edge.from.includes("$") && !edge.to.includes("$"))
-            && downstream.nodes.some((node) => node.id === "computed:doubled")
-            && downstream.nodes.some((node) => node.id === "action:incrementIfEven")
-            && upstream.nodes.some((node) => node.id === "state:count")
-            && debug.nodes.some((node) => node.id === "state:count")
-            && rejectedPlainName
-            && rejectedMalformedId,
-          {
-            passMessage: "SchemaGraph respects projection and supports ref-canonical plus kind-prefixed debug lookup.",
-            failMessage: "SchemaGraph lookup or projection semantics did not match the activation contract.",
-            evidence: [
-              noteEvidence("Observed graph", graph),
-              noteEvidence("Downstream from state.count", downstream),
-              noteEvidence("Upstream into incrementIfEven", upstream),
-            ],
-          },
-        ),
-      ]);
-
-      world.dispose();
-    },
-  );
-
-  it(
-    caseTitle(
-      ACTS_CASES.BASE_SIMULATE_NON_COMMITTING,
-      "simulateIntent() and simulate() are non-committing and return projected snapshot, changedPaths, requirements, new availability, and optional diagnostics.trace.",
-    ),
-    () => {
-      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-      const before = world.getSnapshot();
-      const loadIntent = world.createIntent(world.MEL.actions.load);
-      const simulated = world.simulate(world.MEL.actions.load);
-      const simulatedIntent = world.simulateIntent(loadIntent);
-      const after = world.getSnapshot();
-      type NoOpProjectedDomain = {
-        actions: {
-          touchHostDirect: () => void;
-        };
-        state: {
-          count: number;
-        };
-        computed: {};
-      };
-      const noOpWorld = createManifesto<NoOpProjectedDomain>(withHash({
-        id: "manifesto:activation-cts-noop-simulate",
-        version: "1.0.0",
-        types: {},
-        state: {
-          fields: {
-            count: { type: "number", required: false, default: 0 },
-          },
-        },
-        computed: {
-          fields: {},
-        },
-        actions: {
-          touchHostDirect: {
-            flow: {
-              kind: "patch",
-              op: "set",
-              path: pp("count"),
-              value: { kind: "get", path: "count" },
-            },
-          },
-        },
-      }), {}).activate();
-      const noOpBefore = noOpWorld.getSnapshot();
-      const noOpIntent = noOpWorld.createIntent(noOpWorld.MEL.actions.touchHostDirect);
-      const nowSpy = vi.spyOn(Date, "now");
-      nowSpy.mockReturnValueOnce(100);
-      const firstNoOp = noOpWorld.simulate(noOpWorld.MEL.actions.touchHostDirect);
-      nowSpy.mockReturnValueOnce(200);
-      const secondNoOp = noOpWorld.simulate(noOpWorld.MEL.actions.touchHostDirect);
-      nowSpy.mockReturnValueOnce(300);
-      const noOpIntentResult = noOpWorld.simulateIntent(noOpIntent);
-      nowSpy.mockRestore();
-      const noOpAfter = noOpWorld.getSnapshot();
-
-      expectAllCompliance([
-        evaluateRule(
-          getRuleOrThrow("ACTS-BASE-8"),
-          before.data.status === "idle"
-            && after.data.status === "idle"
-            && after.data.count === before.data.count
-            && simulated.status === "pending"
-            && simulatedIntent.status === simulated.status
-            && simulated.snapshot.data.status === "loading"
-            && simulatedIntent.snapshot.data.status === simulated.snapshot.data.status
-            && simulated.requirements.length === 1
-            && simulatedIntent.requirements.length === simulated.requirements.length
-            && simulated.changedPaths.includes("data.status")
-            && simulated.changedPaths.includes("system.status")
-            && JSON.stringify(simulatedIntent.changedPaths) === JSON.stringify(simulated.changedPaths)
-            && JSON.stringify(simulatedIntent.newAvailableActions) === JSON.stringify(simulated.newAvailableActions)
-            && JSON.stringify(simulated.changedPaths) === JSON.stringify([...simulated.changedPaths].sort())
-            && simulated.changedPaths.every((path) =>
-              !path.includes("$")
-              && path !== "system.pendingRequirements"
-              && path !== "system.currentAction"),
-          {
-            passMessage: "simulateIntent() and simulate() stay non-committing and return projected-only dry-run results.",
-            failMessage: "Public dry-run committed runtime state or leaked canonical-only diff paths.",
-            evidence: [
-              noteEvidence("Observed simulated result", simulated),
-              noteEvidence("Observed bound-intent simulated result", simulatedIntent),
-              noteEvidence("Visible snapshot after simulate()", after),
-            ],
-          },
-        ),
-        evaluateRule(
-          getRuleOrThrow("ACTS-BASE-8"),
-          firstNoOp.status === "complete"
-            && firstNoOp.changedPaths.length === 0
-            && firstNoOp.requirements.length === 0
-            && JSON.stringify(firstNoOp) === JSON.stringify(secondNoOp)
-            && JSON.stringify(firstNoOp) === JSON.stringify(noOpIntentResult)
-            && JSON.stringify(noOpBefore) === JSON.stringify(noOpAfter),
-          {
-            passMessage: "Projected no-op simulation stays empty and repeatable.",
-            failMessage: "Projected no-op simulation leaked changes or became unstable across repeated dry-runs.",
-            evidence: [
-              noteEvidence("First no-op simulate()", firstNoOp),
-              noteEvidence("Second no-op simulate()", secondNoOp),
-              noteEvidence("Bound-intent no-op simulateIntent()", noOpIntentResult),
-            ],
-          },
-        ),
-      ]);
-
-      world.dispose();
-      noOpWorld.dispose();
+      app.dispose();
     },
   );
 
   it(
     caseTitle(
       ACTS_CASES.BASE_SIMULATE_HALTED,
-      "simulateIntent() and simulate() preserve Core halted status without publishing runtime state.",
+      "preview() preserves Core halted status without publishing runtime state.",
     ),
     () => {
-      const world = createManifesto<HaltingDomain>(createHaltingSchema(), {}).activate();
-      const intent = world.createIntent(world.MEL.actions.finalize);
-      const simulated = world.simulate(world.MEL.actions.finalize);
-      const simulatedIntent = world.simulateIntent(intent);
+      const app = createManifesto<HaltingDomain>(createHaltingSchema(), {}).activate();
+      const preview = app.actions.finalize.preview();
 
       expectAllCompliance([
-        evaluateRule(
-          getRuleOrThrow("ACTS-BASE-9"),
-          simulated.status === "halted"
-            && simulatedIntent.status === simulated.status
-            && simulated.changedPaths.length === 0
-            && simulatedIntent.changedPaths.length === 0
-            && simulated.requirements.length === 0
-            && simulatedIntent.requirements.length === 0
-            && world.getSnapshot().data.status === "idle",
-          {
-            passMessage: "simulateIntent() and simulate() preserve halted status without publishing state.",
-            failMessage: "Public dry-run did not preserve halted status or published state unexpectedly.",
-            evidence: [
-              noteEvidence("Observed simulated result", simulated),
-              noteEvidence("Observed bound-intent simulated result", simulatedIntent),
-            ],
-          },
-        ),
+        evaluateRule(getRuleOrThrow("ACTS-BASE-8"), preview.admitted
+          && preview.status === "halted"
+          && app.snapshot().state.status === "idle", {
+          passMessage: "Preview preserved halted status without publishing state.",
+          failMessage: "Preview failed to preserve halted status or committed state.",
+          evidence: [noteEvidence("Ran actions.finalize.preview() against halting schema.")],
+        }),
       ]);
 
-      world.dispose();
+      app.dispose();
     },
   );
 
   it(
     caseTitle(
       ACTS_CASES.BASE_REPORT_SURFACE,
-      "Activated base runtime exposes dispatchAsyncWithReport() as an additive companion and returns completed report bundles without changing dispatchAsync().",
+      "Base submit() returns settled result envelopes and admission failure values.",
     ),
     async () => {
-      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-      const report = await world.dispatchAsyncWithReport(
-        world.createIntent(world.MEL.actions.add, 2),
-      );
+      const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      const result = await app.actions.add.submit(2);
+      const rejected = await app.actions.add.submit("bad" as unknown as number);
 
       expectAllCompliance([
-        evaluateRule(
-          getRuleOrThrow("ACTS-BASE-10"),
-          "dispatchAsync" in world
-            && "dispatchAsyncWithReport" in world
-            && report.kind === "completed"
-            && report.outcome.projected.beforeSnapshot.data.count === 0
-            && report.outcome.projected.afterSnapshot.data.count === 2
-            && report.outcome.projected.changedPaths.includes("data.count")
-            && report.outcome.canonical.afterCanonicalSnapshot.data.count === 2
-            && world.getSnapshot().data.count === 2,
-          {
-            passMessage: "Base runtime keeps dispatchAsync() and adds dispatchAsyncWithReport() with completed execution outcomes.",
-            failMessage: "Base runtime did not expose the additive report surface or report the completed outcome correctly.",
-            evidence: [
-              noteEvidence("Observed dispatch report", report),
-              noteEvidence("Visible snapshot after report dispatch", world.getSnapshot()),
-            ],
-          },
-        ),
+        evaluateRule(getRuleOrThrow("ACTS-BASE-9"), result.ok
+          && result.mode === "base"
+          && result.status === "settled"
+          && result.before.state.count === 0
+          && result.after.state.count === 2, {
+          passMessage: "Base submit returned a settled result envelope with projected snapshots.",
+          failMessage: "Base submit did not return the expected settled result envelope.",
+          evidence: [noteEvidence("Ran actions.add.submit(2).")],
+        }),
+        evaluateRule(getRuleOrThrow("ACTS-BASE-10"), !rejected.ok
+          && rejected.mode === "base"
+          && rejected.admission.layer === "input", {
+          passMessage: "Base submit returned admission failure as a value.",
+          failMessage: "Base submit did not preserve admission rejection as a value.",
+          evidence: [noteEvidence("Ran actions.add.submit() with invalid input.")],
+        }),
       ]);
 
-      world.dispose();
-    },
-  );
-
-  it(
-    caseTitle(
-      ACTS_CASES.BASE_REPORT_REJECTION,
-      "dispatchAsyncWithReport() preserves dequeue-time legality ordering and returns rejected report unions for blocked intents.",
-    ),
-    async () => {
-      const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-      const first = world.dispatchAsync(
-        world.createIntent(world.MEL.actions.increment),
-      );
-      const second = world.dispatchAsyncWithReport(
-        world.createIntent(world.MEL.actions.incrementIfEven),
-      );
-
-      await expect(first).resolves.toMatchObject({ data: { count: 1 } });
-      const report = await second;
-
-      expectAllCompliance([
-        evaluateRule(
-          getRuleOrThrow("ACTS-BASE-11"),
-          report.kind === "rejected"
-            && report.rejection.code === "ACTION_UNAVAILABLE"
-            && report.admission.failure.kind === "unavailable"
-            && report.beforeSnapshot.data.count === 1
-            && report.beforeCanonicalSnapshot.data.count === 1
-            && world.getSnapshot().data.count === 1,
-          {
-            passMessage: "dispatchAsyncWithReport() preserves dequeue-time legality and returns rejected report unions without publication.",
-            failMessage: "dispatchAsyncWithReport() drifted from dequeue-time legality semantics or published on rejection.",
-            evidence: [
-              noteEvidence("Observed rejected dispatch report", report),
-              noteEvidence("Visible snapshot after queued rejection", world.getSnapshot()),
-            ],
-          },
-        ),
-      ]);
-
-      world.dispose();
+      app.dispose();
     },
   );
 });

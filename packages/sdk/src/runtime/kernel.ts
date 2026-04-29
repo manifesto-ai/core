@@ -18,9 +18,9 @@ import {
 import type {
   CanonicalSnapshot,
   DispatchBlocker,
+  DispatchExecutionOutcome,
   ExecutionDiagnostics,
   ExecutionFailureInfo,
-  ExecutionOutcome,
   IntentAdmission,
   ManifestoDomainShape,
   ManifestoEvent,
@@ -104,6 +104,7 @@ function getActionParamNames(
 export function createRuntimeKernel<T extends ManifestoDomainShape>({
   schema,
   projectionPlan,
+  actionAnnotations,
   host,
   hostContextProvider,
   MEL,
@@ -157,6 +158,9 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
           params,
           input: action.input,
           description: action.description,
+          ...(actionAnnotations[name] !== undefined
+            ? { annotations: actionAnnotations[name] }
+            : {}),
           hasDispatchableGate: action.dispatchable !== undefined,
         })];
       }),

@@ -2,7 +2,7 @@ import {
   DisposedError,
   ManifestoError,
   type CanonicalSnapshot,
-  type ExecutionOutcome,
+  type DispatchExecutionOutcome,
   type ManifestoDomainShape,
   type Snapshot,
 } from "@manifesto-ai/sdk";
@@ -68,7 +68,7 @@ export type ProposalSettlementReport<
       readonly proposal: Proposal & { readonly status: "completed"; readonly resultWorld: WorldId };
       readonly baseWorld: WorldId;
       readonly resultWorld: WorldId;
-      readonly outcome: ExecutionOutcome<T>;
+      readonly outcome: DispatchExecutionOutcome<T>;
     }
   | {
       readonly kind: "failed";
@@ -77,7 +77,7 @@ export type ProposalSettlementReport<
       readonly published: false;
       readonly error: ErrorInfo;
       readonly resultWorld?: WorldId;
-      readonly sealedOutcome?: ExecutionOutcome<T>;
+      readonly sealedOutcome?: DispatchExecutionOutcome<T>;
     }
   | {
       readonly kind: "rejected";
@@ -290,7 +290,7 @@ async function loadStoredOutcome<T extends ManifestoDomainShape>(
   app: GovernanceInstance<T>,
   baseWorld: WorldId,
   resultWorld: WorldId,
-): Promise<ExecutionOutcome<T>> {
+): Promise<DispatchExecutionOutcome<T>> {
   const runtime = getWaitForProposalRuntime(app);
 
   assertNotDisposed(app);

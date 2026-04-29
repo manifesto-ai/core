@@ -4,7 +4,7 @@ import type { HostResult } from "@manifesto-ai/host";
 import type {
   AvailableActionDelta,
   CanonicalSnapshot,
-  ExecutionOutcome,
+  DispatchExecutionOutcome,
   ManifestoDomainShape,
   Snapshot,
 } from "../types.js";
@@ -52,7 +52,7 @@ export function createRuntimeReportHelpers<T extends ManifestoDomainShape>({
   function deriveExecutionOutcome(
     beforeSnapshot: CanonicalSnapshot<T["state"]>,
     afterSnapshot: CanonicalSnapshot<T["state"]>,
-  ): ExecutionOutcome<T> {
+  ): DispatchExecutionOutcome<T> {
     const stableBefore = cloneAndDeepFreeze(
       beforeSnapshot,
     ) as CanonicalSnapshot<T["state"]>;
@@ -75,7 +75,7 @@ export function createRuntimeReportHelpers<T extends ManifestoDomainShape>({
         pendingRequirements: stableAfter.system.pendingRequirements,
         status: stableAfter.system.status,
       }),
-    }) as ExecutionOutcome<T>;
+    }) as DispatchExecutionOutcome<T>;
   }
 
   function classifyExecutionFailure(
@@ -189,7 +189,7 @@ export function diffProjectedPaths<T>(
     }
   };
 
-  visit(left.data, right.data, "data");
+  visit(left.state, right.state, "state");
   visit(left.computed, right.computed, "computed");
   visit(left.system, right.system, "system");
   visit(left.meta, right.meta, "meta");

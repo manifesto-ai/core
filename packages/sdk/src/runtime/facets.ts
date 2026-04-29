@@ -10,9 +10,9 @@ import type { HostResult } from "@manifesto-ai/host";
 import type {
   DispatchBlocker,
   CanonicalSnapshot,
+  DispatchExecutionOutcome,
   ExecutionDiagnostics,
   ExecutionFailureInfo,
-  ExecutionOutcome,
   IntentAdmission,
   IntentExplanation,
   ManifestoDomainShape,
@@ -50,7 +50,7 @@ export interface RuntimeReportHelpers<T extends ManifestoDomainShape> {
   readonly deriveExecutionOutcome: (
     beforeSnapshot: CanonicalSnapshot<T["state"]>,
     afterSnapshot: CanonicalSnapshot<T["state"]>,
-  ) => ExecutionOutcome<T>;
+  ) => DispatchExecutionOutcome<T>;
   readonly classifyExecutionFailure: (
     error: unknown,
     stage: "host" | "seal",

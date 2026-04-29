@@ -145,7 +145,7 @@ describe("ACTS Governance Suite", () => {
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-3"),
           proposal.status === "completed"
-            && governed.getSnapshot().data.count === 1
+            && governed.getSnapshot().state.count === 1
             && latestHead !== null,
           {
             passMessage: "Governance runs only on explicitly lineage-composed input and still produces a sealed head on proposal completion.",

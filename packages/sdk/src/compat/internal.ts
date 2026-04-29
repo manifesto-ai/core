@@ -17,13 +17,14 @@ import {
   ManifestoError,
 } from "../errors.js";
 import type {
+  ActionAnnotation,
   BaseLaws,
   CanonicalSnapshot,
   ComposableManifesto,
+  DispatchExecutionOutcome,
   DispatchBlocker,
   ExecutionDiagnostics,
   ExecutionFailureInfo,
-  ExecutionOutcome,
   IntentAdmission,
   ManifestoDomainShape,
   ManifestoEvent,
@@ -152,7 +153,7 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly deriveExecutionOutcome: (
     beforeSnapshot: CanonicalSnapshot<T["state"]>,
     afterSnapshot: CanonicalSnapshot<T["state"]>,
-  ) => ExecutionOutcome<T>;
+  ) => DispatchExecutionOutcome<T>;
   readonly classifyExecutionFailure: (
     error: unknown,
     stage: "host" | "seal",
@@ -286,6 +287,7 @@ type ExtensionKernelCarrier<T extends ManifestoDomainShape> = {
 export type RuntimeKernelOptions<T extends ManifestoDomainShape> = {
   readonly schema: DomainSchema;
   readonly projectionPlan: SnapshotProjectionPlan;
+  readonly actionAnnotations: Readonly<Record<string, ActionAnnotation>>;
   readonly host: ManifestoHost;
   readonly hostContextProvider: HostContextProvider;
   readonly MEL: TypedMEL<T>;

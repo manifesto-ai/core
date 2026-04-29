@@ -21,7 +21,7 @@ const explanation: IntentExplanation<CounterDomain> = ext.explainIntentFor(canon
 const simulated: ExtensionSimulateResult<CounterDomain> = ext.simulateSync(canonical, intent);
 const simulatedTrace = simulated.diagnostics?.trace;
 const projected = ext.projectSnapshot(simulated.snapshot);
-const next = session.next(world.MEL.actions.increment);
+const next = session.next(ext.MEL.actions.increment);
 const finished = next.finish();
 
 // @ts-expect-error root sdk entrypoint does not expose getExtensionKernel

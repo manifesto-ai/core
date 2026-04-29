@@ -6,7 +6,7 @@ import {
 export type CanonicalNamespaces = CoreSnapshot["namespaces"];
 
 export type Snapshot<T = unknown> = {
-  data: T;
+  state: T;
   computed: Record<string, unknown>;
   system: Pick<CoreSnapshot["system"], "status" | "lastError">;
   meta: Pick<CoreSnapshot["meta"], "schemaHash">;
@@ -88,7 +88,7 @@ export function projectCanonicalSnapshot<T = unknown>(
   plan: SnapshotProjectionPlan,
 ): Snapshot<T> {
   return {
-    data: projectData<T>(snapshot.state),
+    state: projectState<T>(snapshot.state),
     computed: projectComputed(snapshot.computed, plan),
     system: {
       status: snapshot.system.status,
@@ -118,17 +118,17 @@ export function projectedSnapshotsEqual<T>(
   return cycleSafeEqual(left, right);
 }
 
-function projectData<T>(data: unknown): T {
-  if (data === null || data === undefined) {
-    return data as T;
+function projectState<T>(state: unknown): T {
+  if (state === null || state === undefined) {
+    return state as T;
   }
 
-  if (Array.isArray(data) || typeof data !== "object") {
-    return structuredClone(data) as T;
+  if (Array.isArray(state) || typeof state !== "object") {
+    return structuredClone(state) as T;
   }
 
   const projected: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(state as Record<string, unknown>)) {
     if (!key.startsWith("$")) {
       projected[key] = value;
     }

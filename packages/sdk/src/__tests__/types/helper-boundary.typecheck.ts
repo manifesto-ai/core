@@ -1,105 +1,48 @@
 import type {
-  CreateIntentArgs,
-  ManifestoDispatchRuntime,
+  ActionArgs,
+  ActionName,
+  BaseSubmissionResult,
+  ManifestoApp,
   ManifestoDomainShape,
-  ManifestoLegalityRuntime,
-  Snapshot,
-  TypedActionRef,
-  TypedIntent,
+  PreviewResult,
 } from "../../index.ts";
 import { createManifesto } from "../../index.ts";
 import { createCounterSchema, type CounterDomain } from "../helpers/schema.ts";
 
-function prepareIntent<
+function previewAction<
   T extends ManifestoDomainShape,
-  K extends keyof T["actions"],
+  Name extends ActionName<T>,
 >(
-  runtime: ManifestoLegalityRuntime<T>,
-  action: TypedActionRef<T, K>,
-  ...intentArgs: CreateIntentArgs<T, K>
-): TypedIntent<T, K> {
-  const intent = runtime.createIntent(action, ...intentArgs);
-  const blockers = runtime.whyNot(intent);
-  if (blockers === null) {
-    void runtime.simulateIntent(intent);
-  }
-  return intent;
+  app: ManifestoApp<T, "base">,
+  name: Name,
+  ...args: ActionArgs<T, Name>
+): PreviewResult<T, Name> {
+  return app.action(name).bind(...args).preview();
 }
 
-function dispatchPrepared<
+function submitAction<
   T extends ManifestoDomainShape,
-  K extends keyof T["actions"],
+  Name extends ActionName<T>,
 >(
-  prep: ManifestoLegalityRuntime<T>,
-  write: ManifestoDispatchRuntime<T>,
-  action: TypedActionRef<T, K>,
-  ...intentArgs: CreateIntentArgs<T, K>
-): Promise<Snapshot<T["state"]>> {
-  return write.dispatchAsync(prepareIntent(prep, action, ...intentArgs));
+  app: ManifestoApp<T, "base">,
+  name: Name,
+  ...args: ActionArgs<T, Name>
+): Promise<BaseSubmissionResult<T, Name>> {
+  return app.action(name).bind(...args).submit();
 }
 
-const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+const incrementPreview = previewAction(app, "increment");
+const addPreview = previewAction(app, "add", 3);
+const addSubmit = submitAction(app, "add", 3);
 
-const legalityRuntime: ManifestoLegalityRuntime<CounterDomain> = world;
-const dispatchRuntime: ManifestoDispatchRuntime<CounterDomain> = world;
-const preparedIncrement: TypedIntent<CounterDomain, "increment"> = prepareIntent(
-  world,
-  world.MEL.actions.increment,
-);
-const dispatchedIncrement: Promise<Snapshot<CounterDomain["state"]>> = dispatchPrepared(
-  world,
-  world,
-  world.MEL.actions.increment,
-);
-void legalityRuntime;
-void dispatchRuntime;
-void preparedIncrement;
-void dispatchedIncrement;
+void incrementPreview;
+void addPreview;
+void addSubmit;
 
-type TodoDomain = {
-  actions: {
-    addTodo: (title: string, id: string) => void;
-    clearCompleted: () => void;
-  };
-  state: {
-    todos: Array<{ id: string; title: string }>;
-  };
-  computed: {};
-};
-
-const todo = createManifesto<TodoDomain>(`
-domain Todos {
-  state { todos: Array<{ id: string, title: string }> = [] }
-
-  action addTodo(title: string, id: string) {
-    onceIntent {
-      patch todos = append(todos, { id: id, title: title })
-    }
-  }
-
-  action clearCompleted() {
-    onceIntent {
-      patch todos = todos
-    }
-  }
-}
-`, {}).activate();
-
-const preparedAddTodo: TypedIntent<TodoDomain, "addTodo"> = prepareIntent(
-  todo,
-  todo.MEL.actions.addTodo,
-  { title: "Review docs", id: "todo-1" },
-);
-const dispatchedAddTodo: Promise<Snapshot<TodoDomain["state"]>> = dispatchPrepared(
-  todo,
-  todo,
-  todo.MEL.actions.addTodo,
-  { title: "Review docs", id: "todo-1" },
-);
-void preparedAddTodo;
-void dispatchedAddTodo;
-
-// @ts-expect-error zero-parameter actions do not accept object binding
-void prepareIntent(todo, todo.MEL.actions.clearCompleted, {});
+// @ts-expect-error helper action name is statically constrained
+previewAction(app, "missing");
+// @ts-expect-error helper action args are statically constrained
+submitAction(app, "add", "wrong");
 
 export {};

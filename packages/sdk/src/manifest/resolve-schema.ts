@@ -11,10 +11,12 @@ import {
 } from "../projection/snapshot-projection.js";
 import {
   compileSchema,
+  deriveActionAnnotations,
   deriveActionParamMetadata,
   deriveSingleParamObjectValueMetadata,
 } from "./compile-schema.js";
 import type {
+  ActionAnnotationMap,
   CompiledSchema,
   ResolvedSchema,
 } from "./shared.js";
@@ -22,7 +24,10 @@ import {
   RESERVED_NAMESPACE_PREFIX,
 } from "./shared.js";
 
-export function resolveSchema(schema: DomainSchema | string): ResolvedSchema {
+export function resolveSchema(
+  schema: DomainSchema | string,
+  callerAnnotations?: ActionAnnotationMap,
+): ResolvedSchema {
   if (typeof schema !== "string" && isDomainModuleArtifact(schema)) {
     throw new ManifestoError(
       "SCHEMA_ERROR",
@@ -36,6 +41,7 @@ export function resolveSchema(schema: DomainSchema | string): ResolvedSchema {
       schema,
       actionParamMetadata: deriveActionParamMetadata(schema),
       actionSingleParamObjectValueMetadata: deriveSingleParamObjectValueMetadata(schema),
+      actionAnnotations: deriveActionAnnotations(),
     };
 
   const normalizedSchema = withPlatformNamespaces(resolved.schema);
@@ -45,8 +51,33 @@ export function resolveSchema(schema: DomainSchema | string): ResolvedSchema {
     schema: normalizedSchema,
     actionParamMetadata: resolved.actionParamMetadata,
     actionSingleParamObjectValueMetadata: resolved.actionSingleParamObjectValueMetadata,
+    actionAnnotations: mergeActionAnnotations(
+      resolved.actionAnnotations,
+      callerAnnotations,
+    ),
     projectionPlan: buildSnapshotProjectionPlan(normalizedSchema),
   };
+}
+
+function mergeActionAnnotations(
+  compiled: ActionAnnotationMap,
+  caller: ActionAnnotationMap | undefined,
+): ActionAnnotationMap {
+  if (!caller) {
+    return compiled;
+  }
+
+  const merged = new Map<string, Readonly<Record<string, unknown>>>();
+  for (const [action, annotations] of Object.entries(compiled)) {
+    merged.set(action, annotations);
+  }
+  for (const [action, annotations] of Object.entries(caller)) {
+    merged.set(action, Object.freeze({
+      ...(merged.get(action) ?? {}),
+      ...annotations,
+    }));
+  }
+  return Object.freeze(Object.fromEntries(merged));
 }
 
 function isDomainModuleArtifact(

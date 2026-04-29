@@ -213,20 +213,16 @@ describe("@manifesto-ai/sdk/effects", () => {
       })),
     ).activate();
 
-    const loaded = await app.dispatchAsync(
-      app.createIntent(app.MEL.actions.fetchUser, "123"),
-    );
+    const loaded = await app.actions.fetchUser.submit("123");
 
-    expect(loaded.data.user).toEqual(user);
-    expect(loaded.data.loading).toBe(false);
-    expect(loaded.data.profile).toEqual({ name: "Ada" });
-    expect(loaded.data).not.toHaveProperty("error");
+    expect(loaded.ok && loaded.after.state.user).toEqual(user);
+    expect(loaded.ok && loaded.after.state.loading).toBe(false);
+    expect(loaded.ok && loaded.after.state.profile).toEqual({ name: "Ada" });
+    expect(loaded.ok && loaded.after.state).not.toHaveProperty("error");
 
-    const rawHandled = await app.dispatchAsync(
-      app.createIntent(app.MEL.actions.markRawHandled),
-    );
+    const rawHandled = await app.actions.markRawHandled.submit();
 
-    expect(rawHandled.data.rawHandled).toBe(true);
+    expect(rawHandled.ok && rawHandled.after.state.rawHandled).toBe(true);
 
     app.dispose();
   });

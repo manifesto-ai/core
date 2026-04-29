@@ -56,3 +56,13 @@ export class AlreadyActivatedError extends ManifestoError {
     this.name = "AlreadyActivatedError";
   }
 }
+
+export class SubmissionFailedError extends ManifestoError {
+  readonly stage: "runtime" | "settlement";
+
+  constructor(message: string, stage: "runtime" | "settlement" = "runtime", options?: ErrorOptions) {
+    super("SUBMISSION_FAILED", message, options);
+    this.name = "SubmissionFailedError";
+    this.stage = stage;
+  }
+}

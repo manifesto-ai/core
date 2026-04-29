@@ -127,7 +127,7 @@ describe("ACTS Lineage Suite", () => {
       const completed = vi.fn(() => {
         order.push("completed");
       });
-      world.subscribe((snapshot) => snapshot.data.count, subscriber);
+      world.subscribe((snapshot) => snapshot.state.count, subscriber);
       world.on("dispatch:completed", completed);
 
       const snapshot = await world.commitAsync(
@@ -162,7 +162,7 @@ describe("ACTS Lineage Suite", () => {
         { service: failingService },
       ).activate();
       const failingSubscriber = vi.fn();
-      failingWorld.subscribe((next) => next.data.count, failingSubscriber);
+      failingWorld.subscribe((next) => next.state.count, failingSubscriber);
 
       await expect(
         failingWorld.commitAsync(
@@ -173,12 +173,12 @@ describe("ACTS Lineage Suite", () => {
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-LIN-2"),
-          snapshot.data.count === 1
-            && world.getSnapshot().data.count === 1
+          snapshot.state.count === 1
+            && world.getSnapshot().state.count === 1
             && order.filter((entry) => entry === "commit:end").length >= 1
             && order.indexOf("subscriber") > order.lastIndexOf("commit:end")
             && order.indexOf("completed") > order.lastIndexOf("commit:end")
-            && failingWorld.getSnapshot().data.count === 0
+            && failingWorld.getSnapshot().state.count === 0
             && failingSubscriber.mock.calls.length === 0,
           {
             passMessage: "Lineage publication stays seal-aware and publish happens only after commit success.",
@@ -186,7 +186,7 @@ describe("ACTS Lineage Suite", () => {
             evidence: [
               noteEvidence(
                 "Captured commit/subscriber/completed ordering and verified commit failure did not publish a second visible snapshot.",
-                { order, failingVisibleCount: failingWorld.getSnapshot().data.count },
+                { order, failingVisibleCount: failingWorld.getSnapshot().state.count },
               ),
             ],
           },
@@ -220,8 +220,8 @@ describe("ACTS Lineage Suite", () => {
             && "commitAsyncWithReport" in world
             && report.kind === "completed"
             && report.headAdvanced === true
-            && report.outcome.projected.beforeSnapshot.data.count === 0
-            && report.outcome.projected.afterSnapshot.data.count === 1
+            && report.outcome.projected.beforeSnapshot.state.count === 0
+            && report.outcome.projected.afterSnapshot.state.count === 1
             && report.resultWorld === (await world.getLatestHead())?.worldId
             && report.branchId === (await world.getActiveBranch()).id,
           {
