@@ -7,7 +7,7 @@ If you need a single current-surface document without version-history context, s
 :::
 
 ::: tip Single Source of Truth
-Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.2.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v3.5.0 activation-first plus `sdk/extensions`, `@manifesto-ai/compiler` v5.0.0 as the rolled-up MEL compiler contract aligned to ADR-025, and `@manifesto-ai/codegen` as the normative build-time code generation baseline, with `@manifesto-ai/lineage` / `@manifesto-ai/governance` as the governed decorator packages. Draft package work that is not yet implemented is listed separately below.
+Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.2.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v5.0.0 ADR-026 action-candidate surface, `@manifesto-ai/lineage` v5.0.0 continuity decorator surface, `@manifesto-ai/governance` v5.0.0 legitimacy decorator surface, `@manifesto-ai/compiler` v5.0.0 as the rolled-up MEL compiler contract aligned to ADR-025, and `@manifesto-ai/codegen` as the normative build-time code generation baseline. Draft package work that is not yet implemented is listed separately below.
 :::
 
 If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
@@ -34,9 +34,9 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/sdk** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (v3.x surface) | Normative (activation-first entry + legality introspection + `sdk/extensions` + `createSimulationSession()` + additive `dispatchAsyncWithReport()`) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (v3.x surface) | Normative (decorator continuity package + additive `commitAsyncWithReport()`) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (v3.x surface) | Normative (decorator legitimacy package + additive `waitForProposal()` settlement observer + additive `waitForProposalWithReport()` settlement-report helper) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/sdk** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (v5.0.0 surface) | Normative (ADR-026 action-candidate runtime grammar, projected reads, observe/inspect, and law-aware `submit()`) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (v5.0.0 surface) | Normative (continuity decorator + lineage-mode `submit()` results + `WorldRecord` refs + ADR-025 restore/hash alignment) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (v5.0.0 surface) | Normative (legitimacy decorator + governance-mode `submit()` results + durable `ProposalRef` + `waitForSettlement(ref)`) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
 | **@manifesto-ai/compiler** | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v5.0.0 in-place) | Normative full MEL compiler contract aligned to ADR-025 | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
@@ -79,13 +79,13 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 ### Lineage
 
-- **Lineage SPEC** — [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (Living Document, current v3.x surface with additive `commitAsyncWithReport()`)
-  - Defines `withLineage()`, `commitAsync`, `getWorldSnapshot()` stored sealed canonical snapshot lookup, restore, and branch/head runtime queries
+- **Lineage SPEC** — [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (Living Document, current v5.0.0 surface)
+  - Defines `withLineage()`, lineage-mode `submit()`, `WorldRecord` result refs, `getWorldSnapshot()` stored sealed canonical snapshot lookup, restore, and branch/head runtime queries
 
 ### Governance
 
-- **Governance SPEC** — [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (Living Document, current v3.x surface with additive `waitForProposalWithReport()`)
-  - Defines `withGovernance()`, explicit lineage prerequisite, governed `proposeAsync()` flow, pending resolution, and post-seal governance visibility
+- **Governance SPEC** — [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (Living Document, current v5.0.0 surface)
+  - Defines `withGovernance()`, explicit lineage prerequisite, governance-mode `submit()`, durable `ProposalRef`, `waitForSettlement(ref)`, control surface, and post-seal governance visibility
 
 ### SDK
 
@@ -122,6 +122,8 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
 | 04-29 | Compiler | v5.0.0 | ADR-025 hard cut: MEL `state {}` maps to `snapshot.state`, `onceIntent` uses `namespaces.mel`, and compiler-owned namespace writes use `NamespaceDelta` |
+| 04-29 | Lineage | v5.0.0 | ADR-026 hard cut: lineage-mode `submit()` replaces root `commitAsync*` verbs and carries `WorldRecord` continuity refs |
+| 04-29 | Governance | v5.0.0 | ADR-026 hard cut: governance-mode `submit()` creates durable `ProposalRef` settlement handles observed through `waitForSettlement(ref)` |
 | 04-25 | Compiler | v1.3.0 | Current full compiler spec adds `compileFragmentInContext()` as the compiler-owned authoring-time MEL source-fragment editing primitive |
 | 04-23 | Compiler | v1.2.0 | Current full compiler spec admits object-literal spread as bounded source sugar and defines presence-aware object typing / direct `merge()` parity |
 | 04-08 | Compiler | v1.1.0 | Current full compiler spec rolls up v0.7.0 + addenda and lands `TypeDefinition`-backed nullable/record schema-position lowering plus expression-level collection builtins |

@@ -1,21 +1,20 @@
 # @manifesto-ai/governance
 
-> Governed decorator runtime for legitimacy, approval, and sealed execution.
+`@manifesto-ai/governance` owns governed legitimacy for Manifesto runtimes.
 
-## Overview
-
-`@manifesto-ai/governance` owns `withGovernance()` and the activated advanced runtime.
-
-> **Current Contract Note:** This page describes the current Governance v3.x decorator surface, including the additive settlement helpers `waitForProposal()` and `waitForProposalWithReport()`. See [packages/governance/docs/governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md).
+> **Current Contract Note:** This page describes the current Governance v5
+> decorator surface: governance-mode `submit()`, durable `ProposalRef`,
+> `waitForSettlement(ref)`, and governance control methods. See
+> [packages/governance/docs/governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md).
 
 ## Canonical Surface
 
-```ts
+```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import { withGovernance } from "@manifesto-ai/governance";
 
-const governed = withGovernance(
+const app = withGovernance(
   withLineage(createManifesto<CounterDomain>(schema, effects), {
     store: createInMemoryLineageStore(),
   }),
@@ -23,63 +22,115 @@ const governed = withGovernance(
     bindings,
     execution: {
       projectionId: "counter",
-      deriveActor(intent) {
-        return { actorId: "agent:demo", kind: "agent" };
+      deriveActor(candidate) {
+        return { actorId: "agent:demo", kind: "agent", meta: { action: candidate.action } };
       },
-      deriveSource(intent) {
-        return { kind: "agent", eventId: intent.intentId };
+      deriveSource(candidate) {
+        return { kind: "agent", eventId: `action:${String(candidate.action)}` };
       },
     },
   },
 ).activate();
 ```
 
-## Activated Runtime
+## Submit And Settlement
 
-Governed runtimes keep the lineage query surface, but remove direct execution:
+Governance-mode action submission uses the SDK v5 action-candidate surface:
 
-- `proposeAsync(intent)`
-- `approve(proposalId, approvedScope?)`
-- `reject(proposalId, reason?)`
-- `getProposal(proposalId)`
+```typescript
+const pending = await app.actions.increment.submit({ by: 1 });
+const settlement = await pending.waitForSettlement();
+```
+
+A successful initial governance submission returns:
+
+- `ok: true`
+- `mode: "governance"`
+- `status: "pending"`
+- `proposal: ProposalRef`
+- result-bound `waitForSettlement()`
+
+Auto-approved policies still return the initial pending result. Settlement is
+observed through `pending.waitForSettlement()` or through runtime re-attachment:
+
+```typescript
+const ref = pending.proposal;
+const settlement = await app.waitForSettlement(ref);
+```
+
+`ProposalRef` is a stable string settlement handle. It is sufficient to
+re-observe settlement after process restart or agent handoff when the backing
+governance store contains the proposal.
+
+## Settlement Results
+
+Governance settlement statuses are:
+
+- `settled`
+- `rejected`
+- `superseded`
+- `expired`
+- `cancelled`
+- `settlement_failed`
+
+For `settled`, `before` and `after` are projected snapshots anchored on the
+governance proposal's `baseWorld -> resultWorld` lineage transition. They are
+not arbitrary visible-head reads.
+
+For `rejected`, `superseded`, `expired`, and `cancelled`, settlement results do
+not fabricate `world`, `before`, `after`, or `outcome`.
+
+For `settlement_failed`, no world or outcome is fabricated.
+
+## Control Surface
+
+Governance runtimes expose governance-owned control methods:
+
+- `approve(proposalRef, approvedScope?)`
+- `reject(proposalRef, reason?)`
+- `getProposal(proposalRef)`
 - `getProposals(branchId?)`
 - `bindActor(binding)`
 - `getActorBinding(actorId)`
 - `getDecisionRecord(decisionId)`
-- inherited legality queries such as `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`
 
-The root package also exposes additive settlement helpers:
-
-- `waitForProposal(app, proposalOrId, options?)` for normalized settlement state
-- `waitForProposalWithReport(app, proposalOrId, options?)` for Lineage World-anchored settlement outcome reports
-
-Neither helper replaces `proposeAsync()`.
-
-Lineage queries such as `getWorldSnapshot(worldId)`, `getLatestHead()`, and `getBranches()` remain available.
-`getSnapshot()` remains the projected runtime read. `getCanonicalSnapshot()` remains the current visible canonical substrate. `getWorldSnapshot(worldId)` remains the stored sealed canonical snapshot lookup inherited from lineage. `restore(worldId)` remains the normalized resume path.
-
-Those inherited legality queries preserve the base SDK ordering and blocker meaning:
-
-- availability is checked before dispatchability
-- `getIntentBlockers()` returns the first failing layer, so unavailable intents surface an `available` blocker rather than evaluating `dispatchable`
-- `getAvailableActions()` and `isActionAvailable()` remain current visible-snapshot reads, not durable capability grants for later proposal admission
-
-`dispatchAsync`, `dispatchAsyncWithReport`, `commitAsync`, and `commitAsyncWithReport` are intentionally absent. There is no governed `proposeAsyncWithReport()` in the current public surface.
-
-Failed governed settlements observe semantic failure from the stored terminal
-Snapshot's `system.lastError` and pending requirements when a `resultWorld`
-exists. Canonical `data.$host.lastError` remains Host diagnostic data for deep
-debugging and is not merged into settlement `ErrorInfo`.
+These methods operate on governance records. They are not action submission
+verbs and do not expose direct base or lineage execution.
 
 ## Lineage Guarantee
 
 - `withLineage()` must already be composed.
 - Governance uses that explicit lineage setup.
 - Governance does not create lineage on behalf of the caller.
+- Lineage-owned query and restore methods remain lineage-owned when exposed
+  through a governed runtime.
+
+## Failure Observation
+
+Failed governed settlements observe semantic failure from the terminal
+Snapshot's `system.lastError` and pending requirements when a sealed result world
+exists. Canonical `namespaces.host.lastError` remains Host diagnostic data for
+deep debugging and is not merged into settlement `ErrorInfo`.
+
+## V3 Migration Names
+
+The v3 names below are historical migration references, not canonical v5 runtime
+root methods:
+
+- `proposeAsync(intent)`
+- `waitForProposal(app, proposalOrId, options?)`
+- `waitForProposalWithReport(app, proposalOrId, options?)`
+
+Use `actions.x.submit(input)`, `pending.waitForSettlement()`, and
+`app.waitForSettlement(ref)` in current v5 code.
 
 ## Low-Level Protocol Surface
 
-Use `@manifesto-ai/governance/provider` for low-level seams such as `createGovernanceService()`, `createGovernanceEventDispatcher()`, `createAuthorityEvaluator()`, and authority handlers. `createInMemoryGovernanceStore()` remains available from the root package as a consumer-safe bootstrap helper.
+Use `@manifesto-ai/governance/provider` for low-level seams such as
+`createGovernanceService()`, `createGovernanceEventDispatcher()`,
+`createAuthorityEvaluator()`, and authority handlers.
+`createInMemoryGovernanceStore()` remains available from the root package as a
+consumer-safe bootstrap helper.
 
 ## Related Docs
 

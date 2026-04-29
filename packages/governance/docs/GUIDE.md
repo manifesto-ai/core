@@ -2,16 +2,12 @@
 
 ## 1. Compose Governance On A Manifesto
 
-```ts
+```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
-import {
-  waitForProposal,
-  waitForProposalWithReport,
-  withGovernance,
-} from "@manifesto-ai/governance";
+import { withGovernance } from "@manifesto-ai/governance";
 
-const governed = withGovernance(
+const app = withGovernance(
   withLineage(createManifesto<CounterDomain>(schema, effects), {
     store: createInMemoryLineageStore(),
   }),
@@ -25,92 +21,99 @@ const governed = withGovernance(
     ],
     execution: {
       projectionId: "counter",
-      deriveActor() {
-        return { actorId: "agent:demo", kind: "agent" };
+      deriveActor(candidate) {
+        return { actorId: "agent:demo", kind: "agent", meta: { action: candidate.action } };
       },
-      deriveSource(intent) {
-        return { kind: "agent", eventId: intent.intentId };
+      deriveSource(candidate) {
+        return { kind: "agent", eventId: `action:${String(candidate.action)}` };
       },
     },
   },
 ).activate();
 ```
 
-Governance only accepts a manifesto that has already been composed with `withLineage()`.
+Governance only accepts a manifesto that has already been composed with
+`withLineage()`. Governance uses that explicit lineage setup and does not create
+lineage on behalf of the caller.
 
-## 2. Propose Instead Of Dispatch
+## 2. Submit To Governance
 
-```ts
-const proposal = await governed.proposeAsync(
-  governed.createIntent(governed.MEL.actions.increment),
-);
+```typescript
+const pending = await app.actions.increment.submit({ by: 1 });
 ```
 
-Governed runtimes do not expose `dispatchAsync` or `commitAsync`. Both backdoors are removed by design.
+Governance-mode `submit()` creates or enters the proposal path. It does not mean
+direct execution, and it never exposes base `dispatchAsync()` or lineage
+`commitAsync()` as lower-authority backdoors.
 
-## 3. Auto-Approved Flow
+The initial successful result is always pending:
 
-With `auto_approve` or policy-based approval, `proposeAsync()` can return a terminal proposal immediately.
-
-```ts
-if (proposal.status === "completed") {
-  console.log(governed.getSnapshot().data.count);
+```typescript
+if (pending.ok) {
+  console.log(pending.mode); // "governance"
+  console.log(pending.status); // "pending"
+  console.log(pending.proposal); // durable ProposalRef
 }
 ```
 
-Visible snapshots publish only after lineage seal commit succeeds.
+Auto-approved policies still produce a proposal record for audit. Settlement
+timing is observed through `waitForSettlement()`.
 
-When a caller wants a normalized proposal-settlement read, use the additive root helper:
+## 3. Observe Settlement
 
-```ts
-const settlement = await waitForProposal(governed, proposal);
+```typescript
+const settlement = await pending.waitForSettlement();
 
-if (settlement.kind === "completed") {
-  console.log(settlement.snapshot.data.count);
+if (settlement.ok && settlement.status === "settled") {
+  console.log(settlement.after.state.count);
+  console.log(settlement.world.worldId);
 }
 ```
 
-`waitForProposal()` does not replace `proposeAsync()`. It observes the current proposal state and returns `completed`, `failed`, `rejected`, `superseded`, `pending`, or `timed_out`.
+The same proposal can be re-attached later from its durable `ProposalRef`:
 
-When tooling needs a first-party outcome bundle anchored on stored lineage worlds, use the additive settlement-report companion:
-
-```ts
-const report = await waitForProposalWithReport(governed, proposal);
-
-if (report.kind === "completed") {
-  console.log(report.outcome.projected.changedPaths);
-  console.log(report.resultWorld);
-}
+```typescript
+const ref = pending.proposal;
+const settlement = await app.waitForSettlement(ref);
 ```
 
-`waitForProposalWithReport()` stays observational. It does not replace `proposeAsync()`, and it does not turn governed runtime submission into a direct execution verb.
+`waitForSettlement()` observes settlement. It does not approve, reject, execute,
+seal, or publish by itself.
 
-For failed settlements with a `resultWorld`, the report reflects the stored
-terminal Snapshot's semantic failure state (`system.lastError` and pending
-requirements). Canonical `data.$host.lastError` remains a Host diagnostic for
-deep debugging, not the governed settlement error surface.
+Settlement results use these statuses:
+
+- `settled`
+- `rejected`
+- `superseded`
+- `expired`
+- `cancelled`
+- `settlement_failed`
+
+For settled execution, `before` and `after` are projected snapshots anchored on
+`proposal.baseWorld -> resultWorld`, not arbitrary current visible head reads.
 
 ## 4. Pending Human Resolution
 
-HITL and tribunal bindings keep the proposal in `evaluating` until a later decision resolves it.
+HITL and tribunal policies keep proposals pending until a governance control
+surface resolves them.
 
-```ts
-const pending = await governed.proposeAsync(
-  governed.createIntent(governed.MEL.actions.increment),
-);
+```typescript
+const pending = await app.actions.increment.submit({ by: 1 });
 
-if (pending.status === "evaluating") {
-  await governed.approve(pending.proposalId);
+if (pending.ok) {
+  await app.approve(pending.proposal);
   // or:
-  // await governed.reject(pending.proposalId, "manual stop");
+  // await app.reject(pending.proposal, "manual stop");
 }
 ```
 
-`approve()` and `reject()` are pending-resolution APIs. They are not a general admin override for arbitrary proposal states.
+`approve()` and `reject()` are governance control methods. They operate on
+proposal records and are not action submission verbs.
 
 ## 5. Lineage Semantics Stay Available
 
-Governed runtimes still carry the lineage query surface:
+Governed runtimes still expose lineage-owned continuity query and restore
+methods through the lineage composition:
 
 - `restore(worldId)`
 - `getWorld(worldId)`
@@ -122,24 +125,36 @@ Governed runtimes still carry the lineage query surface:
 - `switchActiveBranch(branchId)`
 - `createBranch(name, fromWorldId?)`
 
-The removed verbs are direct execution verbs. Governance keeps the lineage query surface, not lineage execution.
-`getSnapshot()` remains the projected runtime read. `getCanonicalSnapshot()` reads the current visible canonical substrate. `getWorldSnapshot(worldId)` reads the stored sealed canonical snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
-The activated governed runtime also keeps the inherited SDK legality queries: `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`.
-Those inherited legality queries keep the base SDK semantics: availability short-circuits dispatchability, and `getIntentBlockers()` reports the first failing layer instead of combining coarse and fine blockers.
-`getAvailableActions()` and `isActionAvailable()` remain current visible-snapshot reads, not durable capability grants for later proposal admission.
+The removed v3 names are direct or helper-style write/observation names:
 
-## 6. Low-Level Governance Substrate
+- `proposeAsync()`
+- `waitForProposal()`
+- `waitForProposalWithReport()`
 
-The provider entry point exists for protocol testing and lower-level composition:
+They are migration references, not the canonical v5 app-facing path.
+
+## 6. Failure Observation
+
+Semantic failure observation comes from the terminal Snapshot's
+`system.lastError` and pending requirements. Canonical
+`namespaces.host.lastError` is Host-owned diagnostic state for deep debugging
+and is not merged into governance settlement `ErrorInfo`.
+
+## 7. Low-Level Governance Substrate
+
+The provider entry point exists for protocol testing and lower-level
+composition:
 
 - `@manifesto-ai/governance/provider`
 - `createGovernanceService()`
 - `createGovernanceEventDispatcher()`
 - `createAuthorityEvaluator()`
 
-`createInMemoryGovernanceStore()` remains available from the root package for simple bootstrap and tests.
+`createInMemoryGovernanceStore()` remains available from the root package for
+simple bootstrap and tests.
 
-Those are useful when you are testing lifecycle invariants directly. They are no longer the package’s primary application story.
+Those are useful when testing lifecycle invariants directly. They are not the
+package's primary application story.
 
 ## Related Docs
 

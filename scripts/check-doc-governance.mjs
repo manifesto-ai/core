@@ -179,17 +179,24 @@ const requiredAnchors = [
   {
     path: "packages/lineage/docs/lineage-SPEC.md",
     tokens: [
-      "commitAsyncWithReport()",
-      "Host-owned `data.$host.lastError` is canonical diagnostic",
-      "MUST NOT | lineage MUST NOT derive sealed failed outcome",
+      "Lineage v5 is the continuity-owning decorator",
+      "actions.x.submit(...)",
+      "WorldRecord",
+      "Host-owned `namespaces.host.lastError` is a canonical-only",
+      "MUST NOT | Lineage MUST NOT derive sealed failed outcome",
     ],
   },
   {
     path: "packages/governance/docs/governance-SPEC.md",
     tokens: [
-      "waitForProposalWithReport()",
-      "Host-owned `data.$host.lastError` is canonical diagnostic state",
-      "MUST NOT | governance settlement `ErrorInfo` MUST NOT merge",
+      "Governance v5 is the legitimacy-owning decorator",
+      "actions.x.submit(...)",
+      "ProposalRef",
+      "waitForSettlement(ref)",
+      "type GovernanceSettlementReport",
+      "`settled.before` MUST project",
+      "MUST NOT | Governance `submit()` MUST NOT directly execute base or lineage write verbs",
+      "MUST NOT | Governance settlement `ErrorInfo` MUST NOT merge",
     ],
   },
   {

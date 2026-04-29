@@ -39,8 +39,8 @@ This is the canonical entry story for new integrations.
 | `@manifesto-ai/host` | [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (current through v4.0.0) | Effect execution, compute loop orchestration, canonical snapshot substrate |
 | `@manifesto-ai/sdk` | [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (current v5.0.0 ADR-026 surface) | Action-candidate application surface, projected reads, observe/inspect, law-aware `submit()` ingress |
 | `@manifesto-ai/compiler` | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v1.3.0 in-place) | Full current MEL compiler contract |
-| `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v3.x decorator surface) | Seal-aware continuity, additive lineage write reports, canonical snapshot persistence, restore |
-| `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v3.x decorator surface) | Proposal legitimacy, governed runtime gate over lineage-composed manifesto, settlement observation and settlement reports |
+| `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v5.0.0 ADR-026 surface) | Seal-aware continuity, lineage-mode `submit()` results, canonical snapshot persistence, restore |
+| `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v5.0.0 ADR-026 surface) | Proposal legitimacy, governance-mode `submit()` results, durable `ProposalRef`, settlement observation, and control surface |
 
 ## ADR-025 v5 Ontology Baseline
 
@@ -218,16 +218,20 @@ Still out of current scope:
 Current contract highlights:
 
 - lineage owns sealed continuity and stored canonical snapshot lookup
-- lineage promotes the base write verb to `commitAsync()` and the additive report companion to `commitAsyncWithReport()`
+- lineage implements the lineage-mode `submit()` law boundary for SDK action candidates
+- lineage returns `WorldRecord` refs and additive `LineageWriteReport` data through mode-specific submit results
+- root `commitAsync()` and `commitAsyncWithReport()` are superseded historical migration inputs, not canonical v5 lineage runtime methods
 - lineage derives sealed failure outcome from the terminal Snapshot's `system.lastError` and pending requirements, not from Host-owned `namespaces.host.lastError` alone
 - governance composes on top of lineage, not beside it
-- decorated runtimes inherit the base read-only legality surface, including `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`
-- inherited decorator-runtime legality queries preserve the base SDK ordering: availability first, dispatchability second
-- inherited `getIntentBlockers()` surfaces only the first failing layer, so unavailable intents do not evaluate `dispatchable`
-- helper authors may share legality helpers across decorators, but execution helpers must stay verb-specific: base `dispatchAsync()`, lineage `commitAsync()`, governance `proposeAsync()`
+- decorated runtimes use the SDK v5 action-candidate legality ladder: `available()`, `check()`, `preview()`, and `submit()`
+- lineage-mode `submit()` preserves first-failing admission order and re-checks legality against the then-current runtime state
+- governance-mode `submit()` creates or enters the proposal path and never directly executes base or lineage lower-authority verbs
+- governance-mode `submit()` returns `GovernanceSubmissionResult` with durable `ProposalRef`
+- governed settlement is observed through result-bound `waitForSettlement()` or runtime `app.waitForSettlement(ref)`
+- helper authors may share legality/read helpers across decorators, but write helpers must enter through the active runtime's `submit()` implementation
 - the active governed path is `withLineage(...)->withGovernance(...)->activate()`
-- governed runtimes intentionally omit direct base/lineage execution verbs and their report companions, and use `waitForProposal()` / `waitForProposalWithReport()` as additive settlement observers
-- governance settlement failure reports read semantic failure from terminal Snapshot state when a `resultWorld` exists; Host-owned namespace diagnostics remain canonical-substrate debugging data
+- governed runtimes intentionally omit direct base/lineage execution verbs and their report companions; v3 `proposeAsync()`, `waitForProposal()`, and `waitForProposalWithReport()` are historical migration inputs, not canonical v5 root methods
+- governance settlement failure reports read semantic failure from terminal Snapshot state when a sealed world exists; Host-owned namespace diagnostics remain canonical-substrate debugging data
 - there is no separate current `@manifesto-ai/world` package surface
 
 ## What External Consumers Should Read
