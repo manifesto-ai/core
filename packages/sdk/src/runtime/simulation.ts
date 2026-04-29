@@ -1,5 +1,6 @@
 import {
   apply,
+  applyNamespaceDeltas,
   applySystemDelta,
   computeSync,
   type DomainSchema,
@@ -88,25 +89,25 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
     intent: TypedIntent<T>,
     context: ReturnType<HostContextProvider["createFrozenContext"]>,
   ): CoreSnapshot {
-    const hostState = getHostState(snapshot.data);
+    const hostState = getHostState(snapshot);
     const intentSlots = hostState?.intentSlots ?? {};
     const intentSlot: IntentSlot = intent.input === undefined
       ? { type: intent.type }
       : { type: intent.type, input: intent.input };
 
-    return apply(
-      schema,
+    return applyNamespaceDeltas(
       snapshot,
       [
         {
-          op: "merge",
-          path: [{ kind: "prop", name: "$host" }],
-          value: {
-            intentSlots: {
+          namespace: "host",
+          patches: [{
+            op: "set",
+            path: [{ kind: "prop", name: "intentSlots" }],
+            value: {
               ...intentSlots,
               [intent.intentId]: intentSlot,
             },
-          },
+          }],
         },
       ],
       context,
@@ -151,7 +152,12 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
     );
     const result = computeSync(schema, baseline, enrichedIntent, context);
     const afterPatches = apply(schema, baseline, result.patches, context);
-    const canonicalSimulated = applySystemDelta(afterPatches, result.systemDelta);
+    const afterNamespaceDeltas = applyNamespaceDeltas(
+      afterPatches,
+      result.namespaceDelta ?? [],
+      context,
+    );
+    const canonicalSimulated = applySystemDelta(afterNamespaceDeltas, result.systemDelta);
 
     return Object.freeze({
       snapshot: cloneAndDeepFreeze(

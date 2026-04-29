@@ -56,6 +56,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-023](./023-object-spread-sugar-in-mel) | Object Spread Sugar in MEL | Accepted | 2026-04-23 | Compiler, Docs |
 | [ADR-024](./024-compiler-owned-mel-source-fragment-editing-primitive) | Compiler-Owned MEL Source Fragment Editing Primitive | Accepted | 2026-04-25 | Compiler, Studio/authoring tools |
 | [ADR-025](./025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation) | Snapshot Ontology Hard Cut — `data` Retirement and Namespace Separation | Accepted | 2026-04-29 | Core, Host, SDK, Compiler, Lineage, Governance, Studio, Agent tooling, Constitution, Docs |
+| [ADR-026](./026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress) | SDK v5 Action Candidate Surface and Law-Aware `submit()` Ingress | Accepted | 2026-04-29 | SDK, Lineage, Governance, Studio, Agent tooling, Codegen, Docs |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -158,6 +159,13 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-025 retracts the prior `Snapshot.data` normative commitments in SPEC §13.3, the Constitution/`CLAUDE.md` canonical Snapshot block, and ADR-009 §2.8; those follow-up edits are part of the PR-1 implementation work described in ADR-025.
 - The non-normative ADR-025 roadmap is currently maintained as a temporary working checklist in `temp/025-roadmap.md`.
 - ADR-025 implementation is tracked on `feature/v5`; package-specific source cuts land through the PR series described in the roadmap.
+
+### ADR-026 Companion Notes
+
+- ADR-026 is accepted as the v5 SDK surface hard-cut decision: the public runtime moves from the v3 intent/dispatch/simulate ladder to action-candidate handles with `info()`, `available()`, `check()`, `preview()`, `submit()`, and `bind()`.
+- ADR-026 supersedes `createIntent()` + `dispatchAsync()` as the primary app-facing path, public `simulate()` / `simulateIntent()` naming, and the public write-verb fork between `dispatchAsync`, `commitAsync`, and `proposeAsync`.
+- ADR-026 is the SDK surface layer of the same v5 release train as ADR-025's Snapshot substrate hard cut.
+- ADR-026 implementation begins with SDK, Lineage, and Governance SPEC finalization before source changes; package-specific source cuts land through the PR series described in ADR-026.
 
 ### ADR-017 Version Notes
 

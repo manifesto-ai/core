@@ -74,6 +74,8 @@ function normalizeTargetPath(path: string): Patch["path"] {
   const normalized = normalizePath(path);
   const withoutDataRoot = normalized.startsWith("data.")
     ? normalized.slice("data.".length)
+    : normalized.startsWith("state.")
+      ? normalized.slice("state.".length)
     : normalized;
   return semanticPathToPatchPath(withoutDataRoot);
 }
@@ -100,7 +102,8 @@ function resolvePathValue(
 
   switch (root) {
     case "data":
-      current = snapshot.data;
+    case "state":
+      current = snapshot.state;
       break;
     case "computed":
       current = snapshot.computed;
@@ -111,8 +114,11 @@ function resolvePathValue(
     case "meta":
       current = snapshot.meta;
       break;
+    case "namespaces":
+      current = snapshot.namespaces;
+      break;
     default:
-      current = snapshot.data;
+      current = snapshot.state;
       rest.unshift(root);
       break;
   }

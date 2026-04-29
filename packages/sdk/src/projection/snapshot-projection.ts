@@ -3,11 +3,7 @@ import {
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
 
-export type CanonicalPlatformNamespaces = {
-  $host?: Record<string, unknown>;
-  $mel?: Record<string, unknown>;
-  [k: `$${string}`]: unknown;
-};
+export type CanonicalNamespaces = CoreSnapshot["namespaces"];
 
 export type Snapshot<T = unknown> = {
   data: T;
@@ -17,8 +13,9 @@ export type Snapshot<T = unknown> = {
 };
 
 export type CanonicalSnapshot<T = unknown> =
-  Omit<CoreSnapshot, "data"> & {
-    data: T & CanonicalPlatformNamespaces;
+  Omit<CoreSnapshot, "state"> & {
+    state: T;
+    namespaces: CanonicalNamespaces;
   };
 
 export type SnapshotProjectionPlan = {
@@ -91,7 +88,7 @@ export function projectCanonicalSnapshot<T = unknown>(
   plan: SnapshotProjectionPlan,
 ): Snapshot<T> {
   return {
-    data: projectData<T>(snapshot.data),
+    data: projectData<T>(snapshot.state),
     computed: projectComputed(snapshot.computed, plan),
     system: {
       status: snapshot.system.status,
@@ -183,8 +180,14 @@ function normalizeSemanticPath(path: string): string {
 
 function isPlatformDependency(dep: string): boolean {
   const normalized = normalizeSemanticPath(dep);
+  if (normalized.startsWith("namespaces.")) {
+    return true;
+  }
+
   const withoutDataRoot = normalized.startsWith("data.")
     ? normalized.slice("data.".length)
+    : normalized.startsWith("state.")
+      ? normalized.slice("state.".length)
     : normalized;
   const match = /^([^.[\]]+)/.exec(withoutDataRoot);
   const root = match?.[1] ?? "";

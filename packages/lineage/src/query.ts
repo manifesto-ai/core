@@ -84,21 +84,17 @@ export function selectLatestHead(heads: readonly WorldHead[]): WorldHead | null 
   return sorted[0];
 }
 
-function normalizePlatformData(data: Record<string, unknown> | null | undefined): Record<string, unknown> {
+function normalizeNamespaces(namespaces: Snapshot["namespaces"] | null | undefined): Snapshot["namespaces"] {
   const normalized: Record<string, unknown> = {};
-  const source = data ?? {};
 
-  for (const [key, value] of Object.entries(source)) {
-    if (!key.startsWith("$")) {
-      normalized[key] = cloneValue(value);
-      continue;
-    }
-
-    normalized[key] = {};
+  for (const key of Object.keys(namespaces ?? {})) {
+    normalized[key] = key === "mel"
+      ? { guards: { intent: {} } }
+      : {};
   }
 
-  normalized.$host = {};
-  normalized.$mel = { guards: { intent: {} } };
+  normalized.host = {};
+  normalized.mel = { guards: { intent: {} } };
   return normalized;
 }
 
@@ -110,7 +106,7 @@ export async function restoreSnapshot(
   assertLineage(snapshot != null, `LIN-RESUME-2 violation: missing snapshot for world ${worldId}`);
 
   return {
-    data: normalizePlatformData(snapshot.data as Record<string, unknown>),
+    state: cloneValue(snapshot.state),
     computed: cloneValue(snapshot.computed),
     system: {
       status: snapshot.system.status,
@@ -125,6 +121,7 @@ export async function restoreSnapshot(
       randomSeed: "",
       schemaHash: snapshot.meta.schemaHash,
     },
+    namespaces: normalizeNamespaces(snapshot.namespaces),
   };
 }
 

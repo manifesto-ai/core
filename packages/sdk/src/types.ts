@@ -16,7 +16,7 @@ import type {
   SchemaGraphNodeKind,
 } from "@manifesto-ai/compiler";
 import type {
-  CanonicalPlatformNamespaces,
+  CanonicalNamespaces,
   CanonicalSnapshot,
   Snapshot,
 } from "./projection/snapshot-projection.js";
@@ -455,7 +455,7 @@ export type ActivatedInstance<
       : ManifestoRuntimeByLaws<T>["base"];
 
 export type {
-  CanonicalPlatformNamespaces,
+  CanonicalNamespaces,
   CanonicalSnapshot,
   Snapshot,
   SchemaGraphEdge,

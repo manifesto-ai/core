@@ -8,14 +8,12 @@ import type {
   WorldId,
 } from "./types.js";
 
-const PLATFORM_NAMESPACE_PREFIX = "$";
-
 export function computeHash(value: unknown): string {
   return sha256Sync(toJcs(value));
 }
 
 export function isPlatformNamespace(key: string): boolean {
-  return key.startsWith(PLATFORM_NAMESPACE_PREFIX);
+  return key.startsWith("$");
 }
 
 export function stripPlatformNamespaces(data: Record<string, unknown> | null | undefined): Record<string, unknown> {
@@ -110,7 +108,7 @@ export function computePendingDigest(pendingRequirements: readonly Requirement[]
 
 export function createSnapshotHashInput(snapshot: Snapshot): SnapshotHashInput {
   return {
-    data: stripPlatformNamespaces(snapshot.data as Record<string, unknown>),
+    data: stripPlatformNamespaces(snapshot.state as Record<string, unknown>),
     system: {
       terminalStatus: deriveTerminalStatus(snapshot),
       currentError: snapshot.system.lastError == null

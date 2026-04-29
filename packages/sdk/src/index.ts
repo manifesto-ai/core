@@ -26,7 +26,7 @@ export type {
   TypedIsIntentDispatchable,
   BaseLaws,
   BaseComposableLaws,
-  CanonicalPlatformNamespaces,
+  CanonicalNamespaces,
   CanonicalSnapshot,
   ComposableManifesto,
   ComputedRef,
