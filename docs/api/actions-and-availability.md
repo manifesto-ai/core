@@ -15,7 +15,7 @@ if (available.includes("clearCompleted")) {
 ```
 
 Do not cache this value for a long agent loop. Dispatch, approved proposal execution, or restore can change the next availability result.
-Treat the returned names as observational reads, not capability tokens. Base `dispatchAsync()`, lineage `commitAsync()`, and governed `proposeAsync()` still re-check legality against the then-current runtime state, and a pending governed proposal can later be superseded if the visible head advances.
+Treat the returned names as observational reads, not capability tokens. Base, lineage, and governed `actions.<name>.submit()` calls still re-check legality against the then-current runtime state, and a pending governed proposal can later be superseded if the visible head advances.
 
 ## `isActionAvailable(name)`
 

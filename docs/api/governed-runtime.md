@@ -9,8 +9,6 @@ import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import {
   createInMemoryGovernanceStore,
-  waitForProposal,
-  waitForProposalWithReport,
   withGovernance,
 } from "@manifesto-ai/governance";
 
@@ -28,39 +26,41 @@ const app = withGovernance(
 
 Governance requires an explicitly lineage-composed manifesto.
 
-## Write With `proposeAsync(intent)`
+## Write With `actions.<name>.submit()`
 
 Governed runtimes intentionally do not expose base-runtime execution verbs such as `dispatchAsync()` or `dispatchAsyncWithReport()`.
-They also omit lineage `commitAsync()` and `commitAsyncWithReport()`.
+They also omit historical lineage commit verbs, v3 proposal write verbs, raw `createIntent()`, and root `MEL` refs from the app-facing root.
 
 ```typescript
-const proposal = await app.proposeAsync(
-  app.createIntent(app.MEL.actions.addTodo, "Review this"),
-);
-```
+const pending = await app.actions.addTodo.submit("Review this");
 
-With `auto_approve` policy, a proposal may execute and complete immediately. With `hitl` policy, it usually remains `evaluating`.
+if (pending.ok) {
+  const settlement = await pending.waitForSettlement();
 
-When a caller wants a normalized settlement read, use the additive helper:
-
-```typescript
-const settlement = await waitForProposal(app, proposal);
-
-if (settlement.kind === "completed") {
-  console.log(settlement.snapshot.data);
+  if (settlement.ok && settlement.status === "settled") {
+    console.log(settlement.after.state);
+  }
 }
 ```
 
-`waitForProposal()` observes proposal settlement. It does not replace `proposeAsync()` as the governed write path.
-The current governed surface does not add a direct `proposeAsyncWithReport()` companion.
+The first successful result is intentionally pending:
 
-When tooling needs a first-party historical outcome anchored on `proposal.baseWorld -> proposal.resultWorld`, use the additive root helper:
+- `ok: true`
+- `mode: "governance"`
+- `status: "pending"`
+- `proposal: ProposalRef`
+- `waitForSettlement()`
+
+With `auto_approve` policy, settlement may already be available by the time the initial pending result returns. With `hitl` policy, it usually remains `evaluating` until a governance control method resolves it.
+
+When a caller stores or transfers the proposal handle, use runtime re-attachment:
 
 ```typescript
-const report = await waitForProposalWithReport(app, proposal);
+const ref = pending.proposal;
+const settlement = await app.waitForSettlement(ref);
 
-if (report.kind === "completed") {
-  console.log(report.outcome.projected.changedPaths);
+if (settlement.ok && settlement.status === "settled") {
+  console.log(settlement.report?.changes);
 }
 ```
 
@@ -86,24 +86,24 @@ The visible Snapshot does not change while a proposal is waiting for human resol
 ## `approve()` and `reject()`
 
 ```typescript
-const pending = await app.proposeAsync(intent);
+const pending = await app.actions.addTodo.submit("Review this");
 
-if (pending.status === "evaluating") {
-  await app.approve(pending.proposalId);
+if (pending.ok) {
+  await app.approve(pending.proposal);
 }
 ```
 
 Reject manually:
 
 ```typescript
-await app.reject(pending.proposalId, "Needs a smaller scope");
+await app.reject(pending.proposal, "Needs a smaller scope");
 ```
 
 ## Query Proposals
 
 ```typescript
 const proposals = await app.getProposals();
-const sameProposal = await app.getProposal(proposal.proposalId);
+const sameProposal = await app.getProposal(pending.proposal);
 ```
 
 Use lineage queries such as `getLatestHead()`, `getWorldSnapshot(worldId)`, `getBranches()`, and `restore(worldId)` when sealed history matters.

@@ -809,6 +809,7 @@ _Source: `packages/governance/src/index.ts`_
 - `FinalDecision`
 - `GovernanceComposableManifesto`
 - `GovernanceConfig`
+- `GovernanceControlSurface`
 - `GovernanceEvent`
 - `GovernanceEventSink`
 - `GovernanceEventType`
@@ -1024,9 +1025,8 @@ _Source: `packages/lineage/src/index.ts`_
 - `BranchId`
 - `BranchInfo`
 - `BranchSwitchResult`
-- `CommitReport`
-- `LineageCommitRuntime`
 - `LineageConfig`
+- `LineageContinuitySurface`
 - `LineageInstance`
 - `World`
 - `WorldHead`
@@ -1152,13 +1152,13 @@ _Source: `packages/sdk/src/index.ts`_
 - `LineageComposableLaws`
 - `LineageLaws`
 - `LineageSubmissionResult`
+- `LineageWriteReport`
 - `ManifestoApp`
 - `ManifestoBaseInstance`
 - `ManifestoDecoratedRuntimeByLaws`
 - `ManifestoDispatchRuntime`
 - `ManifestoDomainShape`
 - `ManifestoEvent`
-- `ManifestoEventMap`
 - `ManifestoEventName`
 - `ManifestoEventPayload`
 - `ManifestoEventPayloadMap`
@@ -1169,6 +1169,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `PreviewResult`
 - `ProjectedDiff`
 - `ProjectedSnapshot`
+- `ProposalRef`
 - `RuntimeMode`
 - `SchemaGraph`
 - `SchemaGraphEdge`
@@ -1200,6 +1201,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `TypedSimulateIntent`
 - `TypedSubscribe`
 - `Unsubscribe`
+- `WorldRecord`
 
 ### @manifesto-ai/sdk/effects
 

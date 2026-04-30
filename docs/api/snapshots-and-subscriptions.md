@@ -2,58 +2,60 @@
 
 > Snapshot is the visible result of runtime work.
 
-## `getSnapshot()`
+## `snapshot()`
 
 Reads the projected app-facing Snapshot.
 
 ```typescript
-const snapshot = app.getSnapshot();
+const snapshot = app.snapshot();
 
-console.log(snapshot.data.todos);
+console.log(snapshot.state.todos);
 console.log(snapshot.computed.activeCount);
 ```
 
 Use this in UI, routes, tools, tests, and agent context builders.
 
-## Dispatch Result
+## Submit Result
 
-`dispatchAsync(intent)` resolves with the next projected Snapshot.
+`actions.<name>.submit()` resolves with an explicit submit result. Settled
+results include projected `before` and `after` snapshots.
 
 ```typescript
-const next = await app.dispatchAsync(
-  app.createIntent(app.MEL.actions.toggleTodo, "todo-1"),
-);
+const result = await app.actions.toggleTodo.submit("todo-1");
 
-render(next.data.todos);
+if (result.ok) {
+  render(result.after.state.todos);
+}
 ```
 
-## `subscribe(selector, listener)`
+## `observe.state(selector, listener)`
 
 Subscribe to a selected Snapshot value.
 
 ```typescript
-const unsubscribe = app.subscribe(
-  (snapshot) => snapshot.data.todos,
+const unsubscribe = app.observe.state(
+  (snapshot) => snapshot.state.todos,
   (todos) => {
     render(todos);
   },
 );
 
-render(app.getSnapshot().data.todos);
+render(app.snapshot().state.todos);
 ```
 
-Seed initial UI with `getSnapshot()`. The subscription listener is for later publications.
+Seed initial UI with `snapshot()`. The observer listener is for later
+projected Snapshot publications.
 
-## `getCanonicalSnapshot()`
+## `inspect.canonicalSnapshot()`
 
 Reads the full canonical runtime substrate.
 
 ```typescript
-const canonical = app.getCanonicalSnapshot();
+const canonical = app.inspect.canonicalSnapshot();
 await saveRuntimeSnapshot(canonical);
 ```
 
-Use this for restore/persistence, seal-aware tooling, Studio overlays, and deep debugging. Prefer `getSnapshot()` for normal application rendering.
+Use this for restore/persistence, seal-aware tooling, Studio overlays, and deep debugging. Prefer `snapshot()` for normal application rendering.
 
 ## Next
 

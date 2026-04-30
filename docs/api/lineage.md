@@ -1,18 +1,18 @@
 # @manifesto-ai/lineage
 
-> Continuity package for the ADR-017 decorator runtime.
+> Continuity package for the ADR-026 v5 lineage runtime.
 
 ## Overview
 
 `@manifesto-ai/lineage` adds time, sealing, history, and restore to a composable manifesto.
 
-> **Current Contract Note:** This page describes the current Lineage v3.x decorator surface. The package contract is [packages/lineage/docs/lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md).
+> **Current Contract Note:** This page describes the Lineage v5 action-candidate surface. The package contract is [packages/lineage/docs/lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md).
 
 Use this package when you want:
 
 - `withLineage(createManifesto(...), config).activate()`
-- seal-aware `commitAsync`
-- additive lineage report companion `commitAsyncWithReport`
+- seal-aware `actions.<name>.submit(...args)`
+- lineage `LineageSubmissionResult` values with `world` and `report`
 - head, branch, world, and restore APIs on the activated runtime
 - `getWorldSnapshot(worldId)` for stored sealed canonical snapshot inspection by world id
 - `getLineage()` for DAG inspection
@@ -34,32 +34,31 @@ const lineage = withLineage(
 
 - `withLineage()` and `LineageConfig`
 - activated `LineageInstance<T>`
-- lineage-aware `commitAsync` that seals before publication
-- lineage-owned additive report companion `commitAsyncWithReport`
-- inherited legality queries such as `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`
+- lineage-aware `actions.<name>.submit(...args)` that seals before publication
+- lineage-owned `LineageSubmissionResult` reports
+- inherited v5 action-candidate reads such as `available()`, `check()`, and `preview()`
 - `restore`, `getWorld`, `getWorldSnapshot`, `getLineage`, `getLatestHead`, `getHeads`, `getBranches`, `getActiveBranch`, `switchActiveBranch`, `createBranch`
 - continuity ownership plus the provider surface
 
-Those inherited legality queries keep the base SDK meaning:
+Those inherited action-candidate legality queries keep the base SDK meaning:
 
 - availability is checked before dispatchability
-- `getIntentBlockers()` returns the first failing layer, so an unavailable action yields an `available` blocker and does not evaluate `dispatchable`
+- `check()` returns the first failing layer, so an unavailable action yields an availability failure and does not evaluate `dispatchable`
 
 ## Runtime Meaning
 
-`commitAsync()` on a lineage runtime is not the base SDK verb anymore.
+`actions.<name>.submit(...args)` on a lineage runtime is not the base SDK write path.
 
 It means:
 
-1. execute the intent
-2. seal the resulting terminal snapshot into lineage
-3. publish only the snapshot that legitimately becomes the new visible head
+1. admit the typed action candidate
+2. execute the intent through Host/Core
+3. seal the resulting terminal snapshot into lineage
+4. publish only the snapshot that legitimately becomes the new visible head
 
-If seal commit fails, the commit rejects and the new snapshot does not become visible.
+If seal commit fails, submit rejects with `SubmissionFailedError` and the new snapshot does not become visible.
 
-`commitAsyncWithReport()` is the additive companion for tooling and agent callers that need admission data, before/after snapshots, projected diffs, and continuity metadata without changing the underlying seal/publication semantics.
-
-Failed lineage reports observe semantic failure from the sealed terminal Snapshot's `system.lastError` and pending requirements. Canonical `data.$host.lastError` remains Host/effect diagnostic state and is not, by itself, the lineage outcome.
+Settled lineage results include `before`, `after`, `world`, `outcome`, and an optional `report`. Failed domain outcomes can still settle and seal a failed world; settlement failures reject instead of fabricating a lineage result.
 
 ## Relationship to SDK
 
@@ -74,10 +73,10 @@ SDK owns the base activation boundary. Lineage owns continuity once that boundar
 
 On a lineage runtime:
 
-- `getSnapshot()` is the projected runtime read
-- `getCanonicalSnapshot()` is the current visible canonical substrate
+- `snapshot()` is the projected runtime read
+- `inspect.canonicalSnapshot()` is the current visible canonical substrate
 - `getWorldSnapshot(worldId)` is the stored sealed canonical snapshot
-- `dispatchAsync()` and `dispatchAsyncWithReport()` are no longer part of the promoted runtime surface
+- base dispatch verbs and historical lineage commit verbs are no longer part of the canonical runtime surface
 
 ## Lineage-Backed Inspection
 

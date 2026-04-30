@@ -22,11 +22,11 @@ const app = withGovernance(
     bindings,
     execution: {
       projectionId: "counter",
-      deriveActor(candidate) {
-        return { actorId: "agent:demo", kind: "agent", meta: { action: candidate.action } };
+      deriveActor(intent) {
+        return { actorId: "agent:demo", kind: "agent", meta: { action: intent.type } };
       },
-      deriveSource(candidate) {
-        return { kind: "agent", eventId: `action:${String(candidate.action)}` };
+      deriveSource(intent) {
+        return { kind: "agent", eventId: `action:${String(intent.type)}` };
       },
     },
   },

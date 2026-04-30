@@ -108,19 +108,17 @@ If a helper needs a shared activated-runtime boundary, keep that boundary on leg
 
 ```typescript
 import type {
-  ManifestoDispatchRuntime,
-  ManifestoLegalityRuntime,
+  ManifestoApp,
 } from "@manifesto-ai/sdk";
-import type { LineageCommitRuntime } from "@manifesto-ai/lineage";
-import type { GovernanceProposalRuntime } from "@manifesto-ai/governance";
+import type { LineageInstance } from "@manifesto-ai/lineage";
+import type { GovernanceInstance } from "@manifesto-ai/governance";
 ```
 
-- `ManifestoLegalityRuntime<T>` is the shared helper-safe legality/preparation surface: `createIntent`, `whyNot`, `simulate`, `simulateIntent`, and `MEL`
-- `ManifestoDispatchRuntime<T>` is the base-only execution surface
-- `LineageCommitRuntime<T>` is the lineage-only execution surface
-- `GovernanceProposalRuntime<T>` is the governed-only execution surface
+- `ManifestoApp<T, "base">` is the base v5 action-candidate surface
+- `LineageInstance<T>` is the lineage v5 action-candidate surface plus continuity reads
+- `GovernanceInstance<T>` is the governance v5 action-candidate surface plus settlement, lineage continuity, and governance control methods
 
-These aliases are additive conveniences for helper authors. They do not define a cross-decorator common write verb.
+These aliases are additive conveniences for helper authors. They do not define a cross-decorator common root write verb.
 
 ## `createIntent()` binding forms
 
@@ -252,9 +250,9 @@ If the action is available but the bound intent input is invalid, `simulateInten
 
 If `diagnostics.trace` is present, it is derived from the dry-run Core trace for the same admitted compute pass that produced the simulated snapshot, status, and requirements. SDK dry-run surfaces may normalize volatile host-time fields such as trace-node timestamps or duration so repeated reads stay stable.
 
-Queued dispatches use the same legality split. If `dispatchAsync()` is rejected before publication, the runtime emits `dispatch:rejected` with a stable machine-readable `code` plus a human-readable `reason`. `ACTION_UNAVAILABLE` means the coarse action gate failed at dequeue time. `INVALID_INPUT` means the action stayed available, but the bound intent input failed SDK validation. `INTENT_NOT_DISPATCHABLE` means the action stayed available, input was valid, and the bound intent failed the fine gate.
+Submit attempts use the same legality split. If `actions.<name>.submit()` is rejected before execution, the runtime emits `submission:rejected` with the `AdmissionFailure` payload returned in the submit result. `ACTION_UNAVAILABLE` means the coarse action gate failed at submission time. `INVALID_INPUT` means the action stayed available, but the bound input failed SDK validation. `INTENT_NOT_DISPATCHABLE` means the action stayed available, input was valid, and the bound intent failed the fine gate.
 
-Base SDK and lineage runtimes keep event payloads plus stable rejection codes as streaming lifecycle telemetry. They now also expose additive write-report companions: base uses `dispatchAsyncWithReport()` and lineage uses `commitAsyncWithReport()`. Governed runtimes use root helpers from `@manifesto-ai/governance`: `waitForProposal()` for normalized settlement state and `waitForProposalWithReport()` for Lineage World-anchored settlement outcome reports. Neither helper replaces `proposeAsync()`.
+Base SDK, lineage, and governed runtimes keep event payloads plus stable rejection codes as streaming lifecycle telemetry. Their canonical v5 write path is `actions.<name>.submit(...args)`: base settles directly, lineage settles after sealing a `WorldRecord`, and governance first returns a durable `ProposalRef`. Governed settlement is observed with `pending.waitForSettlement()` or `app.waitForSettlement(ref)`.
 
 ## Additive Write Report
 
