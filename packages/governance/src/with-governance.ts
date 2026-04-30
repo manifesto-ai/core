@@ -395,22 +395,53 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     try {
       await applyAuthorityDecision(evaluatingProposal, response);
     } catch {
-      const current = await governanceStore.getProposal(proposalId);
-      if (
-        current
-        && current.status !== "completed"
-        && current.status !== "failed"
-        && current.status !== "rejected"
-        && current.status !== "superseded"
-      ) {
-        await governanceStore.putProposal(
-          governanceService.failExecution(
-            evaluatingProposal,
-            getCurrentTimestamp(),
-          ),
-        );
-      }
+      await compensateSettlementFailure(proposalId, evaluatingProposal);
     }
+  }
+
+  async function compensateSettlementFailure(
+    proposalId: ProposalId,
+    fallbackProposal: Proposal,
+    resultWorld?: string,
+  ): Promise<void> {
+    const current = await governanceStore.getProposal(proposalId) ?? fallbackProposal;
+    if (
+      current.status === "completed"
+      || current.status === "failed"
+      || current.status === "rejected"
+      || current.status === "superseded"
+    ) {
+      return;
+    }
+
+    await governanceStore.putProposal(
+      await prepareCompensatingTerminalProposal(current, resultWorld),
+    );
+  }
+
+  async function prepareCompensatingTerminalProposal(
+    proposal: Proposal,
+    resultWorld?: string,
+  ): Promise<Proposal> {
+    if (proposal.status === "approved") {
+      const executing = governanceService.beginExecution(proposal);
+      await governanceStore.putProposal(executing);
+      return governanceService.failExecution(
+        executing,
+        getCurrentTimestamp(),
+        resultWorld,
+      );
+    }
+
+    if (proposal.status === "executing") {
+      return governanceService.failExecution(
+        proposal,
+        getCurrentTimestamp(),
+        resultWorld,
+      );
+    }
+
+    return governanceService.prepareSupersede(proposal, "manual_cancel");
   }
 
   async function getEvaluatingProposal(proposalId: ProposalId) {

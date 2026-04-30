@@ -1,11 +1,11 @@
 # Host Guide
 
-> **Version:** Current surface (Host v4.0.0)
+> **Version:** Current v5-aligned surface
 > **Purpose:** Practical guide for using @manifesto-ai/host
 > **Prerequisites:** Basic understanding of Core
 > **Time to complete:** ~20 minutes
 
-> **Current Contract Note:** This guide follows the current Host v4.0.0 surface. Host-facing Snapshot references now follow Core v4.2.0 and no longer include accumulated `system.errors`.
+> **Current Contract Note:** This guide follows the current v5-aligned Host surface. Host-facing Snapshot references use `snapshot.state` for domain state and `snapshot.namespaces.host` for Host-owned operational state; accumulated `system.errors` is not part of the current contract.
 
 ---
 
@@ -53,7 +53,7 @@ const schema: DomainSchema = {
       flow: {
         kind: "patch",
         op: "set",
-        path: "count",
+        path: [{ kind: "prop", name: "count" }],
         value: { kind: "add", left: { kind: "get", path: "count" }, right: 1 },
       },
     },
@@ -160,7 +160,7 @@ const schema: DomainSchema = {
       flow: {
         kind: "patch",
         op: "set",
-        path: "count",
+        path: [{ kind: "prop", name: "count" }],
         value: { kind: "add", left: { kind: "get", path: "count" }, right: { kind: "get", path: "input.amount" } },
       },
     },
@@ -831,7 +831,7 @@ const host = new ManifestoHost(schema, {
 2. Check for infinite loops in Flow (missing state guards):
    ```typescript
    // ❌ WRONG: Runs every iteration
-   { kind: "patch", op: "set", path: "count", value: { kind: "add", ... } }
+   { kind: "patch", op: "set", path: [{ kind: "prop", name: "count" }], value: { kind: "add", ... } }
 
    // ✅ CORRECT: State-guarded
    {

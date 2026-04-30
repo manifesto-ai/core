@@ -4,7 +4,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@manifesto-ai/host.svg)](https://www.npmjs.com/package/@manifesto-ai/host)
 
-> **Current Contract Note:** The current public package contract is documented in [docs/host-SPEC.md](docs/host-SPEC.md) through v4.0.0. Host-facing Snapshot references now follow the current Core v4 contract and no longer include accumulated `system.errors`. The co-deployed lineage/governance composition epoch remains tracked in their package docs.
+> **Current Contract Note:** The current public package contract is documented in [docs/host-SPEC.md](docs/host-SPEC.md) through the v5-aligned Host surface. Host-facing Snapshot references use `snapshot.state` for domain state and `snapshot.namespaces.host` for Host-owned operational state; accumulated `system.errors` is not part of the current contract.
 
 ---
 
@@ -25,12 +25,15 @@ SDK runtime / governed decorators -> HOST -> Core
 
 ## Current Changelog Highlights
 
-### v4.0.0 New Features
+### v5-aligned Contract Highlights
 
 - **ADR-015 Current Hard Cut**
-  - Host-facing Snapshot references now follow Core v4
+  - Host-facing Snapshot references now use `snapshot.state`
   - accumulated `system.errors` is removed from the current Host contract
   - `lastError` remains the sole current error surface
+- **ADR-025 Namespace Separation**
+  - Host-owned state lives in `snapshot.namespaces.host`
+  - domain patches remain rooted at `snapshot.state`
 
 ### v3.0.0 New Features
 
@@ -43,7 +46,7 @@ SDK runtime / governed decorators -> HOST -> Core
 
 - **Snapshot Ownership Alignment (HOST-SNAP-1~4)**
   - Host uses Core's canonical Snapshot type
-  - Host-owned state moves to `data.$host`
+  - Host-owned state moves to `snapshot.namespaces.host`
   - Snapshot field ownership invariants (INV-SNAP-1~7)
 
 ### v2.0.1 New Features
@@ -95,7 +98,7 @@ const schema: DomainSchema = {
       flow: {
         kind: "patch",
         op: "set",
-        path: "count",
+        path: [{ kind: "prop", name: "count" }],
         value: { kind: "add", left: { kind: "get", path: "count" }, right: 1 },
       },
     },

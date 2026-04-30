@@ -191,6 +191,8 @@ describe("createDomainPlugin", () => {
         state: {
           fields: {
             entries: { type: "object", required: true, fields: {} },
+            payload: { type: "object", required: true, fields: {} },
+            items: { type: "array", required: true, items: { type: "string", required: true } },
             unsupportedState: { type: "number", required: true },
           },
           fieldTypes: {
@@ -199,10 +201,23 @@ describe("createDomainPlugin", () => {
               key: { kind: "primitive", type: "string" },
               value: { kind: "primitive", type: "number" },
             },
+            payload: { kind: "primitive", type: "object" },
+            items: { kind: "primitive", type: "array" },
             unsupportedState: { kind: "primitive", type: "integer" },
           },
         },
         actions: {
+          submitPayload: {
+            flow: { kind: "seq", steps: [] },
+            params: ["payload", "items"],
+            inputType: {
+              kind: "object",
+              fields: {
+                payload: { type: { kind: "primitive", type: "object" }, optional: false },
+                items: { type: { kind: "primitive", type: "array" }, optional: false },
+              },
+            },
+          },
           directFuture: {
             flow: { kind: "seq", steps: [] },
             inputType: { kind: "future" as never },
@@ -222,6 +237,11 @@ describe("createDomainPlugin", () => {
     );
 
     expect(out.patches[0].content).toContain("entries: Record<string, number>");
+    expect(out.patches[0].content).toContain("payload: Record<string, unknown>");
+    expect(out.patches[0].content).toContain("items: unknown[]");
+    expect(out.patches[0].content).toContain(
+      "submitPayload: (payload: Record<string, unknown>, items: unknown[]) => void"
+    );
     expect(out.patches[0].content).toContain("unsupportedState: unknown");
     expect(out.patches[0].content).toContain("directFuture: (input: unknown) => void");
     expect(out.patches[0].content).toContain("nestedFuture: (amount: unknown) => void");

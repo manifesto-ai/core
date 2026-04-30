@@ -1107,6 +1107,121 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(report.sealedOutcome).toBeUndefined();
   });
 
+  it("compensates to failed when decision record persistence fails after approval", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+    let failDecisionRecord = true;
+
+    const flakyStore = new Proxy(governanceStore, {
+      get(target, property, receiver) {
+        if (property === "putDecisionRecord") {
+          return async (...args: Parameters<GovernanceStore["putDecisionRecord"]>) => {
+            if (failDecisionRecord) {
+              failDecisionRecord = false;
+              throw new Error("decision persist failed");
+            }
+            return target.putDecisionRecord(...args);
+          };
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as GovernanceStore;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: flakyStore,
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:decision-persist-failure",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:decision-persist-failure",
+          }),
+        },
+      },
+    ).activate();
+
+    const submission = await submitIncrement(governed);
+    await expect(submission.waitForSettlement()).resolves.toMatchObject({
+      ok: false,
+      status: "settlement_failed",
+    });
+
+    const activeBranch = await governed.getActiveBranch();
+    const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.status).toBe("failed");
+    expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
+  });
+
+  it("compensates to failed when execution-stage proposal persistence fails", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+    let failExecutingProposal = true;
+
+    const flakyStore = new Proxy(governanceStore, {
+      get(target, property, receiver) {
+        if (property === "putProposal") {
+          return async (...args: Parameters<GovernanceStore["putProposal"]>) => {
+            const [proposal] = args;
+            if (proposal.status === "executing" && failExecutingProposal) {
+              failExecutingProposal = false;
+              throw new Error("executing proposal persist failed");
+            }
+            return target.putProposal(...args);
+          };
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as GovernanceStore;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: flakyStore,
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:executing-persist-failure",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:executing-persist-failure",
+          }),
+        },
+      },
+    ).activate();
+
+    const submission = await submitIncrement(governed);
+    await expect(submission.waitForSettlement()).resolves.toMatchObject({
+      ok: false,
+      status: "settlement_failed",
+    });
+
+    const activeBranch = await governed.getActiveBranch();
+    const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.status).toBe("failed");
+    expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
+  });
+
   it("preserves the sealed terminal proposal when terminal persistence retries fail", async () => {
     const governanceStore = createInMemoryGovernanceStore();
     let failCompletedPersist = true;
@@ -1499,7 +1614,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       ok: false,
       layer: "availability",
       code: "ACTION_UNAVAILABLE",
-      blockers: [],
+      blockers: [{
+        code: "ACTION_UNAVAILABLE",
+        message: "Frozen while disabled",
+        detail: { layer: "available" },
+      }],
     });
 
     governed.dispose();

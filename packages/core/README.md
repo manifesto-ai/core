@@ -85,7 +85,7 @@ const schema: DomainSchema = {
       flow: {
         kind: "patch",
         op: "set",
-        path: "count",
+        path: [{ kind: "prop", name: "count" }],
         value: {
           kind: "add",
           left: { kind: "get", path: "count" },

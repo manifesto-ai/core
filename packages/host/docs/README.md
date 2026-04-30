@@ -2,7 +2,7 @@
 
 > **Host** is the effect execution runtime of Manifesto. It executes effects, applies patches, and manages the compute-effect loop.
 
-> **Current Contract Note:** The current public package contract is documented in [host-SPEC.md](host-SPEC.md) through Host v4.0.0. Host-facing Snapshot references now follow the current Core v4.2.0 contract and no longer include accumulated `system.errors`.
+> **Current Contract Note:** The current public package contract is documented in [host-SPEC.md](host-SPEC.md) through the v5-aligned Host surface. Host-facing Snapshot references use `snapshot.state` for domain state and `snapshot.namespaces.host` for Host-owned operational state; accumulated `system.errors` is not part of the current contract.
 
 ---
 
@@ -95,7 +95,7 @@ function createHost(schema: DomainSchema, options?: HostOptions): ManifestoHost;
 class ManifestoHost {
   registerEffect(type: string, handler: EffectHandler): void;
   dispatch(intent: Intent, options?: { key?: string }): Promise<HostResult>;
-  getSnapshot(): Promise<Snapshot | null>;
+  getSnapshot(): Snapshot | null;
 }
 
 // Effect types

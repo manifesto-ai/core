@@ -337,7 +337,7 @@ export type PreviewOptions = {
 
 export type SubmitOptions = {
   readonly __kind: "SubmitOptions";
-  readonly report?: "none" | "summary";
+  readonly report?: "none" | "summary" | "full";
 };
 
 export type PathSegment = string | number;

@@ -20,7 +20,7 @@
  * - ERR-FE-5: Error patch recording is best-effort; failure MUST NOT block continue
  */
 
-import type { Patch, Requirement } from "@manifesto-ai/core";
+import type { Patch, Requirement, Snapshot } from "@manifesto-ai/core";
 import type { ExecutionContext } from "../types/execution.js";
 import type { FulfillEffectJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";
@@ -93,15 +93,28 @@ export function handleFulfillEffect(
   // Step 1: Attempt apply (FULFILL-1, FULFILL-NS-1) - may fail
   try {
     if (job.resultPatches.length > 0) {
-      ctx.applyPatches(job.resultPatches, "effect");
+      const beforePatches = ctx.getSnapshot();
+      const afterPatches = ctx.applyPatches(job.resultPatches, "effect");
+      applyError = getApplyReportedError(beforePatches, afterPatches);
     }
-    ctx.applyNamespaceDeltas(job.namespaceDelta ?? [], "effect-namespace");
+    const beforeNamespace = ctx.getSnapshot();
+    const afterNamespace = ctx.applyNamespaceDeltas(job.namespaceDelta ?? [], "effect-namespace");
+    applyError ??= getApplyReportedError(beforeNamespace, afterNamespace);
     ctx.trace({
       t: "effect:fulfill:apply",
       key: ctx.key,
       requirementId: job.requirementId,
       patchCount: job.resultPatches.length,
     });
+    if (applyError) {
+      ctx.trace({
+        t: "effect:fulfill:error",
+        key: ctx.key,
+        requirementId: job.requirementId,
+        phase: "apply",
+        error: applyError.message,
+      });
+    }
   } catch (error) {
     applyError = error instanceof Error ? error : new Error(String(error));
     ctx.trace({
@@ -239,4 +252,30 @@ function applyHostErrorPatch(
     }],
     "error",
   );
+}
+
+function getApplyReportedError(before: Snapshot, after: Snapshot): Error | null {
+  if (after.system.status !== "error" || after.system.lastError === null) {
+    return null;
+  }
+
+  if (isSameErrorValue(before.system.lastError, after.system.lastError)) {
+    return null;
+  }
+
+  return new Error(after.system.lastError.message);
+}
+
+function isSameErrorValue(left: Snapshot["system"]["lastError"], right: Snapshot["system"]["lastError"]): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (left === null || right === null) {
+    return false;
+  }
+  return left.code === right.code
+    && left.message === right.message
+    && left.timestamp === right.timestamp
+    && left.source.actionId === right.source.actionId
+    && left.source.nodePath === right.source.nodePath;
 }

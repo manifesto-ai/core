@@ -404,7 +404,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
           layer: "availability",
           code: "ACTION_UNAVAILABLE",
           message: `Action "${candidate.actionName}" is unavailable against the current visible snapshot`,
-          blockers: Object.freeze([]),
+          blockers: getAvailabilityBlockers(candidate, snapshot),
         }) as AdmissionFailure<Name>,
         intent: null,
       };
@@ -491,6 +491,23 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
         ?? `Action "${actionName}" is unavailable against the current visible snapshot`,
       blockers: (failure.blockers ?? []).map((blocker) => toBlocker(blocker, "ACTION_UNAVAILABLE")),
     }) as AdmissionFailure<Name>;
+  }
+
+  function getAvailabilityBlockers<Name extends ActionName<T>>(
+    candidate: Candidate<T, Name>,
+    snapshot: CanonicalSnapshot<T["state"]>,
+  ): readonly Blocker[] {
+    if (!candidate.intent) {
+      return Object.freeze([]);
+    }
+
+    const legality = kernel.evaluateIntentLegalityFor(snapshot, candidate.intent);
+    const admission = kernel.deriveIntentAdmission(snapshot, legality);
+    if (admission.kind !== "blocked" || admission.failure.kind !== "unavailable") {
+      return Object.freeze([]);
+    }
+
+    return mapBlockedAdmission(candidate.actionName, admission).blockers;
   }
 
   function getActionInfo<Name extends ActionName<T>>(name: Name): ActionInfo<Name> {

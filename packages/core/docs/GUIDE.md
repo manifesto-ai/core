@@ -58,7 +58,7 @@ const schema: DomainSchema = {
       flow: {
         kind: "patch",
         op: "set",
-        path: "count",
+        path: [{ kind: "prop", name: "count" }],
         value: {
           kind: "add",
           left: { kind: "get", path: "count" },
@@ -124,15 +124,15 @@ const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
 
 // Define patches
 const patches: Patch[] = [
-  { op: "set", path: "count", value: 10 },
-  { op: "set", path: "name", value: "Alice" },
+  { op: "set", path: [{ kind: "prop", name: "count" }], value: 10 },
+  { op: "set", path: [{ kind: "prop", name: "name" }], value: "Alice" },
 ];
 
 // Apply patches
 const newSnapshot = core.apply(schema, snapshot, patches, context);
 
-console.log(newSnapshot.data.count); // → 10
-console.log(newSnapshot.data.name);  // → "Alice"
+console.log(newSnapshot.state.count); // → 10
+console.log(newSnapshot.state.name);  // → "Alice"
 ```
 
 ### Use Case 3: Handling Effects
@@ -359,7 +359,7 @@ snapshot.state.count = 5;
 ```typescript
 // Right: Use patches
 const newSnapshot = core.apply(schema, snapshot, [
-  { op: "set", path: "count", value: 5 },
+  { op: "set", path: [{ kind: "prop", name: "count" }], value: 5 },
 ], context);
 ```
 
@@ -403,10 +403,10 @@ const flow = {
 
 ```typescript
 // Check your path format
-// Correct: "todos[0].title"
+// Correct: [{ kind: "prop", name: "todos" }, { kind: "index", index: 0 }, { kind: "prop", name: "title" }]
 // Wrong: "/data/todos/0/title"
 
-const patch = { op: "set", path: "count", value: 5 }; // Use dot-separated semantic paths
+const patch = { op: "set", path: [{ kind: "prop", name: "count" }], value: 5 };
 ```
 
 ### Error: "Schema validation failed"

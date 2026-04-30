@@ -88,4 +88,61 @@ describe("@manifesto-ai/lineage internal runtime controller", () => {
 
     expect(receivedOptions?.key).toBe("branch:serialized");
   });
+
+  it("rejects pending host results before preparing or committing a next seal", async () => {
+    const base = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(base)();
+    const pendingSnapshot = {
+      ...kernel.getCanonicalSnapshot(),
+      system: {
+        ...kernel.getCanonicalSnapshot().system,
+        status: "pending" as const,
+        pendingRequirements: [{
+          id: "req-1",
+          type: "external",
+          params: {},
+          actionId: "increment",
+          flowPosition: {
+            nodePath: "actions.increment.flow",
+            snapshotVersion: kernel.getCanonicalSnapshot().meta.version,
+          },
+          createdAt: kernel.getCanonicalSnapshot().meta.timestamp,
+        }],
+      },
+    };
+    const pendingKernel: LineageRuntimeKernel<CounterDomain> = {
+      ...kernel,
+      executeHost: vi.fn(async () => ({
+        status: "pending" as const,
+        snapshot: pendingSnapshot,
+        traces: [],
+      })),
+    };
+    const realService = createLineageService(createInMemoryLineageStore());
+    const service = {
+      prepareSealGenesis: realService.prepareSealGenesis.bind(realService),
+      prepareSealNext: vi.fn(realService.prepareSealNext.bind(realService)),
+      commitPrepared: vi.fn(realService.commitPrepared.bind(realService)),
+      createBranch: realService.createBranch.bind(realService),
+      getBranch: realService.getBranch.bind(realService),
+      getBranches: realService.getBranches.bind(realService),
+      getActiveBranch: realService.getActiveBranch.bind(realService),
+      switchActiveBranch: realService.switchActiveBranch.bind(realService),
+      getWorld: realService.getWorld.bind(realService),
+      getSnapshot: realService.getSnapshot.bind(realService),
+      getAttempts: realService.getAttempts.bind(realService),
+      getAttemptsByBranch: realService.getAttemptsByBranch.bind(realService),
+      getLineage: realService.getLineage.bind(realService),
+      getHeads: realService.getHeads.bind(realService),
+      getLatestHead: realService.getLatestHead.bind(realService),
+      restore: realService.restore.bind(realService),
+    };
+    const lineage = createLineageRuntimeController(pendingKernel, service, { service });
+
+    await expect(lineage.sealIntent(createIntent("increment", "intent-1"), {
+      rejectPendingBeforeSeal: true,
+    })).rejects.toThrow("host dispatch remained pending");
+    expect(service.prepareSealNext).not.toHaveBeenCalled();
+    expect(service.commitPrepared).toHaveBeenCalledTimes(1);
+  });
 });

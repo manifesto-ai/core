@@ -30,6 +30,12 @@ export function typeDefinitionToDomainType(
       if (isDomainPrimitive(def.type)) {
         return primitiveType(def.type);
       }
+      if (def.type === "object") {
+        return recordType(primitiveType("string"), unknownType());
+      }
+      if (def.type === "array") {
+        return arrayType(unknownType());
+      }
       warnUnknownTypeDefinition(
         options,
         `Unsupported TypeDefinition primitive "${def.type}". Emitting "unknown".`

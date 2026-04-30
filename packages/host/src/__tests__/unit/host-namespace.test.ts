@@ -105,6 +105,83 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       // This should not throw - if intent slots weren't stored, it would fail
       host.injectEffectResult(key, "req-1", intent.intentId!, patches);
     });
+
+    it("should record invalid effect namespace deltas in namespaces.host.lastError", async () => {
+      const effectSchema = createTestSchema({
+        actions: {
+          fetchOnce: {
+            flow: {
+              kind: "if",
+              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
+              then: {
+                kind: "effect",
+                type: "needsNamespace",
+                params: {},
+              },
+            },
+          },
+        },
+      });
+      const host = createHost(effectSchema, { initialData: {} });
+      const key = "test-key";
+      const intent = createTestIntent("fetchOnce");
+      const pending = {
+        id: "req-invalid-namespace",
+        type: "needsNamespace",
+        params: {},
+        actionId: "fetchOnce",
+        flowPosition: {
+          nodePath: "actions.fetchOnce.flow.then",
+          snapshotVersion: 0,
+        },
+        createdAt: 0,
+      };
+      const snapshot = {
+        ...createMinimalSnapshot({}),
+        system: {
+          status: "pending" as const,
+          lastError: null,
+          pendingRequirements: [pending],
+          currentAction: "fetchOnce",
+        },
+        namespaces: {
+          host: {
+            intentSlots: {
+              [intent.intentId!]: { type: "fetchOnce" },
+            },
+          },
+          mel: { guards: { intent: {} } },
+        },
+      };
+      host.seedSnapshot(key, snapshot);
+
+      host.injectEffectResult(
+        key,
+        pending.id,
+        intent.intentId!,
+        [],
+        intent,
+        [{
+          namespace: "host",
+          patches: [{
+            op: "merge",
+            path: [
+              { kind: "prop", name: "intentSlots" },
+              { kind: "prop", name: intent.intentId! },
+              { kind: "prop", name: "type" },
+            ],
+            value: { invalid: true },
+          }],
+        }],
+      );
+      await host.drain(key);
+
+      const resultSnapshot = host.getContextSnapshot(key)!;
+      const hostState = getHostState(resultSnapshot);
+      expect(hostState?.lastError?.code).toBe("EFFECT_APPLY_FAILED");
+      expect(hostState?.lastError?.message).toContain("Invalid namespace merge target");
+      expect(resultSnapshot.system.pendingRequirements).toHaveLength(0);
+    });
   });
 
   describe("snapshot data integrity", () => {

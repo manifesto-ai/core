@@ -68,6 +68,7 @@ export type SealIntentOptions = {
   readonly executionKey?: HostDispatchOptions["key"];
   readonly publishOnCompleted?: boolean;
   readonly assumeEnqueued?: boolean;
+  readonly rejectPendingBeforeSeal?: boolean;
 };
 
 type LineageControllerKernel<T extends ManifestoDomainShape> = Pick<
@@ -289,6 +290,21 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
       } catch (error) {
         kernel.restoreVisibleSnapshot();
         throw createLineageSealRuntimeFailure<T>(error, "host");
+      }
+
+      if (
+        options?.rejectPendingBeforeSeal === true
+        && (result.status === "pending" || result.snapshot.system.status === "pending")
+      ) {
+        kernel.restoreVisibleSnapshot();
+        throw createLineageSealRuntimeFailure<T>(
+          new ManifestoError(
+            "LINEAGE_PENDING_RUNTIME",
+            "Lineage seal requires a terminal runtime snapshot; host dispatch remained pending",
+          ),
+          "host",
+          result,
+        );
       }
 
       if (!currentBranchId || !currentCompletedWorldId) {

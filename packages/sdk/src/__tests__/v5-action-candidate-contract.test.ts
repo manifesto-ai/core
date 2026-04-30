@@ -411,10 +411,20 @@ describe("SDK v5 action-candidate contract", () => {
     ).activate();
 
     await app.actions.disable.submit();
-    expect(app.actions.incrementGuarded.check("not-number" as unknown as number)).toMatchObject({
+    const unavailable = app.actions.incrementGuarded.check("not-number" as unknown as number);
+    expect(unavailable).toMatchObject({
       ok: false,
       layer: "availability",
       code: "ACTION_UNAVAILABLE",
+    });
+    if (unavailable.ok) {
+      throw new Error("expected unavailable admission");
+    }
+    expect(unavailable.blockers).toHaveLength(1);
+    expect(unavailable.blockers[0]).toMatchObject({
+      code: "ACTION_UNAVAILABLE",
+      message: "Increment only while enabled and below the caller-provided max",
+      detail: { layer: "available" },
     });
 
     const fresh = createManifesto<DispatchabilityDomain>(
@@ -641,6 +651,27 @@ describe("SDK v5 action-candidate contract", () => {
       report: "none",
     });
     expect(submitted.ok && "report" in submitted).toBe(false);
+  });
+
+  it("returns distinct full submit reports when requested", async () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+
+    const submitted = await app.actions.increment.submit({
+      __kind: "SubmitOptions",
+      report: "full",
+    });
+
+    expect(submitted.ok && submitted.report).toMatchObject({
+      requirements: [],
+      outcome: {
+        canonical: {
+          status: "idle",
+        },
+      },
+    });
+    expect(submitted.ok && submitted.report?.changes).toEqual(
+      expect.arrayContaining(["state.count", "computed.doubled"]),
+    );
   });
 
   it("rejects operational submit failure before terminal result with SubmissionFailedError", async () => {

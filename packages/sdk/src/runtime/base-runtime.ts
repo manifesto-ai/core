@@ -18,6 +18,7 @@ import type {
   Admission,
   AdmissionFailure,
   AdmissionOk,
+  BaseWriteReport,
   BaseSubmissionResult,
   Blocker,
   BoundAction,
@@ -383,6 +384,9 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       }
 
       emitSubmissionSettled(candidate.actionName, attempt.intent, outcome, afterCanonical);
+      const report = attempt.kind === "completed"
+        ? createBaseWriteReport(options, attempt.diagnostics, dispatchOutcome)
+        : undefined;
 
       return Object.freeze({
         ok: true,
@@ -392,9 +396,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
         before: dispatchOutcome.projected.beforeSnapshot,
         after: dispatchOutcome.projected.afterSnapshot,
         outcome,
-        ...(attempt.kind === "completed" && options?.report !== "none"
-          ? { report: { diagnostics: attempt.diagnostics } }
-          : {}),
+        ...(report !== undefined ? { report } : {}),
       }) as BaseSubmissionResult<T, Name>;
     });
   }
@@ -417,7 +419,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
           layer: "availability",
           code: "ACTION_UNAVAILABLE",
           message: `Action "${candidate.actionName}" is unavailable against the current visible snapshot`,
-          blockers: Object.freeze([]),
+          blockers: getAvailabilityBlockers(candidate, snapshot),
         }) as AdmissionFailure<Name>,
         intent: null,
       };
@@ -504,6 +506,23 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
         ?? `Action "${actionName}" is unavailable against the current visible snapshot`,
       blockers: (failure.blockers ?? []).map((blocker) => toBlocker(blocker, "ACTION_UNAVAILABLE")),
     }) as AdmissionFailure<Name>;
+  }
+
+  function getAvailabilityBlockers<Name extends ActionName<T>>(
+    candidate: Candidate<T, Name>,
+    snapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>,
+  ): readonly Blocker[] {
+    if (!candidate.intent) {
+      return Object.freeze([]);
+    }
+
+    const legality = kernel.evaluateIntentLegalityFor(snapshot, candidate.intent);
+    const admission = kernel.deriveIntentAdmission(snapshot, legality);
+    if (admission.kind !== "blocked" || admission.failure.kind !== "unavailable") {
+      return Object.freeze([]);
+    }
+
+    return mapBlockedAdmission(candidate.actionName, admission).blockers;
   }
 
   function getActionInfo<Name extends ActionName<T>>(name: Name): ActionInfo<Name> {
@@ -634,6 +653,27 @@ function previewDiagnostics(
   }
 
   return { diagnostics: { trace: diagnostics.trace } };
+}
+
+function createBaseWriteReport<T extends ManifestoDomainShape>(
+  options: SubmitOptions | undefined,
+  diagnostics: ExecutionDiagnostics,
+  outcome: DispatchExecutionOutcome<T>,
+): BaseWriteReport | undefined {
+  if (options?.report === "none") {
+    return undefined;
+  }
+
+  if (options?.report === "full") {
+    return Object.freeze({
+      diagnostics,
+      outcome,
+      changes: outcome.projected.changedPaths,
+      requirements: outcome.canonical.pendingRequirements,
+    });
+  }
+
+  return Object.freeze({ diagnostics });
 }
 
 function toActionInfo<
