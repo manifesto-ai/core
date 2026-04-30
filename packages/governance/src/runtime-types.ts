@@ -3,12 +3,13 @@ import type {
   BaseLaws,
   GovernanceLaws,
   LineageLaws,
+  ManifestoApp,
   ManifestoDomainShape,
   TypedIntent,
 } from "@manifesto-ai/sdk";
 import type {
   BranchId,
-  LineageInstance,
+  LineageContinuitySurface,
 } from "@manifesto-ai/lineage";
 
 import type { AuthorityEvaluator } from "./authority/evaluator.js";
@@ -47,27 +48,27 @@ export type LineageComposableLaws = BaseLaws & LineageLaws & {
 
 export type GovernedComposableLaws = BaseLaws & LineageLaws & GovernanceLaws;
 
-export type GovernanceInstance<T extends ManifestoDomainShape> =
-  Omit<LineageInstance<T>, "commitAsync" | "commitAsyncWithReport"> & {
-    readonly proposeAsync: (intent: TypedIntent<T>) => Promise<Proposal>;
-    readonly approve: (
-      proposalId: ProposalId,
-      approvedScope?: IntentScope | null,
-    ) => Promise<Proposal>;
-    readonly reject: (proposalId: ProposalId, reason?: string) => Promise<Proposal>;
-    readonly getProposal: (proposalId: ProposalId) => Promise<Proposal | null>;
-    readonly getProposals: (branchId?: BranchId) => Promise<readonly Proposal[]>;
-    readonly bindActor: (binding: ActorAuthorityBinding) => Promise<void>;
-    readonly getActorBinding: (actorId: ActorId) => Promise<ActorAuthorityBinding | null>;
-    readonly getDecisionRecord: (
-      decisionId: DecisionId,
-    ) => Promise<DecisionRecord | null>;
-  };
+export type GovernanceControlSurface = {
+  readonly approve: (
+    proposalId: ProposalId,
+    approvedScope?: IntentScope | null,
+  ) => Promise<Proposal>;
+  readonly reject: (proposalId: ProposalId, reason?: string) => Promise<Proposal>;
+  readonly getProposal: (proposalId: ProposalId) => Promise<Proposal | null>;
+  readonly getProposals: (branchId?: BranchId) => Promise<readonly Proposal[]>;
+  readonly bindActor: (binding: ActorAuthorityBinding) => Promise<void>;
+  readonly getActorBinding: (actorId: ActorId) => Promise<ActorAuthorityBinding | null>;
+  readonly getDecisionRecord: (
+    decisionId: DecisionId,
+  ) => Promise<DecisionRecord | null>;
+};
 
-export type GovernanceProposalRuntime<T extends ManifestoDomainShape> = Pick<
-  GovernanceInstance<T>,
-  "proposeAsync"
->;
+export type GovernanceInstance<T extends ManifestoDomainShape> =
+  ManifestoApp<T, "governance">
+  & LineageContinuitySurface<T>
+  & GovernanceControlSurface;
+
+export type GovernanceProposalRuntime<T extends ManifestoDomainShape> = Record<never, never>;
 
 export type GovernanceComposableManifesto<
   T extends ManifestoDomainShape,

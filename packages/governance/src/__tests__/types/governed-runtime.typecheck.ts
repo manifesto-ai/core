@@ -1,10 +1,13 @@
-import type { Intent } from "@manifesto-ai/core";
-import type {
-  CanonicalSnapshot,
-  DispatchBlocker,
+import {
+  createManifesto,
+  type CanonicalSnapshot,
+  type ActionName,
+  type GovernanceSettlementResult,
+  type GovernanceSubmissionResult,
+  type ManifestoApp,
+  type ProposalRef,
+  type SubmitResultFor,
 } from "../../../../sdk/src/index.ts";
-
-import { createManifesto } from "../../../../sdk/src/index.ts";
 import {
   createForeignSchema,
   type ForeignDomain,
@@ -53,17 +56,27 @@ const governed = withGovernance<CounterDomain>(
   },
 ).activate();
 
-void governed.proposeAsync(
-  governed.createIntent(governed.MEL.actions.increment),
-);
-const governedWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> | null> = governed.getWorldSnapshot("world-1");
-const governedDispatchable: boolean = governed.isIntentDispatchable(governed.MEL.actions.increment);
-const governedBlockers: readonly DispatchBlocker[] = governed.getIntentBlockers(governed.MEL.actions.increment);
+const governedApp: ManifestoApp<CounterDomain, "governance"> = governed;
+const proposalRef = "prop-example" as ProposalRef;
+const submit: Promise<GovernanceSubmissionResult<CounterDomain, "increment">> =
+  governed.actions.increment.submit();
+const submitFor: Promise<SubmitResultFor<"governance", CounterDomain, "increment">> =
+  governed.action("increment").submit();
+const runtimeSettlement: Promise<GovernanceSettlementResult<CounterDomain, ActionName<CounterDomain>>> =
+  governed.waitForSettlement(proposalRef);
+const appSettlement: Promise<GovernanceSettlementResult<CounterDomain, ActionName<CounterDomain>>> =
+  governedApp.waitForSettlement(proposalRef);
+const governedWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> | null> =
+  governed.getWorldSnapshot("world-1");
+
+void submit;
+void submitFor;
+void runtimeSettlement;
+void appSettlement;
 void governedWorldSnapshot;
-void governedDispatchable;
-void governedBlockers;
 void governed.getLatestHead();
 void governed.getBranches();
+
 const governedSettlement: Promise<ProposalSettlement<CounterDomain>> = waitForProposal(
   governed,
   "proposal-1",
@@ -76,30 +89,23 @@ void governedSettlement;
 void governedSettlementReport;
 
 // @ts-expect-error governed runtime removes base dispatchAsync
-governed.dispatchAsync(
-  governed.createIntent(governed.MEL.actions.increment),
-);
-
+governed.dispatchAsync;
 // @ts-expect-error governed runtime removes lineage commitAsync
-governed.commitAsync(
-  governed.createIntent(governed.MEL.actions.increment),
-);
+governed.commitAsync;
 // @ts-expect-error governed runtime removes lineage commitAsyncWithReport
-governed.commitAsyncWithReport(
-  governed.createIntent(governed.MEL.actions.increment),
-);
+governed.commitAsyncWithReport;
+// @ts-expect-error governed runtime removes v3 proposal write verb
+governed.proposeAsync;
+// @ts-expect-error governed runtime removes raw intent creation from app-facing root
+governed.createIntent;
+// @ts-expect-error governed runtime removes MEL refs from app-facing root
+governed.MEL;
+// @ts-expect-error governed runtime removes v3 legality helper from app-facing root
+governed.isIntentDispatchable;
+// @ts-expect-error governed runtime removes v3 blocker helper from app-facing root
+governed.getIntentBlockers;
 // @ts-expect-error governed runtime does not introduce proposeAsyncWithReport
-governed.proposeAsyncWithReport(
-  governed.createIntent(governed.MEL.actions.increment),
-);
-
-const rawIntent: Intent = {
-  type: "increment",
-  intentId: "raw-intent",
-};
-
-// @ts-expect-error proposeAsync only accepts typed intents created for this domain
-void governed.proposeAsync(rawIntent);
+governed.proposeAsyncWithReport;
 
 const foreignGoverned = withGovernance<ForeignDomain>(
   withLineage<ForeignDomain>(
@@ -117,17 +123,16 @@ const foreignGoverned = withGovernance<ForeignDomain>(
   },
 ).activate();
 
-const foreignIntent = foreignGoverned.createIntent(foreignGoverned.MEL.actions.toggle);
-
-// @ts-expect-error proposeAsync rejects intents branded for a different domain
-void governed.proposeAsync(foreignIntent);
+const foreignSubmit: Promise<GovernanceSubmissionResult<ForeignDomain, "toggle">> =
+  foreignGoverned.actions.toggle.submit();
+void foreignSubmit;
 
 async function checkSettlementNarrowing() {
   const settlement = await waitForProposal(governed, "proposal-2");
   const report = await waitForProposalWithReport(governed, "proposal-3");
 
   if (settlement.kind === "completed") {
-    const count: number = settlement.snapshot.data.count;
+    const count: number = settlement.snapshot.state.count;
     const worldId: string = settlement.resultWorld;
     void count;
     void worldId;
@@ -143,7 +148,7 @@ async function checkSettlementNarrowing() {
   }
 
   if (report.kind === "completed") {
-    const count: number = report.outcome.projected.afterSnapshot.data.count;
+    const count: number = report.outcome.projected.afterSnapshot.state.count;
     const worldId: string = report.resultWorld;
     void count;
     void worldId;
@@ -153,7 +158,7 @@ async function checkSettlementNarrowing() {
     const summary: string = report.error.summary;
     void summary;
     if (report.sealedOutcome) {
-      const count: number = report.sealedOutcome.projected.afterSnapshot.data.count;
+      const count: number = report.sealedOutcome.projected.afterSnapshot.state.count;
       void count;
     }
   }

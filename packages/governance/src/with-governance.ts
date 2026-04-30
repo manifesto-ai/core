@@ -1,18 +1,26 @@
 import type {
+  ErrorValue,
+} from "@manifesto-ai/core";
+import type {
+  ActionName,
+  CanonicalSnapshot,
   ComposableManifesto,
+  DispatchExecutionOutcome,
+  ExecutionOutcome,
+  GovernanceSettlementResult,
   GovernanceLaws,
   ManifestoDomainShape,
+  ProposalRef,
   TypedIntent,
+  WorldRecord,
 } from "@manifesto-ai/sdk";
 import {
   DisposedError,
   ManifestoError,
 } from "@manifesto-ai/sdk";
-import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
 import {
   activateComposable,
   assertComposableNotActivated,
-  attachExtensionKernel,
   attachRuntimeKernelFactory,
   getActivationState,
   getRuntimeKernelFactory,
@@ -30,6 +38,7 @@ import {
 
 import { createAuthorityEvaluator, type AuthorityEvaluator } from "./authority/evaluator.js";
 import { createGovernanceEventDispatcher } from "./event-dispatcher.js";
+import { createGovernanceRuntimeInstance } from "./governance-runtime.js";
 import { createIntentInstance } from "./intent-instance.js";
 import { createGovernanceService } from "./service/governance-service.js";
 import { createInMemoryGovernanceStore } from "./store/in-memory-governance-store.js";
@@ -229,21 +238,10 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
       eventDispatcher.emitSealCompleted(governanceCommit, sealed.preparedCommit);
 
       if (sealed.preparedCommit.branchChange.headAdvanced) {
-        const publishedSnapshot = kernel.setVisibleSnapshot(sealed.hostResult.snapshot);
-        kernel.emitEvent("dispatch:completed", {
-          intentId: intent.intentId ?? "",
-          intent,
-          snapshot: publishedSnapshot,
-        });
+        kernel.setVisibleSnapshot(sealed.hostResult.snapshot);
         return governanceCommit.proposal;
       }
 
-      const failure = toGovernanceFailure(sealed.hostResult.error);
-      kernel.emitEvent("dispatch:failed", {
-        intentId: intent.intentId ?? "",
-        intent,
-        error: failure,
-      });
       return governanceCommit.proposal;
     } catch (error) {
       const failure = toGovernanceFailure(error);
@@ -271,13 +269,6 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
         } catch {
           // Preserve the original execution failure if compensating persistence also fails.
         }
-      }
-      if (!isRejectedDispatchError(failure)) {
-        kernel.emitEvent("dispatch:failed", {
-          intentId: intent.intentId ?? "",
-          intent,
-          error: failure,
-        });
       }
       throw failure;
     }
@@ -310,83 +301,103 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     return finalizeApprovedExecution(executingProposal, toTypedIntent<T>(prepared.proposal));
   }
 
-  async function proposeAsync(intent: TypedIntent<T>): Promise<Proposal> {
+  async function createSubmission(intent: TypedIntent<T>): Promise<Proposal> {
+    await ensureReady();
+
+    const enrichedIntent = kernel.ensureIntentId(intent);
+    const branch = await lineage.getActiveBranch();
+    await invalidateStaleIngress(branch.id, branch.epoch);
+
+    const actor = config.execution.deriveActor(enrichedIntent);
+    const binding = await resolveBinding(actor.actorId);
+    const intentInstance = await createIntentInstance({
+      body: {
+        type: enrichedIntent.type,
+        ...(enrichedIntent.input !== undefined ? { input: enrichedIntent.input } : {}),
+        ...(hasScopeProposal(enrichedIntent)
+          ? { scopeProposal: enrichedIntent.scopeProposal }
+          : {}),
+      },
+      schemaHash: kernel.schema.hash,
+      projectionId: config.execution.projectionId,
+      source: config.execution.deriveSource(enrichedIntent),
+      actor,
+      intentId: enrichedIntent.intentId,
+    });
+
+    const proposalId = createProposalId();
+    const proposal = governanceService.createProposal({
+      proposalId,
+      baseWorld: branch.head,
+      branchId: branch.id,
+      actorId: binding.actorId,
+      authorityId: binding.authorityId,
+      intent: {
+        type: intentInstance.body.type,
+        intentId: intentInstance.intentId,
+        ...(intentInstance.body.input !== undefined
+          ? { input: intentInstance.body.input }
+          : {}),
+        ...(intentInstance.body.scopeProposal !== undefined
+          ? { scopeProposal: intentInstance.body.scopeProposal }
+          : {}),
+      },
+      executionKey: defaultExecutionKeyPolicy({
+        proposalId,
+        actorId: binding.actorId,
+        baseWorld: branch.head,
+        branchId: branch.id,
+        attempt: 1,
+      }),
+      submittedAt: getCurrentTimestamp(),
+      epoch: branch.epoch,
+    });
+
+    await governanceStore.putProposal(proposal);
+
+    const evaluatingProposal = governanceService.beginEvaluating(proposal);
+    await governanceStore.putProposal(evaluatingProposal);
+
+    return evaluatingProposal;
+  }
+
+  async function settleSubmission(proposalId: ProposalId): Promise<void> {
     if (kernel.isDisposed()) {
       throw new DisposedError();
     }
 
-    return kernel.enqueue(async () => {
-      if (kernel.isDisposed()) {
-        throw new DisposedError();
+    await ensureReady();
+    const proposal = await governanceStore.getProposal(proposalId);
+    if (!proposal || proposal.status !== "evaluating") {
+      return;
+    }
+
+    const evaluatingProposal = proposal as Proposal & { readonly status: "evaluating" };
+    const binding = await resolveBinding(evaluatingProposal.actorId);
+    const response = await evaluateProposal(evaluatingProposal, binding, evaluator);
+    if (response.kind === "pending") {
+      return;
+    }
+
+    try {
+      await applyAuthorityDecision(evaluatingProposal, response);
+    } catch {
+      const current = await governanceStore.getProposal(proposalId);
+      if (
+        current
+        && current.status !== "completed"
+        && current.status !== "failed"
+        && current.status !== "rejected"
+        && current.status !== "superseded"
+      ) {
+        await governanceStore.putProposal(
+          governanceService.failExecution(
+            evaluatingProposal,
+            getCurrentTimestamp(),
+          ),
+        );
       }
-
-      await ensureReady();
-
-      const enrichedIntent = kernel.ensureIntentId(intent);
-      if (!kernel.isActionAvailable(enrichedIntent.type as keyof T["actions"])) {
-        return kernel.rejectUnavailable(enrichedIntent);
-      }
-
-      const branch = await lineage.getActiveBranch();
-      await invalidateStaleIngress(branch.id, branch.epoch);
-
-      const actor = config.execution.deriveActor(enrichedIntent);
-      const binding = await resolveBinding(actor.actorId);
-      const intentInstance = await createIntentInstance({
-        body: {
-          type: enrichedIntent.type,
-          ...(enrichedIntent.input !== undefined ? { input: enrichedIntent.input } : {}),
-          ...(hasScopeProposal(enrichedIntent)
-            ? { scopeProposal: enrichedIntent.scopeProposal }
-            : {}),
-        },
-        schemaHash: kernel.schema.hash,
-        projectionId: config.execution.projectionId,
-        source: config.execution.deriveSource(enrichedIntent),
-        actor,
-        intentId: enrichedIntent.intentId,
-      });
-
-      const proposalId = createProposalId();
-      const proposal = governanceService.createProposal({
-        proposalId,
-        baseWorld: branch.head,
-        branchId: branch.id,
-        actorId: binding.actorId,
-        authorityId: binding.authorityId,
-        intent: {
-          type: intentInstance.body.type,
-          intentId: intentInstance.intentId,
-          ...(intentInstance.body.input !== undefined
-            ? { input: intentInstance.body.input }
-            : {}),
-          ...(intentInstance.body.scopeProposal !== undefined
-            ? { scopeProposal: intentInstance.body.scopeProposal }
-            : {}),
-        },
-        executionKey: defaultExecutionKeyPolicy({
-          proposalId,
-          actorId: binding.actorId,
-          baseWorld: branch.head,
-          branchId: branch.id,
-          attempt: 1,
-        }),
-        submittedAt: getCurrentTimestamp(),
-        epoch: branch.epoch,
-      });
-
-      await governanceStore.putProposal(proposal);
-
-      const evaluatingProposal = governanceService.beginEvaluating(proposal);
-      await governanceStore.putProposal(evaluatingProposal);
-
-      const response = await evaluateProposal(evaluatingProposal, binding, evaluator);
-      if (response.kind === "pending") {
-        return evaluatingProposal;
-      }
-
-      return applyAuthorityDecision(evaluatingProposal, response);
-    });
+    }
   }
 
   async function getEvaluatingProposal(proposalId: ProposalId) {
@@ -490,59 +501,167 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     return governanceStore.getDecisionRecord(decisionId);
   }
 
-  function explainIntent(
-    intent: Parameters<GovernanceInstance<T>["explainIntent"]>[0],
-  ): ReturnType<GovernanceInstance<T>["explainIntent"]> {
-    return getExtensionKernel<T, GovernedComposableLaws>(runtime).explainIntentFor(
-      kernel.getCanonicalSnapshot(),
-      intent,
-    );
+  async function waitForSettlement<Name extends ActionName<T>>(
+    proposalRef: ProposalRef,
+    actionName?: Name,
+  ): Promise<GovernanceSettlementResult<T, Name>> {
+    while (true) {
+      if (kernel.isDisposed()) {
+        throw new DisposedError();
+      }
+
+      const proposal = await governanceStore.getProposal(proposalRef);
+      if (!proposal) {
+        throw new ManifestoError(
+          "GOVERNANCE_PROPOSAL_NOT_FOUND",
+          `Proposal "${proposalRef}" was not found`,
+        );
+      }
+
+      if (proposal.status === "completed") {
+        return toSettledResult(
+          proposal as Proposal & { readonly status: "completed"; readonly resultWorld: string },
+          actionName,
+        );
+      }
+
+      if (proposal.status === "failed") {
+        return toFailedSettlementResult(proposal, actionName);
+      }
+
+      if (proposal.status === "rejected" || proposal.status === "superseded") {
+        const action = resolveSettlementAction(proposal, actionName);
+        return Object.freeze({
+          ok: true,
+          mode: "governance",
+          status: proposal.status,
+          action,
+          proposal: proposal.proposalId,
+          ...(proposal.decisionId
+            ? { decision: Object.freeze({ decisionId: proposal.decisionId }) }
+            : {}),
+        }) as GovernanceSettlementResult<T, Name>;
+      }
+
+      await sleep(10);
+    }
   }
 
-  function why(
-    intent: Parameters<GovernanceInstance<T>["why"]>[0],
-  ): ReturnType<GovernanceInstance<T>["why"]> {
-    return explainIntent(intent);
+  async function toSettledResult<Name extends ActionName<T>>(
+    proposal: Proposal & { readonly status: "completed"; readonly resultWorld: string },
+    actionName?: Name,
+  ): Promise<GovernanceSettlementResult<T, Name>> {
+    const action = resolveSettlementAction(proposal, actionName);
+    const before = await lineage.getWorldSnapshot(proposal.baseWorld);
+    if (!before) {
+      throw new ManifestoError(
+        "GOVERNANCE_BASE_WORLD_NOT_FOUND",
+        `Proposal references missing base world "${proposal.baseWorld}"`,
+      );
+    }
+
+    const after = await lineage.getWorldSnapshot(proposal.resultWorld);
+    if (!after) {
+      throw new ManifestoError(
+        "GOVERNANCE_RESULT_WORLD_NOT_FOUND",
+        `Proposal references missing result world "${proposal.resultWorld}"`,
+      );
+    }
+
+    const world = await lineage.getWorld(proposal.resultWorld);
+    if (!world) {
+      throw new ManifestoError(
+        "GOVERNANCE_RESULT_WORLD_NOT_FOUND",
+        `Proposal references missing result world "${proposal.resultWorld}"`,
+      );
+    }
+
+    const dispatchOutcome = kernel.deriveExecutionOutcome(before, after);
+    const outcome = toSettlementOutcome(dispatchOutcome, proposal);
+
+    return Object.freeze({
+      ok: true,
+      mode: "governance",
+      status: "settled",
+      action,
+      proposal: proposal.proposalId,
+      world: Object.freeze({ ...world }) as WorldRecord,
+      before: dispatchOutcome.projected.beforeSnapshot,
+      after: dispatchOutcome.projected.afterSnapshot,
+      outcome,
+      report: Object.freeze({
+        mode: "governance",
+        status: "settled",
+        action,
+        proposal: proposal.proposalId,
+        baseWorldId: proposal.baseWorld,
+        worldId: proposal.resultWorld,
+        sealedSnapshotHash: world.snapshotHash,
+        published: true,
+        outcome,
+        changes: dispatchOutcome.projected.changedPaths,
+        requirements: dispatchOutcome.canonical.pendingRequirements,
+      }),
+    }) as GovernanceSettlementResult<T, Name>;
   }
 
-  function whyNot(
-    intent: Parameters<GovernanceInstance<T>["whyNot"]>[0],
-  ): ReturnType<GovernanceInstance<T>["whyNot"]> {
-    const explanation = explainIntent(intent);
-    return explanation.kind === "blocked" ? explanation.blockers : null;
+  async function toFailedSettlementResult<Name extends ActionName<T>>(
+    proposal: Proposal,
+    actionName?: Name,
+  ): Promise<GovernanceSettlementResult<T, Name>> {
+    const action = resolveSettlementAction(proposal, actionName);
+    const error = await loadSettlementError(proposal);
+    return Object.freeze({
+      ok: false,
+      mode: "governance",
+      status: "settlement_failed",
+      action,
+      proposal: proposal.proposalId,
+      error,
+      report: Object.freeze({
+        mode: "governance",
+        status: "settlement_failed",
+        action,
+        proposal: proposal.proposalId,
+        stage: "settlement",
+        error,
+      }),
+    }) as GovernanceSettlementResult<T, Name>;
   }
 
-  const governed = {
-    createIntent: kernel.createIntent,
-    subscribe: kernel.subscribe,
-    on: kernel.on,
-    getSnapshot: kernel.getSnapshot,
-    getCanonicalSnapshot: kernel.getCanonicalSnapshot,
-    getSchemaGraph: kernel.getSchemaGraph,
-    getAvailableActions: kernel.getAvailableActions,
-    isIntentDispatchable: kernel.isIntentDispatchable,
-    getIntentBlockers: kernel.getIntentBlockers,
-    getActionMetadata: kernel.getActionMetadata,
-    isActionAvailable: kernel.isActionAvailable,
-    simulate: kernel.simulate,
-    simulateIntent: kernel.simulateIntent,
-    explainIntent,
-    why,
-    whyNot,
-    MEL: kernel.MEL,
-    schema: kernel.schema,
-    dispose: kernel.dispose,
-    restore: lineage.restore,
-    getWorld: lineage.getWorld,
-    getWorldSnapshot: lineage.getWorldSnapshot,
-    getLineage: lineage.getLineage,
-    getLatestHead: lineage.getLatestHead,
-    getHeads: lineage.getHeads,
-    getBranches: lineage.getBranches,
-    getActiveBranch: lineage.getActiveBranch,
-    switchActiveBranch: lineage.switchActiveBranch,
-    createBranch: lineage.createBranch,
-    proposeAsync,
+  async function loadSettlementError(proposal: Proposal): Promise<ErrorValue> {
+    if (proposal.resultWorld) {
+      const snapshot = await lineage.getWorldSnapshot(proposal.resultWorld);
+      if (snapshot?.system.lastError) {
+        return snapshot.system.lastError;
+      }
+    }
+
+    const snapshot = kernel.getCanonicalSnapshot();
+    return Object.freeze({
+      code: "GOVERNANCE_SETTLEMENT_FAILED",
+      message: `Proposal "${proposal.proposalId}" failed before settlement completed`,
+      source: {
+        actionId: proposal.intent.intentId,
+        nodePath: "governance.waitForSettlement",
+      },
+      timestamp: snapshot.meta.timestamp,
+    });
+  }
+
+  function resolveSettlementAction<Name extends ActionName<T>>(
+    proposal: Proposal,
+    actionName?: Name,
+  ): Name {
+    return (actionName ?? proposal.intent.type) as Name;
+  }
+
+  const governed = createGovernanceRuntimeInstance(kernel, {
+    lineage,
+    ensureReady,
+    createSubmission,
+    settleSubmission,
+    waitForSettlement,
     approve,
     reject,
     getProposal,
@@ -550,20 +669,17 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     bindActor,
     getActorBinding,
     getDecisionRecord,
-  };
+  });
 
   runtime = attachWaitForProposalRuntime(
-    attachExtensionKernel(
-      governed satisfies GovernanceInstance<T>,
-      kernel,
-    ),
+    governed,
     {
       isDisposed: kernel.isDisposed,
       deriveExecutionOutcome: kernel.deriveExecutionOutcome,
     },
   );
 
-  return runtime;
+  return Object.freeze(runtime);
 }
 
 function toTypedIntent<T extends ManifestoDomainShape>(proposal: Proposal): TypedIntent<T> {
@@ -591,12 +707,38 @@ function toGovernanceFailure(error: unknown): Error {
   );
 }
 
-function isRejectedDispatchError(error: Error): boolean {
-  return "code" in error
-    && typeof error.code === "string"
-    && (
-      error.code === "ACTION_UNAVAILABLE"
-      || error.code === "INTENT_NOT_DISPATCHABLE"
-      || error.code === "INVALID_INPUT"
-    );
+function toSettlementOutcome<T extends ManifestoDomainShape>(
+  dispatchOutcome: DispatchExecutionOutcome<T>,
+  proposal: Proposal,
+): ExecutionOutcome {
+  const after = dispatchOutcome.canonical.afterCanonicalSnapshot;
+  if (after.system.lastError) {
+    return Object.freeze({
+      kind: "fail",
+      error: after.system.lastError,
+    }) as ExecutionOutcome;
+  }
+
+  if (dispatchOutcome.canonical.status === "error") {
+    return Object.freeze({
+      kind: "fail",
+      error: Object.freeze({
+        code: "GOVERNANCE_EXECUTION_FAILED",
+        message: "Governed proposal execution completed with error status",
+        source: {
+          actionId: proposal.intent.intentId,
+          nodePath: "governance.waitForSettlement",
+        },
+        timestamp: after.meta.timestamp,
+      }),
+    }) as ExecutionOutcome;
+  }
+
+  return Object.freeze({ kind: "ok" }) as ExecutionOutcome;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }

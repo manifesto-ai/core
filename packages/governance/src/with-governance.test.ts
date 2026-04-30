@@ -27,7 +27,9 @@ import {
   withGovernance,
   type ActorAuthorityBinding,
   type GovernanceEvent,
+  type GovernanceInstance,
   type GovernanceStore,
+  type Proposal,
 } from "./index.js";
 
 const lineageSealCalls = vi.hoisted(() => [] as Array<{ executionKey?: string }>);
@@ -261,6 +263,80 @@ function createDeferred() {
   return { promise, resolve };
 }
 
+async function getStoredProposal<T extends CounterDomain | DispatchabilityDomain>(
+  governed: GovernanceInstance<T>,
+  proposalId: string,
+): Promise<Proposal> {
+  const proposal = await governed.getProposal(proposalId);
+  if (!proposal) {
+    throw new Error(`expected stored proposal ${proposalId}`);
+  }
+  return proposal;
+}
+
+async function submitIncrement(
+  governed: GovernanceInstance<CounterDomain>,
+) {
+  const result = await governed.actions.increment.submit();
+  if (!result.ok) {
+    throw new Error(result.admission.message);
+  }
+  return result;
+}
+
+async function submitAdd(
+  governed: GovernanceInstance<CounterDomain>,
+  amount: number,
+) {
+  const result = await governed.actions.add.submit(amount);
+  if (!result.ok) {
+    throw new Error(result.admission.message);
+  }
+  return result;
+}
+
+async function submitLoad(
+  governed: GovernanceInstance<CounterDomain>,
+) {
+  const result = await governed.actions.load.submit();
+  if (!result.ok) {
+    throw new Error(result.admission.message);
+  }
+  return result;
+}
+
+async function pendingIncrementProposal(
+  governed: GovernanceInstance<CounterDomain>,
+): Promise<Proposal> {
+  const result = await submitIncrement(governed);
+  return getStoredProposal(governed, result.proposal);
+}
+
+async function settledIncrementProposal(
+  governed: GovernanceInstance<CounterDomain>,
+): Promise<Proposal> {
+  const result = await submitIncrement(governed);
+  await result.waitForSettlement();
+  return getStoredProposal(governed, result.proposal);
+}
+
+async function settledAddProposal(
+  governed: GovernanceInstance<CounterDomain>,
+  amount: number,
+): Promise<Proposal> {
+  const result = await submitAdd(governed, amount);
+  await result.waitForSettlement();
+  return getStoredProposal(governed, result.proposal);
+}
+
+async function settledLoadProposal(
+  governed: GovernanceInstance<CounterDomain>,
+): Promise<Proposal> {
+  const result = await submitLoad(governed);
+  await result.waitForSettlement();
+  return getStoredProposal(governed, result.proposal);
+}
+
 describe("@manifesto-ai/governance decorator runtime", () => {
   it("requires explicit lineage composition and removes direct execution backdoors", async () => {
     const governed = withGovernance(
@@ -286,30 +362,26 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     expect("dispatchAsync" in governed).toBe(false);
     expect("commitAsync" in governed).toBe(false);
-    expect(typeof governed.isIntentDispatchable).toBe("function");
-    expect(typeof governed.getIntentBlockers).toBe("function");
+    expect("proposeAsync" in governed).toBe(false);
+    expect("createIntent" in governed).toBe(false);
+    expect("MEL" in governed).toBe(false);
+    expect(typeof governed.actions.increment.submit).toBe("function");
+    expect(typeof governed.waitForSettlement).toBe("function");
 
-    const ext = getExtensionKernel(governed);
-    const canonical = ext.getCanonicalSnapshot();
-    const incrementIntent = governed.createIntent(governed.MEL.actions.increment);
+    expect(governed.actions.increment.check()).toEqual({
+      ok: true,
+      action: "increment",
+    });
 
-    expect(governed.isIntentDispatchable(governed.MEL.actions.increment)).toBe(
-      ext.isIntentDispatchableFor(canonical, incrementIntent),
-    );
-    expect(governed.getIntentBlockers(governed.MEL.actions.increment)).toEqual([]);
-
-    const proposal = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
-
+    const proposal = await settledIncrementProposal(governed);
     expect(proposal.status).toBe("completed");
-    expect(governed.getSnapshot().data.count).toBe(1);
+    expect(governed.snapshot().state.count).toBe(1);
 
     const head = await governed.getLatestHead();
     const sealedSnapshot = await governed.getWorldSnapshot(head!.worldId);
 
     expect(head).not.toBeNull();
-    expect(sealedSnapshot?.data.count).toBe(1);
+    expect(sealedSnapshot?.state.count).toBe(1);
   });
 
   it("returns evaluating proposals for HITL and resolves them through approve/reject", async () => {
@@ -335,24 +407,21 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const pending = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
+    const pending = await pendingIncrementProposal(governed);
 
     expect(pending.status).toBe("evaluating");
-    expect(governed.getSnapshot().data.count).toBe(0);
+    expect(governed.snapshot().state.count).toBe(0);
 
     const approved = await governed.approve(pending.proposalId);
     expect(approved.status).toBe("completed");
-    expect(governed.getSnapshot().data.count).toBe(1);
+    expect(governed.snapshot().state.count).toBe(1);
 
-    const secondPending = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.add, 2),
-    );
+    const secondResult = await submitAdd(governed, 2);
+    const secondPending = await getStoredProposal(governed, secondResult.proposal);
     const rejected = await governed.reject(secondPending.proposalId, "manual stop");
 
     expect(rejected.status).toBe("rejected");
-    expect(governed.getSnapshot().data.count).toBe(1);
+    expect(governed.snapshot().state.count).toBe(1);
   });
 
   it("settles completed proposals through waitForProposal()", async () => {
@@ -378,9 +447,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const proposal = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
+    const proposal = await settledIncrementProposal(governed);
     const settlement = await waitForProposal(governed, proposal);
 
     expect(settlement).toMatchObject({
@@ -390,8 +457,8 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     if (settlement.kind !== "completed") {
       throw new Error("expected completed settlement");
     }
-    expect(settlement.snapshot.data.count).toBe(1);
-    expect(settlement.snapshot).toEqual(governed.getSnapshot());
+    expect(settlement.snapshot.state.count).toBe(1);
+    expect(settlement.snapshot).toEqual(governed.snapshot());
   });
 
   it("anchors completed settlement reports on stored worlds rather than the current visible head", async () => {
@@ -417,12 +484,8 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const proposal = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
-    await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.add, 2),
-    );
+    const proposal = await settledIncrementProposal(governed);
+    await settledAddProposal(governed, 2);
 
     const report = await waitForProposalWithReport(governed, proposal);
 
@@ -446,8 +509,8 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(report.outcome.canonical.afterCanonicalSnapshot).toEqual(afterWorld);
     expect(report.outcome.projected.beforeSnapshot).toEqual(ext.projectSnapshot(beforeWorld));
     expect(report.outcome.projected.afterSnapshot).toEqual(ext.projectSnapshot(afterWorld));
-    expect(report.outcome.projected.afterSnapshot.data.count).toBe(1);
-    expect(governed.getSnapshot().data.count).toBe(3);
+    expect(report.outcome.projected.afterSnapshot.state.count).toBe(1);
+    expect(governed.snapshot().state.count).toBe(3);
   });
 
   it("returns pending immediately for non-terminal proposals when timeoutMs is omitted", async () => {
@@ -473,9 +536,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const proposal = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
+    const proposal = await pendingIncrementProposal(governed);
     const settlement = await waitForProposal(governed, proposal);
 
     expect(settlement).toMatchObject({
@@ -513,9 +574,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
         },
       ).activate();
 
-      const proposal = await governed.proposeAsync(
-        governed.createIntent(governed.MEL.actions.increment),
-      );
+      const proposal = await pendingIncrementProposal(governed);
       const settlementPromise = waitForProposal(governed, proposal, {
         timeoutMs: 100,
         pollIntervalMs: 25,
@@ -560,9 +619,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
         },
       ).activate();
 
-      const proposal = await governed.proposeAsync(
-        governed.createIntent(governed.MEL.actions.increment),
-      );
+      const proposal = await pendingIncrementProposal(governed);
       const settlementPromise = waitForProposal(governed, proposal, {
         timeoutMs: 250,
         pollIntervalMs: 25,
@@ -606,9 +663,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
         },
       ).activate();
 
-      const proposal = await governed.proposeAsync(
-        governed.createIntent(governed.MEL.actions.increment),
-      );
+      const proposal = await pendingIncrementProposal(governed);
       const settlementPromise = waitForProposal(governed, proposal, {
         timeoutMs: 250,
         pollIntervalMs: 25,
@@ -652,17 +707,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const pending = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
+    const pending = await pendingIncrementProposal(governed);
 
     await governed.bindActor(createAutoBindingForHuman());
-    await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.add, 2),
-    );
-    await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
+    await settledAddProposal(governed, 2);
+    await settledIncrementProposal(governed);
 
     await expect(waitForProposal(governed, pending)).resolves.toMatchObject({
       kind: "superseded",
@@ -696,17 +745,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const pending = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
+    const pending = await pendingIncrementProposal(governed);
 
     await governed.bindActor(createAutoBindingForHuman());
-    await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.add, 2),
-    );
-    await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
+    await settledAddProposal(governed, 2);
+    await settledIncrementProposal(governed);
 
     const report = await waitForProposalWithReport(governed, pending);
 
@@ -745,9 +788,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
+    await settledIncrementProposal(governed);
 
     expect((await explicitService.getBranches()).length).toBeGreaterThan(0);
   });
@@ -784,17 +825,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const failed = vi.fn();
-    governed.on("dispatch:failed", failed);
-
-    const proposal = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.load),
-    );
+    const proposal = await settledLoadProposal(governed);
 
     expect(proposal.status).toBe("failed");
     expect(proposal.resultWorld).toBeDefined();
-    expect(governed.getSnapshot().data.status).toBe("idle");
-    expect(failed).toHaveBeenCalledTimes(1);
+    expect(governed.snapshot().state.status).toBe("idle");
     expect(events.some((event) => event.type === "execution:failed")).toBe(true);
 
     const decision = await governed.getDecisionRecord(proposal.decisionId!);
@@ -828,9 +863,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const proposal = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.load),
-    );
+    const proposal = await settledLoadProposal(governed);
     const settlement = await waitForProposal(governed, proposal);
 
     expect(settlement).toMatchObject({
@@ -874,9 +907,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const proposal = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.load),
-    );
+    const proposal = await settledLoadProposal(governed);
     const report = await waitForProposalWithReport(governed, proposal);
 
     expect(report).toMatchObject({
@@ -902,7 +933,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(report.sealedOutcome.canonical.beforeCanonicalSnapshot).toEqual(beforeWorld);
     expect(report.sealedOutcome.canonical.afterCanonicalSnapshot).toEqual(afterWorld);
     expect(report.sealedOutcome.projected.afterSnapshot).toEqual(ext.projectSnapshot(afterWorld));
-    expect(governed.getSnapshot().data.status).toBe("idle");
+    expect(governed.snapshot().state.status).toBe("idle");
   });
 
   it("persists terminal failure when lineage seal commit throws after execution begins", async () => {
@@ -950,11 +981,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    await expect(
-      governed.proposeAsync(
-        governed.createIntent(governed.MEL.actions.increment),
-      ),
-    ).rejects.toThrow("seal commit failed");
+    const submission = await submitIncrement(governed);
+    await expect(submission.waitForSettlement()).resolves.toMatchObject({
+      ok: false,
+      status: "settlement_failed",
+    });
 
     const activeBranch = await failingService.getActiveBranch();
     const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
@@ -1040,11 +1071,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    await expect(
-      governed.proposeAsync(
-        governed.createIntent(governed.MEL.actions.increment),
-      ),
-    ).rejects.toThrow("transient terminal persist failure");
+    const submission = await submitIncrement(governed);
+    await expect(submission.waitForSettlement()).resolves.toMatchObject({
+      ok: true,
+      status: "settled",
+    });
 
     const activeBranch = await governed.getActiveBranch();
     const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
@@ -1100,11 +1131,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    await expect(
-      governed.proposeAsync(
-        governed.createIntent(governed.MEL.actions.increment),
-      ),
-    ).rejects.toThrow("decision lookup failed");
+    const submission = await submitIncrement(governed);
+    await expect(submission.waitForSettlement()).resolves.toMatchObject({
+      ok: false,
+      status: "settlement_failed",
+    });
 
     const activeBranch = await governed.getActiveBranch();
     const latestHead = await governed.getLatestHead();
@@ -1158,11 +1189,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    await expect(
-      governed.proposeAsync(
-        governed.createIntent(governed.MEL.actions.increment),
-      ),
-    ).rejects.toThrow("completed proposals rejected");
+    const submission = await submitIncrement(governed);
+    await expect(submission.waitForSettlement()).resolves.toMatchObject({
+      ok: false,
+      status: "settlement_failed",
+    });
 
     const activeBranch = await governed.getActiveBranch();
     const latestHead = await governed.getLatestHead();
@@ -1198,9 +1229,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const proposal = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
+    const proposal = await settledIncrementProposal(governed);
 
     expect(proposal.status).toBe("completed");
     expect(lineageSealCalls).toHaveLength(1);
@@ -1249,9 +1278,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const pendingProposal = governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
+    const pendingProposal = pendingIncrementProposal(governed);
 
     await getActorBindingStarted.promise;
     const bindingUpdate = governed.bindActor(createAutoBindingForHuman());
@@ -1261,13 +1288,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     await bindingUpdate;
 
     expect(proposal.status).toBe("evaluating");
-    expect(governed.getSnapshot().data.count).toBe(0);
+    expect(governed.snapshot().state.count).toBe(0);
 
-    const next = await governed.proposeAsync(
-      governed.createIntent(governed.MEL.actions.increment),
-    );
+    const next = await settledIncrementProposal(governed);
     expect(next.status).toBe("completed");
-    expect(governed.getSnapshot().data.count).toBe(1);
+    expect(governed.snapshot().state.count).toBe(1);
   });
 
   it("shares activation ownership with the base and lineage composables", () => {
@@ -1341,7 +1366,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     ).activate();
     const ext = getExtensionKernel(world);
 
-    expect(ext.projectSnapshot(ext.getCanonicalSnapshot())).toEqual(world.getSnapshot());
+    expect(ext.projectSnapshot(ext.getCanonicalSnapshot())).toEqual(world.snapshot());
 
     world.dispose();
   });
@@ -1371,29 +1396,31 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     ).activate();
     const ext = getExtensionKernel(governed);
     const canonical = ext.getCanonicalSnapshot();
-    const blockedSpend = governed.createIntent(governed.MEL.actions.spend, 15);
+    const blockedSpend = ext.createIntent(ext.MEL.actions.spend, 15);
 
-    expect(governed.isIntentDispatchable(governed.MEL.actions.spend, 15)).toBe(
-      ext.isIntentDispatchableFor(canonical, blockedSpend),
-    );
-    expect(governed.getIntentBlockers(governed.MEL.actions.spend, 15)).toEqual([
-      {
-        layer: "dispatchable",
-        expression: schema.actions.spend.dispatchable,
-        evaluatedResult: false,
-        description: "Spend only when balance covers amount",
-      },
-    ]);
+    expect(governed.actions.spend.check(15)).toMatchObject({
+      ok: false,
+      layer: "dispatchability",
+      code: "INTENT_NOT_DISPATCHABLE",
+      blockers: [
+        {
+          code: "INTENT_NOT_DISPATCHABLE",
+          message: "Spend only when balance covers amount",
+          detail: {
+            layer: "dispatchable",
+            expression: schema.actions.spend.dispatchable,
+          },
+        },
+      ],
+    });
+    expect(ext.isIntentDispatchableFor(canonical, blockedSpend)).toBe(false);
 
-    expect(governed.isIntentDispatchable(governed.MEL.actions.frozenSpend, 1)).toBe(false);
-    expect(governed.getIntentBlockers(governed.MEL.actions.frozenSpend, 1)).toEqual([
-      {
-        layer: "available",
-        expression: schema.actions.frozenSpend.available,
-        evaluatedResult: false,
-        description: "Frozen while disabled",
-      },
-    ]);
+    expect(governed.actions.frozenSpend.check(1)).toMatchObject({
+      ok: false,
+      layer: "availability",
+      code: "ACTION_UNAVAILABLE",
+      blockers: [],
+    });
 
     governed.dispose();
   });
@@ -1488,7 +1515,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     ).rejects.toBeInstanceOf(DisposedError);
   });
 
-  it("emits dispatch:rejected without dispatch:failed for non-dispatchable governed execution", async () => {
+  it("emits submission:rejected without submission:failed for non-dispatchable governed execution", async () => {
     const governed = withGovernance(
       withLineage(
         createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
@@ -1513,25 +1540,28 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     const rejected = vi.fn();
     const failed = vi.fn();
 
-    governed.on("dispatch:rejected", rejected);
-    governed.on("dispatch:failed", failed);
+    governed.observe.event("submission:rejected", rejected);
+    governed.observe.event("submission:failed", failed);
 
-    await expect(
-      governed.proposeAsync(governed.createIntent(governed.MEL.actions.spend, 15)),
-    ).rejects.toMatchObject<Partial<ManifestoError>>({
-      code: "INTENT_NOT_DISPATCHABLE",
+    await expect(governed.actions.spend.submit(15)).resolves.toMatchObject({
+      ok: false,
+      admission: {
+        code: "INTENT_NOT_DISPATCHABLE",
+      },
     });
 
     expect(rejected).toHaveBeenCalledTimes(1);
     expect(rejected.mock.calls[0]?.[0]).toMatchObject({
-      code: "INTENT_NOT_DISPATCHABLE",
+      admission: {
+        code: "INTENT_NOT_DISPATCHABLE",
+      },
     });
     expect(failed).not.toHaveBeenCalled();
 
     governed.dispose();
   });
 
-  it("emits dispatch:rejected without dispatch:failed for invalid governed input", async () => {
+  it("emits submission:rejected without submission:failed for invalid governed input", async () => {
     const governed = withGovernance(
       withLineage(
         createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
@@ -1556,21 +1586,23 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     const rejected = vi.fn();
     const failed = vi.fn();
 
-    governed.on("dispatch:rejected", rejected);
-    governed.on("dispatch:failed", failed);
+    governed.observe.event("submission:rejected", rejected);
+    governed.observe.event("submission:failed", failed);
 
-    const invalidIntent = {
-      ...governed.createIntent(governed.MEL.actions.spend, 1),
-      input: { amount: "oops" },
-    } as unknown as Parameters<typeof governed.proposeAsync>[0];
-
-    await expect(governed.proposeAsync(invalidIntent)).rejects.toMatchObject<Partial<ManifestoError>>({
-      code: "INVALID_INPUT",
+    await expect(
+      governed.actions.spend.submit("oops" as unknown as number),
+    ).resolves.toMatchObject({
+      ok: false,
+      admission: {
+        code: "INVALID_INPUT",
+      },
     });
 
     expect(rejected).toHaveBeenCalledTimes(1);
     expect(rejected.mock.calls[0]?.[0]).toMatchObject({
-      code: "INVALID_INPUT",
+      admission: {
+        code: "INVALID_INPUT",
+      },
     });
     expect(failed).not.toHaveBeenCalled();
 

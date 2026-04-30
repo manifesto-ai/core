@@ -147,7 +147,7 @@ export async function waitForProposal<
       return {
         kind: "completed",
         proposal: completedProposal,
-        snapshot: app.getSnapshot(),
+        snapshot: app.snapshot(),
         resultWorld,
       };
     }

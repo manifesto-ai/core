@@ -1,9 +1,9 @@
 import type {
-  CreateIntentArgs,
+  ActionArgs,
+  ActionName,
+  GovernanceSubmissionResult,
+  ManifestoApp,
   ManifestoDomainShape,
-  ManifestoLegalityRuntime,
-  TypedActionRef,
-  TypedIntent,
 } from "../../../../sdk/src/index.ts";
 import { createManifesto } from "../../../../sdk/src/index.ts";
 import {
@@ -16,37 +16,18 @@ import {
 } from "../../../../lineage/src/index.ts";
 import {
   createInMemoryGovernanceStore,
-  type GovernanceProposalRuntime,
-  type Proposal,
   withGovernance,
 } from "../../index.ts";
 
-function prepareIntent<
+function submitGoverned<
   T extends ManifestoDomainShape,
-  K extends keyof T["actions"],
+  K extends ActionName<T>,
 >(
-  runtime: ManifestoLegalityRuntime<T>,
-  action: TypedActionRef<T, K>,
-  ...intentArgs: CreateIntentArgs<T, K>
-): TypedIntent<T, K> {
-  const intent = runtime.createIntent(action, ...intentArgs);
-  const blockers = runtime.whyNot(intent);
-  if (blockers === null) {
-    void runtime.simulateIntent(intent);
-  }
-  return intent;
-}
-
-function proposePrepared<
-  T extends ManifestoDomainShape,
-  K extends keyof T["actions"],
->(
-  prep: ManifestoLegalityRuntime<T>,
-  write: GovernanceProposalRuntime<T>,
-  action: TypedActionRef<T, K>,
-  ...intentArgs: CreateIntentArgs<T, K>
-): Promise<Proposal> {
-  return write.proposeAsync(prepareIntent(prep, action, ...intentArgs));
+  runtime: ManifestoApp<T, "governance">,
+  action: K,
+  ...args: ActionArgs<T, K>
+): Promise<GovernanceSubmissionResult<T, K>> {
+  return runtime.action(action).bind(...args).submit();
 }
 
 const governed = withGovernance<CounterDomain>(
@@ -65,25 +46,20 @@ const governed = withGovernance<CounterDomain>(
   },
 ).activate();
 
-const legalityRuntime: ManifestoLegalityRuntime<CounterDomain> = governed;
-const proposalRuntime: GovernanceProposalRuntime<CounterDomain> = governed;
-const preparedIncrement: TypedIntent<CounterDomain, "increment"> = prepareIntent(
-  governed,
-  governed.MEL.actions.increment,
-);
-const proposedIncrement: Promise<Proposal> = proposePrepared(
-  governed,
-  governed,
-  governed.MEL.actions.increment,
-);
-void legalityRuntime;
-void proposalRuntime;
-void preparedIncrement;
+const governedApp: ManifestoApp<CounterDomain, "governance"> = governed;
+const proposedIncrement: Promise<GovernanceSubmissionResult<CounterDomain, "increment">> =
+  submitGoverned(governed, "increment");
+
+void governedApp;
 void proposedIncrement;
 
 // @ts-expect-error governed execution helpers must not assume lineage commit
-proposalRuntime.commitAsync(preparedIncrement);
+governed.commitAsync;
 // @ts-expect-error governed execution helpers must not assume base dispatch
-proposalRuntime.dispatchAsync(preparedIncrement);
+governed.dispatchAsync;
+// @ts-expect-error governed execution helpers must not assume v3 proposal writes
+governed.proposeAsync;
+// @ts-expect-error governed helpers use v5 action candidates instead of MEL refs
+governed.MEL;
 
 export {};

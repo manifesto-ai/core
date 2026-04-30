@@ -30,6 +30,7 @@ export type {
 export type {
   GovernanceComposableManifesto,
   GovernanceConfig,
+  GovernanceControlSurface,
   GovernanceExecutionConfig,
   GovernanceInstance,
   GovernanceProposalRuntime,

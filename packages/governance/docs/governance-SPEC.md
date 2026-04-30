@@ -232,12 +232,27 @@ The public boundary is a string. Implementations MAY brand the string at the
 type level, but the runtime value MUST be a stable string representation that
 survives process boundaries.
 
+For v5, the stable string representation is the raw stored `ProposalId`.
+`result.proposal` MUST be byte-for-byte identical to the corresponding
+`Proposal.proposalId`. The string is opaque to callers: callers MAY persist,
+serialize, deserialize, compare, and pass it back to governance APIs, but MUST
+NOT parse it for branch, world, actor, schema, or status information.
+
+`ProposalRef` round-trips through normal JSON string serialization. A caller
+that stores only `JSON.parse(JSON.stringify(result.proposal))` MUST be able to
+pass that value to `app.waitForSettlement(ref)` on a later governance runtime
+instance backed by a store containing the referenced proposal.
+
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | GOV-V5-PREF-1 | MUST | `ProposalRef` MUST be serializable to a stable string representation. |
 | GOV-V5-PREF-2 | MUST | `ProposalRef` MUST survive process restart, agent handoff, and loss of the original JS result object. |
 | GOV-V5-PREF-3 | MUST NOT | `ProposalRef` MUST NOT carry references to in-process objects, closures, or non-serializable runtime state. |
 | GOV-V5-PREF-4 | MUST | `ProposalRef` MUST be sufficient for `app.waitForSettlement(ref)` to re-observe settlement. |
+| GOV-V5-PREF-5 | MUST | The v5 `ProposalRef` runtime value MUST be the raw stored `Proposal.proposalId`. |
+| GOV-V5-PREF-6 | MUST | `ProposalRef` MUST round-trip through JSON string serialization without changing the settlement target. |
+| GOV-V5-PREF-7 | MUST NOT | Callers MUST NOT parse or derive semantics from `ProposalRef` beyond opaque identity. |
+| GOV-V5-PREF-8 | MUST NOT | `ProposalRef` MUST NOT encode branch id, world id, schema hash, actor id, or settlement status. |
 
 ---
 
@@ -257,6 +272,11 @@ type GovernanceSettlementSurface<TDomain extends ManifestoDomainShape> = {
 the original pending submit result. It observes settlement; it does not cause
 settlement and it does not bypass authority.
 
+The `ref` is used as the proposal store lookup key. Unknown or missing
+`ProposalRef` values are observation failures, not governance lifecycle
+outcomes: they MUST NOT create proposals, evaluate authority, execute runtime
+work, seal worlds, or publish snapshots.
+
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | GOV-V5-SETTLE-1 | MUST | Governance-mode runtimes MUST expose `app.waitForSettlement(ref)`. |
@@ -264,6 +284,7 @@ settlement and it does not bypass authority.
 | GOV-V5-SETTLE-3 | MUST | `app.waitForSettlement(ref)` MUST work after process restart when backed by a store containing the referenced proposal. |
 | GOV-V5-SETTLE-4 | MUST NOT | The observer method MUST NOT be named `settle()`. |
 | GOV-V5-SETTLE-5 | MUST NOT | `waitForSettlement()` MUST NOT approve, reject, execute, seal, or publish by itself. |
+| GOV-V5-SETTLE-5A | MUST NOT | Unknown or missing `ProposalRef` observation MUST NOT create proposals or trigger authority, execution, sealing, or publication. |
 
 ### 5.2 Settlement Result
 
