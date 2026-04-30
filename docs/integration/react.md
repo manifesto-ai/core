@@ -309,8 +309,6 @@ const governed = withGovernance(
 
 The component tree can still render snapshots the same way. What changes is the runtime contract behind the hook: proposals and approvals replace direct base dispatch.
 
-For a working end-to-end UI example, see [`examples/todo-governed-react`](https://github.com/manifesto-ai/core/tree/main/examples/todo-governed-react).
-
 ---
 
 ## Common Mistakes

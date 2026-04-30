@@ -1,18 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import {
   createManifesto,
-  type ManifestoBaseInstance,
-  type Snapshot,
+  type ActionName,
+  type ManifestoApp,
+  type ProjectedSnapshot,
+  type SubmitResultFor,
 } from "@manifesto-ai/sdk";
 
 import todoSchema from "../domain/todo.mel";
-import type { FilterMode, TodoData, TodoDomain } from "../types";
+import type { FilterMode, TodoDomain } from "../types";
 
-type TodoSnapshot = Snapshot<TodoData>;
+type TodoApp = ManifestoApp<TodoDomain, "base">;
+type TodoSnapshot = Omit<ProjectedSnapshot<TodoDomain>, "computed"> & {
+  readonly computed: TodoDomain["computed"];
+};
 
 type UseManifestoResult = {
-  readonly state: TodoSnapshot | null;
-  readonly ready: boolean;
+  readonly snapshot: TodoSnapshot | null;
   readonly addTodo: (title: string) => Promise<TodoSnapshot>;
   readonly toggleTodo: (id: string) => Promise<TodoSnapshot>;
   readonly removeTodo: (id: string) => Promise<TodoSnapshot>;
@@ -20,71 +24,68 @@ type UseManifestoResult = {
   readonly clearCompleted: () => Promise<TodoSnapshot>;
 };
 
+function toTodoSnapshot(snapshot: ProjectedSnapshot<TodoDomain>): TodoSnapshot {
+  return snapshot as TodoSnapshot;
+}
+
 export function useManifesto(): UseManifestoResult {
-  const worldRef = useRef<ManifestoBaseInstance<TodoDomain> | null>(null);
-  const [state, setState] = useState<TodoSnapshot | null>(null);
+  const appRef = useRef<TodoApp | null>(null);
+  const [snapshot, setSnapshot] = useState<TodoSnapshot | null>(null);
 
   useEffect(() => {
-    const world = createManifesto<TodoDomain>(todoSchema as string, {}).activate();
-    worldRef.current = world;
-    setState(world.getSnapshot());
+    const app = createManifesto<TodoDomain>(todoSchema, {}).activate();
+    appRef.current = app;
+    setSnapshot(toTodoSnapshot(app.snapshot()));
 
-    const unsubscribe = world.subscribe(
+    const stopObserving = app.observe.state(
       (snapshot) => snapshot,
-      (nextSnapshot) => setState(nextSnapshot),
+      (nextSnapshot) => setSnapshot(toTodoSnapshot(nextSnapshot)),
     );
 
     return () => {
-      unsubscribe();
-      worldRef.current = null;
-      setState(null);
-      world.dispose();
+      stopObserving();
+      appRef.current = null;
+      setSnapshot(null);
+      app.dispose();
     };
   }, []);
 
-  const dispatchOrReject = (
-    run: (world: ManifestoBaseInstance<TodoDomain>) => Promise<TodoSnapshot>,
+  const submitOrReject = async <Name extends ActionName<TodoDomain>>(
+    run: (app: TodoApp) => Promise<SubmitResultFor<"base", TodoDomain, Name>>,
   ): Promise<TodoSnapshot> => {
-    const world = worldRef.current;
-    if (!world) {
-      return Promise.reject(new Error("Manifesto runtime is not ready"));
+    const app = appRef.current;
+    if (!app) {
+      throw new Error("Manifesto runtime is not available");
     }
-    return run(world);
+
+    const result = await run(app);
+    if (!result.ok) {
+      throw new Error(result.admission.message);
+    }
+
+    return toTodoSnapshot(result.after);
   };
 
   const addTodo = (title: string) =>
-    dispatchOrReject((world) =>
-      world.dispatchAsync(
-        world.createIntent(world.MEL.actions.addTodo, title),
-      ));
+    submitOrReject((app) => app.actions.addTodo.submit(title));
 
   const toggleTodo = (id: string) =>
-    dispatchOrReject((world) =>
-      world.dispatchAsync(
-        world.createIntent(world.MEL.actions.toggleTodo, id),
-      ));
+    submitOrReject((app) => app.actions.toggleTodo.submit(id, {
+      __kind: "SubmitOptions",
+      report: "summary"
+    }));
 
   const removeTodo = (id: string) =>
-    dispatchOrReject((world) =>
-      world.dispatchAsync(
-        world.createIntent(world.MEL.actions.removeTodo, id),
-      ));
+    submitOrReject((app) => app.actions.removeTodo.submit(id));
 
   const setFilter = (newFilter: FilterMode) =>
-    dispatchOrReject((world) =>
-      world.dispatchAsync(
-        world.createIntent(world.MEL.actions.setFilter, newFilter),
-      ));
+    submitOrReject((app) => app.actions.setFilter.submit(newFilter));
 
   const clearCompleted = () =>
-    dispatchOrReject((world) =>
-      world.dispatchAsync(
-        world.createIntent(world.MEL.actions.clearCompleted),
-      ));
+    submitOrReject((app) => app.actions.clearCompleted.submit());
 
   return {
-    state,
-    ready: state !== null,
+    snapshot,
     addTodo,
     toggleTodo,
     removeTodo,

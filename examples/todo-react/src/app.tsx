@@ -2,12 +2,10 @@ import { useManifesto } from "./hooks/use-manifesto";
 import { TodoInput } from "./components/todo-input";
 import { TodoList } from "./components/todo-list";
 import { TodoFooter } from "./components/todo-footer";
-import type { TodoComputed } from "./types";
 
 export function App() {
   const {
-    state,
-    ready,
+    snapshot,
     addTodo,
     toggleTodo,
     removeTodo,
@@ -15,17 +13,12 @@ export function App() {
     clearCompleted,
   } = useManifesto();
 
-  if (!ready || !state) {
+  if (!snapshot) {
     return <div className="loading">Loading...</div>;
   }
 
-  const data = state.data;
-  const computed = state.computed as TodoComputed;
-
-  const todos = data.todos;
-  const filterMode = data.filterMode;
-  const activeCount = computed.activeCount;
-  const hasCompleted = computed.hasCompleted;
+  const { todos, filterMode } = snapshot.state;
+  const { activeCount, hasCompleted } = snapshot.computed;
 
   const filteredTodos = todos.filter((todo) => {
     if (filterMode === "active") return !todo.completed;
