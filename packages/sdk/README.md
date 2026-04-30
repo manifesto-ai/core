@@ -4,16 +4,16 @@
 
 `@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`.
 
-> **Current Contract Note:** The current SDK contract is the activation-first model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md). It includes typed `createIntent()` object binding, intent explanation reads, `simulate()` with optional debug-grade `diagnostics.trace`, `@manifesto-ai/sdk/extensions`, and `createSimulationSession(instance)`.
+> **Current Contract Note:** The current SDK contract is the activation-first v5 model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md). It includes typed action candidates through `actions.*`, projected `snapshot()` reads, `observe`, `inspect`, `@manifesto-ai/sdk/extensions`, and `createSimulationSession(app)`.
 
 ## When to Use It
 
 Use the SDK when you want:
 
 - the shortest path to a running base runtime
-- typed intent creation through `MEL.actions.*`
+- typed action submission through `actions.*`
 - optional typed effect authoring through `@manifesto-ai/sdk/effects`
-- `dispatchAsync`, subscriptions, legality queries, explanation reads, dry-run simulation with optional trace diagnostics, and snapshot reads in one package
+- action-candidate check/preview/submit, observers, legality queries, optional trace diagnostics, and snapshot reads in one package
 - projected Snapshot reads by default, with canonical inspection available explicitly
 - safe post-activation arbitrary-snapshot tooling through `@manifesto-ai/sdk/extensions`
 
@@ -23,11 +23,10 @@ Use the SDK when you want:
 import { createManifesto } from "@manifesto-ai/sdk";
 
 const manifesto = createManifesto<CounterDomain>(counterSchema, {});
-const instance = manifesto.activate();
+const app = manifesto.activate();
 
-const intent = instance.createIntent(instance.MEL.actions.increment);
-await instance.dispatchAsync(intent);
-console.log(instance.getSnapshot().data.count);
+await app.actions.increment.submit();
+console.log(app.snapshot().state.count);
 ```
 
 Base runtime reads cover availability, dispatchability, intent explanation, dry-run simulation, optional debug-grade trace diagnostics, subscriptions, events, and both projected and canonical snapshot access.

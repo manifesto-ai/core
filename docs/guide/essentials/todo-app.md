@@ -37,22 +37,20 @@ domain TodoApp {
 ```typescript
 export const app = createManifesto(TodoAppSchema, {}).activate();
 
-await app.dispatchAsync(
-  app.createIntent(app.MEL.actions.addTodo, "Write a domain", crypto.randomUUID()),
-);
+await app.actions.addTodo.submit("Write a domain", crypto.randomUUID());
 ```
 
 ## Presentation
 
 ```typescript
 function renderTodos() {
-  const snapshot = app.getSnapshot();
-  console.log(snapshot.data.todos);
+  const snapshot = app.snapshot();
+  console.log(snapshot.state.todos);
   console.log(snapshot.computed.totalCount);
 }
 
 renderTodos();
-app.subscribe((snapshot) => snapshot.data.todos, renderTodos);
+app.observe.state((snapshot) => snapshot.state.todos, renderTodos);
 ```
 
 Keep framework code outside MEL. The same domain can sit behind React, a backend route, a CLI, or an agent turn.

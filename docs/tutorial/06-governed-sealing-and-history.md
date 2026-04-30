@@ -17,27 +17,25 @@
 ## 1. Create The Reviewable Request
 
 ```typescript
-const intent = governed.createIntent(
-  governed.MEL.actions.addTodo,
-  "Ship the history tutorial",
-);
+const candidate = governed.actions.addTodo.bind("Ship the history tutorial");
 ```
 
-This is still a typed runtime `Intent`. Governance adds legitimacy and proposal semantics when the runtime receives it.
+This is still a typed action candidate. Governance adds legitimacy and proposal semantics when the runtime receives it.
 
 ## 2. Submit And Inspect The Proposal
 
 ```typescript
-const proposal = await governed.proposeAsync(intent);
+const pending = await candidate.submit();
 ```
 
-At this point the proposal is either already terminal, or it is pending review.
+At this point the result is either blocked, or it contains a pending proposal reference.
 
 ## 3. Resolve Pending Work
 
 ```typescript
-if (proposal.status === "pending") {
-  await governed.approve(proposal.proposalId);
+if (pending.ok && pending.status === "pending") {
+  await governed.approve(pending.proposal);
+  await pending.waitForSettlement();
 }
 ```
 

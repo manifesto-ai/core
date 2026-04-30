@@ -13,7 +13,7 @@ import CounterSchema from "./counter.mel";
 const app = createManifesto(CounterSchema, {}).activate();
 ```
 
-`app` is the base runtime handle. It can create intents, dispatch them, publish snapshots, notify subscribers, and clean itself up.
+`app` is the base runtime handle. It can submit action candidates, publish snapshots, notify observers, expose inspection reads, and clean itself up.
 
 ## Schema and Effects
 
@@ -40,17 +40,17 @@ Pass `{}` when the domain does not declare external effects.
 ## The Minimal Loop
 
 ```typescript
-const snapshot = await app.dispatchAsync(
-  app.createIntent(app.MEL.actions.increment),
-);
+const result = await app.actions.increment.submit();
 
-console.log(snapshot.data.count);
+if (result.ok) {
+  console.log(result.after.state.count);
+}
 app.dispose();
 ```
 
 ## Common Mistake
 
-`createManifesto()` does not expose runtime verbs by itself. Call `activate()` before using `createIntent()`, `dispatchAsync()`, `subscribe()`, or `getSnapshot()`.
+`createManifesto()` does not expose runtime verbs by itself. Call `activate()` before using `actions`, `snapshot()`, `observe`, or `inspect`.
 
 ## Next
 

@@ -76,7 +76,7 @@ const context = { now: 0, randomSeed: "seed" };
 const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
 
 // 5. Verify
-console.log(snapshot.data.count);
+console.log(snapshot.state.count);
 // → 0
 ```
 
@@ -96,7 +96,7 @@ const context = { now: 0, randomSeed: "seed" };
 
 // Create initial snapshot
 const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
-console.log(snapshot.data.count); // → 0
+console.log(snapshot.state.count); // → 0
 
 // Create intent
 const intent = createIntent("increment", "intent-1");
@@ -107,7 +107,7 @@ const result = await core.compute(schema, snapshot, intent, context);
 // Check result
 console.log(result.status);           // → "complete"
 console.log(result.requirements.length); // → 0
-console.log(result.snapshot.data.count); // → 1
+console.log(result.snapshot.state.count); // → 1
 ```
 
 ### Use Case 2: Applying Patches Manually
@@ -326,7 +326,7 @@ if (!result.valid) {
 const context = { now: 0, randomSeed: "seed" };
 const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
 const result = await core.compute(schema, snapshot, intent, context);
-console.log(result.snapshot.data.user); // → undefined (effect not executed!)
+console.log(result.snapshot.state.user); // → undefined (effect not executed!)
 ```
 
 **Why it's wrong:** Core only declares effects as requirements. It never executes them.
@@ -349,7 +349,7 @@ if (result.requirements.length > 0) {
 
 ```typescript
 // Wrong: Direct mutation
-snapshot.data.count = 5;
+snapshot.state.count = 5;
 ```
 
 **Why it's wrong:** Snapshots are immutable. Direct mutation breaks determinism.
@@ -468,7 +468,7 @@ describe("Counter domain", () => {
 
     // Assert
     expect(result.status).toBe("complete");
-    expect(result.snapshot.data.count).toBe(1);
+    expect(result.snapshot.state.count).toBe(1);
   });
 
   it("handles effects correctly", async () => {

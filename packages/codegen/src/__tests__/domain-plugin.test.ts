@@ -287,7 +287,7 @@ describe("createDomainPlugin", () => {
       })
     );
 
-    expect(out.patches[0].content).toContain("ordered: (second?: number, first: string) => void");
+    expect(out.patches[0].content).toContain("ordered: (second: number | undefined, first: string) => void");
     expect(out.patches[0].content).toContain("objectOnly: (input: { done?: boolean; title: string }) => void");
     expect(out.patches[0].content).toContain("unresolved: (missing: unknown) => void");
     expect(out.diagnostics).toContainEqual(expect.objectContaining({
@@ -385,7 +385,7 @@ describe("createDomainPlugin", () => {
         const renameArgs: TypecheckActionArgs<"rename"> = ["Ada", true];
         const configureArgs: TypecheckActionArgs<"configure"> = [{ retries: 3 }];
         const decrementArgs: TypecheckActionArgs<"decrement"> = [];
-        const renameInput: TypecheckActionInput<"rename"> = { name: "Ada", force: false };
+        const renameInput: TypecheckActionInput<"rename"> = ["Ada", false];
         const configureInput: TypecheckActionInput<"configure"> = { retries: 3 };
         const decrementInput: TypecheckActionInput<"decrement"> = undefined;
         const typedApp: ManifestoApp<TypecheckDomain, "base"> = app;

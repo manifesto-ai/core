@@ -29,7 +29,7 @@ That keeps the visible result in one place.
 Start here:
 
 ```text
-MEL domain -> createManifesto() -> activate() -> createIntent() -> dispatchAsync() -> Snapshot
+MEL domain -> createManifesto() -> activate() -> actions.<name>.submit() -> Snapshot
 ```
 
 The base SDK runtime is the normal app path. It is the right default for learning, UI integration, backend routes, scripts, and trusted agent turns.

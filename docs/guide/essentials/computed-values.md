@@ -22,7 +22,7 @@ Computed values are not separate storage. They describe how to derive a value fr
 ## Read Them in TypeScript
 
 ```typescript
-const snapshot = app.getSnapshot();
+const snapshot = app.snapshot();
 
 console.log(snapshot.computed.doubled);
 console.log(snapshot.computed.canDecrement);

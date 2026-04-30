@@ -130,6 +130,22 @@ function applyNamespacePatch(namespaceRoot: MelNamespaceValue, patch: Patch): un
   }
 }
 
+function isMelGuardIntentPath(path: PatchPath): boolean {
+  return path.length === 2
+    && path[0]?.kind === "prop"
+    && path[0].name === "guards"
+    && path[1]?.kind === "prop"
+    && path[1].name === "intent";
+}
+
+function areMelGuardIntentValues(value: unknown): value is Record<string, string> {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+
+  return Object.values(value).every((item) => typeof item === "string");
+}
+
 /**
  * Add a requirement to flow state
  */
@@ -293,7 +309,7 @@ function evaluatePatch(
 ): FlowResult {
   let patchValue: unknown = undefined;
 
-  if (flow.op !== "unset" && flow.value) {
+  if (flow.value) {
     const valueResult = evaluateExpr(flow.value, ctx);
     if (!valueResult.ok) {
       return {
@@ -368,6 +384,19 @@ function evaluateNamespacePatch(
   let patchValue: unknown = undefined;
   const displayPath = patchPathToDisplayString(flow.path);
 
+  if (flow.op !== "merge" || !isMelGuardIntentPath(flow.path)) {
+    return {
+      state: setError(state, createError(
+        "PATH_NOT_FOUND",
+        `Unsupported MEL namespace patch path: mel.${displayPath}`,
+        ctx.currentAction ?? "",
+        nodePath,
+        ctx.trace.timestamp
+      )),
+      trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+    };
+  }
+
   if (!isSafePatchPath(flow.path)) {
     return {
       state: setError(state, createError(
@@ -381,7 +410,7 @@ function evaluateNamespacePatch(
     };
   }
 
-  if (flow.op !== "unset" && flow.value) {
+  if (flow.value) {
     const valueResult = evaluateExpr(flow.value, ctx);
     if (!valueResult.ok) {
       return {
@@ -390,6 +419,19 @@ function evaluateNamespacePatch(
       };
     }
     patchValue = valueResult.value;
+  }
+
+  if (!areMelGuardIntentValues(patchValue)) {
+    return {
+      state: setError(state, createError(
+        "TYPE_MISMATCH",
+        `Invalid MEL guard intent merge at mel.${displayPath}: value must be an object of string intent guards`,
+        ctx.currentAction ?? "",
+        nodePath,
+        ctx.trace.timestamp
+      )),
+      trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+    };
   }
 
   const existingRoot = state.snapshot.namespaces[flow.namespace];
@@ -411,39 +453,33 @@ function evaluateNamespacePatch(
     namespaceRoot = parsedRoot.data;
   }
 
-  if (flow.op === "merge") {
-    if (!isObjectRecord(patchValue)) {
-      return {
-        state: setError(state, createError(
-          "TYPE_MISMATCH",
-          `Invalid namespace merge value at mel.${displayPath}: value must be an object`,
-          ctx.currentAction ?? "",
-          nodePath,
-          ctx.trace.timestamp
-        )),
-        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
-      };
-    }
-
-    if (!isMergeTargetCompatible(namespaceRoot, flow.path)) {
-      return {
-        state: setError(state, createError(
-          "TYPE_MISMATCH",
-          `Invalid namespace merge target at mel.${displayPath}: target path must be an object or absent`,
-          ctx.currentAction ?? "",
-          nodePath,
-          ctx.trace.timestamp
-        )),
-        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
-      };
-    }
+  if (!isObjectRecord(patchValue)) {
+    return {
+      state: setError(state, createError(
+        "TYPE_MISMATCH",
+        `Invalid namespace merge value at mel.${displayPath}: value must be an object`,
+        ctx.currentAction ?? "",
+        nodePath,
+        ctx.trace.timestamp
+      )),
+      trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+    };
   }
 
-  const patch: Patch = flow.op === "unset"
-    ? { op: "unset", path: flow.path }
-    : flow.op === "merge"
-      ? { op: "merge", path: flow.path, value: patchValue as Record<string, unknown> }
-      : { op: "set", path: flow.path, value: patchValue };
+  if (!isMergeTargetCompatible(namespaceRoot, flow.path)) {
+    return {
+      state: setError(state, createError(
+        "TYPE_MISMATCH",
+        `Invalid namespace merge target at mel.${displayPath}: target path must be an object or absent`,
+        ctx.currentAction ?? "",
+        nodePath,
+        ctx.trace.timestamp
+      )),
+      trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+    };
+  }
+
+  const patch: Patch = { op: "merge", path: flow.path, value: patchValue };
 
   const patchedNamespaceRoot = applyNamespacePatch(namespaceRoot, patch);
   const parsedPatchedNamespaceRoot = MelNamespace.safeParse(patchedNamespaceRoot);

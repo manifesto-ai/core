@@ -579,9 +579,12 @@ flow.onceNull(state.submittedAt, ({ patch, effect }) => {
 // FORBIDDEN - Direct execution when governance is required
 host.execute(snapshot, intent);  // Bypasses Governance and Lineage!
 
-// REQUIRED - Governed intents enter through the governed runtime
-const proposal = await governed.proposeAsync(intent);
-await governed.approve(proposal.proposalId);
+// REQUIRED - Governed writes enter through the governed runtime
+const pending = await governed.actions.spend.submit(1);
+if (pending.ok) {
+  await governed.approve(pending.proposal);
+  await pending.waitForSettlement();
+}
 // Governance authorizes, Host executes through the SDK runtime, Lineage seals the terminal Snapshot
 ```
 

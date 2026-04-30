@@ -160,8 +160,8 @@ export type MelNamespace = {
  */
 export const MelNamespace: z.ZodType<MelNamespace> = z.object({
   guards: z.object({
-    intent: z.record(z.string(), z.string()),
-  }),
+    intent: z.record(z.string(), z.string()).default({}),
+  }).default({ intent: {} }),
 }).catchall(z.unknown());
 
 export type SnapshotNamespaces = {

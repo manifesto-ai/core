@@ -458,7 +458,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       throw new Error("expected completed settlement");
     }
     expect(settlement.snapshot.state.count).toBe(1);
-    expect(settlement.snapshot).toEqual(governed.snapshot());
+    expect(getExtensionKernel(governed).projectSnapshot(settlement.snapshot)).toEqual(governed.snapshot());
   });
 
   it("anchors completed settlement reports on stored worlds rather than the current visible head", async () => {
@@ -511,6 +511,86 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(report.outcome.projected.afterSnapshot).toEqual(ext.projectSnapshot(afterWorld));
     expect(report.outcome.projected.afterSnapshot.state.count).toBe(1);
     expect(governed.snapshot().state.count).toBe(3);
+  });
+
+  it("anchors completed waitForProposal() snapshots on stored worlds rather than the current visible head", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:wait-snapshot-completed",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:wait-snapshot-completed",
+          }),
+        },
+      },
+    ).activate();
+
+    const proposal = await settledIncrementProposal(governed);
+    await settledAddProposal(governed, 2);
+
+    const settlement = await waitForProposal(governed, proposal);
+
+    expect(settlement).toMatchObject({
+      kind: "completed",
+      resultWorld: proposal.resultWorld,
+    });
+    if (settlement.kind !== "completed") {
+      throw new Error("expected completed settlement");
+    }
+    expect(settlement.snapshot.state.count).toBe(1);
+    expect(governed.snapshot().state.count).toBe(3);
+  });
+
+  it("preserves halted stop outcomes across governed settlement re-observation", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:wait-stop",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:wait-stop",
+          }),
+        },
+      },
+    ).activate();
+
+    const submission = await governed.actions.spend.submit(1);
+    expect(submission.ok).toBe(true);
+    if (!submission.ok) {
+      throw new Error("expected pending submission");
+    }
+
+    await expect(submission.waitForSettlement()).resolves.toMatchObject({
+      ok: true,
+      status: "settled",
+      outcome: { kind: "stop", reason: "spend" },
+    });
+    await expect(governed.waitForSettlement(submission.proposal)).resolves.toMatchObject({
+      ok: true,
+      status: "settled",
+      outcome: { kind: "stop", reason: "spend" },
+    });
   });
 
   it("returns pending immediately for non-terminal proposals when timeoutMs is omitted", async () => {

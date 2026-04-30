@@ -103,7 +103,7 @@ export type ActionInput<
     ? undefined
     : ActionArgs<T, K> extends [infer Only]
       ? Only
-      : Readonly<Record<string, unknown>>;
+      : Readonly<ActionArgs<T, K>>;
 
 export type ProjectedSnapshot<T extends ManifestoDomainShape> =
   Snapshot<T["state"]>;
@@ -605,6 +605,7 @@ export type TypedActionMetadata<
 > = {
   readonly name: K;
   readonly params: readonly string[];
+  readonly publicArity: number;
   readonly input: DomainSchema["actions"][string]["input"];
   readonly description: string | undefined;
   readonly annotations?: ActionAnnotation;

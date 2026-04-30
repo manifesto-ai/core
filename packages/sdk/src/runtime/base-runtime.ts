@@ -237,6 +237,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     name: Name,
     args: readonly unknown[],
   ): ActionInput<T, Name> {
+    void name;
     if (args.length === 0) {
       return undefined as ActionInput<T, Name>;
     }
@@ -245,11 +246,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       return args[0] as ActionInput<T, Name>;
     }
 
-    const parameterNames = getActionInfo(name).parameters.map((parameter) => parameter.name);
-    return Object.freeze(Object.fromEntries(args.map((value, index) => [
-      parameterNames[index] ?? `arg${index}`,
-      value,
-    ]))) as ActionInput<T, Name>;
+    return Object.freeze([...args]) as ActionInput<T, Name>;
   }
 
   function checkCandidate<Name extends ActionName<T>>(
@@ -263,7 +260,6 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     candidate: Candidate<T, Name>,
     options?: PreviewOptions,
   ): PreviewResult<T, Name> {
-    void options;
     const beforeCanonical = kernel.getCanonicalSnapshot();
     const before = extensionKernel.projectSnapshot(beforeCanonical);
     const admission = admitCandidate(candidate, beforeCanonical);
@@ -287,9 +283,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       requirements: simulated.requirements,
       newAvailableActions: kernel.getAvailableActionsFor(simulated.snapshot)
         .map((name) => getActionInfo(name as ActionName<T>)),
-      ...(simulated.diagnostics
-        ? { diagnostics: { trace: simulated.diagnostics.trace } }
-        : {}),
+      ...previewDiagnostics(simulated.diagnostics, options),
       error: simulated.snapshot.system.lastError,
     }) as PreviewResult<T, Name>;
   }
@@ -298,7 +292,6 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     candidate: Candidate<T, Name>,
     options?: SubmitOptions,
   ): Promise<BaseSubmissionResult<T, Name>> {
-    void options;
     if (kernel.isDisposed()) {
       throw new DisposedError();
     }
@@ -399,7 +392,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
         before: dispatchOutcome.projected.beforeSnapshot,
         after: dispatchOutcome.projected.afterSnapshot,
         outcome,
-        ...(attempt.kind === "completed"
+        ...(attempt.kind === "completed" && options?.report !== "none"
           ? { report: { diagnostics: attempt.diagnostics } }
           : {}),
       }) as BaseSubmissionResult<T, Name>;
@@ -526,7 +519,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
 
   function getPublicArity<Name extends ActionName<T>>(name: Name): number {
     const metadata = kernel.getActionMetadata(name);
-    return metadata.params.length;
+    return metadata.publicArity;
   }
 
   function emitSubmissionAdmitted<Name extends ActionName<T>>(
@@ -626,6 +619,21 @@ function isOption(
     && value !== null
     && "__kind" in value
     && (value as { readonly __kind?: unknown }).__kind === kind;
+}
+
+function previewDiagnostics(
+  diagnostics: { readonly trace?: unknown } | undefined,
+  options: PreviewOptions | undefined,
+) {
+  if (!diagnostics || options?.diagnostics === "none") {
+    return {};
+  }
+
+  if (options?.diagnostics === "summary") {
+    return { diagnostics: {} };
+  }
+
+  return { diagnostics: { trace: diagnostics.trace } };
 }
 
 function toActionInfo<

@@ -751,7 +751,7 @@ test('handles network failure gracefully', async () => {
     intentId: 'i_1'
   });
 
-  expect(snapshot.data.fetchError).toBe('Network timeout');
+  expect(snapshot.state.fetchError).toBe('Network timeout');
 });
 ```
 
@@ -885,7 +885,7 @@ return [
 ];
 
 // Flow checks for error
-if (snapshot.data.error) {
+if (snapshot.state.error) {
   // Handle error
 }
 ```

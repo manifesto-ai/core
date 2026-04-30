@@ -74,12 +74,10 @@ import CounterSchema from "./counter.mel";
 
 const app = createManifesto(CounterSchema, {}).activate();
 
-await app.dispatchAsync(
-  app.createIntent(app.MEL.actions.increment),
-);
+await app.actions.increment.submit();
 
-const snapshot = app.getSnapshot();
-console.log(snapshot.data.count);       // 1
+const snapshot = app.snapshot();
+console.log(snapshot.state.count);      // 1
 console.log(snapshot.computed.doubled); // 2
 ```
 
@@ -88,8 +86,7 @@ console.log(snapshot.computed.doubled); // 2
 - MEL declared domain state, derived values, and an action.
 - `createManifesto()` created a composable manifesto from the schema.
 - `activate()` opened the base runtime surface.
-- `createIntent()` built a typed request from `MEL.actions.increment`.
-- `dispatchAsync()` published the next terminal Snapshot.
+- `actions.increment.submit()` validated and published the next terminal Snapshot.
 
 ## Next
 

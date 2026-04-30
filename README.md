@@ -35,10 +35,8 @@ import CounterMel from "./counter.mel";
 
 const app = createManifesto(CounterMel, {}).activate();
 
-await app.dispatchAsync(
-  app.createIntent(app.MEL.actions.increment),
-);
-console.log(app.getSnapshot().data.count); // 1
+await app.actions.increment.submit();
+console.log(app.snapshot().state.count); // 1
 ```
 
 ## Start With The Docs

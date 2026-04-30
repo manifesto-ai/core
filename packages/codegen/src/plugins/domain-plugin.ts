@@ -169,10 +169,16 @@ function renderActionSignature(
       return "() => void";
     }
 
-    const renderedParams = params.map((name) => {
-      const field = resolveActionParamField(action, name, schemaTypes, diagnostics);
+    const fields = params.map((name) => resolveActionParamField(action, name, schemaTypes, diagnostics));
+    const renderedParams = params.map((name, index) => {
+      const field = fields[index]!;
+      const renderedType = renderDomainType(field.type);
+      const hasLaterRequired = fields.slice(index + 1).some((candidate) => !candidate.optional);
+      if (field.optional && hasLaterRequired) {
+        return `${name}: ${renderedType} | undefined`;
+      }
       const optional = field.optional ? "?" : "";
-      return `${name}${optional}: ${renderDomainType(field.type)}`;
+      return `${name}${optional}: ${renderedType}`;
     });
 
     return `(${renderedParams.join(", ")}) => void`;

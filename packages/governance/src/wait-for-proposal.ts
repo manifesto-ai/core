@@ -4,7 +4,6 @@ import {
   type CanonicalSnapshot,
   type DispatchExecutionOutcome,
   type ManifestoDomainShape,
-  type Snapshot,
 } from "@manifesto-ai/sdk";
 import type { WaitForProposalRuntimeKernel } from "@manifesto-ai/sdk/provider";
 
@@ -34,7 +33,7 @@ export type ProposalSettlement<
   | {
       readonly kind: "completed";
       readonly proposal: Proposal & { readonly status: "completed"; readonly resultWorld: WorldId };
-      readonly snapshot: Snapshot<T["state"]>;
+      readonly snapshot: CanonicalSnapshot<T["state"]>;
       readonly resultWorld: WorldId;
     }
   | {
@@ -143,11 +142,18 @@ export async function waitForProposal<
         readonly resultWorld: WorldId;
       };
       const resultWorld = requireResultWorld(completedProposal, "completed");
+      const snapshot = await app.getWorldSnapshot(resultWorld);
+      if (!snapshot) {
+        throw new ManifestoError(
+          "GOVERNANCE_RESULT_WORLD_NOT_FOUND",
+          `Completed proposal "${proposalId}" references missing world "${resultWorld}"`,
+        );
+      }
       assertNotDisposed(app);
       return {
         kind: "completed",
         proposal: completedProposal,
-        snapshot: app.snapshot(),
+        snapshot,
         resultWorld,
       };
     }

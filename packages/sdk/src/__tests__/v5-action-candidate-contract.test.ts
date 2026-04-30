@@ -72,6 +72,28 @@ type ObjectInputDomain = {
   computed: {};
 };
 
+type MultiArgDomain = {
+  actions: {
+    rename: (name: string, force?: boolean) => void;
+  };
+  state: {
+    name: string;
+    force: boolean;
+  };
+  computed: {};
+};
+
+type ObjectOnlyOptionsDomain = {
+  actions: {
+    configure: (input: { retries: number; label?: string }) => void;
+  };
+  state: {
+    retries: number;
+    label: string;
+  };
+  computed: {};
+};
+
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
@@ -188,6 +210,95 @@ function createOptionSchema(): DomainSchema {
           op: "set",
           path: pp("value"),
           value: { kind: "get", path: "input.value" },
+        },
+      },
+    },
+  });
+}
+
+function createMultiArgSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:sdk-v5-multi-arg",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        name: { type: "string", required: false, default: "" },
+        force: { type: "boolean", required: false, default: false },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      rename: {
+        params: ["name", "force"],
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            name: { type: "string", required: true },
+            force: { type: "boolean", required: false, default: false },
+          },
+        },
+        flow: {
+          kind: "seq",
+          steps: [
+            {
+              kind: "patch",
+              op: "set",
+              path: pp("name"),
+              value: { kind: "get", path: "input.name" },
+            },
+            {
+              kind: "patch",
+              op: "set",
+              path: pp("force"),
+              value: { kind: "get", path: "input.force" },
+            },
+          ],
+        },
+      },
+    },
+  });
+}
+
+function createObjectOnlyOptionsSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:sdk-v5-object-only-options",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        retries: { type: "number", required: false, default: 0 },
+        label: { type: "string", required: false, default: "" },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      configure: {
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            retries: { type: "number", required: true },
+            label: { type: "string", required: false, default: "" },
+          },
+        },
+        flow: {
+          kind: "seq",
+          steps: [
+            {
+              kind: "patch",
+              op: "set",
+              path: pp("retries"),
+              value: { kind: "get", path: "input.retries" },
+            },
+            {
+              kind: "patch",
+              op: "set",
+              path: pp("label"),
+              value: { kind: "get", path: "input.label" },
+            },
+          ],
         },
       },
     },
@@ -449,6 +560,18 @@ describe("SDK v5 action-candidate contract", () => {
     });
   });
 
+  it("preserves ordered public input for multi-arg bound actions", () => {
+    const app = createManifesto<MultiArgDomain>(createMultiArgSchema(), {}).activate();
+
+    const bound = app.actions.rename.bind("Ada", true);
+
+    expect(bound.input).toEqual(["Ada", true]);
+    expect(bound.intent()).toMatchObject({
+      type: "rename",
+      input: { name: "Ada", force: true },
+    });
+  });
+
   it("keeps object-valued single param public input separate from Core-packed intent input", async () => {
     const app = createManifesto<ObjectInputDomain>(objectInputMelSource, {}).activate();
 
@@ -475,6 +598,49 @@ describe("SDK v5 action-candidate contract", () => {
       { __kind: "SubmitOptions", report: "summary" },
     );
     expect(submitted.ok && submitted.after.state.value).toEqual(optionLike);
+  });
+
+  it("parses inline options for object-only multi-field actions as final options", async () => {
+    const app = createManifesto<ObjectOnlyOptionsDomain>(
+      createObjectOnlyOptionsSchema(),
+      {},
+    ).activate();
+
+    const preview = app.actions.configure.preview(
+      { retries: 3, label: "fast" },
+      { __kind: "PreviewOptions", diagnostics: "none" },
+    );
+    expect(preview.admitted && preview.after.state).toMatchObject({
+      retries: 3,
+      label: "fast",
+    });
+    expect(preview.admitted && "diagnostics" in preview).toBe(false);
+
+    const submitted = await app.actions.configure.submit(
+      { retries: 5 },
+      { __kind: "SubmitOptions", report: "none" },
+    );
+    expect(submitted.ok && submitted.after.state).toMatchObject({
+      retries: 5,
+      label: null,
+    });
+    expect(submitted.ok && "report" in submitted).toBe(false);
+  });
+
+  it("honors preview and submit option detail suppression", async () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+
+    const preview = app.actions.increment.preview({
+      __kind: "PreviewOptions",
+      diagnostics: "none",
+    });
+    expect(preview.admitted && "diagnostics" in preview).toBe(false);
+
+    const submitted = await app.actions.increment.submit({
+      __kind: "SubmitOptions",
+      report: "none",
+    });
+    expect(submitted.ok && "report" in submitted).toBe(false);
   });
 
   it("rejects operational submit failure before terminal result with SubmissionFailedError", async () => {

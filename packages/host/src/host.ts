@@ -12,7 +12,6 @@
 
 import {
   createCore,
-  createInitialNamespaces,
   createSnapshot,
   evaluateComputed,
   isOk,
@@ -163,18 +162,6 @@ export class ManifestoHost {
       ) {
         normalized = {
           ...record,
-          input: record.input ?? null,
-        };
-      } else if (
-        "data" in record &&
-        "computed" in record &&
-        "system" in record &&
-        "meta" in record
-      ) {
-        normalized = {
-          ...record,
-          state: record.data,
-          namespaces: createInitialNamespaces(),
           input: record.input ?? null,
         };
       }

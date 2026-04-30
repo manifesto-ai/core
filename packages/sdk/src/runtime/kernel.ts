@@ -169,10 +169,12 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
         const params = Object.freeze(
           Array.isArray(rawParams) ? [...rawParams] : getActionParamNames(action),
         );
+        const publicArity = rawParams === null ? 1 : params.length;
 
         return [name, Object.freeze({
           name,
           params,
+          publicArity,
           input: action.input,
           description: action.description,
           ...(actionAnnotations[name] !== undefined

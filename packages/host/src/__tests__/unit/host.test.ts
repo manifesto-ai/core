@@ -276,6 +276,34 @@ describe("ManifestoHost", () => {
       const snapshot = await host.getSnapshot();
       expect(snapshot).not.toBeNull();
     });
+
+    it("should reject retired data-root snapshots on reset", async () => {
+      const host = createHost(schema, { initialData: { count: 100 } });
+      const legacySnapshot = {
+        data: { count: 0 },
+        computed: {},
+        system: {
+          status: "idle",
+          lastError: null,
+          pendingRequirements: [],
+          currentAction: null,
+        },
+        input: null,
+        meta: {
+          version: 0,
+          timestamp: 0,
+          randomSeed: "seed",
+          schemaHash: schema.hash,
+        },
+      };
+
+      expect(() => {
+        host.reset(legacySnapshot);
+      }).toThrowError();
+
+      const snapshot = await host.getSnapshot();
+      expect(snapshot?.state).toEqual({ count: 100 });
+    });
   });
 
   describe("Schema validation", () => {

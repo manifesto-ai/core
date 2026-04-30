@@ -147,7 +147,7 @@ describe("createManifesto()", () => {
 
     const bound = app.actions.addTodo.bind("Write docs", "todo-1");
 
-    expect(bound.input).toEqual({ title: "Write docs", id: "todo-1" });
+    expect(bound.input).toEqual(["Write docs", "todo-1"]);
     expect(bound.intent()).toMatchObject({
       type: "addTodo",
       input: { title: "Write docs", id: "todo-1" },

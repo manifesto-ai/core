@@ -43,10 +43,7 @@ export interface HostOwnedState {
 /**
  * Extract Host-owned state from a canonical snapshot.
  *
- * Accepts legacy data-root payloads only for compatibility with old tests and
- * persisted fixtures.
- *
- * @param snapshotOrData - Core Snapshot or legacy Snapshot.data object
+ * @param snapshotOrData - Core Snapshot
  * @returns HostOwnedState if present, undefined otherwise
  */
 export function getHostState(snapshotOrData: unknown): HostOwnedState | undefined {
@@ -60,17 +57,25 @@ export function getHostState(snapshotOrData: unknown): HostOwnedState | undefine
     return isObjectRecord(host) ? host as HostOwnedState : undefined;
   }
 
-  if ("$host" in snapshotOrData) {
-    const host = (snapshotOrData as { $host: unknown }).$host;
-    return isObjectRecord(host) ? host as HostOwnedState : undefined;
-  }
   return undefined;
+}
+
+/**
+ * Explicit compatibility helper for retired data-root snapshots.
+ */
+export function getLegacyDataRootHostState(data: unknown): HostOwnedState | undefined {
+  if (!isObjectRecord(data) || !("$host" in data)) {
+    return undefined;
+  }
+
+  const host = (data as { $host: unknown }).$host;
+  return isObjectRecord(host) ? host as HostOwnedState : undefined;
 }
 
 /**
  * Get a specific intent slot from a canonical snapshot.
  *
- * @param snapshotOrData - Core Snapshot or legacy Snapshot.data object
+ * @param snapshotOrData - Core Snapshot
  * @param intentId - Intent ID to look up
  * @returns IntentSlot if found, undefined otherwise
  */

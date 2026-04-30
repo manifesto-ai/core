@@ -2,7 +2,7 @@
 
 > Do not start here unless the base runtime already makes sense.
 
-Most projects should begin with `@manifesto-ai/sdk` and stay there. This page is for the moment when the team realizes plain direct dispatch is no longer enough.
+Most projects should begin with `@manifesto-ai/sdk` and stay there. This page is for the moment when the team realizes plain base-runtime submit is no longer enough.
 
 ## Typical Signals
 
@@ -25,7 +25,8 @@ createManifesto(schema, effects)
   -> withLineage(...)
   -> withGovernance(...)
   -> activate()
-  -> proposeAsync(...)
+  -> actions.x.submit(...)
+  -> waitForSettlement(...)
 ```
 
 That adds:

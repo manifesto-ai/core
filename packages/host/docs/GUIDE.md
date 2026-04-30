@@ -71,7 +71,7 @@ const result = await host.dispatch(intent);
 
 // 4. Check result
 console.log(result.status);             // → "complete"
-console.log(result.snapshot.data.count); // → 1
+console.log(result.snapshot.state.count); // → 1
 ```
 
 ---
@@ -144,7 +144,7 @@ const intent = createIntent("increment", "intent-1");
 const result = await host.dispatch(intent);
 
 console.log(result.status); // → "complete"
-console.log(host.getSnapshot()?.data.count); // → 1
+console.log(host.getSnapshot()?.state.count); // → 1
 ```
 
 ### Use Case 2: Dispatching with Input
@@ -173,7 +173,7 @@ const host = new ManifestoHost(schema, { initialData: { count: 0 } });
 const intent = createIntent("addAmount", { amount: 5 }, "intent-1");
 const result = await host.dispatch(intent);
 
-console.log(host.getSnapshot()?.data.count); // → 5
+console.log(host.getSnapshot()?.state.count); // → 5
 ```
 
 ### Use Case 3: Handling Multiple Intents
@@ -188,7 +188,7 @@ await host.dispatch(createIntent("increment", "intent-1"));
 await host.dispatch(createIntent("increment", "intent-2"));
 await host.dispatch(createIntent("increment", "intent-3"));
 
-console.log(host.getSnapshot()?.data.count); // → 3
+console.log(host.getSnapshot()?.state.count); // → 3
 ```
 
 ---
@@ -657,7 +657,7 @@ describe("Counter host", () => {
     const result = await host.dispatch(createIntent("increment", "intent-1"));
 
     expect(result.status).toBe("complete");
-    expect(result.snapshot.data.count).toBe(1);
+    expect(result.snapshot.state.count).toBe(1);
   });
 
   it("handles effects", async () => {
@@ -673,7 +673,7 @@ describe("Counter host", () => {
     const result = await host.dispatch(createIntent("fetchUser", { id: "1" }, "intent-1"));
 
     expect(result.status).toBe("complete");
-    expect(result.snapshot.data.user).toEqual({ id: "1", name: "Test" });
+    expect(result.snapshot.state.user).toEqual({ id: "1", name: "Test" });
   });
 });
 ```
@@ -707,7 +707,7 @@ describe("Determinism", () => {
     const result2 = await host2.dispatch(intent);
 
     // Same input → same output
-    expect(result1.snapshot.data).toEqual(result2.snapshot.data);
+    expect(result1.snapshot.state).toEqual(result2.snapshot.state);
     expect(result1.snapshot.meta.timestamp).toBe(result2.snapshot.meta.timestamp);
   });
 });

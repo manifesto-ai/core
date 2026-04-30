@@ -9,7 +9,7 @@
 ## What This Package Owns
 
 - `withLineage(createManifesto(...), config).activate()`
-- lineage-aware `commitAsync` that seals before publication
+- lineage-mode `actions.<name>.submit(...)` that seals before publication
 - restore, head, branch, and world queries on the activated runtime
 - `getWorldSnapshot(worldId)` for stored sealed canonical snapshot lookup
 - `getLineage()` for DAG inspection on the activated runtime
@@ -27,9 +27,7 @@ const lineage = withLineage(manifesto, {
   store: createInMemoryLineageStore(),
 }).activate();
 
-await lineage.commitAsync(
-  lineage.createIntent(lineage.MEL.actions.increment),
-);
+await lineage.actions.increment.submit();
 
 const head = await lineage.getLatestHead();
 if (head) {

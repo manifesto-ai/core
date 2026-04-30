@@ -109,7 +109,7 @@ const intent = createIntent("increment", "intent-1");
 const result = await core.compute(schema, snapshot, intent, context);
 
 console.log(result.status); // -> "complete"
-console.log(result.snapshot.data.count); // -> 1
+console.log(result.snapshot.state.count); // -> 1
 ```
 
 > See [GUIDE.md](docs/GUIDE.md) for the full tutorial.

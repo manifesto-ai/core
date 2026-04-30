@@ -60,6 +60,34 @@ const globalForbiddenPatterns = [
     label: "top-level dispatchAsync(instance, intent) usage",
     pattern: /(?<!\.)dispatchAsync\(\s*[^),\n]+\s*,/g,
   },
+  {
+    label: "retired snapshot.data read",
+    pattern: /\bsnapshot\.data\b/g,
+  },
+  {
+    label: "retired SDK root getSnapshot read",
+    pattern: /\b(?:app|instance|lineage|governed)\.getSnapshot\(/g,
+  },
+  {
+    label: "retired SDK root subscribe call",
+    pattern: /\b(?:app|instance|lineage|governed)\.subscribe\(/g,
+  },
+  {
+    label: "retired SDK root createIntent call",
+    pattern: /\b(?:app|instance|lineage|governed)\.createIntent\(/g,
+  },
+  {
+    label: "retired SDK root dispatchAsync call",
+    pattern: /\b(?:app|instance|lineage|governed)\.dispatchAsync(?:WithReport)?\(/g,
+  },
+  {
+    label: "retired lineage root commitAsync call",
+    pattern: /\blineage\.commitAsync(?:WithReport)?\(/g,
+  },
+  {
+    label: "retired governance root proposeAsync call",
+    pattern: /\bgoverned\.proposeAsync\(/g,
+  },
 ];
 
 const docsSiteOnlyPatterns = [
@@ -72,7 +100,31 @@ const docsSiteOnlyPatterns = [
 const filePatternExclusions = new Map([
   [
     "docs/internals/documentation-governance.md",
-    new Set(["createManifestoWorld", "ManifestoWorld", "createMemoryWorldStore", "WorldStore"]),
+    new Set([
+      "createManifestoWorld",
+      "ManifestoWorld",
+      "createMemoryWorldStore",
+      "WorldStore",
+      "retired snapshot.data read",
+      "retired SDK root getSnapshot read",
+      "retired SDK root subscribe call",
+      "retired SDK root createIntent call",
+      "retired SDK root dispatchAsync call",
+      "retired lineage root commitAsync call",
+      "retired governance root proposeAsync call",
+    ]),
+  ],
+  [
+    "docs/internals/spec/current-contract.md",
+    new Set([
+      "retired snapshot.data read",
+      "retired SDK root getSnapshot read",
+      "retired SDK root subscribe call",
+      "retired SDK root createIntent call",
+      "retired SDK root dispatchAsync call",
+      "retired lineage root commitAsync call",
+      "retired governance root proposeAsync call",
+    ]),
   ],
 ]);
 

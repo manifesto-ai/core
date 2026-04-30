@@ -8,8 +8,8 @@
 
 - How to write a tiny MEL domain
 - How to activate a manifesto runtime
-- How to create typed intents from `MEL.actions.*`
-- How to observe state through `subscribe()` and `getSnapshot()`
+- How to submit typed actions from `actions.*`
+- How to observe state through `observe.state()` and `snapshot()`
 - Why `onceIntent` matters
 
 ---
@@ -64,38 +64,32 @@ Create `main.ts`:
 import { createManifesto } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
-const instance = createManifesto(CounterMel, {}).activate();
+const app = createManifesto(CounterMel, {}).activate();
 
-instance.subscribe(
-  (snapshot) => snapshot.data.count,
-  (count) => {
-    console.log("Count changed:", count);
+app.observe.state(
+  (snapshot) => snapshot.state.count,
+  (next, prev) => {
+    console.log("Count changed:", prev, next);
   },
 );
 
 async function run() {
-  console.log("Initial count:", instance.getSnapshot().data.count);
+  console.log("Initial count:", app.snapshot().state.count);
 
-  await instance.dispatchAsync(
-    instance.createIntent(instance.MEL.actions.increment),
-  );
-  await instance.dispatchAsync(
-    instance.createIntent(instance.MEL.actions.increment),
-  );
-  await instance.dispatchAsync(
-    instance.createIntent(instance.MEL.actions.decrement),
-  );
+  await app.actions.increment.submit();
+  await app.actions.increment.submit();
+  await app.actions.decrement.submit();
 
-  const snapshot = instance.getSnapshot();
-  console.log("Final count:", snapshot.data.count);
+  const snapshot = app.snapshot();
+  console.log("Final count:", snapshot.state.count);
   console.log("Doubled:", snapshot.computed["doubled"]);
 
-  instance.dispose();
+  app.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  instance.dispose();
+  app.dispose();
 });
 ```
 
@@ -111,12 +105,12 @@ npx tsx main.ts
 
 - `createManifesto()` built a composable manifesto from your domain
 - `activate()` opened the runtime surface
-- `createIntent(instance.MEL.actions.*)` gave you a typed, app-facing intent path
-- `dispatchAsync()` resolved after each terminal snapshot was published
-- `subscribe()` fired after each published change
-- `getSnapshot()` let you read the latest terminal state directly
+- `actions.*.submit()` gave you a typed, app-facing write path
+- `submit()` resolved after each terminal snapshot was published
+- `observe.state()` fired after each published change
+- `snapshot()` let you read the latest terminal state directly
 
-The important shift is this: you do not call a method that "does the action and returns a value." You create an intent, submit it to the runtime, and read the next snapshot.
+The important shift is this: you do not call a method that "does the action and returns a value." You submit an action candidate to the runtime, and read the next snapshot.
 
 ---
 
@@ -142,11 +136,11 @@ That action is unsafe. It describes an unconditional state change with no marker
 
 ### Reaching for raw string action names in app code
 
-The preferred app-facing path is `instance.createIntent(instance.MEL.actions.someAction, ...args)` or `instance.createIntent(instance.MEL.actions.someAction, { ...params })`, not stringly-typed action names.
+The preferred app-facing path is `app.actions.someAction.submit(...args)` or `app.actions.someAction.submit({ ...params })`, not stringly-typed action names.
 
 ### Reading stale state without awaiting execution
 
-`dispatchAsync()` resolves after publication. If you skip the `await`, your next read may still be the previous terminal snapshot.
+`submit()` resolves after publication. If you skip the `await`, your next read may still be the previous terminal snapshot.
 
 ### Mutating the snapshot object
 

@@ -2,7 +2,7 @@
 
 > A curated contract map for Studio, agent adapters, and runtime-aware tools.
 
-Use this guide when you are building a tool that reads Manifesto runtime state, explains candidate intents, simulates transitions, or inspects lineage-backed history. The owning API and SPEC pages remain the normative source; this page connects the public seams that tooling consumers usually need together.
+Use this guide when you are building a tool that reads Manifesto runtime state, explains action candidates, previews transitions, or inspects lineage-backed history. The owning API and SPEC pages remain the normative source; this page connects the public seams that tooling consumers usually need together.
 
 ## Contract Map
 
@@ -13,32 +13,32 @@ Use this guide when you are building a tool that reads Manifesto runtime state, 
 | Computed declarations | `ComputedSpec` | [Core API](/api/core), [Public Surface Inventory](/api/public-surface) |
 | Action declarations | `ActionSpec` | [Core API](/api/core), [Public Surface Inventory](/api/public-surface) |
 | Runtime typing seam | `state.fieldTypes`, `action.inputType`, `action.params` | [Compiler API](/api/compiler), [Current Contract](/internals/spec/current-contract) |
-| Current-snapshot legality | `isActionAvailable()`, `whyNot()`, `explainIntent()` | [Actions and Availability](/api/actions-and-availability), [SDK API](/api/sdk) |
-| Current-snapshot dry-run | `simulateIntent(intent)`, `simulate(action, ...args)` | [Runtime Instance](/api/runtime), [SDK API](/api/sdk) |
+| Current-snapshot legality | `actions.x.available()`, `actions.x.check(...)` | [Actions and Availability](/api/actions-and-availability), [SDK API](/api/sdk) |
+| Current-snapshot dry-run | `actions.x.preview(...)` | [Runtime Instance](/api/runtime), [SDK API](/api/sdk) |
 | Arbitrary-snapshot read-only analysis | `@manifesto-ai/sdk/extensions` | [SDK API](/api/sdk) |
 | Sealed world inspection | `getWorldSnapshot(worldId)` | [Lineage API](/api/lineage) |
 | Visible runtime resume | `restore(worldId)` | [Lineage API](/api/lineage) |
 
-## Intent-Centered Tooling Loop
+## Action-Candidate Tooling Loop
 
-Tooling should normalize a candidate operation into one typed intent, then reuse that same value across explanation, dry-run, and the runtime write verb.
+Tooling should normalize a candidate operation into one typed action candidate, then reuse that same value across admission, preview, and the runtime write verb.
 
 ```typescript
-const intent = app.createIntent(app.MEL.actions.spend, { amount: 20 });
-const explanation = app.explainIntent(intent);
+const candidate = app.actions.spend.bind({ amount: 20 });
+const admission = candidate.check();
 
-if (explanation.kind === "blocked") {
-  console.log(explanation.blockers);
+if (!admission.ok) {
+  console.log(admission.blockers);
 }
 
-if (explanation.kind === "admitted") {
-  const simulated = app.simulateIntent(intent);
-  console.log(simulated.changedPaths);
-  await app.dispatchAsync(intent);
+const preview = candidate.preview();
+if (preview.admitted) {
+  console.log(preview.changes);
+  await candidate.submit();
 }
 ```
 
-`simulateIntent(intent)` is the bound-intent dry-run path. Use it when your tool already has a `TypedIntent`. `simulate(action, ...args)` remains supported when you want the runtime to bind and dry-run in one call.
+`preview()` is the action-candidate dry-run path. Use `bind(...input)` when your tool wants to reuse the same candidate across checks and submit.
 
 The legality order is stable:
 
@@ -66,11 +66,11 @@ Runtime entry points consume `DomainSchema`. `DomainModule` sidecars, including 
 
 | Snapshot Role | Read With | Meaning |
 |---------------|-----------|---------|
-| Projected runtime snapshot | `getSnapshot()` | Default app-facing read model |
-| Current visible canonical snapshot | `getCanonicalSnapshot()` | Full substrate for persistence, debugging, and extension-kernel reads |
+| Projected runtime snapshot | `snapshot()` | Default app-facing read model |
+| Current visible canonical snapshot | `inspect.canonicalSnapshot()` | Full substrate for persistence, debugging, and extension-kernel reads |
 | Stored sealed world snapshot | `getWorldSnapshot(worldId)` | Historical canonical snapshot sealed by Lineage |
 
-Use `getSnapshot()` for normal UI and application reads. Use `getCanonicalSnapshot()` when a tool needs the full substrate for extension-kernel analysis. Use `getWorldSnapshot(worldId)` to inspect a stored lineage world without changing the visible runtime.
+Use `snapshot()` for normal UI and application reads. Use `inspect.canonicalSnapshot()` when a tool needs the full substrate for extension-kernel analysis. Use `getWorldSnapshot(worldId)` to inspect a stored lineage world without changing the visible runtime.
 
 ## Lineage-Backed Inspection
 

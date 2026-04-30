@@ -1,6 +1,8 @@
 import { DomainSchema } from "../schema/domain.js";
 import type { ValidationResult, ValidationError } from "../schema/result.js";
 import type { TypeSpec } from "../schema/type-spec.js";
+import type { FlowNode } from "../schema/flow.js";
+import type { PatchPath } from "../schema/patch.js";
 import { validResult, invalidResult } from "../schema/result.js";
 import { buildDependencyGraph, topologicalSort, detectCycles } from "../evaluator/dag.js";
 import { isErr } from "../schema/common.js";
@@ -21,6 +23,9 @@ import {
   resolveTypeDefinition,
   validateValueAgainstTypeDefinition,
 } from "./type-definition-utils.js";
+import {
+  patchPathToDisplayString,
+} from "../utils/patch-path.js";
 
 /**
  * Validate a domain schema
@@ -128,6 +133,8 @@ export function validate(schema: unknown): ValidationResult {
   errors.push(...validateComputedDepsCoverage(domainSchema));
 
   errors.push(...validateActionExprPaths(domainSchema));
+
+  errors.push(...validateCompilerNamespacePatchFlows(domainSchema));
 
   // V-002: Check computed dependency graph is acyclic
   const depGraph = buildDependencyGraph(domainSchema.computed);
@@ -813,6 +820,66 @@ function validateActionExprPaths(
   }
 
   return errors;
+}
+
+function validateCompilerNamespacePatchFlows(
+  schema: import("../schema/domain.js").DomainSchema
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  for (const [actionName, action] of Object.entries(schema.actions)) {
+    visitNamespacePatchFlows(action.flow, `actions.${actionName}.flow`, errors);
+  }
+
+  return errors;
+}
+
+function visitNamespacePatchFlows(
+  flow: FlowNode,
+  path: string,
+  errors: ValidationError[],
+): void {
+  switch (flow.kind) {
+    case "seq":
+      flow.steps.forEach((step, index) => {
+        visitNamespacePatchFlows(step, `${path}.steps.${index}`, errors);
+      });
+      return;
+    case "if":
+      visitNamespacePatchFlows(flow.then, `${path}.then`, errors);
+      if (flow.else) {
+        visitNamespacePatchFlows(flow.else, `${path}.else`, errors);
+      }
+      return;
+    case "namespacePatch":
+      if (
+        flow.namespace !== "mel"
+        || flow.op !== "merge"
+        || !isMelGuardIntentPatchPath(flow.path)
+        || flow.value?.kind !== "object"
+      ) {
+        errors.push({
+          code: "SCHEMA_ERROR",
+          message: `Unsupported compiler namespace patch: ${flow.namespace}.${patchPathToDisplayString(flow.path)}`,
+          path,
+        });
+      }
+      return;
+    case "patch":
+    case "effect":
+    case "call":
+    case "halt":
+    case "fail":
+      return;
+  }
+}
+
+function isMelGuardIntentPatchPath(path: PatchPath): boolean {
+  return path.length === 2
+    && path[0]?.kind === "prop"
+    && path[0].name === "guards"
+    && path[1]?.kind === "prop"
+    && path[1].name === "intent";
 }
 
 function isAllowedLexicalPath(path: string): boolean {

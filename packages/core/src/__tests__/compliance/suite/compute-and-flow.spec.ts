@@ -212,6 +212,79 @@ describe("Core CTS compute and flow rules", () => {
     expect(Object.values(result.trace.nodes).some((node) => node.kind === "namespaceDelta")).toBe(true);
   });
 
+  it(caseTitle(CORE_CTS_CASES.SNAPSHOT_NAMESPACE_DELTAS, "normalizes partial MEL namespace roots before namespace writes"), () => {
+    const schema = createComplianceSchema({
+      state: {
+        fields: {
+          observed: { type: "string", required: true, default: "" },
+        },
+      },
+      actions: {
+        markIntent: {
+          flow: {
+            kind: "seq",
+            steps: [
+              {
+                kind: "namespacePatch",
+                namespace: "mel",
+                op: "merge",
+                path: pp("guards.intent"),
+                value: {
+                  kind: "object",
+                  fields: {
+                    guardA: { kind: "get", path: "meta.intentId" },
+                  },
+                },
+              },
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("observed"),
+                value: { kind: "get", path: "$mel.guards.intent.guardA" },
+              },
+            ],
+          },
+        },
+      },
+    });
+    const snapshot = {
+      ...createComplianceSnapshot({ observed: "" }, schema.hash),
+      namespaces: { mel: {} },
+    } as never;
+
+    const { result, snapshot: finalSnapshot } = computeAndMaterialize(
+      schema,
+      snapshot,
+      createComplianceIntent("markIntent", undefined, "intent-A"),
+    );
+
+    expect(result.status).toBe("complete");
+    expect(finalSnapshot.namespaces.mel).toMatchObject({
+      guards: { intent: { guardA: "intent-A" } },
+    });
+  });
+
+  it(caseTitle(CORE_CTS_CASES.SNAPSHOT_NAMESPACE_DELTAS, "rejects arbitrary MEL namespacePatch flow shapes"), () => {
+    const schema = createComplianceSchema({
+      actions: {
+        badMelPatch: {
+          flow: {
+            kind: "namespacePatch",
+            namespace: "mel",
+            op: "set",
+            path: pp("arbitrary"),
+            value: { kind: "lit", value: "bad" },
+          },
+        },
+      },
+    });
+
+    const result = validate(schema);
+
+    expect(result.valid).toBe(false);
+    expectValidationCode(result.errors, "SCHEMA_ERROR");
+  });
+
   it(caseTitle(CORE_CTS_CASES.SNAPSHOT_NAMESPACE_DELTAS, "rejects non-MEL namespacePatch flow nodes"), () => {
     const schema = createComplianceSchema({
       actions: {

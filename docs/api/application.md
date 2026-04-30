@@ -21,7 +21,7 @@ const app = manifesto.activate();
 | `schema` | A compiled `DomainSchema` or MEL source string |
 | `effects` | A record of SDK effect handlers, keyed by effect type. You can author it directly or via `@manifesto-ai/sdk/effects`. |
 
-`createManifesto()` returns a composable object. Runtime verbs such as `dispatchAsync()` and `dispatchAsyncWithReport()`, plus reads such as `getSnapshot()`, exist only after `activate()`.
+`createManifesto()` returns a composable object. Runtime reads and writes such as `snapshot()`, `actions.<name>.submit()`, `observe`, and `inspect` exist only after `activate()`.
 
 Compiler tooling artifacts such as `DomainModule` are outside this seam. If you compile through `compileMelModule()`, pass `module.schema` to `createManifesto()`, not the whole module.
 
@@ -50,7 +50,7 @@ const sourceMap = module.sourceMap;
 const app = createManifesto(schema, effects).activate();
 ```
 
-Activation owns the host loop, Snapshot, subscriptions, action refs, and typed intent creation surface.
+Activation owns the host loop, Snapshot projection, observers, action handles, and runtime inspection surface.
 
 Do not activate the same composable more than once. Create a new composable if you need a separate runtime instance.
 
@@ -75,10 +75,10 @@ const app = withGovernance(
 ).activate();
 ```
 
-The MEL domain stays the same. The activated runtime verbs, and their additive report companions when present, change with the chosen composition.
+The MEL domain stays the same. Base, Lineage, and Governance modes all expose the v5 action-candidate surface; their `submit()` result types express the active runtime law.
 
 ## Next
 
 - Inspect the activated handle in [Runtime Instance](./runtime)
-- Dispatch work with [Intents](./intents)
+- Submit work with [Intents](./intents)
 - Add approval in [Governed Runtime](./governed-runtime)

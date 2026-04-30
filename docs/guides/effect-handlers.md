@@ -132,7 +132,7 @@ The snapshot context is useful when the effect depends on current state:
 ```typescript
 const effects = {
   "api.saveDraft": async (_params, ctx) => {
-    const draft = ctx.snapshot.data.draft as { title: string; body: string };
+    const draft = ctx.snapshot.state.draft as { title: string; body: string };
 
     try {
       await saveDraftToApi(draft);

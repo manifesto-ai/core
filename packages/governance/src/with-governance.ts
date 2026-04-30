@@ -6,6 +6,7 @@ import type {
   CanonicalSnapshot,
   ComposableManifesto,
   DispatchExecutionOutcome,
+  ExecutionDiagnostics,
   ExecutionOutcome,
   GovernanceSettlementResult,
   GovernanceLaws,
@@ -230,19 +231,31 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
         sealed.preparedCommit,
         getCurrentTimestamp(),
       );
-      terminalProposal = governanceCommit.proposal;
+      const terminalOutcome = toTerminalOutcome(
+        sealed.hostResult.snapshot as CanonicalSnapshot<T["state"]>,
+        Object.freeze({ hostTraces: sealed.hostResult.traces }) as ExecutionDiagnostics,
+        intent,
+      );
+      terminalProposal = Object.freeze({
+        ...governanceCommit.proposal,
+        terminalOutcome,
+      });
+      const governanceCommitWithOutcome = Object.freeze({
+        ...governanceCommit,
+        proposal: terminalProposal,
+      });
 
-      await governanceStore.putProposal(governanceCommit.proposal);
+      await governanceStore.putProposal(terminalProposal);
       proposalPersisted = true;
       await governanceStore.putDecisionRecord(governanceCommit.decisionRecord);
-      eventDispatcher.emitSealCompleted(governanceCommit, sealed.preparedCommit);
+      eventDispatcher.emitSealCompleted(governanceCommitWithOutcome, sealed.preparedCommit);
 
       if (sealed.preparedCommit.branchChange.headAdvanced) {
         kernel.setVisibleSnapshot(sealed.hostResult.snapshot);
-        return governanceCommit.proposal;
+        return terminalProposal;
       }
 
-      return governanceCommit.proposal;
+      return terminalProposal;
     } catch (error) {
       const failure = toGovernanceFailure(error);
       if (!proposalPersisted) {
@@ -577,7 +590,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     }
 
     const dispatchOutcome = kernel.deriveExecutionOutcome(before, after);
-    const outcome = toSettlementOutcome(dispatchOutcome, proposal);
+    const outcome = proposal.terminalOutcome ?? toSettlementOutcome(dispatchOutcome, proposal);
 
     return Object.freeze({
       ok: true,
@@ -735,6 +748,63 @@ function toSettlementOutcome<T extends ManifestoDomainShape>(
   }
 
   return Object.freeze({ kind: "ok" }) as ExecutionOutcome;
+}
+
+function toTerminalOutcome<T extends ManifestoDomainShape>(
+  terminalSnapshot: CanonicalSnapshot<T["state"]>,
+  diagnostics: ExecutionDiagnostics,
+  intent: TypedIntent<T>,
+): ExecutionOutcome {
+  const haltReason = findHaltReason(diagnostics);
+  if (haltReason !== null) {
+    return Object.freeze({
+      kind: "stop",
+      reason: haltReason,
+    }) as ExecutionOutcome;
+  }
+
+  if (terminalSnapshot.system.lastError) {
+    return Object.freeze({
+      kind: "fail",
+      error: terminalSnapshot.system.lastError,
+    }) as ExecutionOutcome;
+  }
+
+  if (terminalSnapshot.system.status === "error") {
+    return Object.freeze({
+      kind: "fail",
+      error: Object.freeze({
+        code: "GOVERNANCE_EXECUTION_FAILED",
+        message: "Governed proposal execution completed with error status",
+        source: {
+          actionId: intent.intentId,
+          nodePath: "governance.finalizeExecution",
+        },
+        timestamp: terminalSnapshot.meta.timestamp,
+      }),
+    }) as ExecutionOutcome;
+  }
+
+  return Object.freeze({ kind: "ok" }) as ExecutionOutcome;
+}
+
+function findHaltReason(diagnostics: ExecutionDiagnostics): string | null {
+  const haltTrace = diagnostics.hostTraces
+    ?.slice()
+    .reverse()
+    .find((trace) => trace.terminatedBy === "halt");
+  if (!haltTrace) {
+    return null;
+  }
+
+  for (const node of Object.values(haltTrace.nodes)) {
+    if (node.kind === "halt") {
+      const reason = node.inputs.reason;
+      return typeof reason === "string" ? reason : "halted";
+    }
+  }
+
+  return "halted";
 }
 
 function sleep(ms: number): Promise<void> {

@@ -956,6 +956,7 @@ _Source: `packages/host/src/index.ts`_
 - `generateJobId`
 - `getHostState`
 - `getIntentSlot`
+- `getLegacyDataRootHostState`
 - `handleApplyPatches`
 - `handleContinueCompute`
 - `handleFulfillEffect`

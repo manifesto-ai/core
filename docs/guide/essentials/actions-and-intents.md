@@ -2,7 +2,7 @@
 
 > An action describes a transition; an intent requests that transition.
 
-Define actions in MEL. In TypeScript, create typed intents from `app.MEL.actions.*` and dispatch them.
+Define actions in MEL. In TypeScript, submit typed action candidates from `app.actions.*`.
 
 ## Define an Action
 
@@ -20,30 +20,29 @@ domain Counter {
 }
 ```
 
-## Create and Dispatch an Intent
+## Submit an Action Candidate
 
 ```typescript
-const intent = app.createIntent(app.MEL.actions.add, 3);
+const result = await app.actions.add.submit(3);
 
-const snapshot = await app.dispatchAsync(intent);
-console.log(snapshot.data.count);
+if (result.ok) {
+  console.log(result.after.state.count);
+}
 ```
 
-`dispatchAsync()` resolves with the next terminal Snapshot. The requested change does not return through a hidden side channel.
+`submit()` resolves with a mode-specific result. The requested change does not return through a hidden side channel.
 
 ## Object-Style Binding
 
 When it is clearer for your app code, use the keyed form:
 
 ```typescript
-await app.dispatchAsync(
-  app.createIntent(app.MEL.actions.add, { amount: 3 }),
-);
+await app.actions.add.submit({ amount: 3 });
 ```
 
 ## Common Mistake
 
-Do not dispatch raw string action names as your app-facing contract. Prefer `app.createIntent(app.MEL.actions.someAction, input)`.
+Do not dispatch raw string action names as your app-facing contract. Prefer `app.actions.someAction.submit(input)`.
 
 ## Next
 

@@ -36,7 +36,7 @@ If you are still learning the basics, start with [Quick Start](/guide/quick-star
 - You add `withLineage()` and `withGovernance()` only when the app needs the advanced runtime.
 - You create intents through an activated runtime or low-level governance helpers.
 - You observe outcomes through subscriptions, runtime events, governed proposals, and lineage/governance query APIs.
-- You treat `getSnapshot()` as the default runtime read model and escalate to canonical reads only when needed.
+- You treat `snapshot()` as the default runtime read model and escalate to canonical reads only when needed.
 
 ## See Also
 

@@ -5,7 +5,7 @@
 
 ---
 
-> **Current Contract Note:** This page describes the canonical Snapshot model at the Core/Host boundary. SDK applications usually read a projected Snapshot via `getSnapshot()`, while the full substrate remains canonical underneath. Accumulated `system.errors` is no longer part of the current Snapshot contract.
+> **Current Contract Note:** This page describes the canonical Snapshot model at the Core/Host boundary. SDK applications usually read a projected Snapshot via `snapshot()`, while the full substrate remains canonical underneath. Accumulated `system.errors` is no longer part of the current Snapshot contract.
 
 ## What Is Determinism?
 
@@ -117,7 +117,7 @@ type Snapshot = {
 - Computed values are recalculated, never stored
 - There is no channel for value passing outside Snapshot
 
-At the SDK boundary, `getSnapshot()` intentionally projects this canonical structure into a smaller application-facing read model.
+At the SDK boundary, `snapshot()` intentionally projects this canonical structure into a smaller application-facing read model.
 
 ### 2. No Suspended Execution Context
 
@@ -300,7 +300,7 @@ When you use Manifesto, you get these guarantees:
 test('computes transition', () => {
   const context = { now: 0, randomSeed: "seed" };
   const result = await core.compute(schema, snapshot, intent, context);
-  expect(result.snapshot.data.count).toBe(1);
+  expect(result.snapshot.state.count).toBe(1);
 });
 ```
 
@@ -464,7 +464,7 @@ const now = Date.now();
 const now = snapshot.meta.timestamp;
 ```
 
-Host provides time through HostContext and writes the deterministic result into canonical snapshot metadata. Core reads it from Snapshot. At the SDK boundary, projected `getSnapshot()` intentionally hides this field; use `getCanonicalSnapshot()` when you need it.
+Host provides time through HostContext and writes the deterministic result into canonical snapshot metadata. Core reads it from Snapshot. At the SDK boundary, projected `snapshot()` intentionally hides this field; use `inspect.canonicalSnapshot()` when you need it.
 
 ### Q: Can effects have side effects?
 

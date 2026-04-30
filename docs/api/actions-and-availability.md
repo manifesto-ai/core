@@ -2,57 +2,72 @@
 
 > Runtime availability is a read against the current Snapshot.
 
-## `getAvailableActions()`
+## Action Handles
 
-Returns action names whose `available when` gate passes in the current visible Snapshot.
+The v5 app-facing surface exposes actions through typed handles:
 
 ```typescript
-const available = app.getAvailableActions();
+const increment = app.actions.increment;
+const dynamic = app.action("increment");
+```
 
-if (available.includes("clearCompleted")) {
-  // Show a button or expose an agent tool for this step.
+Each handle supports:
+
+- `info()` for action metadata
+- `available()` for coarse current availability
+- `check(...input)` for first-failing-layer admission
+- `preview(...input, options?)` for a non-mutating admitted dry run
+- `submit(...input, options?)` for the runtime write path
+- `bind(...input)` for reusable candidates and advanced raw intent access
+
+## Coarse Availability
+
+`available()` checks the action-family gate in the current visible Snapshot.
+
+```typescript
+if (app.actions.decrement.available()) {
+  await app.actions.decrement.submit();
 }
 ```
 
-Do not cache this value for a long agent loop. Dispatch, approved proposal execution, or restore can change the next availability result.
-Treat the returned names as observational reads, not capability tokens. Base, lineage, and governed `actions.<name>.submit()` calls still re-check legality against the then-current runtime state, and a pending governed proposal can later be superseded if the visible head advances.
+Do not cache this value for a long agent loop. A submit, approved governed
+settlement, or restore can change the next availability result.
 
-## `isActionAvailable(name)`
-
-Checks one coarse action-family gate.
+Use `inspect.availableActions()` when tooling needs the currently available
+action contracts:
 
 ```typescript
-if (app.isActionAvailable("decrement")) {
-  await app.dispatchAsync(app.createIntent(app.MEL.actions.decrement));
-}
+const available = app.inspect.availableActions();
 ```
 
-## `getActionMetadata(name?)`
+Treat returned action info as observational reads, not capability tokens. Base,
+lineage, and governed `actions.<name>.submit()` calls still re-check legality
+against the then-current runtime state.
+
+## Action Metadata
 
 Reads the public action contract from the activated schema.
 
 ```typescript
-const addTodo = app.getActionMetadata("addTodo");
+const addTodo = app.actions.addTodo.info();
+const same = app.inspect.action("addTodo");
 
 console.log(addTodo.name);
-console.log(addTodo.params);
-console.log(addTodo.input);
+console.log(addTodo.parameters);
 console.log(addTodo.description);
-console.log(addTodo.hasDispatchableGate);
 ```
 
-Call without a name to inspect every action.
+## Bound-Candidate Legality
 
-## Bound-Intent Legality
-
-Availability does not know action input. Use intent explanation APIs when the candidate input matters.
+Availability does not know action input. Use `check()` when the candidate input
+matters.
 
 ```typescript
-const intent = app.createIntent(app.MEL.actions.spend, { amount: 20 });
-const blockers = app.whyNot(intent);
+const admission = app.actions.spend.check({ amount: 20 });
 
-if (blockers) {
-  console.log(blockers);
+if (!admission.ok) {
+  console.log(admission.code);
+  console.log(admission.blockers);
 }
 ```
 
@@ -65,10 +80,10 @@ Legality order is stable:
 
 The intended public caller ladder is:
 
-1. `getAvailableActions()` / `isActionAvailable()` for the coarse current decision surface
-2. `getIntentBlockers()` / `whyNot()` / `explainIntent()` for the first failing layer
-3. `simulateIntent(intent)` when the candidate intent is already bound, or `simulate(action, ...input)` when it is not
-4. the runtime write verb when you are ready to execute or submit
+1. `actions.<name>.available()` or `inspect.availableActions()`
+2. `actions.<name>.check(...input)`
+3. `actions.<name>.preview(...input)`
+4. `actions.<name>.submit(...input)`
 
 ## Agent Pattern
 
@@ -76,20 +91,18 @@ Return fresh context after every tool call.
 
 ```typescript
 function readAgentContext() {
-  const snapshot = app.getSnapshot();
+  const snapshot = app.snapshot();
 
   return {
-    data: snapshot.data,
+    state: snapshot.state,
     computed: snapshot.computed,
-    availableActions: app.getAvailableActions().map((name) =>
-      app.getActionMetadata(name),
-    ),
+    availableActions: app.inspect.availableActions(),
   };
 }
 ```
 
 ## Next
 
-- Learn intent binding in [Intents](./intents)
+- Learn action binding in [Intents](./intents)
 - Use availability in the [AI Agents guide](/integration/ai-agents)
 - Read MEL action gates in [Availability](/guide/essentials/availability)

@@ -48,6 +48,7 @@ export const ACTS_CASES = {
   V5_OBSERVE_EVENTS: "ACTS-V5-004",
   V5_OBSERVE_STATE: "ACTS-V5-005",
   V5_INSPECT_READS: "ACTS-V5-006",
+  V5_EXTENSION_KERNEL: "ACTS-V5-007",
   TYPES_V5_ACTION_CANDIDATE: "ACTS-V5-TYPE-001",
   TYPES_V5_OBSERVE_INSPECT: "ACTS-V5-TYPE-002",
 } as const;
@@ -194,6 +195,11 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
     "SDK v5 inspect.* exposes current projected-tooling reads and canonical substrate reads without restoring v3 root verbs.",
   ),
   complianceCase(
+    ACTS_CASES.V5_EXTENSION_KERNEL,
+    "base",
+    "SDK v5 extension-kernel APIs remain under @manifesto-ai/sdk/extensions and do not become root mutation backdoors.",
+  ),
+  complianceCase(
     ACTS_CASES.TYPES_V5_ACTION_CANDIDATE,
     "types",
     "SDK v5 public types expose ManifestoApp, action handles, bound actions, options, admission, preview, and mode-specific submit results.",
@@ -299,7 +305,45 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
     [ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE],
   ),
   ...coverMany(
+    [
+      "SDK-ROOT-1",
+      "SDK-ROOT-2",
+      "SDK-ROOT-3",
+      "SDK-ROOT-7",
+      "SDK-SNAPSHOT-1",
+      "SDK-SNAPSHOT-2",
+      "SDK-SNAPSHOT-3",
+      "SDK-SNAPSHOT-4",
+    ],
+    [ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE],
+  ),
+  ...coverMany(
+    ["SDK-ROOT-4", "SDK-ROOT-6", "SDK-SUBMIT-11"],
+    [ACTS_CASES.TYPES_GOVERNED_RUNTIME],
+  ),
+  ...coverMany(
+    ["SDK-ROOT-5", "SDK-SUBMIT-15", "SDK-SUBMIT-16"],
+    [ACTS_CASES.GOVERNANCE_V5_SETTLEMENT_REATTACH],
+  ),
+  ...coverMany(
     ["ACTS-V5-ADMISSION-1", "ACTS-V5-PREVIEW-1"],
+    [ACTS_CASES.V5_ADMISSION_AND_PREVIEW],
+  ),
+  ...coverMany(
+    [
+      "SDK-ADMISSION-1",
+      "SDK-ADMISSION-2",
+      "SDK-ADMISSION-3",
+      "SDK-ADMISSION-4",
+      "SDK-ADMISSION-5",
+      "SDK-PREVIEW-1",
+      "SDK-PREVIEW-2",
+      "SDK-PREVIEW-3",
+      "SDK-PREVIEW-4",
+      "SDK-PREVIEW-5",
+      "SDK-PREVIEW-6",
+      "SDK-PREVIEW-7",
+    ],
     [ACTS_CASES.V5_ADMISSION_AND_PREVIEW],
   ),
   ...coverMany(
@@ -307,7 +351,38 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
     [ACTS_CASES.V5_SUBMIT_RESULTS],
   ),
   ...coverMany(
+    [
+      "SDK-RESULT-1",
+      "SDK-RESULT-2",
+      "SDK-SUBMIT-1",
+      "SDK-SUBMIT-2",
+      "SDK-SUBMIT-3",
+      "SDK-SUBMIT-4",
+      "SDK-SUBMIT-9",
+      "SDK-SUBMIT-10",
+      "SDK-SUBMIT-12",
+      "SDK-SUBMIT-13",
+      "SDK-SUBMIT-14",
+      "SDK-OUTCOME-1",
+      "SDK-OUTCOME-2",
+      "SDK-OUTCOME-3",
+    ],
+    [ACTS_CASES.V5_SUBMIT_RESULTS],
+  ),
+  ...coverMany(
+    ["SDK-SUBMIT-6"],
+    [ACTS_CASES.LINEAGE_REPORT_SURFACE],
+  ),
+  ...coverMany(
+    ["SDK-SUBMIT-7", "SDK-SUBMIT-8"],
+    [ACTS_CASES.GOVERNANCE_V5_SUBMIT_RESULT],
+  ),
+  ...coverMany(
     ["ACTS-V5-OBSERVE-1"],
+    [ACTS_CASES.V5_OBSERVE_EVENTS],
+  ),
+  ...coverMany(
+    ["SDK-OBSERVE-1", "SDK-OBSERVE-2", "SDK-OBSERVE-4"],
     [ACTS_CASES.V5_OBSERVE_EVENTS],
   ),
   ...coverMany(
@@ -315,8 +390,32 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
     [ACTS_CASES.V5_OBSERVE_STATE],
   ),
   ...coverMany(
+    ["SDK-OBSERVE-3", "SDK-OBSERVE-5"],
+    [ACTS_CASES.V5_OBSERVE_STATE],
+  ),
+  ...coverMany(
     ["ACTS-V5-INSPECT-1"],
     [ACTS_CASES.V5_INSPECT_READS],
+  ),
+  ...coverMany(
+    [
+      "SDK-INSPECT-1",
+      "SDK-INSPECT-2",
+      "SDK-INSPECT-3",
+      "SDK-INSPECT-4",
+      "SDK-INSPECT-5",
+      "SDK-INSPECT-6",
+    ],
+    [ACTS_CASES.V5_INSPECT_READS],
+  ),
+  ...coverMany(
+    [
+      "SDK-EXT-1",
+      "SDK-EXT-2",
+      "SDK-EXT-3",
+      "SDK-EXT-4",
+    ],
+    [ACTS_CASES.V5_EXTENSION_KERNEL],
   ),
   ...coverMany(
     ["ACTS-V5-TYPE-1", "ACTS-V5-TYPE-2"],

@@ -27,15 +27,15 @@ Both operate on the same semantic core. The difference is how much legitimacy, l
 | Agent-driven transitions without approval gates | [AI Agents](./ai-agents) |
 | Explicit proposals, approvals, and branch history | [When You Need Approval or History](/guides/approval-and-history) |
 
-If you only need Snapshot reads and direct intent dispatch, stay on the SDK path.
+If you only need Snapshot reads and direct action submission, stay on the SDK path.
 
 ---
 
 ## The Default Shape
 
 ```text
-External system -> activate() -> createIntent() -> dispatchAsync()
-                                     -> subscribe()/on()/getSnapshot()
+External system -> activate() -> actions.x.submit()
+                                     -> observe.state()/observe.event()/snapshot()
 ```
 
 That shape stays the same whether the caller is a React component, a server route, a CLI command, or an AI worker.

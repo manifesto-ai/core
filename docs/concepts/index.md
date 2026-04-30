@@ -31,7 +31,7 @@ compute(schema, snapshot, intent, context) -> (snapshot', requirements, trace)
 - **Pure**: Same inputs always produce same outputs
 - **Total**: Always returns a result
 - **Traceable**: Every step is recorded
-- **Complete at the canonical boundary**: the canonical snapshot substrate is the whole truth; SDK `getSnapshot()` is the projected default read model
+- **Complete at the canonical boundary**: the canonical snapshot substrate is the whole truth; SDK `snapshot()` is the projected default read model
 
 ## See Also
 

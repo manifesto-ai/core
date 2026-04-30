@@ -6,18 +6,17 @@
 
 ## Default SDK Flow
 
-In the default path, a caller submits an intent through the SDK:
+In the default path, a caller submits an action candidate through the SDK:
 
 ```text
 caller
   -> createManifesto()
   -> activate()
-  -> instance.createIntent(MEL.actions.*, input?)
-  -> instance.dispatchAsync()
+  -> app.actions.<name>.submit(input?)
   -> Host
   -> Core
   -> terminal Snapshot
-  -> subscribe()/on()/getSnapshot()
+  -> observe.state()/observe.event()/snapshot()
 ```
 
 That is the core loop a new developer should keep in mind.
@@ -26,13 +25,13 @@ That is the core loop a new developer should keep in mind.
 
 ## Step by Step
 
-### 1. The caller activates the runtime and creates an Intent
+### 1. The caller activates the runtime and binds an action candidate
 
-Usually with `instance.createIntent(instance.MEL.actions.someAction, ...args)` or `instance.createIntent(instance.MEL.actions.someAction, { ...params })`, depending on the action shape.
+Usually with `app.actions.someAction.submit(...args)` or `app.actions.someAction.submit({ ...params })`, depending on the action shape.
 
-### 2. SDK enqueues the work
+### 2. SDK submits the work
 
-`dispatchAsync()` is the canonical base execution path and resolves to the published terminal snapshot.
+`submit()` is the canonical v5 ingress path and resolves to a mode-specific runtime result.
 
 ### 3. Host runs the compute/execution loop
 
@@ -46,9 +45,9 @@ Core stays pure. Given the same schema, snapshot, and intent, it computes the sa
 
 Once the intent reaches a terminal result, consumers observe it through:
 
-- `subscribe()` for selected state changes
-- `on()` for lifecycle telemetry
-- `getSnapshot()` for direct reads
+- `observe.state()` for selected state changes
+- `observe.event()` for lifecycle telemetry
+- `snapshot()` for direct projected reads
 
 ---
 
@@ -80,7 +79,7 @@ participant
   -> withLineage()
   -> withGovernance()
   -> activate()
-  -> proposeAsync(intent)
+  -> actions.<name>.submit(input?)
   -> governance proposal / authority flow
   -> Host
   -> Core
@@ -95,7 +94,7 @@ That is a deliberate deployment choice, not an implicit part of the basic SDK on
 
 ## What New Developers Should Remember
 
-- `dispatchAsync()` submits and awaits base runtime work
+- `actions.<name>.submit()` submits runtime work
 - Snapshot is the visible result
 - Effects still resolve through patches
 - governed composition is optional and explicit

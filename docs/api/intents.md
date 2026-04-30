@@ -1,100 +1,111 @@
 # Intents
 
-> An intent is a typed request to run one MEL action.
+> In v5, ordinary callers work with action candidates; raw Intents are an advanced protocol escape hatch.
 
-## Action Refs
+## Action Candidates
 
-Use typed action refs from `app.MEL.actions.*`.
+Use typed action handles from `app.actions.*`:
 
 ```typescript
-const action = app.MEL.actions.addTodo;
+const addTodo = app.actions.addTodo;
 ```
 
-Do not use raw action-name strings as your app-facing dispatch contract.
+Do not use raw action-name strings as your app-facing write contract. Use
+`app.action(name)` only when you need dynamic lookup from a known action name.
 
-## `createIntent(action, ...input)`
+## Binding Forms
 
 Zero-parameter action:
 
 ```typescript
-const intent = app.createIntent(app.MEL.actions.clearCompleted);
+const result = await app.actions.clearCompleted.submit();
 ```
 
 Single-parameter action:
 
 ```typescript
-const intent = app.createIntent(app.MEL.actions.addTodo, "Write API docs");
+const result = await app.actions.addTodo.submit("Write API docs");
 ```
 
 Multi-parameter action:
 
 ```typescript
-const intent = app.createIntent(
-  app.MEL.actions.moveTodo,
-  "todo-1",
-  "done",
-);
+const result = await app.actions.moveTodo.submit("todo-1", "done");
 ```
 
-Keyed binding:
+Object-shaped action input:
 
 ```typescript
-const intent = app.createIntent(app.MEL.actions.moveTodo, {
+const result = await app.actions.moveTodo.submit({
   id: "todo-1",
   column: "done",
 });
 ```
 
-Keyed binding is useful when parameter order would be hard to read.
-
-## `dispatchAsync(intent)`
-
-Dispatch commits an intent through the base runtime and resolves with the next terminal projected Snapshot.
+`bind(...input)` stores the same public input shape for repeated checks,
+previews, or submission:
 
 ```typescript
-const snapshot = await app.dispatchAsync(
-  app.createIntent(app.MEL.actions.addTodo, "Write API docs"),
-);
+const candidate = app.actions.addTodo.bind("Write API docs");
 
-console.log(snapshot.data.todos);
+const admission = candidate.check();
+const preview = candidate.preview();
+const result = await candidate.submit();
 ```
 
-The action result lives in Snapshot. Do not expect a separate business return value from the action.
+## Submit Result
 
-## `dispatchAsyncWithReport(intent)`
-
-Use the additive companion when tooling needs the write result as a typed report union rather than `try/catch` plus manual diff logic.
+`submit()` resolves with a mode-specific result union.
 
 ```typescript
-const report = await app.dispatchAsyncWithReport(
-  app.createIntent(app.MEL.actions.addTodo, "Write API docs"),
-);
+const result = await app.actions.addTodo.submit("Write API docs");
 
-if (report.kind === "completed") {
-  console.log(report.outcome.projected.changedPaths);
+if (result.ok) {
+  console.log(result.after.state.todos);
 }
 ```
 
-`dispatchAsyncWithReport()` preserves the same queueing, legality ordering, and publication semantics as `dispatchAsync()`.
-It adds first-party admission data, before/after snapshots, projected diffs, availability deltas, and optional diagnostics for callers that need a richer in-band result.
+The action result lives in Snapshot. Do not expect a separate business return
+value from the action.
 
-## Before Dispatch
+Use submit options when tooling does not need the additive report payload:
 
 ```typescript
-const intent = app.createIntent(app.MEL.actions.addTodo, "");
-const blockers = app.whyNot(intent);
+const result = await app.actions.addTodo.submit(
+  "Write API docs",
+  { __kind: "SubmitOptions", report: "none" },
+);
+```
 
-if (blockers) {
-  console.log("not admitted", blockers);
+## Before Submit
+
+```typescript
+const candidate = app.actions.addTodo.bind("");
+const admission = candidate.check();
+
+if (!admission.ok) {
+  console.log("not admitted", admission.blockers);
 } else {
-  const simulated = app.simulateIntent(intent);
-  console.log(simulated.changedPaths);
-  await app.dispatchAsync(intent);
+  const preview = candidate.preview({ __kind: "PreviewOptions", diagnostics: "summary" });
+  console.log(preview.admitted ? preview.changes : preview.admission.code);
+  await candidate.submit();
 }
 ```
+
+## Raw Intent Escape Hatch
+
+`BoundAction.intent()` exposes the packed raw `Intent` for low-level protocol
+bridges. It is not the primary app path.
+
+```typescript
+const rawIntent = app.actions.addTodo.bind("Write API docs").intent();
+```
+
+Reach for this only when an extension, protocol bridge, or test needs the
+serialized intent shape. App code should stay on action candidates.
 
 ## Next
 
-- Read the dispatch result in [Snapshots and Subscriptions](./snapshots-and-subscriptions)
+- Read the submit result in [Snapshots and Subscriptions](./snapshots-and-subscriptions)
 - Inspect legality in [Actions and Availability](./actions-and-availability)
 - Upgrade writes in [Governed Runtime](./governed-runtime)

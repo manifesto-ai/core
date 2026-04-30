@@ -25,14 +25,14 @@ domain TodoApp {
 ## Read State in TypeScript
 
 ```typescript
-const snapshot = app.getSnapshot();
+const snapshot = app.snapshot();
 
-console.log(snapshot.data.todos);
-console.log(snapshot.data.filter);
-console.log(snapshot.data.selectedTodoId);
+console.log(snapshot.state.todos);
+console.log(snapshot.state.filter);
+console.log(snapshot.state.selectedTodoId);
 ```
 
-Application code reads state through `snapshot.data`.
+Application code reads state through `snapshot.state`.
 
 ## Change State with Actions
 
@@ -48,7 +48,7 @@ State changes happen through patches declared by the domain, or through patches 
 
 ## Common Mistake
 
-Do not mutate `snapshot.data` in UI, server, or agent code. A snapshot is the read result. To request change, create an intent and dispatch it.
+Do not mutate `snapshot.state` in UI, server, or agent code. A snapshot is the read result. To request change, submit an action candidate.
 
 ## Next
 

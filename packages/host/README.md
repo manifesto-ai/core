@@ -119,7 +119,7 @@ const intent = createIntent("increment", "intent-1");
 const result = await host.dispatch(intent);
 
 console.log(result.status);        // -> "complete"
-console.log(result.snapshot.data); // -> { count: 1 }
+console.log(result.snapshot.state); // -> { count: 1 }
 ```
 
 ---

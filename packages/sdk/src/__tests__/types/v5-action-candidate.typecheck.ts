@@ -33,9 +33,21 @@ type ObjectInputDomain = {
   computed: {};
 };
 
+type MultiArgDomain = {
+  actions: {
+    rename: (name: string, force?: boolean) => void;
+  };
+  state: {
+    name: string;
+    force: boolean;
+  };
+  computed: {};
+};
+
 const app: ManifestoApp<CounterDomain, "base"> =
   createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 declare const objectApp: ManifestoApp<ObjectInputDomain, "base">;
+declare const multiArgApp: ManifestoApp<MultiArgDomain, "base">;
 
 const handle: ActionHandle<CounterDomain, "add", "base"> = app.actions.add;
 const input: ActionInput<CounterDomain, "add"> = 1;
@@ -43,6 +55,8 @@ const bound: BoundAction<CounterDomain, "add", "base"> = handle.bind(input);
 const objectBound = objectApp.actions.toggleTodo.bind({ id: "todo-1" });
 const objectInput: ToggleTodoInput = objectBound.input;
 const scalarInput: string = objectApp.actions.toggleTodoById.bind("todo-1").input;
+const multiArgInput: readonly [string, boolean?] =
+  multiArgApp.actions.rename.bind("Ada", true).input;
 const admission: Admission<"add"> = bound.check();
 const previewOptions: PreviewOptions = { __kind: "PreviewOptions", diagnostics: "summary" };
 const preview: PreviewResult<CounterDomain, "add"> = bound.preview(previewOptions);
@@ -66,6 +80,7 @@ void baseResult;
 void projected.state.count;
 void objectInput;
 void scalarInput;
+void multiArgInput;
 void objectApp.actions.toggleTodo.submit({ id: "todo-1" });
 void objectApp.actions.toggleTodoById.submit("todo-1");
 void lineage;

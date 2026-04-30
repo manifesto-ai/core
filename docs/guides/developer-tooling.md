@@ -68,7 +68,7 @@ Put HTTPS in front of the HTTP transport when a remote connector product needs a
 
 ## Important Boundaries
 
-- Studio snapshot inspection expects canonical snapshots from `runtime.getCanonicalSnapshot()`, not the projected result of `getSnapshot()`.
+- Studio snapshot inspection expects canonical snapshots from `runtime.inspect.canonicalSnapshot()`, not the projected result of `snapshot()`.
 - Runtime-aware tools that already hold a typed intent should use `simulateIntent(intent)` for current-snapshot dry-runs and `@manifesto-ai/sdk/extensions` for arbitrary canonical snapshots.
 - `@manifesto-ai/skills` does not auto-install from `postinstall`; setup is always explicit.
 - `@manifesto-ai/studio-core` is read-only and renderer-neutral. It analyzes a bundle and returns JSON projections; it does not execute effects or mutate runtime state.

@@ -1,6 +1,7 @@
 import type { ErrorValue, Intent as HostIntent, Snapshot } from "@manifesto-ai/core";
 import type { ArtifactRef, BranchId, World, WorldId } from "@manifesto-ai/lineage";
 import type { PreparedLineageCommit } from "@manifesto-ai/lineage/provider";
+import type { ExecutionOutcome } from "@manifesto-ai/sdk";
 
 export type { Snapshot } from "@manifesto-ai/core";
 export type {
@@ -112,6 +113,7 @@ export interface Proposal {
   readonly decisionId?: DecisionId;
   readonly epoch: number;
   readonly resultWorld?: WorldId;
+  readonly terminalOutcome?: ExecutionOutcome;
   readonly supersededReason?: SupersedeReason;
   readonly approvedScope?: unknown;
 }

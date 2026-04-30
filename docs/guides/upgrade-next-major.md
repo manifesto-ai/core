@@ -19,7 +19,7 @@ If you are moving old governed code forward, align to these surfaces:
 
 - use `createManifesto(schema, effects)` instead of config-style runtime factories
 - use `withLineage(...)` and `withGovernance(...)` before `activate()`
-- use `createIntent(...)` on the activated instance, then call the runtime verb for the surface you activated. Base runtimes use `dispatchAsync(intent)`. Lineage runtimes use `commitAsync(intent)`. Governance runtimes use `proposeAsync(intent)`.
+- use `actions.<name>.submit(...)` on the activated runtime. Base, Lineage, and Governance modes share that call shape and differ through their result unions.
 - use package-owned stores and services from Lineage and Governance directly
 - treat the old world facade, adapter subpaths, and facade-owned coordinator/runtime as removed
 
@@ -31,8 +31,9 @@ The current advanced-runtime path is:
 2. Add Lineage
 3. Add Governance
 4. Activate
-5. Call `proposeAsync()`
-6. Read history through Lineage queries such as `getLatestHead()` and `restore()`
+5. Call `actions.<name>.submit(...)`
+6. Observe settlement with `waitForSettlement(...)`
+7. Read history through Lineage queries such as `getLatestHead()` and `restore()`
 
 Use `getWorldSnapshot(worldId)` when you need the stored sealed canonical snapshot substrate. Use `restore(worldId)` when you need the normalized runtime resume path.
 

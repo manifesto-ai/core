@@ -11,7 +11,7 @@ import { semanticPathToPatchPath } from "@manifesto-ai/core";
 const pp = semanticPathToPatchPath;
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { createHost, getHostState } from "../../index.js";
+import { createHost, getHostState, getLegacyDataRootHostState } from "../../index.js";
 import type { DomainSchema } from "@manifesto-ai/core";
 import {
   createTestSchema,
@@ -170,15 +170,16 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       });
     });
 
-    it("should still read legacy data-root $host for persisted fixtures", () => {
+    it("should expose legacy data-root $host only through the explicit compatibility helper", () => {
       const legacyData = {
         $host: {
           intentSlots: { "intent-1": { type: "test" } },
           currentIntentId: "intent-1",
         },
       };
-      const hostState = getHostState(legacyData);
+      const hostState = getLegacyDataRootHostState(legacyData);
 
+      expect(getHostState(legacyData)).toBeUndefined();
       expect(hostState).toEqual({
         intentSlots: { "intent-1": { type: "test" } },
         currentIntentId: "intent-1",

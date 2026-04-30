@@ -8,7 +8,7 @@
 
 - How to organize a slightly larger domain
 - How to keep rendering logic outside the domain
-- How `subscribe()` can drive an app loop without any framework
+- How `observe.state()` can drive an app loop without any framework
 - How to prepare for a later UI integration
 
 ---
@@ -88,7 +88,7 @@ Create `manifesto.ts`:
 import { createManifesto } from "@manifesto-ai/sdk";
 import TodoAppMel from "./todo-app.mel";
 
-export const instance = createManifesto(TodoAppMel, {}).activate();
+export const app = createManifesto(TodoAppMel, {}).activate();
 ```
 
 ---
@@ -98,7 +98,7 @@ export const instance = createManifesto(TodoAppMel, {}).activate();
 Create `main.ts`:
 
 ```typescript
-import { instance } from "./manifesto";
+import { app } from "./manifesto";
 
 type Todo = {
   id: string;
@@ -107,9 +107,9 @@ type Todo = {
 };
 
 function render() {
-  const snapshot = instance.getSnapshot();
-  const todos = snapshot.data.todos as Todo[];
-  const filter = snapshot.data.filter as "all" | "active" | "completed";
+  const snapshot = app.snapshot();
+  const todos = snapshot.state.todos as Todo[];
+  const filter = snapshot.state.filter as "all" | "active" | "completed";
 
   const visibleTodos = todos.filter((todo) => {
     if (filter === "active") return !todo.completed;
@@ -129,10 +129,10 @@ function render() {
   }
 }
 
-instance.subscribe(
+app.observe.state(
   (snapshot) => ({
-    todos: snapshot.data.todos,
-    filter: snapshot.data.filter,
+    todos: snapshot.state.todos,
+    filter: snapshot.state.filter,
     totalCount: snapshot.computed["totalCount"],
     hasTodos: snapshot.computed["hasTodos"],
   }),
@@ -142,42 +142,30 @@ instance.subscribe(
 async function run() {
   render();
 
-  await instance.dispatchAsync(
-    instance.createIntent(
-      instance.MEL.actions.addTodo,
-      "Write the tutorial",
-      crypto.randomUUID(),
-    ),
+  await app.actions.addTodo.submit(
+    "Write the tutorial",
+    crypto.randomUUID(),
   );
 
-  await instance.dispatchAsync(
-    instance.createIntent(
-      instance.MEL.actions.addTodo,
-      "Review the generated docs build",
-      crypto.randomUUID(),
-    ),
+  await app.actions.addTodo.submit(
+    "Review the generated docs build",
+    crypto.randomUUID(),
   );
 
-  const firstTodoId = (instance.getSnapshot().data.todos as Todo[])[0].id;
-  await instance.dispatchAsync(
-    instance.createIntent(instance.MEL.actions.toggleTodo, firstTodoId),
-  );
+  const firstTodoId = (app.snapshot().state.todos as Todo[])[0].id;
+  await app.actions.toggleTodo.submit(firstTodoId);
 
-  await instance.dispatchAsync(
-    instance.createIntent(instance.MEL.actions.setFilter, "completed"),
-  );
+  await app.actions.setFilter.submit("completed");
 
-  await instance.dispatchAsync(
-    instance.createIntent(instance.MEL.actions.clearCompleted),
-  );
+  await app.actions.clearCompleted.submit();
 
   render();
-  instance.dispose();
+  app.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  instance.dispose();
+  app.dispose();
 });
 ```
 

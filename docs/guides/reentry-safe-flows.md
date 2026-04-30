@@ -92,22 +92,19 @@ They are pure, but they are still part of the same action flow.
 
 ## How to Test for Re-entry Bugs
 
-Dispatch the same action more than once and inspect the resulting snapshot:
+Submit the same action more than once and inspect the resulting snapshot:
 
 ```typescript
-const first = instance.createIntent(instance.MEL.actions.submit);
-const second = instance.createIntent(instance.MEL.actions.submit);
+await app.actions.submitForm.submit();
+await app.actions.submitForm.submit();
 
-await instance.dispatchAsync(first);
-await instance.dispatchAsync(second);
-
-const snapshot = instance.getSnapshot();
-console.log(snapshot.data);
+const snapshot = app.snapshot();
+console.log(snapshot.state);
 ```
 
 Then ask:
 
-- Did the second dispatch intentionally do new work?
+- Did the second submit intentionally do new work?
 - Did the same effect fire twice for one intent?
 - Did the snapshot end in a stable state?
 

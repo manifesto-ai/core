@@ -4,14 +4,14 @@
 
 `@manifesto-ai/governance` is the package that turns a composable manifesto into a governed world. Its canonical public entry is `withGovernance(manifesto, config)`.
 
-> **Current Contract Note:** The current package contract is [docs/governance-SPEC.md](docs/governance-SPEC.md). The v2.0.0 governance spec remains as the historical service-first baseline. The current root surface also includes the additive `waitForProposal()` observer helper.
+> **Current Contract Note:** The current package contract is [docs/governance-SPEC.md](docs/governance-SPEC.md). The v2.0.0 governance spec remains as the historical service-first baseline. The current runtime surface uses governance-mode `actions.<name>.submit(...)` plus `waitForSettlement(ref)`.
 
 ## Canonical Runtime Path
 
 ```ts
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
-import { waitForProposal, withGovernance } from "@manifesto-ai/governance";
+import { withGovernance } from "@manifesto-ai/governance";
 
 const governed = withGovernance(
   withLineage(createManifesto<CounterDomain>(schema, effects), {
@@ -31,10 +31,10 @@ const governed = withGovernance(
   },
 ).activate();
 
-const proposal = await governed.proposeAsync(
-  governed.createIntent(governed.MEL.actions.increment),
-);
-const settlement = await waitForProposal(governed, proposal);
+const pending = await governed.actions.increment.submit();
+const settlement = pending.ok
+  ? await pending.waitForSettlement()
+  : pending;
 ```
 
 ## What This Package Owns
@@ -49,9 +49,9 @@ const settlement = await waitForProposal(governed, proposal);
 
 ## What Changes After Governance Activation
 
-- direct `dispatchAsync` and `commitAsync` no longer exist
-- the canonical state-change path becomes `proposeAsync() -> approve()/reject()`
-- `waitForProposal()` is an additive observation helper, not a replacement for `proposeAsync()`
+- direct `dispatchAsync`, `commitAsync`, and `proposeAsync` no longer exist
+- the canonical state-change path becomes `actions.x.submit() -> approve()/reject() -> waitForSettlement()`
+- `waitForSettlement()` is an observation helper, not a state-change verb
 - lineage must be composed before governance activation
 - visible snapshots publish only after approved execution seals successfully
 - `getWorldSnapshot(worldId)` remains the stored sealed canonical snapshot lookup; `restore(worldId)` remains the normalized resume path inherited from lineage

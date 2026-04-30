@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { createManifesto } from "@manifesto-ai/sdk";
+import {
+  createSimulationSession,
+  getExtensionKernel,
+} from "@manifesto-ai/sdk/extensions";
 
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
 import {
@@ -239,6 +243,30 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
         .not.toContain("incrementIfEven");
       expect("getCanonicalSnapshot" in app).toBe(false);
       expect("getAvailableActions" in app).toBe(false);
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.V5_EXTENSION_KERNEL,
+      "extension-kernel APIs remain under @manifesto-ai/sdk/extensions and stay read-only.",
+    ),
+    () => {
+      const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      const ext = getExtensionKernel(app);
+      const root = ext.getCanonicalSnapshot();
+      const intent = ext.createIntent(ext.MEL.actions.increment);
+      const simulated = ext.simulateSync(root, intent);
+      const projected = ext.projectSnapshot(simulated.snapshot);
+      const session = createSimulationSession(app);
+      const branch = session.next(ext.MEL.actions.increment);
+
+      expect("kernel" in app).toBe(false);
+      expect("setVisibleSnapshot" in ext).toBe(false);
+      expect(app.snapshot().state.count).toBe(0);
+      expect(projected.state.count).toBe(1);
+      expect(branch.snapshot.state.count).toBe(1);
+      expect(app.snapshot().state.count).toBe(0);
     },
   );
 });

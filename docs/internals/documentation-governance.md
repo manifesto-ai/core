@@ -85,7 +85,9 @@ Other statuses: `Deprecated`, `Superseded`, `Withdrawn`
 - Maintained docs must not reintroduce removed surfaces such as `createManifestoWorld`, `createMemoryWorldStore`, or `WorldStore`.
 - Maintained docs must use `createManifesto() -> withLineage() -> withGovernance() -> activate()` as the canonical governed composition path.
 - Site pages under `docs/` must not link directly to `packages/...` filesystem paths.
-- Direct-dispatch examples must use the current activation-first SDK calling convention: `const app = createManifesto(schema, effects).activate(); await app.dispatchAsync(app.createIntent(app.MEL.actions.someAction))`.
+- Base-runtime write examples must use the current v5 action-candidate calling convention: `const app = createManifesto(schema, effects).activate(); await app.actions.someAction.submit(...)`.
+- Maintained docs must not teach retired app-root v3 verbs such as root intent creation, dispatch, commit, proposal, snapshot, or subscription calls except in explicitly labeled migration/historical notes.
+- Maintained docs must use `snapshot.state` for domain state and `snapshot.namespaces` for canonical namespace data; retired `snapshot.data` examples belong only in migration/historical material.
 
 ---
 

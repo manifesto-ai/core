@@ -13,7 +13,7 @@
 - Host-provided context only (`now`, `randomSeed`)
 - ADR-009 hard cut: structured patch paths + explicit system transition channel
 
-> **Current Contract Note:** This page describes the current Core v4.2.0 surface. Accumulated `system.errors` and `SystemDelta.appendErrors` are no longer part of the current contract. `available` remains the coarse action gate; `isIntentDispatchable()` adds the fine bound-intent gate; and `state.fieldTypes` / `action.inputType` are now the normative runtime typing seam when present.
+> **Current Contract Note:** This page describes the current Core v5 surface. Domain patches are rooted at `snapshot.state`; platform/runtime/tooling writes use the namespace transition channel under `snapshot.namespaces`. Accumulated `system.errors` and `SystemDelta.appendErrors` are no longer part of the current contract. `available` remains the coarse action gate; `isIntentDispatchable()` adds the fine bound-intent gate; and `state.fieldTypes` / `action.inputType` are now the normative runtime typing seam when present.
 
 ---
 
@@ -155,7 +155,8 @@ interface ComputeResult {
 
 ## Boundary Rules
 
-- Patch paths are rooted at `snapshot.data`.
+- Domain patch paths are rooted at `snapshot.state`.
+- Namespace transitions are rooted at `snapshot.namespaces[namespace]` and are not domain patches.
 - `system/input/computed/meta` are not patch targets.
 - Use `applySystemDelta()` for all system transitions.
 - `patchPathToDisplayString()` is display-only and must not be parsed for execution.

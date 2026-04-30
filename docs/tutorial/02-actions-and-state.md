@@ -9,7 +9,7 @@
 - How to model arrays and objects in MEL
 - How to derive UI-ready values in `computed`
 - How to observe only the slice of state you care about
-- How typed action refs map positional arguments into the domain input shape
+- How typed action handles map positional arguments into the domain input shape
 
 ---
 
@@ -80,7 +80,7 @@ domain TodoList {
 
 This domain keeps the rules close to the data:
 
-- `todos` and `filter` live in `snapshot.data`
+- `todos` and `filter` live in `snapshot.state`
 - simple derived flags and counts live in `snapshot.computed`
 - actions describe legal transitions against the current snapshot
 
@@ -94,9 +94,9 @@ Create `main.ts`:
 import { createManifesto } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
-const instance = createManifesto(TodoMel, {}).activate();
+const app = createManifesto(TodoMel, {}).activate();
 
-instance.subscribe(
+app.observe.state(
   (snapshot) => snapshot.computed["totalCount"],
   (totalCount) => {
     console.log("Total todos:", totalCount);
@@ -104,47 +104,37 @@ instance.subscribe(
 );
 
 async function run() {
-  await instance.dispatchAsync(
-    instance.createIntent(
-      instance.MEL.actions.addTodo,
-      "Learn Manifesto",
-      crypto.randomUUID(),
-    ),
+  await app.actions.addTodo.submit(
+    "Learn Manifesto",
+    crypto.randomUUID(),
   );
 
-  await instance.dispatchAsync(
-    instance.createIntent(
-      instance.MEL.actions.addTodo,
-      "Ship the first tutorial rewrite",
-      crypto.randomUUID(),
-    ),
+  await app.actions.addTodo.submit(
+    "Ship the first tutorial rewrite",
+    crypto.randomUUID(),
   );
 
-  let snapshot = instance.getSnapshot();
+  let snapshot = app.snapshot();
   console.log("Total todos:", snapshot.computed["totalCount"]);
   console.log("Has todos:", snapshot.computed["hasTodos"]);
 
-  const firstTodoId = (snapshot.data.todos as Array<{ id: string }>)[0].id;
-  await instance.dispatchAsync(
-    instance.createIntent(instance.MEL.actions.toggleTodo, firstTodoId),
-  );
+  const firstTodoId = (snapshot.state.todos as Array<{ id: string }>)[0].id;
+  await app.actions.toggleTodo.submit(firstTodoId);
 
-  snapshot = instance.getSnapshot();
-  console.log("Completed state:", snapshot.data.todos);
+  snapshot = app.snapshot();
+  console.log("Completed state:", snapshot.state.todos);
 
-  await instance.dispatchAsync(
-    instance.createIntent(instance.MEL.actions.clearCompleted),
-  );
+  await app.actions.clearCompleted.submit();
 
-  snapshot = instance.getSnapshot();
-  console.log("Todos after clearCompleted:", snapshot.data.todos);
+  snapshot = app.snapshot();
+  console.log("Todos after clearCompleted:", snapshot.state.todos);
 
-  instance.dispose();
+  app.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  instance.dispose();
+  app.dispose();
 });
 ```
 
@@ -152,9 +142,9 @@ run().catch((error) => {
 
 ## What to Notice
 
-### `snapshot.data` vs `snapshot.computed`
+### `snapshot.state` vs `snapshot.computed`
 
-Use `data` for stored domain state. Use `computed` for values you want to derive every time from that state.
+Use `state` for stored domain state. Use `computed` for values you want to derive every time from that state.
 
 ### Selector-based subscriptions
 
@@ -162,7 +152,7 @@ This tutorial subscribes to `totalCount`, not the full snapshot. That keeps the 
 
 ### Action inputs can be positional or object-shaped in app code
 
-`instance.createIntent(instance.MEL.actions.addTodo, title, id)` is typed from the MEL action signature, and `instance.createIntent(instance.MEL.actions.addTodo, { title, id })` is also supported when the action input is object-shaped. The runtime still packs both forms into the canonical object input expected by the compiled action.
+`app.actions.addTodo.submit(title, id)` is typed from the MEL action signature. Object-shaped actions use one object argument. The runtime still owns canonical input packing.
 
 ### Actions stay small
 
@@ -184,19 +174,19 @@ That makes the domain easier to test and easier to explain.
 Do not do this:
 
 ```typescript
-const snapshot = instance.getSnapshot();
-(snapshot.data.todos as Array<{ completed: boolean }>)[0].completed = true;
+const snapshot = app.snapshot();
+(snapshot.state.todos as Array<{ completed: boolean }>)[0].completed = true;
 ```
 
-That changes your local copy, not the domain. Create and dispatch an intent instead.
+That changes your local copy, not the domain. Submit an action instead.
 
 ### Treating `computed` as storage
 
 If a value must be persisted in the domain, put it in `state`. If it can be derived from current state, keep it in `computed`.
 
-### Expecting `subscribe()` to fire immediately
+### Expecting `observe.state()` to fire immediately
 
-It does not emit the current value on registration. Read `getSnapshot()` once if you need an initial render, then subscribe for changes.
+It does not emit the current value on registration. Read `snapshot()` once if you need an initial render, then observe for changes.
 
 ---
 

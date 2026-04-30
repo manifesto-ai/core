@@ -2,33 +2,33 @@
 
 > Subscriptions run a listener when a selected Snapshot value changes.
 
-Use `subscribe(selector, listener)` when UI, logs, scripts, or integrations need to react to published runtime state.
+Use `observe.state(selector, listener)` when UI, logs, scripts, or integrations need to react to published runtime state.
 
 ## Subscribe to a Slice
 
 ```typescript
-const unsubscribe = app.subscribe(
-  (snapshot) => snapshot.data.count,
-  (count) => {
-    console.log("Count changed:", count);
+const unsubscribe = app.observe.state(
+  (snapshot) => snapshot.state.count,
+  (next, prev) => {
+    console.log("Count changed:", prev, next);
   },
 );
 ```
 
-The selector receives each published Snapshot. The listener receives the selected value.
+The selector receives each published Snapshot. The listener receives the next and previous selected value.
 
 ## Seed the Initial Render
 
 ```typescript
-render(app.getSnapshot());
+render(app.snapshot());
 
-const unsubscribe = app.subscribe(
+const unsubscribe = app.observe.state(
   (snapshot) => snapshot,
   (snapshot) => render(snapshot),
 );
 ```
 
-`subscribe()` observes later publications. Read `getSnapshot()` once when you also need the current value immediately.
+`observe.state()` observes later publications. Read `snapshot()` once when you also need the current value immediately.
 
 ## Clean Up
 

@@ -76,7 +76,7 @@ const intent = createIntent("loadUser", { userId: "123" }, "intent-1");
 const result = await host.dispatch(intent);
 
 console.log(result.status); // -> "complete"
-console.log(result.snapshot.data.user); // -> { id: "123", name: "..." }
+console.log(result.snapshot.state.user); // -> { id: "123", name: "..." }
 ```
 
 > See [GUIDE.md](GUIDE.md) for the full tutorial.

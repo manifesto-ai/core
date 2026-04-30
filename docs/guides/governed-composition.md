@@ -2,7 +2,7 @@
 
 > Assemble the approval-and-history runtime directly from SDK, Lineage, and Governance.
 
-Only read this after [When You Need Approval or History](/guides/approval-and-history) has already told you that the project needs these layers. If you only need direct dispatch, stay on `@manifesto-ai/sdk` and `createManifesto()`.
+Only read this after [When You Need Approval or History](/guides/approval-and-history) has already told you that the project needs these layers. If you only need direct base-runtime submits, stay on `@manifesto-ai/sdk` and `createManifesto()`.
 
 ## The Current Path
 
@@ -12,7 +12,7 @@ The current advanced-runtime path is:
 2. add continuity with `withLineage(...)`
 3. add legitimacy with `withGovernance(...)`
 4. call `activate()`
-5. submit reviewable work with `proposeAsync(...)`
+5. submit reviewable work with `actions.<name>.submit(...)`
 
 ## Minimal Assembly
 
@@ -46,8 +46,8 @@ const governed = withGovernance(
 ## Canonical Flow
 
 1. Activate the decorated runtime.
-2. Create a typed intent from `governed.MEL.actions.*`.
-3. Call `proposeAsync(intent)`.
+2. Submit a typed action candidate with `governed.actions.<name>.submit(...)`.
+3. Observe the returned pending proposal.
 4. Let Governance auto-approve or return a pending proposal.
 5. Read sealed history through Lineage queries such as `getLatestHead()` and `restore()`.
 

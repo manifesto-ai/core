@@ -244,11 +244,12 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     args: ActionArgs<T, Name>,
   ): Candidate<T, Name> {
     const actionRef = kernel.MEL.actions[name] as TypedActionRef<T, Name>;
+    const publicInput = toPublicInput(args);
     try {
       const intent = kernel.createIntent(actionRef, ...args);
       return Object.freeze({
         actionName: name,
-        input: intent.input as ActionInput<T, Name>,
+        input: publicInput,
         intent,
         inputError: null,
       });
@@ -259,11 +260,25 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
 
       return Object.freeze({
         actionName: name,
-        input: fallbackInput(args) as ActionInput<T, Name>,
+        input: publicInput,
         intent: null,
         inputError: error,
       });
     }
+  }
+
+  function toPublicInput<Name extends ActionName<T>>(
+    args: readonly unknown[],
+  ): ActionInput<T, Name> {
+    if (args.length === 0) {
+      return undefined as ActionInput<T, Name>;
+    }
+
+    if (args.length === 1) {
+      return args[0] as ActionInput<T, Name>;
+    }
+
+    return Object.freeze([...args]) as ActionInput<T, Name>;
   }
 
   function checkCandidate<Name extends ActionName<T>>(
@@ -276,7 +291,6 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     candidate: Candidate<T, Name>,
     options?: PreviewOptions,
   ): PreviewResult<T, Name> {
-    void options;
     const beforeCanonical = kernel.getCanonicalSnapshot();
     const admission = admitCandidate(candidate, beforeCanonical);
     if (!admission.admission.ok || admission.intent === null) {
@@ -299,9 +313,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       requirements: simulated.requirements,
       newAvailableActions: kernel.getAvailableActionsFor(simulated.snapshot)
         .map((name) => getActionInfo(name as ActionName<T>)),
-      ...(simulated.diagnostics
-        ? { diagnostics: { trace: simulated.diagnostics.trace } }
-        : {}),
+      ...previewDiagnostics(simulated.diagnostics, options),
       error: simulated.snapshot.system.lastError,
     }) as PreviewResult<T, Name>;
   }
@@ -494,7 +506,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
 
   function getPublicArity<Name extends ActionName<T>>(name: Name): number {
     const metadata = kernel.getActionMetadata(name);
-    return metadata.params.length;
+    return metadata.publicArity;
   }
 
   function emitSubmissionAdmitted<Name extends ActionName<T>>(
@@ -609,14 +621,19 @@ function isOption(
     && (value as { readonly __kind?: unknown }).__kind === kind;
 }
 
-function fallbackInput(args: readonly unknown[]): unknown {
-  if (args.length === 0) {
-    return undefined;
+function previewDiagnostics(
+  diagnostics: { readonly trace?: unknown } | undefined,
+  options: PreviewOptions | undefined,
+) {
+  if (!diagnostics || options?.diagnostics === "none") {
+    return {};
   }
-  if (args.length === 1) {
-    return args[0];
+
+  if (options?.diagnostics === "summary") {
+    return { diagnostics: {} };
   }
-  return Object.freeze([...args]);
+
+  return { diagnostics: { trace: diagnostics.trace } };
 }
 
 function toActionInfo<

@@ -16,7 +16,7 @@ An SDK effect handler receives effect params and a projected Snapshot context.
 const effects = {
   "api.fetchUser": async (params, ctx) => {
     console.log(params);
-    console.log(ctx.snapshot.data);
+    console.log(ctx.snapshot.state);
 
     return [];
   },
