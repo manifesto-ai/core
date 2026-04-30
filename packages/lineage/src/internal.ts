@@ -75,6 +75,7 @@ type LineageControllerKernel<T extends ManifestoDomainShape> = Pick<
   | "schema"
   | "getVisibleCoreSnapshot"
   | "setVisibleSnapshot"
+  | "rehydrateSnapshot"
   | "restoreVisibleSnapshot"
   | "isDisposed"
   | "ensureIntentId"
@@ -225,7 +226,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
     currentBranchId = branch.id;
     currentCompletedWorldId = branch.head;
     const restored = await service.restore(branch.head);
-    kernel.setVisibleSnapshot(restored, { notify: false });
+    kernel.setVisibleSnapshot(kernel.rehydrateSnapshot(restored), { notify: false });
   }
 
   async function bindInitialBranch(branchId?: string): Promise<BranchInfo> {
@@ -418,7 +419,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
 
       await ensureReady();
       const restored = await service.restore(worldId);
-      kernel.setVisibleSnapshot(restored);
+      kernel.setVisibleSnapshot(kernel.rehydrateSnapshot(restored));
       currentCompletedWorldId = worldId;
 
       const branches = await service.getBranches();
@@ -451,7 +452,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
       }
 
       const restored = await service.restore(branch.head);
-      kernel.setVisibleSnapshot(restored);
+      kernel.setVisibleSnapshot(kernel.rehydrateSnapshot(restored));
       currentBranchId = branch.id;
       currentCompletedWorldId = branch.head;
       return result;

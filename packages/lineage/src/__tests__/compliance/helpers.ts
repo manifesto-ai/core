@@ -2,11 +2,11 @@ import type { Snapshot } from "../../index.js";
 import { createLineageComplianceAdapter } from "./lcts-adapter.js";
 
 export function createTestSnapshot(
-  data: Record<string, unknown>,
+  state: Record<string, unknown>,
   overrides?: Partial<Snapshot>
 ): Snapshot {
   return {
-    data,
+    state,
     computed: {},
     system: {
       status: "idle",
@@ -20,6 +20,10 @@ export function createTestSnapshot(
       timestamp: 0,
       randomSeed: "seed",
       schemaHash: "schema-hash",
+    },
+    namespaces: {
+      host: {},
+      mel: { guards: { intent: {} } },
     },
     ...overrides,
   };

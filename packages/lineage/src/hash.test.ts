@@ -1,17 +1,18 @@
 import { describe, expect, it } from "vitest";
 import type { Snapshot } from "@manifesto-ai/core";
 import {
+  computeHash,
   computeSnapshotHash,
   computeWorldId,
   deriveTerminalStatus,
 } from "./hash.js";
 
 function createTestSnapshot(
-  data: Record<string, unknown>,
+  state: Record<string, unknown>,
   overrides?: Partial<Snapshot>
 ): Snapshot {
   return {
-    data,
+    state,
     computed: {},
     system: {
       status: "idle",
@@ -26,23 +27,27 @@ function createTestSnapshot(
       randomSeed: "seed",
       schemaHash: "schema-hash",
     },
+    namespaces: {
+      host: {},
+      mel: { guards: { intent: {} } },
+    },
     ...overrides,
   };
 }
 
 describe("@manifesto-ai/lineage hash", () => {
   it("keeps snapshot hash stable across platform/meta-only changes", () => {
-    const base = createTestSnapshot({
-      count: 1,
-      $host: { internal: true },
-      $mel: { guard: true },
-    });
-    const changed = createTestSnapshot(
+    const base = createTestSnapshot(
+      { count: 1 },
       {
-        count: 1,
-        $host: { internal: false },
-        $mel: { guard: false },
-      },
+        namespaces: {
+          host: { internal: true },
+          mel: { guards: { intent: { guard: "true" } } },
+        },
+      }
+    );
+    const changed = createTestSnapshot(
+      { count: 1 },
       {
         computed: { derived: 1 },
         input: { transient: true },
@@ -51,6 +56,10 @@ describe("@manifesto-ai/lineage hash", () => {
           timestamp: 10,
           randomSeed: "other",
           schemaHash: "other-schema",
+        },
+        namespaces: {
+          host: { internal: false },
+          mel: { guards: { intent: { guard: "false" } } },
         },
       }
     );
@@ -63,6 +72,35 @@ describe("@manifesto-ai/lineage hash", () => {
     const right = createTestSnapshot({ count: 2 });
 
     expect(computeSnapshotHash(left)).not.toBe(computeSnapshotHash(right));
+  });
+
+  it("treats dollar-prefixed state keys as semantic state", () => {
+    const left = createTestSnapshot({ count: 1 });
+    const right = createTestSnapshot({ count: 1, $host: { legacy: true } });
+
+    expect(computeSnapshotHash(left)).not.toBe(computeSnapshotHash(right));
+  });
+
+  it("keeps migrated legacy namespace relocation continuous with domain-only hash input", () => {
+    const migrated = createTestSnapshot(
+      { count: 1, nested: { ok: true } },
+      {
+        namespaces: {
+          host: { legacy: true },
+          mel: { guards: { intent: { guard: "true" } } },
+        },
+      }
+    );
+    const expected = computeHash({
+      state: { count: 1, nested: { ok: true } },
+      system: {
+        terminalStatus: "completed",
+        currentError: null,
+        pendingDigest: "empty",
+      },
+    });
+
+    expect(computeSnapshotHash(migrated)).toBe(expected);
   });
 
   it("derives terminal status from pending requirements and lastError", () => {

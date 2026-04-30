@@ -4,11 +4,11 @@ import { createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
 import { createLineageService } from "./service/lineage-service.js";
 
 function createTestSnapshot(
-  data: Record<string, unknown>,
+  state: Record<string, unknown>,
   overrides?: Partial<Snapshot>
 ): Snapshot {
   return {
-    data,
+    state,
     computed: {},
     system: {
       status: "idle",
@@ -22,6 +22,10 @@ function createTestSnapshot(
       timestamp: 0,
       randomSeed: "seed",
       schemaHash: "schema-hash",
+    },
+    namespaces: {
+      host: {},
+      mel: { guards: { intent: {} } },
     },
     ...overrides,
   };

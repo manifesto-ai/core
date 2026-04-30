@@ -14,17 +14,17 @@ describe("LCTS Identity Suite", () => {
       "Snapshot hash stays stable across platform/meta-only changes and tracks hash-visible fields only."
     ),
     async () => {
-      const base = createTestSnapshot({
-        count: 1,
-        $host: { internal: true },
-        $mel: { guard: true },
-      });
-      const onlyPlatformAndMetaChanged = createTestSnapshot(
+      const base = createTestSnapshot(
+        { count: 1 },
         {
-          count: 1,
-          $host: { internal: false, changed: true },
-          $mel: { another: "value" },
-        },
+          namespaces: {
+            host: { internal: true },
+            mel: { guards: { intent: { guard: "true" } } },
+          },
+        }
+      );
+      const onlyPlatformAndMetaChanged = createTestSnapshot(
+        { count: 1 },
         {
           computed: { derived: 99 },
           input: { transient: "ignore-me" },
@@ -34,13 +34,21 @@ describe("LCTS Identity Suite", () => {
             randomSeed: "different-seed",
             schemaHash: "different-schema-hash",
           },
+          namespaces: {
+            host: { internal: false, changed: true },
+            mel: { guards: { intent: { another: "value" } } },
+          },
         }
       );
-      const domainChanged = createTestSnapshot({
-        count: 2,
-        $host: { internal: true },
-        $mel: { guard: true },
-      });
+      const domainChanged = createTestSnapshot(
+        { count: 2 },
+        {
+          namespaces: {
+            host: { internal: true },
+            mel: { guards: { intent: { guard: "true" } } },
+          },
+        }
+      );
 
       const baseHash = await adapter.computeSnapshotHash(base);
       const onlyMetaHash = await adapter.computeSnapshotHash(onlyPlatformAndMetaChanged);

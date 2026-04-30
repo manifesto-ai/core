@@ -2,17 +2,9 @@ import type {
   BaseLaws,
   CanonicalSnapshot,
   ComposableManifesto,
-  DispatchReport,
-  DispatchExecutionOutcome,
-  ExecutionDiagnostics,
-  ExecutionFailureInfo,
-  IntentAdmission,
   LineageLaws,
-  ManifestoBaseInstance,
+  ManifestoApp,
   ManifestoDomainShape,
-  Snapshot,
-  TypedIntent,
-  TypedDispatchAsync,
 } from "@manifesto-ai/sdk";
 
 import type {
@@ -46,70 +38,23 @@ export type LineageComposableLaws = BaseLaws & LineageLaws & {
   readonly __governanceLaws?: never;
 };
 
-type TypedCommitAsync<T extends ManifestoDomainShape> = TypedDispatchAsync<T>;
-type TypedCommitAsyncWithReport<T extends ManifestoDomainShape> = (
-  intent: TypedIntent<T>,
-) => Promise<CommitReport<T>>;
-
-type DispatchCompletedReport<T extends ManifestoDomainShape> = Extract<
-  DispatchReport<T>,
-  { readonly kind: "completed" }
->;
-
-type DispatchRejectedReport<T extends ManifestoDomainShape> = Extract<
-  DispatchReport<T>,
-  { readonly kind: "rejected" }
->;
-
-type DispatchFailedReport<T extends ManifestoDomainShape> = Extract<
-  DispatchReport<T>,
-  { readonly kind: "failed" }
->;
-
-export type CommitReport<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> =
-  | (DispatchCompletedReport<T> & {
-      readonly resultWorld: WorldId;
-      readonly branchId: BranchId;
-      readonly headAdvanced: true;
-    })
-  | DispatchRejectedReport<T>
-  | (Omit<DispatchFailedReport<T>, "published" | "outcome"> & {
-      readonly published: false;
-      readonly diagnostics?: ExecutionDiagnostics;
-      readonly resultWorld?: WorldId;
-      readonly branchId?: BranchId;
-      readonly headAdvanced?: false;
-      readonly sealedOutcome?: DispatchExecutionOutcome<T>;
-      readonly error: ExecutionFailureInfo;
-      readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
-      readonly beforeSnapshot: Snapshot<T["state"]>;
-      readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
-    });
+export type LineageContinuitySurface<T extends ManifestoDomainShape> = {
+  readonly restore: (worldId: WorldId) => Promise<void>;
+  readonly getWorld: (worldId: WorldId) => Promise<World | null>;
+  readonly getWorldSnapshot: (
+    worldId: WorldId,
+  ) => Promise<CanonicalSnapshot<T["state"]> | null>;
+  readonly getLineage: () => Promise<WorldLineage>;
+  readonly getLatestHead: () => Promise<WorldHead | null>;
+  readonly getHeads: () => Promise<readonly WorldHead[]>;
+  readonly getBranches: () => Promise<readonly BranchInfo[]>;
+  readonly getActiveBranch: () => Promise<BranchInfo>;
+  readonly switchActiveBranch: (branchId: BranchId) => Promise<BranchSwitchResult>;
+  readonly createBranch: (name: string, fromWorldId?: WorldId) => Promise<BranchId>;
+};
 
 export type LineageInstance<T extends ManifestoDomainShape> =
-  Omit<ManifestoBaseInstance<T>, "dispatchAsync" | "dispatchAsyncWithReport"> & {
-    readonly commitAsync: TypedCommitAsync<T>;
-    readonly commitAsyncWithReport: TypedCommitAsyncWithReport<T>;
-    readonly restore: (worldId: WorldId) => Promise<void>;
-    readonly getWorld: (worldId: WorldId) => Promise<World | null>;
-    readonly getWorldSnapshot: (
-      worldId: WorldId,
-    ) => Promise<CanonicalSnapshot<T["state"]> | null>;
-    readonly getLineage: () => Promise<WorldLineage>;
-    readonly getLatestHead: () => Promise<WorldHead | null>;
-    readonly getHeads: () => Promise<readonly WorldHead[]>;
-    readonly getBranches: () => Promise<readonly BranchInfo[]>;
-    readonly getActiveBranch: () => Promise<BranchInfo>;
-    readonly switchActiveBranch: (branchId: BranchId) => Promise<BranchSwitchResult>;
-    readonly createBranch: (name: string, fromWorldId?: WorldId) => Promise<BranchId>;
-  };
-
-export type LineageCommitRuntime<T extends ManifestoDomainShape> = Pick<
-  LineageInstance<T>,
-  "commitAsync" | "commitAsyncWithReport"
->;
+  ManifestoApp<T, "lineage"> & LineageContinuitySurface<T>;
 
 export type LineageComposableManifesto<
   T extends ManifestoDomainShape,

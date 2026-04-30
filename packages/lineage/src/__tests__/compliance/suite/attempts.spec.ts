@@ -46,10 +46,7 @@ describe("LCTS Attempts Suite", () => {
     async () => {
       const { service } = await createBootstrappedLineage();
       const firstSnapshot = createTestSnapshot(
-        {
-          count: 2,
-          $host: { trace: "first" },
-        },
+        { count: 2 },
         {
           computed: { derived: 1 },
           input: { transient: true },
@@ -58,6 +55,10 @@ describe("LCTS Attempts Suite", () => {
             timestamp: 22,
             randomSeed: "seed-a",
             schemaHash: "schema-hash",
+          },
+          namespaces: {
+            host: { trace: "first" },
+            mel: { guards: { intent: {} } },
           },
         }
       );
@@ -75,10 +76,7 @@ describe("LCTS Attempts Suite", () => {
       const forkBranchId = await service.createBranch("fork", mainBranch.head);
       await service.switchActiveBranch(forkBranchId);
       const reusedSnapshot = createTestSnapshot(
-        {
-          count: 2,
-          $host: { trace: "second" },
-        },
+        { count: 2 },
         {
           computed: { derived: 999 },
           input: { transient: "different" },
@@ -88,6 +86,10 @@ describe("LCTS Attempts Suite", () => {
             randomSeed: "seed-b",
             schemaHash: "schema-hash",
           },
+          namespaces: {
+            host: { trace: "second" },
+            mel: { guards: { intent: {} } },
+          },
         }
       );
       const reusedCommit = await service.prepareSealNext({
@@ -96,7 +98,7 @@ describe("LCTS Attempts Suite", () => {
         branchId: forkBranchId,
         terminalSnapshot: reusedSnapshot,
         createdAt: 3,
-        patchDelta: { _patchFormat: 2, patches: [{ op: "set", path: "data.count", value: 2 }] },
+        patchDelta: { _patchFormat: 2, patches: [{ op: "set", path: "state.count", value: 2 }] },
       });
       await service.commitPrepared(reusedCommit);
 

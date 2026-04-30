@@ -24,7 +24,7 @@ export interface CurrentErrorSignature {
 }
 
 export interface SnapshotHashInput {
-  readonly data: Record<string, unknown>;
+  readonly state: Record<string, unknown>;
   readonly system: {
     readonly terminalStatus: TerminalStatus;
     readonly currentError: CurrentErrorSignature | null;

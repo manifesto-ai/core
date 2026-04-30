@@ -1,20 +1,17 @@
-import type { Intent } from "@manifesto-ai/core";
 import type {
+  Blocker,
   CanonicalSnapshot,
-  DispatchBlocker,
+  LineageSubmissionResult,
+  ManifestoApp,
+  SubmitResultFor,
 } from "../../../../sdk/src/index.ts";
 
 import { createManifesto } from "../../../../sdk/src/index.ts";
-import {
-  createForeignSchema,
-  type ForeignDomain,
-} from "../../../../sdk/src/__tests__/helpers/foreign-schema.ts";
 import {
   createCounterSchema,
   type CounterDomain,
 } from "../../../../sdk/src/__tests__/helpers/schema.ts";
 import {
-  type CommitReport,
   createInMemoryLineageStore,
   withLineage,
 } from "../../index.ts";
@@ -24,49 +21,43 @@ const lineage = withLineage<CounterDomain>(
   { store: createInMemoryLineageStore() },
 ).activate();
 
-void lineage.commitAsync(
-  lineage.createIntent(lineage.MEL.actions.increment),
-);
-const lineageReport: Promise<CommitReport<CounterDomain>> = lineage.commitAsyncWithReport(
-  lineage.createIntent(lineage.MEL.actions.increment),
-);
-const lineageWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> | null> = lineage.getWorldSnapshot("world-1");
-const lineageDispatchable: boolean = lineage.isIntentDispatchable(lineage.MEL.actions.increment);
-const lineageBlockers: readonly DispatchBlocker[] = lineage.getIntentBlockers(lineage.MEL.actions.increment);
+const app: ManifestoApp<CounterDomain, "lineage"> = lineage;
+const submitResult: Promise<LineageSubmissionResult<CounterDomain, "increment">> =
+  lineage.actions.increment.submit();
+const submitResultFor: Promise<SubmitResultFor<"lineage", CounterDomain, "increment">> =
+  lineage.action("increment").submit();
+const boundSubmitResult: Promise<LineageSubmissionResult<CounterDomain, "increment">> =
+  lineage.actions.increment.bind().submit();
+const lineageWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> | null> =
+  lineage.getWorldSnapshot("world-1");
+const lineageAdmission = lineage.actions.increment.check();
+const lineageDispatchable: boolean = lineageAdmission.ok;
+const lineageBlockers: readonly Blocker[] = lineageAdmission.ok
+  ? []
+  : lineageAdmission.blockers;
+
+void app;
+void submitResult;
+void submitResultFor;
+void boundSubmitResult;
 void lineageWorldSnapshot;
+void lineageAdmission;
 void lineageDispatchable;
 void lineageBlockers;
-void lineageReport;
 
-// @ts-expect-error lineage runtime removes dispatchAsync after verb promotion
-lineage.dispatchAsync(
-  lineage.createIntent(lineage.MEL.actions.increment),
-);
+// @ts-expect-error lineage runtime does not expose governance settlement helpers
+app.waitForSettlement("proposal-1");
+
+// @ts-expect-error lineage runtime removes base dispatchAsync after verb promotion
+lineage.dispatchAsync;
+
 // @ts-expect-error lineage runtime removes base dispatchAsyncWithReport after verb promotion
-lineage.dispatchAsyncWithReport(
-  lineage.createIntent(lineage.MEL.actions.increment),
-);
+lineage.dispatchAsyncWithReport;
 
-const rawIntent: Intent = {
-  type: "increment",
-  intentId: "raw-intent",
-};
+// @ts-expect-error lineage runtime removes v3 commitAsync after v5 submit promotion
+lineage.commitAsync;
 
-// @ts-expect-error commitAsync only accepts typed intents created for this domain
-void lineage.commitAsync(rawIntent);
-// @ts-expect-error commitAsyncWithReport only accepts typed intents created for this domain
-void lineage.commitAsyncWithReport(rawIntent);
-
-const foreignLineage = withLineage<ForeignDomain>(
-  createManifesto<ForeignDomain>(createForeignSchema(), {}),
-  { store: createInMemoryLineageStore() },
-).activate();
-
-const foreignIntent = foreignLineage.createIntent(foreignLineage.MEL.actions.toggle);
-
-// @ts-expect-error commitAsync rejects intents branded for a different domain
-void lineage.commitAsync(foreignIntent);
-// @ts-expect-error commitAsyncWithReport rejects intents branded for a different domain
-void lineage.commitAsyncWithReport(foreignIntent);
+// @ts-expect-error lineage runtime removes v3 commitAsyncWithReport after v5 submit promotion
+lineage.commitAsyncWithReport;
 
 export {};

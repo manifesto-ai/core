@@ -1,10 +1,9 @@
 import type {
-  CreateIntentArgs,
+  ActionArgs,
+  ActionName,
+  LineageSubmissionResult,
+  ManifestoApp,
   ManifestoDomainShape,
-  ManifestoLegalityRuntime,
-  Snapshot,
-  TypedActionRef,
-  TypedIntent,
 } from "../../../../sdk/src/index.ts";
 import { createManifesto } from "../../../../sdk/src/index.ts";
 import {
@@ -12,37 +11,24 @@ import {
   type CounterDomain,
 } from "../../../../sdk/src/__tests__/helpers/schema.ts";
 import {
-  type LineageCommitRuntime,
   createInMemoryLineageStore,
   withLineage,
 } from "../../index.ts";
 
-function prepareIntent<
+function submitBound<
   T extends ManifestoDomainShape,
-  K extends keyof T["actions"],
+  K extends ActionName<T>,
 >(
-  runtime: ManifestoLegalityRuntime<T>,
-  action: TypedActionRef<T, K>,
-  ...intentArgs: CreateIntentArgs<T, K>
-): TypedIntent<T, K> {
-  const intent = runtime.createIntent(action, ...intentArgs);
-  const blockers = runtime.whyNot(intent);
-  if (blockers === null) {
-    void runtime.simulateIntent(intent);
+  app: ManifestoApp<T, "lineage">,
+  action: K,
+  ...intentArgs: ActionArgs<T, K>
+): Promise<LineageSubmissionResult<T, K>> {
+  const bound = app.action(action).bind(...intentArgs);
+  const admission = bound.check();
+  if (admission.ok) {
+    void bound.preview();
   }
-  return intent;
-}
-
-function commitPrepared<
-  T extends ManifestoDomainShape,
-  K extends keyof T["actions"],
->(
-  prep: ManifestoLegalityRuntime<T>,
-  write: LineageCommitRuntime<T>,
-  action: TypedActionRef<T, K>,
-  ...intentArgs: CreateIntentArgs<T, K>
-): Promise<Snapshot<T["state"]>> {
-  return write.commitAsync(prepareIntent(prep, action, ...intentArgs));
+  return bound.submit();
 }
 
 const lineage = withLineage<CounterDomain>(
@@ -50,23 +36,20 @@ const lineage = withLineage<CounterDomain>(
   { store: createInMemoryLineageStore() },
 ).activate();
 
-const legalityRuntime: ManifestoLegalityRuntime<CounterDomain> = lineage;
-const commitRuntime: LineageCommitRuntime<CounterDomain> = lineage;
-const preparedIncrement: TypedIntent<CounterDomain, "increment"> = prepareIntent(
-  lineage,
-  lineage.MEL.actions.increment,
-);
-const committedIncrement: Promise<Snapshot<CounterDomain["state"]>> = commitPrepared(
-  lineage,
-  lineage,
-  lineage.MEL.actions.increment,
-);
-void legalityRuntime;
-void commitRuntime;
-void preparedIncrement;
+const appRuntime: ManifestoApp<CounterDomain, "lineage"> = lineage;
+const committedIncrement: Promise<LineageSubmissionResult<CounterDomain, "increment">> =
+  submitBound(lineage, "increment");
+const committedAdd: Promise<LineageSubmissionResult<CounterDomain, "add">> =
+  submitBound(lineage, "add", 1);
+
+void appRuntime;
 void committedIncrement;
+void committedAdd;
 
 // @ts-expect-error lineage execution helpers must not assume base dispatch
-commitRuntime.dispatchAsync(preparedIncrement);
+appRuntime.dispatchAsync;
+
+// @ts-expect-error lineage helpers must not assume v3 commit verbs
+appRuntime.commitAsync;
 
 export {};
