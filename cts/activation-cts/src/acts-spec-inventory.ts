@@ -66,7 +66,7 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
       "ACTS-LIN-3",
       "ACTS-LIN-4",
     ],
-    "Lineage SPEC v3 §2/§3/§4",
+    "Lineage SPEC v5 §2/§3/§4",
     "MUST",
     "lineage",
   ),
@@ -77,10 +77,17 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
       "ACTS-GOV-3",
       "ACTS-GOV-4",
       "ACTS-GOV-5",
+      "ACTS-GOV-6",
+      "ACTS-GOV-7",
+      "ACTS-GOV-8",
+      "ACTS-GOV-9",
     ],
-    "Governance SPEC v3 §2/§4/§5/§6/§7/§8",
+    "Governance SPEC v5 §3/§4/§5/§6; SDK SPEC v5 §13",
     "MUST",
     "governance",
+    {
+      notes: "ADR-026 PR-5/PR-6 governance CTS rules cover v5 submit, raw ProposalRef identity, settlement re-attachment, canonical root backdoor absence, and governance proposal telemetry.",
+    },
   ),
   ...inventoryMany(
     [
@@ -89,7 +96,7 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
       "ACTS-TYPE-3",
       "ACTS-TYPE-4",
     ],
-    "SDK SPEC v3 §4/§5/§7; Lineage SPEC v3 §2/§3; Governance SPEC v3 §2/§4/§5/§6",
+    "SDK SPEC v5 §5/§7/§8/§11; Lineage SPEC v5 §2/§3/§4; Governance SPEC v5 §3/§4/§5",
     "MUST",
     "types",
     {
@@ -106,6 +113,9 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
       "ACTS-V5-SUBMIT-2",
       "ACTS-V5-SUBMIT-3",
       "ACTS-V5-OBSERVE-1",
+      "ACTS-V5-OBSERVE-2",
+      "ACTS-V5-OBSERVE-3",
+      "ACTS-V5-INSPECT-1",
     ],
     "SDK SPEC v5 §7/§8/§9/§10/§11/§13/§17",
     "MUST",
@@ -118,8 +128,9 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
     [
       "ACTS-V5-TYPE-1",
       "ACTS-V5-TYPE-2",
+      "ACTS-V5-TYPE-3",
     ],
-    "SDK SPEC v5 §5/§7/§8/§11",
+    "SDK SPEC v5 §5/§7/§8/§11/§13/§14",
     "MUST",
     "types",
     {

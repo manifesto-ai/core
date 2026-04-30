@@ -164,27 +164,81 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
     async () => {
       const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
       const settled = vi.fn();
+      const afterThrow = vi.fn();
+      const proposalCreated = vi.fn();
       const sequence: string[] = [];
       app.observe.event("submission:admitted", () => sequence.push("submission:admitted"));
       app.observe.event("submission:submitted", () => sequence.push("submission:submitted"));
+      app.observe.event("submission:settled", () => {
+        throw new Error("observer failed");
+      });
       app.observe.event("submission:settled", settled);
+      app.observe.event("submission:settled", afterThrow);
       app.observe.event("submission:settled", () => sequence.push("submission:settled"));
+      app.observe.event("proposal:created", proposalCreated);
 
-      await app.actions.increment.submit();
+      const result = await app.actions.increment.submit();
 
+      expect(result.ok).toBe(true);
       expect(settled).toHaveBeenCalledWith(expect.objectContaining({
         action: "increment",
         mode: "base",
         outcome: { kind: "ok" },
         schemaHash: app.inspect.schemaHash(),
       }));
+      expect(afterThrow).toHaveBeenCalledTimes(1);
       expect(sequence).toEqual([
         "submission:admitted",
         "submission:submitted",
         "submission:settled",
       ]);
+      expect(proposalCreated).not.toHaveBeenCalled();
       expect(settled.mock.calls[0]?.[0]).not.toHaveProperty("snapshot");
       expect(settled.mock.calls[0]?.[0]).not.toHaveProperty("canonicalSnapshot");
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.V5_OBSERVE_STATE,
+      "observe.state() observes terminal projected snapshot changes without immediate registration callbacks.",
+    ),
+    async () => {
+      const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      const observed: Array<readonly [number, number]> = [];
+
+      app.observe.state(
+        (snapshot) => snapshot.state.count,
+        (next, prev) => observed.push([next, prev]),
+      );
+
+      expect(observed).toEqual([]);
+
+      await app.actions.increment.submit();
+
+      expect(observed).toEqual([[1, 0]]);
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.V5_INSPECT_READS,
+      "inspect.* exposes current active-runtime reads without restoring v3 root verbs.",
+    ),
+    async () => {
+      const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+
+      expect(app.inspect.schemaHash()).toBe(app.inspect.canonicalSnapshot().meta.schemaHash);
+      expect(app.inspect.action("increment")).toEqual(app.actions.increment.info());
+      expect(app.inspect.availableActions().map((action) => action.name))
+        .toContain("incrementIfEven");
+
+      await app.actions.increment.submit();
+
+      expect(app.inspect.availableActions().map((action) => action.name))
+        .not.toContain("incrementIfEven");
+      expect("getCanonicalSnapshot" in app).toBe(false);
+      expect("getAvailableActions" in app).toBe(false);
     },
   );
 });

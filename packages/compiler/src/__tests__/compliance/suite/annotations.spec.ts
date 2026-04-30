@@ -232,24 +232,24 @@ describe("CCTS Annotation Suite", () => {
     const strippedSchema = compileMelDomain(STRIPPED_SOURCE, { mode: "domain" });
     const annotated = createManifesto<AnnotationInvariantDomain>(annotatedSchema.schema!, {}).activate();
     const stripped = createManifesto<AnnotationInvariantDomain>(strippedSchema.schema!, {}).activate();
-    const annotatedIntent = annotated.createIntent(annotated.MEL.actions.archive, 2);
-    const strippedIntent = stripped.createIntent(stripped.MEL.actions.archive, 2);
 
     const sameSchema = JSON.stringify(annotatedSchema.schema) === JSON.stringify(strippedSchema.schema);
     const sameGraph = JSON.stringify(extractSchemaGraph(annotatedSchema.schema!)) === JSON.stringify(extractSchemaGraph(strippedSchema.schema!));
-    const sameDispatchability = annotated.isIntentDispatchable(annotated.MEL.actions.archive, 2) === stripped.isIntentDispatchable(stripped.MEL.actions.archive, 2);
-    const sameAvailability = JSON.stringify(annotated.getAvailableActions()) === JSON.stringify(stripped.getAvailableActions());
-    const sameBlockers = JSON.stringify(annotated.getIntentBlockers(annotated.MEL.actions.archive, 2)) === JSON.stringify(stripped.getIntentBlockers(stripped.MEL.actions.archive, 2));
+    const annotatedAdmission = annotated.actions.archive.check(2);
+    const strippedAdmission = stripped.actions.archive.check(2);
+    const sameDispatchability = JSON.stringify(annotatedAdmission) === JSON.stringify(strippedAdmission);
+    const annotatedAvailableActions = annotated.inspect.availableActions();
+    const strippedAvailableActions = stripped.inspect.availableActions();
+    const sameAvailability = JSON.stringify(annotatedAvailableActions) === JSON.stringify(strippedAvailableActions);
+    const annotatedBlockers = annotatedAdmission.ok ? [] : annotatedAdmission.blockers;
+    const strippedBlockers = strippedAdmission.ok ? [] : strippedAdmission.blockers;
+    const sameBlockers = JSON.stringify(annotatedBlockers) === JSON.stringify(strippedBlockers);
 
-    await annotated.dispatchAsync(annotatedIntent);
-    await stripped.dispatchAsync(strippedIntent);
+    await annotated.actions.archive.submit(2);
+    await stripped.actions.archive.submit(2);
 
-    const annotatedAvailableActions = annotated.getAvailableActions();
-    const strippedAvailableActions = stripped.getAvailableActions();
-    const annotatedBlockers = annotated.getIntentBlockers(annotated.MEL.actions.archive, 2);
-    const strippedBlockers = stripped.getIntentBlockers(stripped.MEL.actions.archive, 2);
-    const annotatedSnapshot = annotated.getSnapshot();
-    const strippedSnapshot = stripped.getSnapshot();
+    const annotatedSnapshot = annotated.snapshot();
+    const strippedSnapshot = stripped.snapshot();
     const sameSnapshots = JSON.stringify(annotatedSnapshot) === JSON.stringify(strippedSnapshot);
 
     annotated.dispose();

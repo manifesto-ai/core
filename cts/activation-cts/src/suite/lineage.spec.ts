@@ -7,7 +7,11 @@ import {
   createLineageService,
   type LineageService,
 } from "@manifesto-ai/lineage/provider";
-import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
+import {
+  AlreadyActivatedError,
+  SubmissionFailedError,
+  createManifesto,
+} from "@manifesto-ai/sdk";
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
 import {
   evaluateRule,
@@ -84,7 +88,7 @@ describe("ACTS Lineage Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.LINEAGE_SEAL_PUBLICATION,
-      "Lineage commit publishes only after seal commit succeeds and does not publish on commit failure.",
+      "Lineage submit publishes only after seal commit succeeds and does not publish on commit failure.",
     ),
     async () => {
       const store = createInMemoryLineageStore();
@@ -124,23 +128,28 @@ describe("ACTS Lineage Suite", () => {
       const subscriber = vi.fn(() => {
         order.push("subscriber");
       });
-      const completed = vi.fn(() => {
-        order.push("completed");
+      const settled = vi.fn(() => {
+        order.push("settled");
       });
-      world.subscribe((snapshot) => snapshot.state.count, subscriber);
-      world.on("dispatch:completed", completed);
+      const proposalCreated = vi.fn();
+      world.observe.state((snapshot) => snapshot.state.count, subscriber);
+      world.observe.event("submission:settled", settled);
+      world.observe.event("proposal:created", proposalCreated);
 
-      const snapshot = await world.commitAsync(
-        world.createIntent(world.MEL.actions.increment),
-      );
+      const result = await world.actions.increment.submit();
 
       const failingStore = createInMemoryLineageStore();
       const failingRealService = createLineageService(failingStore);
+      let failingCommitCount = 0;
       const failingService: LineageService = {
         prepareSealGenesis: failingRealService.prepareSealGenesis.bind(failingRealService),
         prepareSealNext: failingRealService.prepareSealNext.bind(failingRealService),
-        async commitPrepared() {
-          throw new Error("seal commit failed");
+        async commitPrepared(prepared) {
+          failingCommitCount += 1;
+          if (failingCommitCount > 1) {
+            throw new Error("seal commit failed");
+          }
+          return failingRealService.commitPrepared(prepared);
         },
         createBranch: failingRealService.createBranch.bind(failingRealService),
         getBranch: failingRealService.getBranch.bind(failingRealService),
@@ -162,31 +171,31 @@ describe("ACTS Lineage Suite", () => {
         { service: failingService },
       ).activate();
       const failingSubscriber = vi.fn();
-      failingWorld.subscribe((next) => next.state.count, failingSubscriber);
+      failingWorld.observe.state((next) => next.state.count, failingSubscriber);
 
       await expect(
-        failingWorld.commitAsync(
-          failingWorld.createIntent(failingWorld.MEL.actions.increment),
-        ),
-      ).rejects.toThrow("seal commit failed");
+        failingWorld.actions.increment.submit(),
+      ).rejects.toBeInstanceOf(SubmissionFailedError);
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-LIN-2"),
-          snapshot.state.count === 1
-            && world.getSnapshot().state.count === 1
+          result.ok === true
+            && result.after.state.count === 1
+            && world.snapshot().state.count === 1
             && order.filter((entry) => entry === "commit:end").length >= 1
             && order.indexOf("subscriber") > order.lastIndexOf("commit:end")
-            && order.indexOf("completed") > order.lastIndexOf("commit:end")
-            && failingWorld.getSnapshot().state.count === 0
+            && order.indexOf("settled") > order.lastIndexOf("commit:end")
+            && proposalCreated.mock.calls.length === 0
+            && failingWorld.snapshot().state.count === 0
             && failingSubscriber.mock.calls.length === 0,
           {
             passMessage: "Lineage publication stays seal-aware and publish happens only after commit success.",
             failMessage: "Lineage publication ordering or commit-failure visibility drifted from the seal-aware contract.",
             evidence: [
               noteEvidence(
-                "Captured commit/subscriber/completed ordering and verified commit failure did not publish a second visible snapshot.",
-                { order, failingVisibleCount: failingWorld.getSnapshot().state.count },
+                "Captured commit/subscriber/settled ordering and verified commit failure did not publish a second visible snapshot.",
+                { order, failingVisibleCount: failingWorld.snapshot().state.count },
               ),
             ],
           },
@@ -201,7 +210,7 @@ describe("ACTS Lineage Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.LINEAGE_REPORT_SURFACE,
-      "Activated lineage runtime promotes commitAsyncWithReport(), removes base report verbs, and returns completed lineage continuity reports.",
+      "Activated lineage runtime exposes v5 submit results, removes base/v3 write verbs, and returns completed lineage continuity reports.",
     ),
     async () => {
       const world = withLineage(
@@ -209,27 +218,30 @@ describe("ACTS Lineage Suite", () => {
         { store: createInMemoryLineageStore() },
       ).activate();
 
-      const report = await world.commitAsyncWithReport(
-        world.createIntent(world.MEL.actions.increment),
-      );
+      const result = await world.actions.increment.submit();
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-LIN-4"),
           !("dispatchAsyncWithReport" in world)
-            && "commitAsyncWithReport" in world
-            && report.kind === "completed"
-            && report.headAdvanced === true
-            && report.outcome.projected.beforeSnapshot.state.count === 0
-            && report.outcome.projected.afterSnapshot.state.count === 1
-            && report.resultWorld === (await world.getLatestHead())?.worldId
-            && report.branchId === (await world.getActiveBranch()).id,
+            && !("dispatchAsync" in world)
+            && !("commitAsyncWithReport" in world)
+            && !("commitAsync" in world)
+            && result.ok === true
+            && result.mode === "lineage"
+            && result.report?.headAdvanced === true
+            && result.report?.published === true
+            && result.before.state.count === 0
+            && result.after.state.count === 1
+            && result.report?.worldId === result.world.worldId
+            && result.world.worldId === (await world.getLatestHead())?.worldId
+            && result.report?.branchId === (await world.getActiveBranch()).id,
           {
-            passMessage: "Lineage runtime promotes commitAsyncWithReport() and returns continuity-aware completed reports.",
-            failMessage: "Lineage report companion surface drifted from verb promotion or completed continuity report semantics.",
+            passMessage: "Lineage runtime exposes v5 submit and returns continuity-aware settled reports.",
+            failMessage: "Lineage v5 submit surface drifted from root verb removal or completed continuity report semantics.",
             evidence: [
-              noteEvidence("Observed lineage commit report", report),
-              noteEvidence("Visible snapshot after lineage report commit", world.getSnapshot()),
+              noteEvidence("Observed lineage submit result", result),
+              noteEvidence("Visible snapshot after lineage submit", world.snapshot()),
             ],
           },
         ),

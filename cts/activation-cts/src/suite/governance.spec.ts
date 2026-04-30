@@ -23,6 +23,109 @@ import {
   type CounterDomain,
 } from "../helpers/schema.js";
 
+type PendingGovernanceSubmit = {
+  readonly ok: true;
+  readonly mode: "governance";
+  readonly status: "pending";
+  readonly action: string;
+  readonly proposal: string;
+  waitForSettlement(): Promise<unknown>;
+};
+
+type ProposalCreatedEvent = {
+  readonly proposal: string;
+  readonly action: string;
+  readonly schemaHash: string;
+};
+
+type ProposalEventRuntime = {
+  readonly observe: {
+    readonly event: (
+      event: "proposal:created",
+      listener: (payload: ProposalCreatedEvent) => void,
+    ) => () => void;
+  };
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isPendingGovernanceSubmit(value: unknown): value is PendingGovernanceSubmit {
+  return isRecord(value)
+    && value.ok === true
+    && value.mode === "governance"
+    && value.status === "pending"
+    && typeof value.action === "string"
+    && typeof value.proposal === "string"
+    && typeof value.waitForSettlement === "function";
+}
+
+function hasRuntimeSettlementSurface(
+  value: unknown,
+): value is { waitForSettlement(ref: string): Promise<unknown> } {
+  return isRecord(value) && typeof value.waitForSettlement === "function";
+}
+
+function hasIncrementSubmitSurface(runtime: unknown): boolean {
+  if (!isRecord(runtime)) {
+    return false;
+  }
+  const actions = runtime.actions;
+  if (!isRecord(actions)) {
+    return false;
+  }
+  const increment = actions.increment;
+  return isRecord(increment) && typeof increment.submit === "function";
+}
+
+function hasProposalEventSurface(runtime: unknown): runtime is ProposalEventRuntime {
+  if (!isRecord(runtime)) {
+    return false;
+  }
+  const observe = runtime.observe;
+  return isRecord(observe) && typeof observe.event === "function";
+}
+
+async function getActiveBranchId(runtime: unknown): Promise<string | undefined> {
+  if (!isRecord(runtime) || typeof runtime.getActiveBranch !== "function") {
+    return undefined;
+  }
+  const branch = await runtime.getActiveBranch.call(runtime);
+  return isRecord(branch) && typeof branch.id === "string"
+    ? branch.id
+    : undefined;
+}
+
+async function submitIncrementCandidate(runtime: unknown): Promise<unknown> {
+  if (!isRecord(runtime)) {
+    return undefined;
+  }
+  const actions = runtime.actions;
+  if (!isRecord(actions)) {
+    return undefined;
+  }
+  const increment = actions.increment;
+  if (!isRecord(increment) || typeof increment.submit !== "function") {
+    return undefined;
+  }
+  return await increment.submit.call(increment);
+}
+
+function isSettlementFor(value: unknown, proposal: string): boolean {
+  return isRecord(value)
+    && value.mode === "governance"
+    && value.proposal === proposal
+    && (
+      value.status === "settled"
+      || value.status === "rejected"
+      || value.status === "superseded"
+      || value.status === "expired"
+      || value.status === "cancelled"
+      || value.status === "settlement_failed"
+    );
+}
+
 describe("ACTS Governance Suite", () => {
   it(
     caseTitle(
@@ -107,7 +210,7 @@ describe("ACTS Governance Suite", () => {
   it(
     caseTitle(
       ACTS_CASES.GOVERNANCE_EXPLICIT_LINEAGE,
-      "Governance requires explicit lineage composition and removes direct dispatch and commit verbs from the governed runtime.",
+      "Governance requires explicit lineage composition and removes direct lower-authority and v3 write verbs from the governed runtime.",
     ),
     async () => {
       const lineage = withLineage(
@@ -123,18 +226,22 @@ describe("ACTS Governance Suite", () => {
         },
       ).activate();
 
-      const proposal = await governed.proposeAsync(
-        governed.createIntent(governed.MEL.actions.increment),
-      );
-      const latestHead = await governed.getLatestHead();
-
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-2"),
-          !("dispatchAsync" in governed) && !("commitAsync" in governed),
+          !("dispatchAsync" in governed)
+            && !("dispatchAsyncWithReport" in governed)
+            && !("commitAsync" in governed)
+            && !("commitAsyncWithReport" in governed)
+            && !("proposeAsync" in governed)
+            && !("waitForProposal" in governed)
+            && !("waitForProposalWithReport" in governed)
+            && !("createIntent" in governed)
+            && !("MEL" in governed)
+            && !("simulateIntent" in governed),
           {
-            passMessage: "Governed runtime removes both direct dispatchAsync and commitAsync backdoors.",
-            failMessage: "Governed runtime still exposes a superseded execution verb.",
+            passMessage: "Governed runtime removes direct lower-authority and v3 write backdoors.",
+            failMessage: "Governed runtime still exposes a superseded execution or intent-construction verb.",
             evidence: [
               noteEvidence(
                 "Checked runtime surface on governed activation output.",
@@ -143,16 +250,15 @@ describe("ACTS Governance Suite", () => {
           },
         ),
         evaluateRule(
-          getRuleOrThrow("ACTS-GOV-3"),
-          proposal.status === "completed"
-            && governed.getSnapshot().state.count === 1
-            && latestHead !== null,
+          getRuleOrThrow("ACTS-GOV-8"),
+          hasIncrementSubmitSurface(governed)
+            && hasRuntimeSettlementSurface(governed),
           {
-            passMessage: "Governance runs only on explicitly lineage-composed input and still produces a sealed head on proposal completion.",
-            failMessage: "Explicit lineage composition did not yield a completed proposal plus lineage head.",
+            passMessage: "Governed runtime exposes the v5 action-candidate and settlement observer surfaces.",
+            failMessage: "Governed runtime is missing v5 action submit or runtime settlement observation.",
             evidence: [
               noteEvidence(
-                "Activated governance from an explicitly lineage-composed manifesto and checked proposal completion plus head availability.",
+                "Checked for actions.increment.submit() and app.waitForSettlement(ref).",
               ),
             ],
           },
@@ -165,12 +271,117 @@ describe("ACTS Governance Suite", () => {
 
   it(
     caseTitle(
-      ACTS_CASES.GOVERNANCE_EXPLICIT_PRECEDENCE,
-      "Governance reuses the explicitly composed lineage service.",
+      ACTS_CASES.GOVERNANCE_V5_SUBMIT_RESULT,
+      "Governance submit creates a pending proposal result with raw ProposalRef identity.",
+    ),
+    async () => {
+      const governanceStore = createInMemoryGovernanceStore();
+
+      const governed = withGovernance(
+        withLineage(
+          createManifesto<CounterDomain>(createCounterSchema(), {}),
+          { store: createInMemoryLineageStore() },
+        ),
+        {
+          governanceStore,
+          bindings: [createAutoBinding()],
+          execution: createExecutionConfig("acts-gov-submit"),
+        },
+      ).activate();
+
+      const proposalCreatedEvents: ProposalCreatedEvent[] = [];
+      const stopProposalEvents = hasProposalEventSurface(governed)
+        ? governed.observe.event("proposal:created", (event) => {
+          proposalCreatedEvents.push(event);
+        })
+        : () => {};
+      const result = await submitIncrementCandidate(governed);
+      stopProposalEvents();
+      const branchId = await getActiveBranchId(governed);
+      const proposals = branchId === undefined
+        ? []
+        : await governanceStore.getProposalsByBranch(branchId);
+      const proposalRef = isPendingGovernanceSubmit(result)
+        ? result.proposal
+        : undefined;
+      const storedProposal = proposalRef === undefined
+        ? null
+        : await governanceStore.getProposal(proposalRef);
+      const roundTrippedRef = proposalRef === undefined
+        ? undefined
+        : JSON.parse(JSON.stringify(proposalRef)) as string;
+      const proposalCreatedEvent = proposalCreatedEvents[0];
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("ACTS-GOV-3"),
+          isPendingGovernanceSubmit(result)
+            && result.mode === "governance"
+            && result.status === "pending"
+            && result.action === "increment"
+            && proposals.length === 1
+            && storedProposal?.proposalId === result.proposal,
+          {
+            passMessage: "Governance submit returns a pending proposal-bearing result.",
+            failMessage: "Governance submit did not create a pending governance proposal result.",
+            evidence: [
+              noteEvidence("Observed governance submit result", result),
+              noteEvidence("Observed stored governance proposals", {
+                branchId,
+                proposals,
+              }),
+            ],
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("ACTS-GOV-9"),
+          proposalRef !== undefined
+            && proposalCreatedEvents.length === 1
+            && proposalCreatedEvent?.proposal === proposalRef
+            && proposalCreatedEvent.action === "increment"
+            && typeof proposalCreatedEvent.schemaHash === "string"
+            && !("snapshot" in proposalCreatedEvent)
+            && !("canonicalSnapshot" in proposalCreatedEvent),
+          {
+            passMessage: "Governance submit emits compact proposal:created telemetry for the created ProposalRef.",
+            failMessage: "Governance submit did not emit compact proposal:created telemetry.",
+            evidence: [
+              noteEvidence("Observed proposal:created events", proposalCreatedEvents),
+            ],
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("ACTS-GOV-6"),
+          proposalRef !== undefined
+            && roundTrippedRef === proposalRef
+            && storedProposal?.proposalId === proposalRef,
+          {
+            passMessage: "Governance ProposalRef is the raw stored ProposalId and survives JSON string round-trip.",
+            failMessage: "Governance ProposalRef did not match the stored ProposalId or failed JSON round-trip.",
+            evidence: [
+              noteEvidence("Observed ProposalRef identity", {
+                proposalRef,
+                roundTrippedRef,
+                storedProposalId: storedProposal?.proposalId,
+              }),
+            ],
+          },
+        ),
+      ]);
+
+      governed.dispose();
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.GOVERNANCE_V5_SETTLEMENT_REATTACH,
+      "Governance settlement can be observed from the pending result and from a round-tripped ProposalRef.",
     ),
     async () => {
       const explicitStore = createInMemoryLineageStore();
       const explicitService = createLineageService(explicitStore);
+      const governanceStore = createInMemoryGovernanceStore();
 
       const governed = withGovernance(
         withLineage(
@@ -178,27 +389,60 @@ describe("ACTS Governance Suite", () => {
           { service: explicitService },
         ),
         {
-          governanceStore: createInMemoryGovernanceStore(),
+          governanceStore,
           bindings: [createAutoBinding()],
-          execution: createExecutionConfig("acts-gov-explicit"),
+          execution: createExecutionConfig("acts-gov-settlement"),
         },
       ).activate();
 
-      await governed.proposeAsync(
-        governed.createIntent(governed.MEL.actions.increment),
-      );
+      const pending = await submitIncrementCandidate(governed);
+      const proposalRef = isPendingGovernanceSubmit(pending)
+        ? pending.proposal
+        : undefined;
+      const roundTrippedRef = proposalRef === undefined
+        ? undefined
+        : JSON.parse(JSON.stringify(proposalRef)) as string;
+      const resultBoundSettlement = isPendingGovernanceSubmit(pending)
+        ? await pending.waitForSettlement()
+        : null;
+      const runtimeSettlement = roundTrippedRef !== undefined
+        && hasRuntimeSettlementSurface(governed)
+        ? await governed.waitForSettlement(roundTrippedRef)
+        : null;
+      const branches = await explicitService.getBranches();
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-4"),
-          (await explicitService.getBranches()).length > 0,
+          proposalRef !== undefined
+            && isSettlementFor(resultBoundSettlement, proposalRef)
+            && isSettlementFor(runtimeSettlement, proposalRef)
+            && branches.length > 0,
           {
-            passMessage: "Governance execution reuses the explicitly composed lineage service.",
-            failMessage: "Governance execution did not write through the explicitly composed lineage service.",
+            passMessage: "Governance settlement re-attaches by ProposalRef and reuses the explicitly composed lineage service.",
+            failMessage: "Governance settlement did not re-attach by ProposalRef or did not use the explicit lineage service.",
             evidence: [
-              noteEvidence(
-                "Activated governance on an explicitly composed lineage service and confirmed branch persistence on that same service.",
-              ),
+              noteEvidence("Observed pending governance result", pending),
+              noteEvidence("Observed result-bound settlement", resultBoundSettlement),
+              noteEvidence("Observed runtime re-attached settlement", runtimeSettlement),
+              noteEvidence("Observed explicit lineage branches", branches),
+            ],
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("ACTS-GOV-7"),
+          proposalRef !== undefined
+            && roundTrippedRef === proposalRef
+            && isSettlementFor(runtimeSettlement, proposalRef),
+          {
+            passMessage: "Governance runtime waitForSettlement(ref) accepts a JSON round-tripped ProposalRef.",
+            failMessage: "Governance runtime waitForSettlement(ref) did not accept the round-tripped ProposalRef.",
+            evidence: [
+              noteEvidence("Observed ProposalRef re-attachment", {
+                proposalRef,
+                roundTrippedRef,
+                runtimeSettlement,
+              }),
             ],
           },
         ),

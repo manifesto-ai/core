@@ -36,6 +36,8 @@ export const ACTS_CASES = {
   GOVERNANCE_COMPOSABLE_SURFACE: "ACTS-GOV-001",
   GOVERNANCE_EXPLICIT_LINEAGE: "ACTS-GOV-002",
   GOVERNANCE_EXPLICIT_PRECEDENCE: "ACTS-GOV-003",
+  GOVERNANCE_V5_SUBMIT_RESULT: "ACTS-GOV-004",
+  GOVERNANCE_V5_SETTLEMENT_REATTACH: "ACTS-GOV-005",
   TYPES_PRE_ACTIVATION: "ACTS-TYPE-001",
   TYPES_GOVERNED_RUNTIME: "ACTS-TYPE-002",
   TYPES_LINEAGE_CONFIG: "ACTS-TYPE-003",
@@ -44,7 +46,10 @@ export const ACTS_CASES = {
   V5_ADMISSION_AND_PREVIEW: "ACTS-V5-002",
   V5_SUBMIT_RESULTS: "ACTS-V5-003",
   V5_OBSERVE_EVENTS: "ACTS-V5-004",
+  V5_OBSERVE_STATE: "ACTS-V5-005",
+  V5_INSPECT_READS: "ACTS-V5-006",
   TYPES_V5_ACTION_CANDIDATE: "ACTS-V5-TYPE-001",
+  TYPES_V5_OBSERVE_INSPECT: "ACTS-V5-TYPE-002",
 } as const;
 
 export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = [
@@ -106,12 +111,12 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.LINEAGE_SEAL_PUBLICATION,
     "lineage",
-    "Lineage commit publishes only after seal commit succeeds and does not publish on commit failure.",
+    "Lineage submit publishes only after seal commit succeeds and does not publish on commit failure.",
   ),
   complianceCase(
     ACTS_CASES.LINEAGE_REPORT_SURFACE,
     "lineage",
-    "Activated lineage runtime promotes commitAsyncWithReport(), removes base report verbs, and returns completed lineage continuity reports.",
+    "Activated lineage runtime exposes v5 submit results, removes base/v3 write verbs, and returns completed lineage continuity reports.",
   ),
   complianceCase(
     ACTS_CASES.GOVERNANCE_COMPOSABLE_SURFACE,
@@ -121,12 +126,22 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.GOVERNANCE_EXPLICIT_LINEAGE,
     "governance",
-    "Governance requires explicit lineage composition and removes direct dispatchAsync and commitAsync from the governed runtime.",
+    "Governance requires explicit lineage composition and removes lower-authority and v3 write verbs from the governed runtime.",
   ),
   complianceCase(
     ACTS_CASES.GOVERNANCE_EXPLICIT_PRECEDENCE,
     "governance",
     "Governance reuses the explicitly composed lineage service.",
+  ),
+  complianceCase(
+    ACTS_CASES.GOVERNANCE_V5_SUBMIT_RESULT,
+    "governance",
+    "Governance action submit returns a pending proposal result with raw ProposalRef identity and compact proposal telemetry.",
+  ),
+  complianceCase(
+    ACTS_CASES.GOVERNANCE_V5_SETTLEMENT_REATTACH,
+    "governance",
+    "Governance settlement observation works through result-bound and runtime ProposalRef re-attachment.",
   ),
   complianceCase(
     ACTS_CASES.TYPES_PRE_ACTIVATION,
@@ -136,7 +151,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.TYPES_GOVERNED_RUNTIME,
     "types",
-    "Lineage and governed runtimes reject superseded verbs at compile time while exposing commitAsync or proposeAsync as appropriate.",
+    "Lineage and governed runtimes reject superseded verbs at compile time while exposing v5 mode-specific submit results.",
   ),
   complianceCase(
     ACTS_CASES.TYPES_LINEAGE_CONFIG,
@@ -169,9 +184,24 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
     "SDK v5 observe.event() emits compact lifecycle payloads without embedding projected or canonical snapshots.",
   ),
   complianceCase(
+    ACTS_CASES.V5_OBSERVE_STATE,
+    "base",
+    "SDK v5 observe.state() observes terminal projected snapshot changes without immediate registration callbacks.",
+  ),
+  complianceCase(
+    ACTS_CASES.V5_INSPECT_READS,
+    "base",
+    "SDK v5 inspect.* exposes current projected-tooling reads and canonical substrate reads without restoring v3 root verbs.",
+  ),
+  complianceCase(
     ACTS_CASES.TYPES_V5_ACTION_CANDIDATE,
     "types",
     "SDK v5 public types expose ManifestoApp, action handles, bound actions, options, admission, preview, and mode-specific submit results.",
+  ),
+  complianceCase(
+    ACTS_CASES.TYPES_V5_OBSERVE_INSPECT,
+    "types",
+    "SDK v5 public types expose typed observe and inspect surfaces while rejecting legacy dispatch event names.",
   ),
 ] as const;
 
@@ -233,12 +263,20 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
     [ACTS_CASES.GOVERNANCE_COMPOSABLE_SURFACE],
   ),
   ...coverMany(
-    ["ACTS-GOV-2", "ACTS-GOV-3"],
+    ["ACTS-GOV-2", "ACTS-GOV-8"],
     [ACTS_CASES.GOVERNANCE_EXPLICIT_LINEAGE],
   ),
   ...coverMany(
     ["ACTS-GOV-4"],
     [ACTS_CASES.GOVERNANCE_EXPLICIT_PRECEDENCE],
+  ),
+  ...coverMany(
+    ["ACTS-GOV-3", "ACTS-GOV-6", "ACTS-GOV-9"],
+    [ACTS_CASES.GOVERNANCE_V5_SUBMIT_RESULT],
+  ),
+  ...coverMany(
+    ["ACTS-GOV-4", "ACTS-GOV-7"],
+    [ACTS_CASES.GOVERNANCE_V5_SETTLEMENT_REATTACH],
   ),
   ...coverMany(
     ["ACTS-TYPE-1"],
@@ -273,8 +311,20 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
     [ACTS_CASES.V5_OBSERVE_EVENTS],
   ),
   ...coverMany(
+    ["ACTS-V5-OBSERVE-2", "ACTS-V5-OBSERVE-3"],
+    [ACTS_CASES.V5_OBSERVE_STATE],
+  ),
+  ...coverMany(
+    ["ACTS-V5-INSPECT-1"],
+    [ACTS_CASES.V5_INSPECT_READS],
+  ),
+  ...coverMany(
     ["ACTS-V5-TYPE-1", "ACTS-V5-TYPE-2"],
     [ACTS_CASES.TYPES_V5_ACTION_CANDIDATE],
+  ),
+  ...coverMany(
+    ["ACTS-V5-TYPE-3"],
+    [ACTS_CASES.TYPES_V5_OBSERVE_INSPECT],
   ),
 ] as const;
 
