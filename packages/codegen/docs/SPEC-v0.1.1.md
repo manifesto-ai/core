@@ -521,6 +521,12 @@ import type {
   RuntimeMode,
 } from "@manifesto-ai/sdk";
 
+export interface Todo {
+  completed: boolean;
+  id: string;
+  title: string;
+}
+
 export interface TodoDomain {
   readonly state: {
     todos: Record<string, Todo>;
@@ -558,6 +564,13 @@ public types rather than SDK internals. Generated v5 facade files that import
 SDK facade helpers introduce a consumer-side type-only dependency on
 `@manifesto-ai/sdk`; the Codegen package and plugin runtime MUST NOT depend on
 SDK internals.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| FAC-14 | MUST | Generated domain facade files MUST NOT contain unresolved TypeScript identifiers produced from `TypeDefinition.ref`. Every emitted named type reference MUST resolve to a declaration in the same generated file or to an explicit type-only import produced by the same codegen plan. |
+| FAC-15 | MUST | The default canonical domain plugin output MUST be self-contained for `schema.types`: when it emits a `TypeDefinition.ref` to a named schema type, it MUST also emit that named type declaration in the same `<source>.domain.ts` file. |
+| FAC-16 | MUST | Named type declarations emitted by the canonical domain plugin MUST follow the TypeScript mapping rules in §11, including `TS-3` named object/interface output and deterministic ordering. |
+| FAC-17 | MUST | If a `TypeDefinition.ref` cannot be resolved from `schema.types` or an explicit generated type import plan, the plugin MUST degrade that position to `unknown` and emit a `Diagnostic` with level `"warn"` instead of producing an unresolved identifier. |
 
 ### 10.5 Action Argument and Input Policy
 
