@@ -3,14 +3,8 @@ import type { Snapshot as CoreSnapshot } from "@manifesto-ai/core";
 import type {
   CanonicalSnapshot,
   ManifestoDomainShape,
-  ManifestoEventMap,
   Snapshot,
-  TypedIntent,
 } from "../types.js";
-import {
-  emitDispatchCompletedEvent,
-  emitDispatchFailedEvent,
-} from "./events.js";
 import type {
   PublishedRuntimeSnapshot,
   RuntimePublicationHelpers,
@@ -23,17 +17,12 @@ type RuntimePublicationOptions<T extends ManifestoDomainShape> = {
   ) => Snapshot<T["state"]>;
   readonly restoreVisibleSnapshot: () => void;
   readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
-  readonly emitEvent: <K extends keyof ManifestoEventMap<T>>(
-    event: K,
-    payload: ManifestoEventMap<T>[K],
-  ) => void;
 };
 
 export function createRuntimePublication<T extends ManifestoDomainShape>({
   setVisibleSnapshot,
   restoreVisibleSnapshot,
   getCanonicalSnapshot,
-  emitEvent,
 }: RuntimePublicationOptions<T>): RuntimePublicationHelpers<T> {
   function replaceVisibleSnapshot(
     snapshot: CoreSnapshot,
@@ -43,11 +32,9 @@ export function createRuntimePublication<T extends ManifestoDomainShape>({
   }
 
   function publishCompletedHostResult(
-    intent: TypedIntent<T>,
     snapshot: CoreSnapshot,
   ): PublishedRuntimeSnapshot<T> {
     const publishedSnapshot = replaceVisibleSnapshot(snapshot);
-    emitDispatchCompletedEvent(emitEvent, intent, publishedSnapshot);
 
     return Object.freeze({
       publishedSnapshot,
@@ -56,12 +43,9 @@ export function createRuntimePublication<T extends ManifestoDomainShape>({
   }
 
   function publishFailedHostResult(
-    intent: TypedIntent<T>,
-    error: Error,
     snapshot: CoreSnapshot,
   ): PublishedRuntimeSnapshot<T> {
     const publishedSnapshot = replaceVisibleSnapshot(snapshot);
-    emitDispatchFailedEvent(emitEvent, intent, error, publishedSnapshot);
 
     return Object.freeze({
       publishedSnapshot,

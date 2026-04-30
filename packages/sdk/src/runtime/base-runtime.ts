@@ -75,7 +75,6 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     setVisibleSnapshot: kernel.setVisibleSnapshot,
     restoreVisibleSnapshot: kernel.restoreVisibleSnapshot,
     getCanonicalSnapshot: kernel.getCanonicalSnapshot,
-    emitEvent: kernel.emitEvent,
   });
   const actionInfoByName = new Map<ActionName<T>, ActionInfo<ActionName<T>>>();
   const actionHandleByName = new Map<ActionName<T>, ActionHandle<T, ActionName<T>, BaseMode>>();
@@ -211,11 +210,12 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     args: ActionArgs<T, Name>,
   ): Candidate<T, Name> {
     const actionRef = kernel.MEL.actions[name] as TypedActionRef<T, Name>;
+    const publicInput = toPublicInput(name, args);
     try {
       const intent = kernel.createIntent(actionRef, ...args);
       return Object.freeze({
         actionName: name,
-        input: intent.input as ActionInput<T, Name>,
+        input: publicInput,
         intent,
         inputError: null,
       });
@@ -226,11 +226,30 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
 
       return Object.freeze({
         actionName: name,
-        input: fallbackInput(args) as ActionInput<T, Name>,
+        input: publicInput,
         intent: null,
         inputError: error,
       });
     }
+  }
+
+  function toPublicInput<Name extends ActionName<T>>(
+    name: Name,
+    args: readonly unknown[],
+  ): ActionInput<T, Name> {
+    if (args.length === 0) {
+      return undefined as ActionInput<T, Name>;
+    }
+
+    if (args.length === 1) {
+      return args[0] as ActionInput<T, Name>;
+    }
+
+    const parameterNames = getActionInfo(name).parameters.map((parameter) => parameter.name);
+    return Object.freeze(Object.fromEntries(args.map((value, index) => [
+      parameterNames[index] ?? `arg${index}`,
+      value,
+    ]))) as ActionInput<T, Name>;
   }
 
   function checkCandidate<Name extends ActionName<T>>(
@@ -607,16 +626,6 @@ function isOption(
     && value !== null
     && "__kind" in value
     && (value as { readonly __kind?: unknown }).__kind === kind;
-}
-
-function fallbackInput(args: readonly unknown[]): unknown {
-  if (args.length === 0) {
-    return undefined;
-  }
-  if (args.length === 1) {
-    return args[0];
-  }
-  return Object.freeze([...args]);
 }
 
 function toActionInfo<

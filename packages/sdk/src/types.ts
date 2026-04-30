@@ -694,34 +694,13 @@ export type ManifestoEventName = keyof ManifestoEventPayloadMap;
 export type ManifestoEventPayload<Event extends ManifestoEventName> =
   ManifestoEventPayloadMap[Event];
 
-export interface ManifestoEventMap<T extends ManifestoDomainShape>
-  extends ManifestoEventPayloadMap {
-  "dispatch:completed": {
-    readonly intentId: string;
-    readonly intent: TypedIntent<T>;
-    readonly snapshot: Snapshot<T["state"]>;
-  };
-  "dispatch:rejected": {
-    readonly intentId: string;
-    readonly intent: TypedIntent<T>;
-    readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT";
-    readonly reason: string;
-  };
-  "dispatch:failed": {
-    readonly intentId: string;
-    readonly intent: TypedIntent<T>;
-    readonly error: Error;
-    readonly snapshot?: Snapshot<T["state"]>;
-  };
-}
-
-export type ManifestoEvent = keyof ManifestoEventMap<ManifestoDomainShape> & string;
+export type ManifestoEvent = ManifestoEventName;
 
 export type TypedOn<T extends ManifestoDomainShape> = <
   K extends ManifestoEvent,
 >(
   event: K,
-  handler: (payload: ManifestoEventMap<T>[K]) => void,
+  handler: (payload: ManifestoEventPayloadMap[K]) => void,
 ) => Unsubscribe;
 
 export type ObserveSurface<T extends ManifestoDomainShape> = {

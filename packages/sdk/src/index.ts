@@ -66,6 +66,7 @@ export type {
   LineageComposableLaws,
   LineageLaws,
   LineageSubmissionResult,
+  LineageWriteReport,
   ManifestoBaseInstance,
   ManifestoApp,
   ManifestoDispatchRuntime,
@@ -73,7 +74,6 @@ export type {
   ManifestoDomainShape,
   ManifestoEvent,
   ManifestoEventName,
-  ManifestoEventMap,
   ManifestoEventPayload,
   ManifestoEventPayloadMap,
   ManifestoLegalityRuntime,
@@ -83,6 +83,7 @@ export type {
   SimulateResult,
   ProjectedDiff,
   ProjectedSnapshot,
+  ProposalRef,
   PreviewOptions,
   PreviewResult,
   CanonicalOutcome,
@@ -109,6 +110,7 @@ export type {
   TypedSimulateIntent,
   TypedSubscribe,
   Unsubscribe,
+  WorldRecord,
 } from "./types.js";
 
 export {

@@ -1,5 +1,7 @@
 import {
+  evaluateComputed,
   getAvailableActions as queryAvailableActions,
+  isErr,
   isActionAvailable as queryActionAvailable,
   isIntentDispatchable as queryIntentDispatchable,
   type DomainSchema,
@@ -24,7 +26,6 @@ import type {
   IntentAdmission,
   ManifestoDomainShape,
   ManifestoEvent,
-  ManifestoEventMap,
   SchemaGraph,
   SimulateResult as ProjectedSimulateResult,
   Snapshot,
@@ -121,6 +122,22 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return cloneAndDeepFreeze(
       projectCanonicalSnapshot<T["state"]>(snapshot, projectionPlan),
     );
+  }
+
+  function rehydrateSnapshot(snapshot: CoreSnapshot): CoreSnapshot {
+    const computed = evaluateComputed(schema, snapshot);
+    if (isErr(computed)) {
+      throw new ManifestoError(
+        "SNAPSHOT_REHYDRATION_FAILED",
+        `Failed to rehydrate restored snapshot computed values: ${computed.error.message}`,
+        { cause: computed.error },
+      );
+    }
+
+    return {
+      ...snapshot,
+      computed: computed.value,
+    };
   }
 
   const stateStore = createRuntimeStateStore<T>({
@@ -259,7 +276,6 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
 
       return simulateSyncRef;
     },
-    emitEvent,
   });
   const simulation = createRuntimeSimulation<T>({
     schema,
@@ -271,7 +287,6 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     setVisibleSnapshot,
     restoreVisibleSnapshot,
     getCanonicalSnapshot,
-    emitEvent,
   });
 
   const getIntentBlockersFor = admission.getIntentBlockersFor;
@@ -364,6 +379,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     isDisposed,
     getCanonicalSnapshot,
     getVisibleCoreSnapshot,
+    rehydrateSnapshot,
     setVisibleSnapshot: publication.replaceVisibleSnapshot,
     restoreVisibleSnapshot: publication.restoreVisibleSnapshot,
     emitEvent,

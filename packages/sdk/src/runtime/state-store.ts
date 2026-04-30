@@ -5,7 +5,7 @@ import type {
   CanonicalSnapshot,
   ManifestoDomainShape,
   ManifestoEvent,
-  ManifestoEventMap,
+  ManifestoEventPayloadMap,
   Selector,
   Snapshot,
   Unsubscribe,
@@ -51,7 +51,7 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
   const subscribers = new Set<Subscriber<T["state"], unknown>>();
   const eventListeners = new Map<
     ManifestoEvent,
-    Set<(payload: ManifestoEventMap<T>[ManifestoEvent]) => void>
+    Set<(payload: ManifestoEventPayloadMap[ManifestoEvent]) => void>
   >();
 
   function subscribe<R>(
@@ -88,7 +88,7 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
 
   function on<K extends ManifestoEvent>(
     event: K,
-    handler: (payload: ManifestoEventMap<T>[K]) => void,
+    handler: (payload: ManifestoEventPayloadMap[K]) => void,
   ): Unsubscribe {
     if (disposed) {
       return () => {};
@@ -99,13 +99,13 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
       listeners = new Set();
       eventListeners.set(
         event,
-        listeners as Set<(payload: ManifestoEventMap<T>[ManifestoEvent]) => void>,
+        listeners as Set<(payload: ManifestoEventPayloadMap[ManifestoEvent]) => void>,
       );
     }
 
-    listeners.add(handler as (payload: ManifestoEventMap<T>[ManifestoEvent]) => void);
+    listeners.add(handler as (payload: ManifestoEventPayloadMap[ManifestoEvent]) => void);
     return () => {
-      listeners?.delete(handler as (payload: ManifestoEventMap<T>[ManifestoEvent]) => void);
+      listeners?.delete(handler as (payload: ManifestoEventPayloadMap[ManifestoEvent]) => void);
     };
   }
 
@@ -155,7 +155,7 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
 
   function emitEvent<K extends ManifestoEvent>(
     event: K,
-    payload: ManifestoEventMap<T>[K],
+    payload: ManifestoEventPayloadMap[K],
   ): void {
     const listeners = eventListeners.get(event);
     if (!listeners) {

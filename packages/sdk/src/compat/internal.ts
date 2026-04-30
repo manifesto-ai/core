@@ -28,7 +28,7 @@ import type {
   IntentAdmission,
   ManifestoDomainShape,
   ManifestoEvent,
-  ManifestoEventMap,
+  ManifestoEventPayloadMap,
   SchemaGraph,
   SimulationDiagnostics,
   SimulateResult as ProjectedSimulateResult,
@@ -127,10 +127,11 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
     snapshot: CoreSnapshot,
     options?: { readonly notify?: boolean },
   ) => Snapshot<T["state"]>;
+  readonly rehydrateSnapshot: (snapshot: CoreSnapshot) => CoreSnapshot;
   readonly restoreVisibleSnapshot: () => void;
   readonly emitEvent: <K extends ManifestoEvent>(
     event: K,
-    payload: ManifestoEventMap<T>[K],
+    payload: ManifestoEventPayloadMap[K],
   ) => void;
   readonly enqueue: <R>(task: () => Promise<R>) => Promise<R>;
   readonly ensureIntentId: (intent: TypedIntent<T>) => TypedIntent<T>;
@@ -178,12 +179,14 @@ type RuntimePublicReadFacet<T extends ManifestoDomainShape> = Pick<
   | "on"
   | "getSnapshot"
   | "getCanonicalSnapshot"
+  | "getAvailableActionsFor"
   | "getAvailableActions"
   | "isIntentDispatchable"
   | "getIntentBlockers"
   | "getActionMetadata"
   | "isActionAvailable"
   | "getSchemaGraph"
+  | "simulateSync"
   | "simulate"
   | "simulateIntent"
 >;
@@ -201,6 +204,7 @@ type RuntimeExecutionFacet<T extends ManifestoDomainShape> = Pick<
 type RuntimeSealAdmissionFacet<T extends ManifestoDomainShape> = Pick<
   RuntimeKernel<T>,
   | "isActionAvailable"
+  | "isActionAvailableFor"
   | "validateIntentInputFor"
   | "isIntentDispatchableFor"
   | "rejectUnavailable"
@@ -218,7 +222,10 @@ type RuntimeReportAdmissionFacet<T extends ManifestoDomainShape> = Pick<
 
 type RuntimePublicationFacet<T extends ManifestoDomainShape> = Pick<
   RuntimeKernel<T>,
-  "getVisibleCoreSnapshot" | "setVisibleSnapshot" | "restoreVisibleSnapshot"
+  | "getVisibleCoreSnapshot"
+  | "setVisibleSnapshot"
+  | "rehydrateSnapshot"
+  | "restoreVisibleSnapshot"
 >;
 
 type RuntimeReportingFacet<T extends ManifestoDomainShape> = Pick<
@@ -257,6 +264,7 @@ export type GovernanceRuntimeKernel<T extends ManifestoDomainShape> =
   & RuntimeLifecycleFacet<T>
   & RuntimeExecutionFacet<T>
   & RuntimeSealAdmissionFacet<T>
+  & RuntimeReportAdmissionFacet<T>
   & RuntimePublicationFacet<T>
   & Pick<RuntimeKernel<T>, "deriveExecutionOutcome">
   & RuntimeDispatchEventsFacet<T>

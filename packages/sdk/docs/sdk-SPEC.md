@@ -308,13 +308,23 @@ candidate into Core's canonical action-input shape using the activated action
 contract:
 
 - zero public arguments -> `Intent.input === undefined`
-- one public argument for an object-shaped single input -> direct value
+- one public argument for an object-shaped single input -> `BoundAction.input`
+  preserves the direct public value, while `Intent.input` is packed under the
+  declared single parameter name when Core requires that canonical shape
 - one or more positional parameters -> object keyed by the compiled action
   parameter names, preserving declared order
 
 The parameter-name metadata used for this packing MUST come from the activated
 schema or compiler-produced action contract, not from runtime argument
 introspection.
+
+For example, `action toggleTodo(id: string)` has a scalar positional public
+argument and the canonical SDK call is `submit(id)`. If callers want
+`submit({ id })` as the canonical public call, the MEL source SHOULD declare a
+named object input such as `type ToggleTodoInput = { id: string }` and
+`action toggleTodo(input: ToggleTodoInput)`. In that case `BoundAction.input`
+is `{ id }`, while `BoundAction.intent()?.input` is the Core-packed
+`{ input: { id } }`.
 
 ### 5.8 Invocation Options, Diffs, and Reports
 
@@ -1052,6 +1062,19 @@ and reference-oriented; callers that need authoritative state MUST read
 `snapshot()`, `inspect.canonicalSnapshot()`, `SubmitResult`, `WorldRecord`, or
 Governance records from their owning surfaces.
 
+`observe.state()` is a projected-state observer, not a canonical-substrate
+observer. The selector receives the same projected shape returned by
+`snapshot()`. Registration MUST capture the selector's current value when
+selection succeeds, but MUST NOT call the listener immediately. A listener is
+called only when the selected value changes by `Object.is(prev, next)` after a
+terminal projected snapshot publication, and `prev` is the last successfully
+selected value for that registration. Canonical-only movement such as
+`namespaces`, `meta`, Host bookkeeping, or other substrate diagnostics MUST NOT
+wake state observers when the projected snapshot is unchanged. Selector and
+listener exceptions are isolated from runtime semantics. If a selector fails
+during registration or publication, the runtime MUST keep the registration
+alive and retry selection on later terminal projected snapshot publications.
+
 ```typescript
 export type SubmissionEventBase = {
   readonly action: string;
@@ -1142,6 +1165,15 @@ The payload types above are normative for SDK v5. `worldId` and `proposal`
 fields in telemetry are correlation hints only; they do not replace the
 authoritative lineage or governance records.
 
+`submission:*` events are the shared SDK runtime submission lifecycle taxonomy
+for base, lineage, and governance runtimes. `proposal:*` events are governance
+proposal lifecycle telemetry and MUST only be emitted by a governance runtime.
+Base and lineage runtimes MUST NOT synthesize `proposal:*` events. Event handler
+exceptions MUST be isolated from runtime semantics and from other handlers for
+the same event. The canonical v5 Observe surface is limited to the event names
+in `ManifestoEventPayloadMap`; legacy `dispatch:*` names are not canonical v5
+Observe events.
+
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | SDK-OBSERVE-1 | MUST | State observation and runtime telemetry MUST remain separate channels. |
@@ -1151,6 +1183,14 @@ authoritative lineage or governance records.
 | SDK-OBSERVE-5 | MUST | V5 event taxonomy MUST align with submission lifecycle rather than base dispatch lifecycle. |
 | SDK-OBSERVE-6 | MUST | Event payloads MUST use the `ManifestoEventPayloadMap` shapes defined in this section. |
 | SDK-OBSERVE-7 | MUST NOT | Event payloads MUST NOT embed full projected or canonical snapshots. |
+| SDK-OBSERVE-8 | MUST | `observe.state()` MUST NOT notify for namespace-only or other canonical-only substrate changes when the projected snapshot is unchanged. |
+| SDK-OBSERVE-9 | MUST | `observe.state()` MUST compare selector results with `Object.is`. |
+| SDK-OBSERVE-10 | MUST | Selector and listener failures MUST be isolated from runtime semantics. |
+| SDK-OBSERVE-11 | MUST | `proposal:*` events MUST be emitted only by governance runtimes. |
+| SDK-OBSERVE-12 | MUST | `observe.state()` registration MUST NOT invoke the listener immediately. |
+| SDK-OBSERVE-13 | MUST | `observe.state()` MUST keep registrations alive after selector failures and retry on later terminal projected snapshot publications. |
+| SDK-OBSERVE-14 | MUST | `observe.event()` handler failures MUST be isolated from runtime semantics and other handlers. |
+| SDK-OBSERVE-15 | MUST NOT | Legacy `dispatch:*` events MUST NOT be part of the canonical v5 `observe.event()` surface. |
 
 ## 14. Inspect Surface
 
@@ -1166,6 +1206,23 @@ export type InspectSurface<TDomain extends ManifestoDomainShape> = {
 
 `inspect.*` is the advanced/debug/tooling namespace.
 
+`inspect.canonicalSnapshot()` is the app root's canonical-substrate read
+boundary. It exposes ADR-025 `namespaces` and other canonical fields for
+debugging, restore-aware tooling, and seal-aware inspection. Normal application
+logic SHOULD use `snapshot()` unless it explicitly needs substrate data.
+
+`inspect.graph()` returns the projected schema graph. ADR-025 platform
+namespaces such as host, mel, system, and other runtime/tooling namespaces are
+not domain state and MUST NOT appear as state nodes in this graph.
+
+`inspect.availableActions()` returns current action contract information for
+the actions available against the current visible projected state. It is an
+observational read, not a durable capability token for later submission.
+
+`inspect.schemaHash()` reads the current canonical snapshot's `meta.schemaHash`.
+It is an inspection read over the active runtime substrate, not an independent
+schema fingerprint channel.
+
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | SDK-INSPECT-1 | MUST | `inspect.graph()` MUST expose the schema graph formerly reached as `getSchemaGraph()`. |
@@ -1173,6 +1230,9 @@ export type InspectSurface<TDomain extends ManifestoDomainShape> = {
 | SDK-INSPECT-3 | MUST | `inspect.availableActions()` MUST return currently available action info values. |
 | SDK-INSPECT-4 | MUST | `inspect.canonicalSnapshot()` MUST be the only canonical snapshot read in the canonical SDK root object graph. |
 | SDK-INSPECT-5 | MUST NOT | `actions.$available()` or other mixed action-meta names MUST NOT be introduced. |
+| SDK-INSPECT-6 | MUST | `inspect.graph()` MUST NOT expose ADR-025 platform namespace values as domain state graph nodes. |
+| SDK-INSPECT-7 | MUST | `inspect.availableActions()` MUST be a current visible-state read, not a durable capability token. |
+| SDK-INSPECT-8 | MUST | `inspect.schemaHash()` MUST return the current canonical snapshot schema hash. |
 
 ## 15. Extension Kernel Boundary
 
@@ -1211,6 +1271,13 @@ runtime resources.
 
 SDK v5 removes the v3 canonical public surface entirely. No
 `@manifesto-ai/sdk/compat-v4` package is part of the v5 contract.
+
+The Observe and Inspect replacements are part of the hard cut, not optional
+aliases. `subscribe()` and `on()` are replaced by `observe.state()` and
+`observe.event()` so state observation and telemetry remain separate channels.
+`getCanonicalSnapshot()`, `getSchemaGraph()`, `getActionMetadata()`, and
+`getAvailableActions()` are replaced by `inspect.*` reads so canonical/debug
+inspection stays under the advanced tooling namespace.
 
 The following names MUST NOT appear on the canonical v5 runtime root:
 

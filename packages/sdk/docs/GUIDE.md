@@ -157,19 +157,19 @@ For failure observation, keep the surfaces distinct:
 ## 6. Dispatch, Observe, And Read
 
 ```typescript
-const off = instance.subscribe(
-  (snapshot) => snapshot.data.count,
+const off = instance.observe.state(
+  (snapshot) => snapshot.state.count,
   (count) => {
     console.log("Count changed:", count);
   },
 );
 
-const offCompleted = instance.on("dispatch:completed", (event) => {
-  console.log("Completed intent:", event.intentId);
+const offSettled = instance.observe.event("submission:settled", (event) => {
+  console.log("Settled action:", event.action);
 });
 ```
 
-Subscriptions are the main render path. Telemetry events are the main lifecycle path. Together they cover most direct-dispatch integrations.
+State observers are the main render path. Telemetry events are the main lifecycle path. Together they cover most v5 submit integrations.
 
 If you need effect-level instrumentation, keep the effect handlers small and let them return patches that describe the visible result.
 

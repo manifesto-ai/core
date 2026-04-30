@@ -3,6 +3,7 @@ import {
   hashSchemaSync,
   semanticPathToPatchPath,
   type DomainSchema,
+  type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
 
 import {
@@ -53,6 +54,20 @@ type OptionDomain = {
   };
   state: {
     value: { __kind: "PreviewOptions"; diagnostics: string } | null;
+  };
+  computed: {};
+};
+
+type ToggleTodoInput = {
+  readonly id: string;
+};
+
+type ObjectInputDomain = {
+  actions: {
+    toggleTodo: (input: ToggleTodoInput) => void;
+  };
+  state: {
+    selectedId: string;
   };
   computed: {};
 };
@@ -178,6 +193,24 @@ function createOptionSchema(): DomainSchema {
     },
   });
 }
+
+const objectInputMelSource = `
+domain TodoProbe {
+  type ToggleTodoInput = {
+    id: string
+  }
+
+  state {
+    selectedId: string = ""
+  }
+
+  action toggleTodo(input: ToggleTodoInput) {
+    onceIntent {
+      patch selectedId = input.id
+    }
+  }
+}
+`;
 
 function expectProjectedSnapshotBoundary(snapshot: unknown): void {
   expect(snapshot).toHaveProperty("state");
@@ -409,10 +442,24 @@ describe("SDK v5 action-candidate contract", () => {
 
     const bound = app.actions.add.bind(3);
 
-    expect(bound.input).toEqual({ amount: 3 });
+    expect(bound.input).toBe(3);
     expect(bound.intent()).toMatchObject({
       type: "add",
       input: { amount: 3 },
+    });
+  });
+
+  it("keeps object-valued single param public input separate from Core-packed intent input", async () => {
+    const app = createManifesto<ObjectInputDomain>(objectInputMelSource, {}).activate();
+
+    const result = await app.actions.toggleTodo.submit({ id: "todo-1" });
+    const bound = app.actions.toggleTodo.bind({ id: "todo-2" });
+
+    expect(result.ok && result.after.state.selectedId).toBe("todo-1");
+    expect(bound.input).toEqual({ id: "todo-2" });
+    expect(bound.intent()).toMatchObject({
+      type: "toggleTodo",
+      input: { input: { id: "todo-2" } },
     });
   });
 
@@ -468,7 +515,9 @@ describe("SDK v5 action-candidate contract", () => {
   it("emits observe.event payloads matching ManifestoEventPayloadMap without full snapshots", async () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
     const settled = vi.fn();
+    const proposalCreated = vi.fn();
     app.observe.event("submission:settled", settled);
+    app.observe.event("proposal:created", proposalCreated);
 
     await app.actions.increment.submit();
 
@@ -479,7 +528,102 @@ describe("SDK v5 action-candidate contract", () => {
       schemaHash: app.inspect.schemaHash(),
       snapshotVersion: expect.any(Number),
     }));
+    expect(proposalCreated).not.toHaveBeenCalled();
     expect(settled.mock.calls[0]?.[0]).not.toHaveProperty("snapshot");
     expect(settled.mock.calls[0]?.[0]).not.toHaveProperty("canonicalSnapshot");
+  });
+
+  it("isolates observe.event handler failures from submit results and other handlers", async () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const afterThrow = vi.fn();
+
+    app.observe.event("submission:settled", () => {
+      throw new Error("handler failed");
+    });
+    app.observe.event("submission:settled", afterThrow);
+
+    const result = await app.actions.increment.submit();
+
+    expect(result.ok).toBe(true);
+    expect(afterThrow).toHaveBeenCalledWith(expect.objectContaining({
+      action: "increment",
+      mode: "base",
+      outcome: { kind: "ok" },
+    }));
+  });
+
+  it("does not call observe.state listeners during registration and supplies the previous selected value on publication", async () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const listener = vi.fn();
+
+    app.observe.state((snapshot) => snapshot.state.count, listener);
+
+    expect(listener).not.toHaveBeenCalled();
+
+    await app.actions.increment.submit();
+
+    expect(listener).toHaveBeenCalledWith(1, 0);
+  });
+
+  it("compares observe.state selector results with Object.is", async () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const listener = vi.fn();
+
+    app.observe.state((snapshot) => snapshot.state.status, listener);
+
+    await app.actions.increment.submit();
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("keeps observe.state registrations alive across selector failures", async () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const listener = vi.fn();
+    let selectorEnabled = false;
+
+    app.observe.state((snapshot) => {
+      if (!selectorEnabled) {
+        throw new Error("selector unavailable");
+      }
+      return snapshot.state.count;
+    }, listener);
+
+    await app.actions.increment.submit();
+    expect(listener).not.toHaveBeenCalled();
+
+    selectorEnabled = true;
+    await app.actions.increment.submit();
+
+    expect(listener).toHaveBeenCalledWith(2, undefined);
+  });
+
+  it("does not notify observe.state subscribers for canonical-only snapshot movement", () => {
+    const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const app = createBaseRuntimeInstance(kernel);
+    const listener = vi.fn();
+
+    app.observe.state((snapshot) => snapshot.state.count, listener);
+
+    const canonical = structuredClone(kernel.getCanonicalSnapshot()) as CoreSnapshot;
+    kernel.setVisibleSnapshot({
+      ...canonical,
+      meta: {
+        ...canonical.meta,
+        version: canonical.meta.version + 1,
+      },
+      namespaces: {
+        ...canonical.namespaces,
+        host: {
+          marker: "canonical-only",
+        },
+      },
+    });
+
+    expect(listener).not.toHaveBeenCalled();
+    expect(app.snapshot().state.count).toBe(0);
+    expect(app.inspect.canonicalSnapshot().namespaces.host).toEqual({
+      marker: "canonical-only",
+    });
   });
 });

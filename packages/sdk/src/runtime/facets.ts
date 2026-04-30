@@ -17,7 +17,7 @@ import type {
   IntentExplanation,
   ManifestoDomainShape,
   ManifestoEvent,
-  ManifestoEventMap,
+  ManifestoEventPayloadMap,
   SimulationDiagnostics,
   Snapshot,
   TypedIntent,
@@ -39,7 +39,7 @@ export interface RuntimeStateStore<T extends ManifestoDomainShape> {
   readonly restoreVisibleSnapshot: () => void;
   readonly emitEvent: <K extends ManifestoEvent>(
     event: K,
-    payload: ManifestoEventMap<T>[K],
+    payload: ManifestoEventPayloadMap[K],
   ) => void;
   readonly enqueue: <R>(task: () => Promise<R>) => Promise<R>;
   readonly dispose: () => void;
@@ -143,12 +143,9 @@ export interface RuntimePublicationHelpers<T extends ManifestoDomainShape> {
   readonly replaceVisibleSnapshot: RuntimeStateStore<T>["setVisibleSnapshot"];
   readonly restoreVisibleSnapshot: RuntimeStateStore<T>["restoreVisibleSnapshot"];
   readonly publishCompletedHostResult: (
-    intent: TypedIntent<T>,
     snapshot: CoreSnapshot,
   ) => PublishedRuntimeSnapshot<T>;
   readonly publishFailedHostResult: (
-    intent: TypedIntent<T>,
-    error: Error,
     snapshot: CoreSnapshot,
   ) => PublishedRuntimeSnapshot<T>;
 }
