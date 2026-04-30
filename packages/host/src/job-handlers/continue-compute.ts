@@ -66,6 +66,7 @@ export function handleContinueCompute(
     intent,
     frozenContext
   );
+  ctx.recordCoreTrace?.(result.trace);
 
   // Emit core:compute trace
   ctx.trace({

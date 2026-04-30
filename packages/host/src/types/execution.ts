@@ -17,6 +17,7 @@ import type {
   Patch,
   SystemDelta,
   Snapshot,
+  TraceGraph,
 } from "@manifesto-ai/core";
 import type { ExecutionMailbox } from "../mailbox.js";
 import type { TraceEvent } from "./trace.js";
@@ -160,6 +161,16 @@ export interface ExecutionContext {
    * Emit a trace event for debugging and compliance testing.
    */
   trace(event: TraceEvent): void;
+
+  /**
+   * Record the Core TraceGraph produced by a compute pass.
+   */
+  recordCoreTrace(trace: TraceGraph): void;
+
+  /**
+   * Read all Core TraceGraphs produced during this execution.
+   */
+  getCoreTraces(): readonly TraceGraph[];
 
   /**
    * Check if requirement is pending (for FULFILL-0 stale check)

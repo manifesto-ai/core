@@ -3,8 +3,14 @@ import { createManifesto } from "@manifesto-ai/sdk";
 
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
 import {
+  createCollisionSchema,
   createCounterSchema,
+  createFailingSchema,
+  createHaltingSchema,
+  type CollisionDomain,
   type CounterDomain,
+  type FailingDomain,
+  type HaltingDomain,
 } from "../helpers/schema.js";
 
 describe("ACTS SDK v5 Action Candidate Suite", () => {
@@ -27,6 +33,10 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
       expect("dispatchAsync" in app).toBe(false);
       expect("createIntent" in app).toBe(false);
       expect("getSnapshot" in app).toBe(false);
+      expect(app.snapshot()).not.toHaveProperty("data");
+      expect(app.snapshot()).not.toHaveProperty("namespaces");
+      expect(Object.keys(app.snapshot().meta)).toEqual(["schemaHash"]);
+      expect(app.inspect.canonicalSnapshot()).toHaveProperty("namespaces");
       expect(Object.keys(app.actions.increment).sort()).toEqual([
         "available",
         "bind",
@@ -36,6 +46,31 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
         "submit",
       ]);
       expect(app.action("increment").info().name).toBe("increment");
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE,
+      "action(name) remains collision-safe for runtime and JavaScript reserved action names.",
+    ),
+    async () => {
+      const app = createManifesto<CollisionDomain>(createCollisionSchema(), {}).activate();
+
+      for (const [name, value] of Object.entries({
+        then: 1,
+        bind: 2,
+        constructor: 3,
+        inspect: 4,
+        snapshot: 5,
+        dispose: 6,
+        action: 7,
+      }) as Array<[keyof CollisionDomain["actions"], number]>) {
+        await app.action(name).submit();
+        expect(app.snapshot().state.count).toBe(value);
+        expect(typeof app.snapshot).toBe("function");
+        expect(typeof app.dispose).toBe("function");
+      }
     },
   );
 
@@ -95,6 +130,29 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
       });
       expect(result.ok && result.before.state.count).toBe(0);
       expect(result.ok && result.after.state.count).toBe(3);
+
+      const stopped = await createManifesto<HaltingDomain>(
+        createHaltingSchema(),
+        {},
+      ).activate().actions.finalize.submit();
+      expect(stopped).toMatchObject({
+        ok: true,
+        status: "settled",
+        outcome: { kind: "stop", reason: "done" },
+      });
+
+      const failed = await createManifesto<FailingDomain>(
+        createFailingSchema(),
+        {},
+      ).activate().actions.fail.submit();
+      expect(failed).toMatchObject({
+        ok: true,
+        status: "settled",
+        outcome: {
+          kind: "fail",
+          error: { message: "repair required" },
+        },
+      });
     },
   );
 
@@ -106,7 +164,11 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
     async () => {
       const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
       const settled = vi.fn();
+      const sequence: string[] = [];
+      app.observe.event("submission:admitted", () => sequence.push("submission:admitted"));
+      app.observe.event("submission:submitted", () => sequence.push("submission:submitted"));
       app.observe.event("submission:settled", settled);
+      app.observe.event("submission:settled", () => sequence.push("submission:settled"));
 
       await app.actions.increment.submit();
 
@@ -116,6 +178,11 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
         outcome: { kind: "ok" },
         schemaHash: app.inspect.schemaHash(),
       }));
+      expect(sequence).toEqual([
+        "submission:admitted",
+        "submission:submitted",
+        "submission:settled",
+      ]);
       expect(settled.mock.calls[0]?.[0]).not.toHaveProperty("snapshot");
       expect(settled.mock.calls[0]?.[0]).not.toHaveProperty("canonicalSnapshot");
     },

@@ -84,6 +84,7 @@ export function handleStartIntent(
     job.intent,
     frozenContext
   );
+  ctx.recordCoreTrace?.(result.trace);
 
   // Emit core:compute trace
   ctx.trace({

@@ -37,6 +37,32 @@ export type HaltingDomain = ManifestoDomainShape & {
   computed: {};
 };
 
+export type FailingDomain = ManifestoDomainShape & {
+  actions: {
+    fail: () => void;
+  };
+  state: {
+    status: string;
+  };
+  computed: {};
+};
+
+export type CollisionDomain = ManifestoDomainShape & {
+  actions: {
+    then: () => void;
+    bind: () => void;
+    constructor: () => void;
+    inspect: () => void;
+    snapshot: () => void;
+    dispose: () => void;
+    action: () => void;
+  };
+  state: {
+    count: number;
+  };
+  computed: {};
+};
+
 export function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
@@ -163,6 +189,68 @@ export function createHaltingSchema(): DomainSchema {
         },
       },
     },
+  });
+}
+
+export function createFailingSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:activation-cts-failing",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        status: { type: "string", required: false, default: "idle" },
+      },
+    },
+    computed: {
+      fields: {},
+    },
+    actions: {
+      fail: {
+        flow: {
+          kind: "fail",
+          code: "DOMAIN_FAIL",
+          message: { kind: "lit", value: "repair required" },
+        },
+      },
+    },
+  });
+}
+
+export function createCollisionSchema(): DomainSchema {
+  const actionValues = {
+    then: 1,
+    bind: 2,
+    constructor: 3,
+    inspect: 4,
+    snapshot: 5,
+    dispose: 6,
+    action: 7,
+  } as const;
+
+  return withHash({
+    id: "manifesto:activation-cts-collisions",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: false, default: 0 },
+      },
+    },
+    computed: { fields: {} },
+    actions: Object.fromEntries(
+      Object.entries(actionValues).map(([name, value]) => [
+        name,
+        {
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: pp("count"),
+            value: { kind: "lit", value },
+          },
+        },
+      ]),
+    ),
   });
 }
 

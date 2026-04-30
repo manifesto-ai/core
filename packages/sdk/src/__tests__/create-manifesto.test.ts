@@ -103,6 +103,18 @@ function createTodoSchema(): DomainSchema {
   });
 }
 
+const annotatedMelSource = `
+domain AnnotatedCounter {
+  state { count: number = 0 }
+
+  @meta("ui:button", { variant: "primary" })
+  @meta("agent:hint")
+  action increment() {
+    when true { patch count = add(count, 1) }
+  }
+}
+`;
+
 describe("createManifesto()", () => {
   it("activates once and returns the v5 app root", () => {
     const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
@@ -168,6 +180,48 @@ describe("createManifesto()", () => {
     const result = await app.actions.increment.submit();
 
     expect(result.ok && result.after.state.count).toBe(1);
+  });
+
+  it("surfaces MEL @meta annotations through ActionHandle.info()", () => {
+    const app = createManifesto<MelCounterDomain>(annotatedMelSource, {}).activate();
+
+    expect(app.actions.increment.info()).toMatchObject({
+      name: "increment",
+      annotations: {
+        "ui:button": { variant: "primary" },
+        "agent:hint": true,
+      },
+    });
+  });
+
+  it("lets caller annotations override compiler annotations for the same action", () => {
+    const app = createManifesto<MelCounterDomain>(
+      annotatedMelSource,
+      {},
+      {
+        annotations: {
+          increment: {
+            title: "Caller Increment",
+            "ui:button": { variant: "secondary" },
+          },
+        },
+      },
+    ).activate();
+
+    expect(app.actions.increment.info()).toMatchObject({
+      title: "Caller Increment",
+      annotations: {
+        title: "Caller Increment",
+        "ui:button": { variant: "secondary" },
+        "agent:hint": true,
+      },
+    });
+  });
+
+  it("does not infer annotations from DomainSchema inputs without options.annotations", () => {
+    const app = createManifesto<TodoDomain>(createTodoSchema(), {}).activate();
+
+    expect(app.actions.addTodo.info()).not.toHaveProperty("annotations");
   });
 
   it("throws CompileError for invalid MEL source", () => {

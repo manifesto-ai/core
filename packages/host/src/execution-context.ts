@@ -18,6 +18,7 @@ import type {
   Patch,
   SystemDelta,
   Snapshot,
+  TraceGraph,
 } from "@manifesto-ai/core";
 import type {
   ExecutionContext,
@@ -54,6 +55,7 @@ export class ExecutionContextImpl implements ExecutionContext {
   private snapshot: Snapshot;
   private frozenContext: HostContext | null = null;
   private currentIntentId: string | null = null;
+  private readonly coreTraces: TraceGraph[] = [];
 
   private readonly contextProvider: HostContextProvider;
   private readonly onTrace?: (event: TraceEvent) => void;
@@ -251,6 +253,20 @@ export class ExecutionContextImpl implements ExecutionContext {
    */
   trace(event: TraceEvent): void {
     this.onTrace?.(event);
+  }
+
+  /**
+   * Record a Core TraceGraph for the current execution.
+   */
+  recordCoreTrace(trace: TraceGraph): void {
+    this.coreTraces.push(trace);
+  }
+
+  /**
+   * Read all Core TraceGraphs recorded for the current execution.
+   */
+  getCoreTraces(): readonly TraceGraph[] {
+    return this.coreTraces;
   }
 
   /**

@@ -22,8 +22,24 @@ const pp = semanticPathToPatchPath;
 
 type CollisionDomain = {
   actions: {
-    snapshot: () => void;
     then: () => void;
+    bind: () => void;
+    constructor: () => void;
+    inspect: () => void;
+    snapshot: () => void;
+    dispose: () => void;
+    action: () => void;
+  };
+  state: {
+    count: number;
+  };
+  computed: {};
+};
+
+type OutcomeDomain = {
+  actions: {
+    stop: () => void;
+    fail: () => void;
   };
   state: {
     count: number;
@@ -48,7 +64,26 @@ function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   };
 }
 
+function setCountFlow(value: number): DomainSchema["actions"][string]["flow"] {
+  return {
+    kind: "patch",
+    op: "set",
+    path: pp("count"),
+    value: { kind: "lit", value },
+  };
+}
+
 function createCollisionSchema(): DomainSchema {
+  const actionValues = {
+    then: 1,
+    bind: 2,
+    constructor: 3,
+    inspect: 4,
+    snapshot: 5,
+    dispose: 6,
+    action: 7,
+  } as const;
+
   return withHash({
     id: "manifesto:sdk-v5-collisions",
     version: "1.0.0",
@@ -59,21 +94,38 @@ function createCollisionSchema(): DomainSchema {
       },
     },
     computed: { fields: {} },
+    actions: Object.fromEntries(
+      Object.entries(actionValues).map(([name, value]) => [name, { flow: setCountFlow(value) }]),
+    ),
+  });
+}
+
+function createOutcomeSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:sdk-v5-outcomes",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: false, default: 0 },
+      },
+    },
+    computed: { fields: {} },
     actions: {
-      snapshot: {
+      stop: {
         flow: {
-          kind: "patch",
-          op: "set",
-          path: pp("count"),
-          value: { kind: "lit", value: 1 },
+          kind: "seq",
+          steps: [
+            setCountFlow(1),
+            { kind: "halt", reason: "insufficient-evidence" },
+          ],
         },
       },
-      then: {
+      fail: {
         flow: {
-          kind: "patch",
-          op: "set",
-          path: pp("count"),
-          value: { kind: "lit", value: 2 },
+          kind: "fail",
+          code: "DOMAIN_FAIL",
+          message: { kind: "lit", value: "repair required" },
         },
       },
     },
@@ -127,6 +179,21 @@ function createOptionSchema(): DomainSchema {
   });
 }
 
+function expectProjectedSnapshotBoundary(snapshot: unknown): void {
+  expect(snapshot).toHaveProperty("state");
+  expect(snapshot).toHaveProperty("computed");
+  expect(snapshot).toHaveProperty("system");
+  expect(snapshot).toHaveProperty("meta");
+  expect(snapshot).not.toHaveProperty("data");
+  expect(snapshot).not.toHaveProperty("namespaces");
+  expect(snapshot).not.toHaveProperty("input");
+  expect(Object.keys((snapshot as { system: object }).system).sort()).toEqual([
+    "lastError",
+    "status",
+  ]);
+  expect(Object.keys((snapshot as { meta: object }).meta)).toEqual(["schemaHash"]);
+}
+
 describe("SDK v5 action-candidate contract", () => {
   it("exposes only the v5 root surface: snapshot, actions, action, observe, inspect, and dispose", () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
@@ -141,6 +208,8 @@ describe("SDK v5 action-candidate contract", () => {
     ]);
     expect(app.snapshot().state.count).toBe(0);
     expect(app.inspect.canonicalSnapshot().state.count).toBe(0);
+    expectProjectedSnapshotBoundary(app.snapshot());
+    expect(app.inspect.canonicalSnapshot()).toHaveProperty("namespaces");
   });
 
   it("keeps v3 root verbs absent from the canonical v5 runtime root", () => {
@@ -220,8 +289,14 @@ describe("SDK v5 action-candidate contract", () => {
     });
   });
 
-  it("keeps preview pure, non-committing, non-publishing, and non-enqueuing", () => {
-    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+  it("keeps preview pure, non-committing, non-publishing, and non-enqueuing", async () => {
+    const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const enqueue = vi.fn(kernel.enqueue);
+    const app = createBaseRuntimeInstance({
+      ...kernel,
+      enqueue,
+    });
     const listener = vi.fn();
     app.observe.state((snapshot) => snapshot.state.count, listener);
 
@@ -234,6 +309,10 @@ describe("SDK v5 action-candidate contract", () => {
     expect(preview.admitted && preview.after.state.count).toBe(1);
     expect(app.snapshot().state.count).toBe(0);
     expect(listener).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
+
+    await app.actions.increment.submit();
+    expect(enqueue).toHaveBeenCalledTimes(1);
   });
 
   it("returns base submit results with mode base, protocol ok, status settled, before, after, and outcome", async () => {
@@ -250,7 +329,37 @@ describe("SDK v5 action-candidate contract", () => {
     });
     expect(result.ok && result.before.state.count).toBe(0);
     expect(result.ok && result.after.state.count).toBe(1);
+    if (result.ok) {
+      expectProjectedSnapshotBoundary(result.before);
+      expectProjectedSnapshotBoundary(result.after);
+    }
     expect(app.snapshot().state.count).toBe(1);
+  });
+
+  it("maps halted and error terminal statuses to stop and fail outcomes without turning protocol ok false", async () => {
+    const app = createManifesto<OutcomeDomain>(createOutcomeSchema(), {}).activate();
+
+    const stopped = await app.actions.stop.submit();
+    expect(stopped).toMatchObject({
+      ok: true,
+      mode: "base",
+      status: "settled",
+      outcome: { kind: "stop", reason: "insufficient-evidence" },
+    });
+    expect(stopped.ok && stopped.after.state.count).toBe(1);
+
+    const failed = await app.actions.fail.submit();
+    expect(failed).toMatchObject({
+      ok: true,
+      mode: "base",
+      status: "settled",
+      outcome: {
+        kind: "fail",
+        error: {
+          message: "repair required",
+        },
+      },
+    });
   });
 
   it("keeps full projected before and after snapshots in settled submit results regardless of payload size", async () => {
@@ -265,11 +374,34 @@ describe("SDK v5 action-candidate contract", () => {
   it("keeps action-name collisions accessible through action(name) without corrupting runtime members", async () => {
     const app = createManifesto<CollisionDomain>(createCollisionSchema(), {}).activate();
 
-    expect(typeof app.snapshot).toBe("function");
-    await app.action("snapshot").submit();
-    expect(app.snapshot().state.count).toBe(1);
-    await app.action("then").submit();
-    expect(app.snapshot().state.count).toBe(2);
+    const runtimeMembers = {
+      action: app.action,
+      actions: app.actions,
+      dispose: app.dispose,
+      inspect: app.inspect,
+      observe: app.observe,
+      snapshot: app.snapshot,
+    };
+
+    for (const [name, value] of Object.entries({
+      then: 1,
+      bind: 2,
+      constructor: 3,
+      inspect: 4,
+      snapshot: 5,
+      dispose: 6,
+      action: 7,
+    }) as Array<[keyof CollisionDomain["actions"], number]>) {
+      expect(app.actions).toHaveProperty(name);
+      await app.action(name).submit();
+      expect(app.snapshot().state.count).toBe(value);
+      expect(app.action).toBe(runtimeMembers.action);
+      expect(app.actions).toBe(runtimeMembers.actions);
+      expect(app.dispose).toBe(runtimeMembers.dispose);
+      expect(app.inspect).toBe(runtimeMembers.inspect);
+      expect(app.observe).toBe(runtimeMembers.observe);
+      expect(app.snapshot).toBe(runtimeMembers.snapshot);
+    }
   });
 
   it("packs BoundAction.intent() inputs from activated action metadata, not runtime argument introspection", () => {

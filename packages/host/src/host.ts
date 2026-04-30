@@ -317,7 +317,7 @@ export class ManifestoHost {
 
     // Process mailbox until completion
     let iterations = 0;
-    const traces: TraceGraph[] = [];
+    let traces: TraceGraph[] = [];
 
     let fatalError: HostError | undefined;
 
@@ -346,6 +346,7 @@ export class ManifestoHost {
 
     // Get final snapshot
     const finalSnapshot = ctx.getSnapshot();
+    traces = [...ctx.getCoreTraces()];
     this.currentSnapshot = finalSnapshot;
 
     // Cleanup via releaseExecution
