@@ -57,6 +57,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-024](./024-compiler-owned-mel-source-fragment-editing-primitive) | Compiler-Owned MEL Source Fragment Editing Primitive | Accepted | 2026-04-25 | Compiler, Studio/authoring tools |
 | [ADR-025](./025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation) | Snapshot Ontology Hard Cut — `data` Retirement and Namespace Separation | Accepted | 2026-04-29 | Core, Host, SDK, Compiler, Lineage, Governance, Studio, Agent tooling, Constitution, Docs |
 | [ADR-026](./026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress) | SDK v5 Action Candidate Surface and Law-Aware `submit()` Ingress | Accepted | 2026-04-29 | SDK, Lineage, Governance, Studio, Agent tooling, Codegen, Docs |
+| [ADR-027](./027-context-and-runtime-namespace-semantics) | Context and Runtime Namespace Semantics | Accepted | 2026-05-03 | Core, Compiler, Host, SDK, Lineage, Governance, Constitution, Docs |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -166,6 +167,17 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-026 supersedes `createIntent()` + `dispatchAsync()` as the primary app-facing path, public `simulate()` / `simulateIntent()` naming, and the public write-verb fork between `dispatchAsync`, `commitAsync`, and `proposeAsync`.
 - ADR-026 is the SDK surface layer of the same v5 release train as ADR-025's Snapshot substrate hard cut.
 - ADR-026 implementation begins with SDK, Lineage, and Governance SPEC finalization before source changes; package-specific source cuts land through the PR series described in ADR-026.
+
+### ADR-027 Companion Notes
+
+- ADR-027 is accepted as the v5 compute-input hard-cut decision: canonical Core compute is `compute(schema, snapshot, intent, context)`.
+- ADR-027 defines `snapshot` as schema-driven existence information and `context` as captured external environment; determinism is over the full four-input tuple.
+- ADR-027 keeps `context` owner-neutral. It supersedes `HostContext` and rejects the interim `CoreIntent.frame` plan as the canonical API.
+- ADR-027 limits user-defined context to schema-declared direct-injected JSON data under `context.external`; user-defined context generators/resolvers/providers remain out of scope.
+- ADR-027 introduces `$runtime.*` as the single built-in Manifesto runtime expression contract over intent/context facts, retiring `$meta.*`, `$system.*`, and `$mel.sys` runtime-value lowering.
+- ADR-027 requires Lineage replay records to include the intent and exact context value used for the transition.
+- ADR-027 preserves `snapshot.namespaces` as owner bookkeeping only; Core MUST NOT know Host/MEL namespace shapes or use owner namespaces as semantic expression inputs.
+- ADR-027 is the compute-input layer of the same v5 release train as ADR-025's Snapshot substrate and ADR-026's SDK surface hard cuts.
 
 ### ADR-017 Version Notes
 
