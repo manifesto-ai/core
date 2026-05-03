@@ -62,7 +62,7 @@ describe("onceIntent", () => {
         state { onceIntent: string }
         action submit() {
           once(onceIntent) {
-            patch onceIntent = $meta.intentId
+            patch onceIntent = $runtime.intent.id
           }
         }
       }

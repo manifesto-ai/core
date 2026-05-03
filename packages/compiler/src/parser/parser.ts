@@ -15,6 +15,8 @@ import {
   type TypeDeclNode,    // v0.3.3
   type StateNode,
   type StateFieldNode,
+  type ContextNode,
+  type ContextFieldNode,
   type ComputedNode,
   type ActionNode,
   type FlowDeclNode,
@@ -184,6 +186,10 @@ export class Parser {
       this.reportUnsupportedAnnotations(annotations);
       return this.parseState();
     }
+    if (this.isContextDeclContext()) {
+      this.reportUnsupportedAnnotations(annotations);
+      return this.parseContext();
+    }
     if (this.check("COMPUTED")) return this.parseComputed(annotations);
     if (this.check("ACTION")) return this.parseAction(annotations);
     if (this.isFlowDeclContext()) {
@@ -192,7 +198,7 @@ export class Parser {
     }
 
     this.reportUnsupportedAnnotations(annotations);
-    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'state', 'computed', 'action', or 'flow'.`);
+    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'state', 'context', 'computed', 'action', or 'flow'.`);
     this.advance(); // Skip the bad token
     return null;
   }
@@ -242,6 +248,55 @@ export class Parser {
         nameToken.location,
         initializer?.location ?? typeExpr.location
       ),
+    };
+  }
+
+  // ============ Context ============
+
+  private parseContext(): ContextNode {
+    const start = this.consume("IDENTIFIER", "Expected 'context'").location;
+    this.consume("LBRACE", "Expected '{' after 'context'");
+
+    const fields: ContextFieldNode[] = [];
+    while (!this.check("RBRACE") && !this.isAtEnd()) {
+      const fieldAnnotations = this.parseAnnotationList();
+      this.reportUnsupportedAnnotations(fieldAnnotations);
+      fields.push(this.parseContextField());
+    }
+
+    const end = this.consume("RBRACE", "Expected '}' to close context block").location;
+
+    return {
+      kind: "context",
+      fields,
+      location: mergeLocations(start, end),
+    };
+  }
+
+  private parseContextField(): ContextFieldNode {
+    const nameToken = this.consume("IDENTIFIER", "Expected context field name");
+    this.consume("COLON", "Expected ':' after context field name");
+    const typeExpr = this.parseTypeExpr();
+
+    if (this.match("EQ")) {
+      const initializer = this.parseExpression();
+      this.errorAtToken(
+        nameToken,
+        "Context fields declare external context shape only; initializers are not allowed"
+      );
+      return {
+        kind: "contextField",
+        name: nameToken.lexeme,
+        typeExpr,
+        location: mergeLocations(nameToken.location, initializer.location),
+      };
+    }
+
+    return {
+      kind: "contextField",
+      name: nameToken.lexeme,
+      typeExpr,
+      location: mergeLocations(nameToken.location, typeExpr.location),
     };
   }
 
@@ -962,10 +1017,10 @@ export class Parser {
       };
     }
 
-    // System identifiers
+    // Dollar namespace identifiers
     if (this.check("SYSTEM_IDENT")) {
       const token = this.advance();
-      // Parse $system.uuid → ["system", "uuid"]
+      // Parse $runtime.time.timestamp → ["runtime", "time", "timestamp"]
       const path = token.lexeme.slice(1).split(".");
       return this.parsePostfix({
         kind: "systemIdent",
@@ -1239,6 +1294,13 @@ export class Parser {
     const keyword = this.peek();
     if (keyword.lexeme !== "flow") return false;
     return this.peekNext().kind === "IDENTIFIER" && this.peekAt(2).kind === "LPAREN";
+  }
+
+  private isContextDeclContext(): boolean {
+    if (!this.check("IDENTIFIER")) return false;
+    const keyword = this.peek();
+    if (keyword.lexeme !== "context") return false;
+    return this.peekNext().kind === "LBRACE";
   }
 
   private isIncludeContext(): boolean {

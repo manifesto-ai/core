@@ -81,6 +81,30 @@ export interface EvaluationContext {
    * Paths starting with "$item.*" resolve here.
    */
   item?: unknown;
+
+  /**
+   * Bound transition runtime facts. When omitted, legacy patch evaluation
+   * derives intent fields from `meta` for compatibility.
+   */
+  runtime?: {
+    intent?: {
+      id?: string;
+      action?: string;
+    };
+    time?: {
+      timestamp?: number;
+      iso?: string;
+    };
+    random?: {
+      seed?: string;
+      uuid?: string;
+    };
+  };
+
+  /**
+   * Direct-injected external context for `$context.*` reads.
+   */
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -97,6 +121,8 @@ export function createEvaluationContext(
     meta: options.meta,
     input: options.input ?? {},
     item: options.item,
+    ...(options.runtime ? { runtime: options.runtime } : {}),
+    ...(options.context ? { context: options.context } : {}),
   };
 }
 

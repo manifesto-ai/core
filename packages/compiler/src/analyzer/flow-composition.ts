@@ -86,6 +86,8 @@ function collectSymbols(domain: DomainNode): FlowSymbols {
           stateTypes.set(field.name, field.typeExpr);
         }
         break;
+      case "context":
+        break;
       case "computed":
         computedNames.add(member.name);
         break;
@@ -678,6 +680,7 @@ function expandProgram(program: ProgramNode, symbols: FlowSymbols): ProgramNode 
   for (const member of program.domain.members) {
     switch (member.kind) {
       case "state":
+      case "context":
       case "computed":
         domainMembers.push(cloneNode(member));
         break;

@@ -8,7 +8,6 @@ import {
 } from "../lowering/index.js";
 import {
   getBasePathExpr,
-  getPathExpr,
   objExpr,
 } from "../lowering/to-mel-expr.js";
 import type {
@@ -132,9 +131,6 @@ function rewriteForRuntime(expr: MelExprNode): MelExprNode {
       return expr;
 
     case "sys":
-      if (expr.path[0] === "system") {
-        return getPathExpr("$system", ...expr.path.slice(1));
-      }
       return expr;
 
     case "get":

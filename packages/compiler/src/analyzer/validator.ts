@@ -10,6 +10,7 @@ import type {
   ActionNode,
   StateNode,
   StateFieldNode,
+  ContextNode,
   ExprNode,
   GuardedStmtNode,
   InnerStmtNode,
@@ -65,6 +66,14 @@ function createContext(): ValidationContext {
 }
 
 const STOP_WAITING_REASON_PATTERN = /\b(await(?:ing)?|wait(?:ing)?|pending)\b/i;
+const VALID_RUNTIME_PATHS = new Set([
+  "intent.id",
+  "intent.action",
+  "time.timestamp",
+  "time.iso",
+  "random.seed",
+  "random.uuid",
+]);
 
 type PrimitiveKind = "null" | "boolean" | "number" | "string";
 
@@ -599,11 +608,23 @@ export class SemanticValidator {
       );
     }
 
+    const contextBlocks = domain.members.filter((member): member is ContextNode => member.kind === "context");
+    for (const contextBlock of contextBlocks.slice(1)) {
+      this.error(
+        "Domain can declare context at most once",
+        contextBlock.location,
+        "E_DUPLICATE_FIELD"
+      );
+    }
+
     // Validate members
     for (const member of domain.members) {
       switch (member.kind) {
         case "state":
           this.validateState(member);
+          break;
+        case "context":
+          this.validateContext(member);
           break;
         case "computed":
           this.validateExpr(member.expression, "computed");
@@ -647,6 +668,22 @@ export class SemanticValidator {
     }
   }
 
+  private validateContext(context: ContextNode): void {
+    const seen = new Map<string, SourceLocation>();
+    for (const field of context.fields) {
+      const prev = seen.get(field.name);
+      if (prev) {
+        this.error(
+          `Duplicate context field '${field.name}'. First declared at line ${prev.start.line}`,
+          field.location,
+          "E_DUPLICATE_FIELD"
+        );
+      } else {
+        seen.set(field.name, field.location);
+      }
+    }
+  }
+
   private validateStateInitializer(expr: ExprNode): void {
     switch (expr.kind) {
       case "literal":
@@ -662,19 +699,11 @@ export class SemanticValidator {
         return;
 
       case "systemIdent":
-        if (expr.path[0] === "system") {
-          this.error(
-            "$system.* cannot be used in state initializers",
-            expr.location,
-            "E002"
-          );
-        } else {
-          this.error(
-            "State initializers must be compile-time constants",
-            expr.location,
-            "E042"
-          );
-        }
+        this.error(
+          `$${expr.path[0]}.* cannot be used in state initializers`,
+          expr.location,
+          "E002"
+        );
         return;
 
       case "objectLiteral":
@@ -850,8 +879,8 @@ export class SemanticValidator {
   }
 
   /**
-   * v0.3.3: Validate available expression is pure (E005)
-   * No $system.*, no effects, no $input.*
+   * v0.3.3: Validate available expression is pure (E005).
+   * No dollar namespace reads or action parameters.
    */
   private validateAvailableExpr(expr: ExprNode): void {
     switch (expr.kind) {
@@ -866,29 +895,11 @@ export class SemanticValidator {
         break;
 
       case "systemIdent":
-        // E005: $system.* not allowed in available
-        if (expr.path[0] === "system") {
-          this.error(
-            "$system.* cannot be used in available condition (must be pure expression)",
-            expr.location,
-            "E005"
-          );
-        }
-        // E005: $input.* not allowed in available (no input at availability check)
-        if (expr.path[0] === "input") {
-          this.error(
-            "$input.* cannot be used in available condition (parameters not available at availability check)",
-            expr.location,
-            "E005"
-          );
-        }
-        if (expr.path[0] === "meta") {
-          this.error(
-            "$meta.* cannot be used in available condition (availability is schema-context only)",
-            expr.location,
-            "E005"
-          );
-        }
+        this.error(
+          `$${expr.path[0]}.* cannot be used in available condition`,
+          expr.location,
+          "E005"
+        );
         break;
 
       case "functionCall":
@@ -941,33 +952,19 @@ export class SemanticValidator {
   }
 
   /**
-   * v0.9.0: Validate dispatchable expression is pure (E047)
-   * Allows state/computed/action params, but forbids direct $input.*, $meta.*, and $system.*.
+   * v0.9.0: Validate dispatchable expression is pure (E047).
+   * Allows state/computed/action params, but forbids direct dollar namespace reads.
    */
   private validateDispatchableExpr(expr: ExprNode): void {
     switch (expr.kind) {
       case "systemIdent":
-        if (expr.path[0] === "system") {
-          this.error(
-            "$system.* cannot be used in dispatchable condition (must be pure expression)",
-            expr.location,
-            "E047"
-          );
-        }
-        if (expr.path[0] === "input") {
-          this.error(
-            "$input.* cannot be used in dispatchable condition (use bare action parameter names)",
-            expr.location,
-            "E047"
-          );
-        }
-        if (expr.path[0] === "meta") {
-          this.error(
-            "$meta.* cannot be used in dispatchable condition (dispatchability is snapshot + bound-input only)",
-            expr.location,
-            "E047"
-          );
-        }
+        this.error(
+          expr.path[0] === "input"
+            ? "$input.* cannot be used in dispatchable condition (use bare action parameter names)"
+            : `$${expr.path[0]}.* cannot be used in dispatchable condition`,
+          expr.location,
+          "E047"
+        );
         break;
 
       case "functionCall":
@@ -1349,14 +1346,120 @@ export class SemanticValidator {
         return this.inferType(expr, env);
 
       case "systemIdent":
-        // E001: $system.* in computed — handled by scope analysis (analyzeScope)
-        // No duplicate check here to avoid double-reporting
+        this.validateDollarIdent(expr.path, context, expr.location);
         return this.inferType(expr, env);
 
       case "literal":
       case "identifier":
       case "iterationVar":
         return this.inferType(expr, env);
+    }
+  }
+
+  private validateDollarIdent(
+    path: readonly string[],
+    context: "computed" | "action",
+    location: SourceLocation
+  ): void {
+    const [namespace, ...rest] = path;
+
+    if (namespace === "system" || namespace === "meta") {
+      this.error(
+        `$${namespace}.* is retired in v5 MEL; use $runtime.* or declared $context.* where action-flow context is available`,
+        location,
+        context === "computed" ? "E001" : "E003"
+      );
+      return;
+    }
+
+    if (namespace === "input") {
+      if (context === "computed") {
+        this.error(
+          "$input.* cannot be used in computed expressions",
+          location,
+          "E001"
+        );
+      }
+      return;
+    }
+
+    if (namespace === "runtime") {
+      if (context !== "action") {
+        this.error(
+          "$runtime.* can be used only in bound action flow expressions",
+          location,
+          "E001"
+        );
+        return;
+      }
+      const key = rest.join(".");
+      if (!VALID_RUNTIME_PATHS.has(key)) {
+        this.error(
+          `Invalid runtime value '$runtime.${key}'. Valid values: ${[...VALID_RUNTIME_PATHS].join(", ")}`,
+          location,
+          "E003"
+        );
+      }
+      return;
+    }
+
+    if (namespace === "context") {
+      if (context !== "action") {
+        this.error(
+          "$context.* can be used only in bound action flow expressions",
+          location,
+          "E001"
+        );
+        return;
+      }
+      this.validateContextPath(rest, location);
+      return;
+    }
+
+    this.error(
+      `Invalid dollar identifier namespace '$${namespace}'. Valid namespaces: $runtime, $context, $input, $item`,
+      location,
+      "E003"
+    );
+  }
+
+  private validateContextPath(path: readonly string[], location: SourceLocation): void {
+    if (!this.symbols) {
+      return;
+    }
+    if (this.symbols.contextTypes.size === 0) {
+      this.error(
+        "Cannot use $context.* without a domain context declaration",
+        location,
+        "E003"
+      );
+      return;
+    }
+    if (path.length === 0) {
+      return;
+    }
+
+    const [head, ...rest] = path;
+    let current = this.symbols.contextTypes.get(head) ?? null;
+    if (!current) {
+      this.error(
+        `Unknown context field '$context.${head}'`,
+        location,
+        "E_UNDEFINED"
+      );
+      return;
+    }
+
+    for (const segment of rest) {
+      current = getPropertyType(current, segment, this.symbols);
+      if (!current) {
+        this.error(
+          `Unknown context path '$context.${path.join(".")}'`,
+          location,
+          "E_UNDEFINED"
+        );
+        return;
+      }
     }
   }
 

@@ -319,7 +319,7 @@ export class Lexer {
   }
 
   private systemIdentifier(): void {
-    // $system.*, $meta.*, $input.*, $item
+    // $runtime.*, $context.*, $input.*, retired $system/$meta, $item
     // v0.3.2: $acc removed - reduce pattern deprecated
     if (!this.isAlpha(this.peek())) {
       this.error("Expected identifier after '$'");
@@ -341,8 +341,15 @@ export class Lexer {
       return;
     }
 
-    // For $system, $meta, $input - continue reading dot-separated path
-    if (initialLexeme === "$system" || initialLexeme === "$meta" || initialLexeme === "$input") {
+    // For dollar namespaces - continue reading dot-separated path.
+    // $system/$meta remain lexable so v5 can reject them with semantic diagnostics.
+    if (
+      initialLexeme === "$runtime" ||
+      initialLexeme === "$context" ||
+      initialLexeme === "$system" ||
+      initialLexeme === "$meta" ||
+      initialLexeme === "$input"
+    ) {
       // Read any following .identifier segments
       while (this.peek() === "." && this.isAlpha(this.peekNext())) {
         this.advance(); // consume .
@@ -354,8 +361,8 @@ export class Lexer {
       return;
     }
 
-    // Invalid system identifier
-    this.error(`Invalid system identifier '${initialLexeme}'. Expected $system.*, $meta.*, $input.*, or $item`);
+    // Invalid dollar identifier
+    this.error(`Invalid dollar identifier '${initialLexeme}'. Expected $runtime.*, $context.*, $input.*, retired $system/$meta, or $item`);
     this.addToken("ERROR");
   }
 

@@ -62,10 +62,10 @@ describe("lowerExprNode", () => {
   });
 
   describe("sys", () => {
-    it("should lower sys([meta, intentId]) to get(meta.intentId)", () => {
-      const input: MelExprNode = { kind: "sys", path: ["meta", "intentId"] };
+    it("should lower sys([runtime, intent, id]) to get($runtime.intent.id)", () => {
+      const input: MelExprNode = { kind: "sys", path: ["runtime", "intent", "id"] };
       const result = lowerExprNode(input, DEFAULT_ACTION_CONTEXT);
-      expect(result).toEqual({ kind: "get", path: "meta.intentId" });
+      expect(result).toEqual({ kind: "get", path: "$runtime.intent.id" });
     });
 
     it("should lower sys([input, title]) to get(input.title)", () => {
@@ -74,7 +74,7 @@ describe("lowerExprNode", () => {
       expect(result).toEqual({ kind: "get", path: "input.title" });
     });
 
-    it("should throw for sys([system, ...]) in Translator path", () => {
+    it("should throw for retired sys([system, ...]) in action context", () => {
       const input: MelExprNode = { kind: "sys", path: ["system", "uuid"] };
       expect(() => lowerExprNode(input, DEFAULT_ACTION_CONTEXT)).toThrow(
         LoweringError
@@ -732,7 +732,7 @@ describe("lowerPatchFragments", () => {
           kind: "call",
           fn: "gt",
           args: [
-            { kind: "sys", path: ["meta", "intentId"] },
+            { kind: "sys", path: ["runtime", "intent", "id"] },
             { kind: "lit", value: "" },
           ],
         },
@@ -748,7 +748,7 @@ describe("lowerPatchFragments", () => {
     expect(result[0].fragmentId).toBe("frag-1");
     expect(result[0].condition).toEqual({
       kind: "gt",
-      left: { kind: "get", path: "meta.intentId" },
+      left: { kind: "get", path: "$runtime.intent.id" },
       right: { kind: "lit", value: "" },
     });
     expect(result[0].op.kind).toBe("addComputed");
@@ -891,14 +891,14 @@ describe("lowerRuntimePatches", () => {
       {
         op: "set",
         path: irp("lastUpdatedBy"),
-        value: { kind: "sys", path: ["meta", "intentId"] },
+        value: { kind: "sys", path: ["runtime", "intent", "id"] },
       },
     ];
 
     const result = lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT);
 
     expect(result).toHaveLength(1);
-    expect(result[0].value).toEqual({ kind: "get", path: "meta.intentId" });
+    expect(result[0].value).toEqual({ kind: "get", path: "$runtime.intent.id" });
   });
 
   it("should lower complex expressions", () => {

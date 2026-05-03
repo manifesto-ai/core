@@ -58,7 +58,7 @@ export interface AnnotationNode extends ASTNode {
 /**
  * Domain member types
  */
-export type DomainMember = StateNode | ComputedNode | ActionNode | FlowDeclNode;
+export type DomainMember = StateNode | ContextNode | ComputedNode | ActionNode | FlowDeclNode;
 
 /**
  * Type declaration (v0.3.3)
@@ -90,6 +90,28 @@ export interface StateFieldNode extends ASTNode {
   annotations?: AnnotationNode[];
   typeExpr: TypeExprNode;
   initializer?: ExprNode;
+}
+
+// ============ Context ============
+
+/**
+ * Context block declaration.
+ *
+ * Declares the shape of direct-injected external context. Values are supplied
+ * by the runtime, so context fields do not carry initializers.
+ */
+export interface ContextNode extends ASTNode {
+  kind: "context";
+  fields: ContextFieldNode[];
+}
+
+/**
+ * Context field declaration.
+ */
+export interface ContextFieldNode extends ASTNode {
+  kind: "contextField";
+  name: string;
+  typeExpr: TypeExprNode;
 }
 
 // ============ Computed ============
@@ -363,11 +385,12 @@ export interface IdentifierExprNode extends ASTNode {
 }
 
 /**
- * System identifier expression ($system.*, $meta.*, $input.*)
+ * Dollar namespace identifier expression ($runtime.*, $context.*, $input.*,
+ * retired $system/$meta).
  */
 export interface SystemIdentExprNode extends ASTNode {
   kind: "systemIdent";
-  path: string[]; // e.g., ["system", "uuid"] for $system.uuid
+  path: string[]; // e.g., ["runtime", "time", "timestamp"] for $runtime.time.timestamp
 }
 
 /**

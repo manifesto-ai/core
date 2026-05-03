@@ -11,6 +11,7 @@ import type {
   TypeDeclNode,   // v0.3.3
   StateNode,
   StateFieldNode,
+  ContextFieldNode,
   ComputedNode,
   ActionNode,
   ExprNode,
@@ -102,6 +103,11 @@ export interface StateSpec {
   fieldTypes?: Record<string, TypeDefinition>;
 }
 
+export interface ContextSpec {
+  fields: Record<string, FieldSpec>;
+  fieldTypes?: Record<string, TypeDefinition>;
+}
+
 /**
  * Computed field specification
  */
@@ -177,6 +183,7 @@ export interface DomainSchema {
   /** v0.3.3: Named type declarations */
   types: Record<string, TypeSpec>;
   state: StateSpec;
+  context?: ContextSpec;
   computed: ComputedSpec;
   actions: Record<string, ActionSpec>;
   meta?: {
@@ -192,6 +199,7 @@ export interface CanonicalDomainSchema {
   hash: string;
   types: Record<string, TypeSpec>;
   state: StateSpec;
+  context?: ContextSpec;
   computed: { fields: Record<string, CompilerComputedFieldSpec> };
   actions: Record<string, CompilerActionSpec>;
   meta?: {
@@ -271,6 +279,7 @@ export function generateCanonical(program: ProgramNode): GenerateCanonicalResult
 
   // Generate schema parts
   const state = generateState(program.domain, ctx);
+  const context = generateContext(program.domain, ctx);
   const computed = generateComputed(program.domain, ctx);
   const actions = generateActions(program.domain, ctx);
 
@@ -287,6 +296,7 @@ export function generateCanonical(program: ProgramNode): GenerateCanonicalResult
     version: "1.0.0",
     types,
     state,
+    ...(context ? { context } : {}),
     computed,
     actions,
     meta: {
@@ -438,6 +448,41 @@ function generateState(domain: DomainNode, ctx: GeneratorContext): StateSpec {
   }
 
   return { fields, fieldTypes };
+}
+
+function generateContext(domain: DomainNode, ctx: GeneratorContext): ContextSpec | undefined {
+  const fields: Record<string, FieldSpec> = {};
+  const fieldTypes: Record<string, TypeDefinition> = {};
+  let sawContext = false;
+
+  for (const member of domain.members) {
+    if (member.kind !== "context") {
+      continue;
+    }
+
+    sawContext = true;
+    for (const field of member.fields) {
+      const typeDefinition = typeExprToDefinition(field.typeExpr);
+      fieldTypes[field.name] = typeDefinition;
+      const fieldSpec = generateContextFieldSpec(field, ctx);
+      if (fieldSpec) {
+        fields[field.name] = fieldSpec;
+      }
+    }
+  }
+
+  return sawContext ? { fields, fieldTypes } : undefined;
+}
+
+function generateContextFieldSpec(field: ContextFieldNode, ctx: GeneratorContext): FieldSpec | null {
+  const spec = typeExprToFieldSpec(field.typeExpr, ctx);
+  if (!spec) {
+    return null;
+  }
+  return {
+    ...spec,
+    required: true,
+  };
 }
 
 function generateFieldSpec(field: StateFieldNode, ctx: GeneratorContext): FieldSpec | null {
@@ -1721,16 +1766,26 @@ function resolveSystemIdent(path: string[], ctx: GeneratorContext): CompilerExpr
   const [namespace, ...rest] = path;
 
   switch (namespace) {
+    case "input":
+    case "runtime":
+    case "context":
+      return sysPathExpr(namespace, ...rest);
+
     case "system":
     case "meta":
-    case "input":
-      return sysPathExpr(namespace, ...rest);
+      ctx.diagnostics.push({
+        severity: "error",
+        code: "E_INVALID_SYSTEM",
+        message: `$${namespace}.* is retired in v5 MEL; use $runtime.* or declared $context.* where action-flow context is available`,
+        location: { start: { line: 0, column: 0, offset: 0 }, end: { line: 0, column: 0, offset: 0 } },
+      });
+      return { kind: "lit", value: null };
 
     default:
       ctx.diagnostics.push({
         severity: "error",
         code: "E_INVALID_SYSTEM",
-        message: `Invalid system identifier namespace '$${namespace}'`,
+        message: `Invalid dollar identifier namespace '$${namespace}'`,
         location: { start: { line: 0, column: 0, offset: 0 }, end: { line: 0, column: 0, offset: 0 } },
       });
       return { kind: "lit", value: null };

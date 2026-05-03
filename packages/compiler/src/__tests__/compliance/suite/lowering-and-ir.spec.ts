@@ -332,8 +332,8 @@ function runtimeRoot(expr: CoreExprNode): string | null {
   if (expr.path === "$item" || expr.path.startsWith("$item.")) {
     return "$item";
   }
-  if (expr.path.startsWith("$system.")) {
-    return "$system";
+  if (expr.path.startsWith("$runtime.")) {
+    return "$runtime";
   }
   return "snapshot";
 }
@@ -458,7 +458,7 @@ describe("CCTS Lowering and IR Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(A20..A24/A27/A34) system lowering remains MEL-namespace independent"), () => {
+  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(A20..A24/A27/A34) runtime lowering remains MEL-namespace independent"), () => {
     const source = `
       domain Demo {
         state {
@@ -467,8 +467,8 @@ describe("CCTS Lowering and IR Suite", () => {
         }
         action create() {
           when true {
-            patch id = $system.uuid
-            patch otherId = $system.uuid
+            patch id = $runtime.random.uuid
+            patch otherId = $runtime.random.uuid
           }
         }
       }
@@ -493,7 +493,7 @@ describe("CCTS Lowering and IR Suite", () => {
         failMessage: "Lowering still emitted system.get effects.",
         evidence: [noteEvidence("Observed effect types", effectTypes)],
       }),
-      evaluateRule(getRuleOrThrow("A22"), compiled.success && compiledRendered.includes("$system.uuid") && lowered.success && loweredRendered.includes("$system.uuid"), {
+      evaluateRule(getRuleOrThrow("A22"), compiled.success && compiledRendered.includes("$runtime.random.uuid") && lowered.success && loweredRendered.includes("$runtime.random.uuid"), {
         passMessage: "System values remain on the deterministic Core expression path.",
         failMessage: "System value compatibility lowering changed the runtime expression path.",
         evidence: [
@@ -521,7 +521,7 @@ describe("CCTS Lowering and IR Suite", () => {
         failMessage: "Compiler lowering reintroduced MEL-owned runtime storage.",
         evidence: [noteEvidence("Lowered schema excerpt", loweredRendered.slice(0, 320))],
       }),
-      evaluateRule(getRuleOrThrow("AD-COMP-LOW-001"), compiled.success && compiledRendered.includes("$system.uuid") && noMelStorage, {
+      evaluateRule(getRuleOrThrow("AD-COMP-LOW-001"), compiled.success && compiledRendered.includes("$runtime.random.uuid") && noMelStorage, {
         passMessage: "Compiler compatibility lowering does not cross into owner-specific runtime storage.",
         failMessage: "Compiler compatibility lowering crossed an owner-specific runtime boundary.",
         evidence: [
@@ -538,7 +538,7 @@ describe("CCTS Lowering and IR Suite", () => {
         state { id: string = "" }
         action create() {
           when true {
-            patch id = $system.uuid
+            patch id = $runtime.random.uuid
           }
         }
       }
@@ -908,7 +908,7 @@ describe("CCTS Lowering and IR Suite", () => {
         computed trimmed = neq(trim(title), "")
         computed empty = eq(len(items), 0)
         action check() {
-          when neq(marker, $meta.intentId) {
+          when neq(marker, $runtime.intent.id) {
             stop "Already processed"
           }
         }

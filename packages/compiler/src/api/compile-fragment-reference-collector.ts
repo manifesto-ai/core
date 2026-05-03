@@ -248,6 +248,11 @@ function visitMember(
         if (field.initializer) visitExpr(field.initializer);
       }
       return;
+    case "context":
+      for (const field of member.fields) {
+        visitType(field.typeExpr);
+      }
+      return;
     case "computed":
       visitExpr(member.expression);
       return;

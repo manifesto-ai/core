@@ -220,6 +220,8 @@ function evaluateNode(expr: ExprNode, ctx: EvaluationContext): unknown {
  * Resolve a path in the evaluation context.
  *
  * Path prefixes:
+ * - $runtime.* → ctx.runtime with meta-derived intent compatibility
+ * - $context.* → ctx.context
  * - meta.* → ctx.meta
  * - input.* → ctx.input
  * - $item.* → ctx.item
@@ -232,6 +234,17 @@ function resolvePath(path: string, ctx: EvaluationContext): unknown {
   const parts = parsePath(path);
 
   // Special prefixes
+  if (parts[0] === "$runtime") {
+    return resolveRuntimePath(parts.slice(1), ctx);
+  }
+
+  if (parts[0] === "$context") {
+    if (parts.length === 1) {
+      return ctx.context ?? null;
+    }
+    return getValueAtPath(ctx.context, parts.slice(1));
+  }
+
   if (parts[0] === "meta") {
     return getValueAtPath(ctx.meta, parts.slice(1));
   }
@@ -257,6 +270,34 @@ function resolvePath(path: string, ctx: EvaluationContext): unknown {
 
   // Default: resolve in snapshot.state
   return getValueAtPath(ctx.snapshot.state, parts);
+}
+
+function resolveRuntimePath(parts: string[], ctx: EvaluationContext): unknown {
+  const key = parts.join(".");
+  switch (key) {
+    case "intent.id":
+      return ctx.runtime?.intent?.id ?? ctx.meta.intentId;
+    case "intent.action":
+      return ctx.runtime?.intent?.action ?? null;
+    case "time.timestamp":
+      return ctx.runtime?.time?.timestamp ?? ctx.meta.timestamp ?? null;
+    case "time.iso": {
+      const explicit = ctx.runtime?.time?.iso;
+      if (explicit !== undefined) {
+        return explicit;
+      }
+      const timestamp = ctx.runtime?.time?.timestamp ?? ctx.meta.timestamp;
+      return typeof timestamp === "number" && Number.isFinite(timestamp)
+        ? new Date(timestamp).toISOString()
+        : null;
+    }
+    case "random.seed":
+      return ctx.runtime?.random?.seed ?? null;
+    case "random.uuid":
+      return ctx.runtime?.random?.uuid ?? null;
+    default:
+      return null;
+  }
 }
 
 /**

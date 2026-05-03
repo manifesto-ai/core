@@ -137,6 +137,8 @@ export class ScopeAnalyzer {
           kind: "action",
           location: member.location,
         });
+      } else if (member.kind === "context") {
+        // Context fields are externally supplied values, not lexical symbols.
       } else if (member.kind === "flow") {
         // Flow declarations are compiler-only and removed before canonical analysis.
       }
@@ -148,6 +150,8 @@ export class ScopeAnalyzer {
         this.analyzeComputedExpr(member);
       } else if (member.kind === "action") {
         this.analyzeAction(member);
+      } else if (member.kind === "context") {
+        // Type shape is validated by the semantic validator/generator.
       }
     }
   }
@@ -170,6 +174,13 @@ export class ScopeAnalyzer {
         kind: "param",
         location: param.location,
       });
+    }
+
+    if (action.available) {
+      this.analyzeExpr(action.available, "computed");
+    }
+    if (action.dispatchable) {
+      this.analyzeExpr(action.dispatchable, "action");
     }
 
     // Analyze body
@@ -321,40 +332,63 @@ export class ScopeAnalyzer {
   private checkSystemIdent(path: string[], location: SourceLocation, context: "computed" | "action"): void {
     const [namespace, ...rest] = path;
 
-    // E001: $system.* in computed
-    if (namespace === "system" && context === "computed") {
+    if (namespace === "system" || namespace === "meta") {
       this.error(
-        `Cannot use $system.* in computed expressions (non-deterministic)`,
+        `$${namespace}.* is retired in v5 MEL; use $runtime.* or declared $context.* where action-flow context is available`,
         location,
-        "E001"
+        context === "computed" ? "E001" : "E003"
       );
+      return;
     }
 
-    // E003: Invalid $system reference
-    if (namespace === "system") {
-      const validKeys = ["uuid", "timestamp", "time.now", "random"];
+    if (namespace === "runtime") {
+      if (context === "computed") {
+        this.error(
+          "$runtime.* cannot be used in computed expressions",
+          location,
+          "E001"
+        );
+        return;
+      }
+      const validKeys = [
+        "intent.id",
+        "intent.action",
+        "time.timestamp",
+        "time.iso",
+        "random.seed",
+        "random.uuid",
+      ];
       const key = rest.join(".");
       if (key && !validKeys.includes(key)) {
         this.error(
-          `Invalid system value '$system.${key}'. Valid values: ${validKeys.join(", ")}`,
+          `Invalid runtime value '$runtime.${key}'. Valid values: ${validKeys.join(", ")}`,
           location,
           "E003"
         );
       }
+      return;
     }
 
-    // E003: Invalid $meta reference
-    if (namespace === "meta") {
-      const validKeys = ["intentId", "actionName", "timestamp"];
-      const key = rest.join(".");
-      if (key && !validKeys.includes(key)) {
+    if (namespace === "context") {
+      if (context === "computed") {
         this.error(
-          `Invalid meta value '$meta.${key}'. Valid values: ${validKeys.join(", ")}`,
+          "$context.* cannot be used in computed expressions",
           location,
-          "E003"
+          "E001"
         );
       }
+      return;
     }
+
+    if (namespace === "input") {
+      return;
+    }
+
+    this.error(
+      `Invalid dollar identifier namespace '$${namespace}'. Valid namespaces: $runtime, $context, $input, $item`,
+      location,
+      "E003"
+    );
   }
 
   private validatePath(path: any): void {

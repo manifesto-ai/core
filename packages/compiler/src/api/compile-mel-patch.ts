@@ -224,7 +224,7 @@ export function compileMelPatchText(
   const lowerStart = performance.now();
   const loweringContext: ExprLoweringContext = {
     mode: "action",
-    allowSysPaths: options.allowSysPaths ?? { prefixes: ["meta", "input"] },
+    allowSysPaths: options.allowSysPaths ?? { prefixes: ["input", "runtime", "context"] },
     fnTableVersion: options.fnTableVersion ?? "1.0",
     actionName: options.actionName,
   };

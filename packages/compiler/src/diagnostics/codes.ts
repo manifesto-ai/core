@@ -19,17 +19,17 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
   // ============ Syntax Errors (E0xx) ============
   E001: {
     code: "E001",
-    message: "$system.* cannot be used in computed expressions (non-deterministic)",
+    message: "$runtime.* and $context.* can be used only in bound action flow expressions",
     category: "semantic",
   },
   E002: {
     code: "E002",
-    message: "$system.* cannot be used in state initializers",
+    message: "Dollar namespace values cannot be used in state initializers",
     category: "semantic",
   },
   E003: {
     code: "E003",
-    message: "Invalid $system reference",
+    message: "Invalid or retired dollar namespace reference",
     category: "semantic",
   },
   E004: {
@@ -41,7 +41,7 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
   // ============ v0.3.3 Errors (E0xx) ============
   E005: {
     code: "E005",
-    message: "available expression must be pure (no Effects, no $system.*)",
+    message: "available expression must be pure over schema and snapshot only",
     category: "semantic",
   },
   E006: {

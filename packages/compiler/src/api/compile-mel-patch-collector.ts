@@ -168,7 +168,7 @@ export class PatchStatementCollector {
         let onceCondition: MelExprNode = {
           kind: "call",
           fn: "neq",
-          args: [markerExpr, { kind: "sys", path: ["meta", "intentId"] }],
+          args: [markerExpr, { kind: "sys", path: ["runtime", "intent", "id"] }],
         };
 
         if (stmt.condition) {
@@ -244,7 +244,7 @@ export class PatchStatementCollector {
               path: markerPath,
               value: {
                 kind: "systemIdent",
-                path: ["meta", "intentId"],
+                path: ["runtime", "intent", "id"],
                 location: markerLocation,
               },
               location: markerLocation,
@@ -330,7 +330,7 @@ export class PatchStatementCollector {
           fn: "neq",
           args: [
             pathToMelExpr(onceIntentGuardPath),
-            { kind: "sys", path: ["meta", "intentId"] },
+            { kind: "sys", path: ["runtime", "intent", "id"] },
           ],
         };
 
@@ -411,7 +411,7 @@ export class PatchStatementCollector {
                     key: onceIntentGuardId,
                     value: {
                       kind: "systemIdent",
-                      path: ["meta", "intentId"],
+                      path: ["runtime", "intent", "id"],
                       location: markerLocation,
                     },
                     location: markerLocation,
@@ -530,6 +530,7 @@ class ConditionComposer {
 class PatchExprValidator {
   private readonly symbols: DomainTypeSymbols = {
     stateTypes: new Map(),
+    contextTypes: new Map(),
     computedDecls: new Map(),
     typeDefs: new Map(),
     computedTypeCache: new Map(),
