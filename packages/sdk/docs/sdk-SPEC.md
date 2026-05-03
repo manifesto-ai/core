@@ -30,9 +30,13 @@ specs.
 The v5 public model is:
 
 ```typescript
-const app = createManifesto<TodoDomain>(schema, effects).activate();
+const app = createManifesto<TodoDomain>(schema, effects, {
+  context: { locale: "ko-KR" },
+}).activate();
 
 app.snapshot();
+app.context();
+app.injectContext({ locale: "en-US" });
 app.actions.addTodo.info();
 app.actions.addTodo.available();
 app.actions.addTodo.check({ title: "Ship v5" });
@@ -155,6 +159,7 @@ export type ManifestoDomainShape = {
   readonly actions: Record<string, ActionFunction>;
   readonly state: Record<string, unknown>;
   readonly computed: Record<string, unknown>;
+  readonly context?: ExternalContext;
 };
 
 export type ActionName<TDomain extends ManifestoDomainShape> =
@@ -334,17 +339,17 @@ is `{ id }`, while `BoundAction.intent()?.input` is the Core-packed
 ### 5.8 Invocation Options, Diffs, and Reports
 
 ```typescript
-export type PreviewOptions = {
+export type PreviewOptions<TContext extends ExternalContext = ExternalContext> = {
   readonly __kind: "PreviewOptions";
   readonly diagnostics?: "none" | "summary" | "trace";
   readonly includeAvailableActions?: boolean;
-  readonly context?: ExternalContext;
+  readonly context?: TContext;
 };
 
-export type SubmitOptions = {
+export type SubmitOptions<TContext extends ExternalContext = ExternalContext> = {
   readonly __kind: "SubmitOptions";
   readonly report?: "none" | "summary" | "full";
-  readonly context?: ExternalContext;
+  readonly context?: TContext;
 };
 
 export type JsonValue =
@@ -356,6 +361,15 @@ export type JsonValue =
   | { readonly [key: string]: JsonValue };
 
 export type ExternalContext = Readonly<Record<string, JsonValue>>;
+
+export type DomainExternalContext<TDomain extends ManifestoDomainShape> =
+  TDomain extends { readonly context: infer TContext extends ExternalContext }
+    ? Readonly<TContext>
+    : ExternalContext;
+
+export type ContextUpdater<TContext extends ExternalContext = ExternalContext> = (
+  current: Readonly<TContext>,
+) => TContext;
 
 export type PathSegment = string | number;
 
@@ -382,10 +396,17 @@ export type BaseWriteReport = {
 `PreviewOptions` and `SubmitOptions` use explicit `__kind` discriminants to keep
 SDK option bags distinguishable from domain action input objects.
 
-`context`, when present, is the user-supplied external context partition. SDK
-MUST pass it to Core as `Context.external` after materializing Manifesto-owned
+`context`, when present in preview/submit options, is a transition-local full
+override for the user-supplied external context partition. SDK MUST pass it to
+Core as `Context.external` after materializing Manifesto-owned
 `Context.runtime`. SDK MUST reject functions, promises, providers, lazy getters,
 class instances, symbols, `undefined`, and other non-JSON values in this option.
+The generic `ExternalContext` fallback is used when codegen has not produced a
+schema-specific named context type.
+
+Runtime context values MUST conform to the schema's `context` contract when one
+is declared. If the schema omits `context`, the external context contract is the
+empty object and non-empty public context input is malformed SDK input.
 
 `LineageWriteReport` and `GovernanceSettlementReport` are boundary names owned
 by Lineage and Governance. SDK fixes only where those reports attach in the
@@ -434,14 +455,15 @@ surfaces.
 ```typescript
 export type ActionAnnotations = Readonly<Record<string, ActionAnnotation>>;
 
-export type CreateManifestoOptions = {
+export type CreateManifestoOptions<TContext extends ExternalContext = ExternalContext> = {
   readonly annotations?: ActionAnnotations;
+  readonly context?: TContext;
 };
 
 declare function createManifesto<TDomain extends ManifestoDomainShape>(
   schema: DomainSchema | string,
   effects?: Record<string, EffectHandler>,
-  options?: CreateManifestoOptions,
+  options?: CreateManifestoOptions<DomainExternalContext<TDomain>>,
 ): ComposableManifesto<TDomain, "base">;
 ```
 
@@ -452,6 +474,10 @@ artifacts such as `DomainModule` MUST NOT be accepted in place of `DomainSchema`
 `@meta` annotations to reach `ActionHandle.info()`. This preserves the runtime
 entrypoint as `DomainSchema`-first while allowing tooling metadata to travel as
 an explicit sidecar.
+
+`options.context`, when present, is the initial flat user external context for
+the runtime produced by `activate()`. It is not the Core nested `Context` object
+and it does not let callers provide `Context.runtime`.
 
 When `schema` is MEL source text and the SDK compiles it internally, any
 annotations produced by that compilation are SDK-resolved annotations. If
@@ -492,6 +518,8 @@ with `ManifestoError` code `RESERVED_NAMESPACE`.
 | SDK-CREATE-7 | MUST | SDK MUST preserve the simplified SDK `EffectHandler` contract and adapt it internally to Host requirements. |
 | SDK-CREATE-8 | MUST | For MEL source strings, compiler-resolved annotations MUST be available to `ActionHandle.info()` unless overridden by `options.annotations`. |
 | SDK-CREATE-9 | MUST | For `DomainSchema` inputs, annotations MUST come only from `options.annotations`. |
+| SDK-CREATE-10 | MAY | `CreateManifestoOptions.context` MAY provide the runtime's initial user external context. |
+| SDK-CREATE-11 | MUST NOT | `CreateManifestoOptions.context` MUST NOT expose or accept Core `Context.runtime`. |
 
 ## 7. Runtime Root Surface
 
@@ -505,6 +533,11 @@ export type BaseManifestoApp<
   readonly inspect: InspectSurface<TDomain>;
 
   snapshot(): ProjectedSnapshot<TDomain>;
+  context(): DomainExternalContext<TDomain>;
+  injectContext(context: DomainExternalContext<TDomain>): void;
+  updateContext(
+    updater: ContextUpdater<DomainExternalContext<TDomain>>,
+  ): DomainExternalContext<TDomain>;
 
   action<Name extends ActionName<TDomain>>(
     name: Name,
@@ -537,13 +570,16 @@ collision-safe accessor.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| SDK-ROOT-1 | MUST | `ManifestoApp` MUST expose exactly the canonical root groups shown above plus mode-specific extensions. |
+| SDK-ROOT-1 | MUST | `ManifestoApp` MUST expose exactly the canonical root groups and root methods shown above plus mode-specific extensions. |
 | SDK-ROOT-2 | MUST | `snapshot()` MUST be the only root-level snapshot read in the canonical v5 public surface. |
 | SDK-ROOT-3 | MUST | `action(name)` MUST work for every declared action name, including names that collide with runtime or JavaScript reserved properties. |
-| SDK-ROOT-4 | MUST | User action names MUST NOT corrupt root members such as `then`, `constructor`, `bind`, `inspect`, `snapshot`, `dispose`, or `action`. |
+| SDK-ROOT-4 | MUST | User action names MUST NOT corrupt root members such as `then`, `constructor`, `bind`, `inspect`, `snapshot`, `context`, `injectContext`, `updateContext`, `dispose`, or `action`. |
 | SDK-ROOT-5 | MUST | Governance `waitForSettlement(ref)` MUST be type-level reachable only on governance-mode runtimes. |
 | SDK-ROOT-6 | MUST | The `ManifestoApp` governance extension conditional MUST use a non-distributive form equivalent to `[TMode] extends ["governance"]`. |
 | SDK-ROOT-7 | MUST NOT | The empty-surface branch MUST NOT use `Record<string, never>`. |
+| SDK-ROOT-8 | MUST | `context()` MUST return the current flat user external context, not Core `Context.runtime` or the nested Core context envelope. |
+| SDK-ROOT-9 | MUST | `injectContext(next)` MUST full-replace the current user external context for future transitions. |
+| SDK-ROOT-10 | MUST | `updateContext(updater)` MUST execute the updater synchronously once, validate the returned JSON value, full-replace the current user external context, and return the materialized replacement. |
 
 ## 8. Action Candidate Surface
 
@@ -571,10 +607,10 @@ export type ActionHandle<
   available(): boolean;
   check(...args: ActionArgs<TDomain, Name>): Admission<Name>;
   preview(
-    ...args: [...ActionArgs<TDomain, Name>, PreviewOptions?]
+    ...args: [...ActionArgs<TDomain, Name>, PreviewOptions<DomainExternalContext<TDomain>>?]
   ): PreviewResult<TDomain, Name>;
   submit(
-    ...args: [...ActionArgs<TDomain, Name>, SubmitOptions?]
+    ...args: [...ActionArgs<TDomain, Name>, SubmitOptions<DomainExternalContext<TDomain>>?]
   ): Promise<SubmitResultFor<TMode, TDomain, Name>>;
   bind(...args: ActionArgs<TDomain, Name>): BoundAction<TDomain, Name, TMode>;
 };
@@ -592,8 +628,8 @@ export type BoundAction<
   readonly input: ActionInput<TDomain, Name>;
 
   check(): Admission<Name>;
-  preview(options?: PreviewOptions): PreviewResult<TDomain, Name>;
-  submit(options?: SubmitOptions): Promise<SubmitResultFor<TMode, TDomain, Name>>;
+  preview(options?: PreviewOptions<DomainExternalContext<TDomain>>): PreviewResult<TDomain, Name>;
+  submit(options?: SubmitOptions<DomainExternalContext<TDomain>>): Promise<SubmitResultFor<TMode, TDomain, Name>>;
 
   intent(): Intent | null;
 };
@@ -674,18 +710,35 @@ this ambiguity because the action input has already been bound.
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | SDK-CONTEXT-1 | MUST | `PreviewOptions.context` and `SubmitOptions.context` MUST represent only user external context. |
-| SDK-CONTEXT-2 | MUST | SDK MUST map public `options.context` to Core `Context.external`. |
+| SDK-CONTEXT-2 | MUST | SDK MUST map public context values to Core `Context.external`. |
 | SDK-CONTEXT-3 | MUST | SDK/Host runtime assembly MUST materialize Core `Context.runtime` before calling Core. |
 | SDK-CONTEXT-4 | MUST NOT | SDK MUST NOT expose user-defined context generators, resolvers, providers, callbacks, promises, lazy getters, or function-valued context fields. |
 | SDK-CONTEXT-5 | MUST | SDK MUST reject non-JSON external context values at the SDK boundary. |
 | SDK-CONTEXT-6 | MUST | SDK MUST NOT store runtime values in `snapshot.namespaces.host`, `snapshot.namespaces.mel`, or raw `Intent` frame fields for Core to read. |
 | SDK-CONTEXT-7 | MUST | SDK admission helpers `available()` and `check()` MUST remain context-blind because `$runtime.*` and `$context.*` are illegal in availability and dispatchability. |
+| SDK-CONTEXT-8 | MUST | `context()` MUST expose only the current flat user external context. |
+| SDK-CONTEXT-9 | MUST | `injectContext(next)` MUST full-replace the current user external context and MUST NOT trigger compute, effects, or observer events by itself. |
+| SDK-CONTEXT-10 | MUST | `updateContext(updater)` MUST execute the updater synchronously exactly once against the current external context and full-replace with its JSON result. |
+| SDK-CONTEXT-11 | MUST NOT | `updateContext(updater)` MUST NOT accept async updaters or Promise results. |
+| SDK-CONTEXT-12 | MUST | `PreviewOptions.context` and `SubmitOptions.context` MUST be transition-local full overrides, not partial merges. |
+| SDK-CONTEXT-13 | MUST | Preview/submit context capture MUST happen at call-entry, before awaited work can observe later `injectContext()` calls. |
+| SDK-CONTEXT-14 | MUST | A preview/submit override MUST NOT mutate the runtime current context returned by `context()`. |
+| SDK-CONTEXT-15 | MUST | Codegen SHOULD represent schema-declared context as a schema-specific named type and thread it through `createManifesto`, `context`, `injectContext`, `updateContext`, `preview`, and `submit`; generic usage MAY fall back to `ExternalContext`. |
+| SDK-CONTEXT-16 | MUST | Accepted context values MUST conform to `DomainSchema.context`; if no context is declared, only an empty external context is valid. |
+| SDK-CONTEXT-17 | MUST | SDK MUST clone and freeze accepted context values and MUST NOT retain caller-owned mutable object references. |
+| SDK-CONTEXT-18 | MUST | A top-level external key named `runtime`, if declared by schema, remains `$context.runtime`; it MUST NOT override or alias Manifesto-owned `$runtime`. |
 
-`preview()` and `submit()` each materialize their own full Core `Context` unless
-a future explicit prepared-transition API says otherwise. Passing the same
-`options.context` to both calls reuses the same external context data, but it
-does not by itself guarantee byte-identical `Context.runtime` values across the
-two calls.
+The runtime maintains one current external context value. `injectContext()`
+replaces that value for future transition attempts. `updateContext()` is only a
+synchronous convenience for deriving the next JSON value from the current one.
+If the schema declares no context, this current value is always the empty object.
+
+`preview()` and `submit()` each materialize their own full Core `Context` at
+call-entry unless a future explicit prepared-transition API says otherwise. If
+an options context is supplied, it fully replaces the current external context
+for that single transition attempt. Passing the same options context to preview
+and submit reuses the same external context data, but it does not by itself
+guarantee byte-identical `Context.runtime` values across the two calls.
 
 ## 9. Admission
 
@@ -777,7 +830,7 @@ export type PreviewResult<
 | SDK-PREVIEW-5 | MUST | `preview()` MUST preserve Core status: `complete`, `pending`, `halted`, or `error`. |
 | SDK-PREVIEW-6 | MUST | `admitted: true` MUST mean dry-run computation was admitted, not that the action would settle successfully. |
 | SDK-PREVIEW-7 | MUST | `admitted: false` MUST include the same first-failing admission layer as `check()`. |
-| SDK-PREVIEW-8 | MUST | `preview()` MUST call Core with an explicit ADR-027 `Context` built from materialized runtime facts plus `PreviewOptions.context` as `Context.external`. |
+| SDK-PREVIEW-8 | MUST | `preview()` MUST call Core with an explicit ADR-027 `Context` built from materialized runtime facts plus either the current external context or a transition-local `PreviewOptions.context` override as `Context.external`. |
 | SDK-PREVIEW-9 | MUST NOT | A `preview()` result MUST NOT be treated as a capability token or as byte-identical proof of a later `submit()` unless a future prepared-transition API provides that guarantee. |
 
 ## 11. Submit
@@ -1037,9 +1090,11 @@ terminal state produces the same result shape regardless of payload size.
 | SDK-SUBMIT-11 | MUST | In generic mode, callers MUST narrow `SubmissionResult` by `mode` before consuming mode-specific fields. |
 | SDK-SUBMIT-12 | MUST | Governance settlement observation MUST be named `waitForSettlement()`, not `settle()`. |
 | SDK-SUBMIT-13 | MUST | `ProposalRef` alone MUST be sufficient to re-observe governance settlement after process restart or agent handoff. |
-| SDK-SUBMIT-17 | MUST | `submit()` MUST call the active runtime with an explicit ADR-027 `Context` built from materialized runtime facts plus `SubmitOptions.context` as `Context.external`. |
+| SDK-SUBMIT-17 | MUST | `submit()` MUST call the active runtime with an explicit ADR-027 `Context` built from materialized runtime facts plus either the current external context or a transition-local `SubmitOptions.context` override as `Context.external`. |
 | SDK-SUBMIT-18 | MUST | For one submitted transition attempt, the runtime MUST reuse the same materialized `Context` across Host/Core re-entry. |
 | SDK-SUBMIT-19 | MUST | Submit reports or owning decorator records MUST attach or reference the materialized context when replay/accountability requires it. |
+| SDK-SUBMIT-20 | MUST | `submit()` MUST capture context at call-entry and MUST NOT be affected by later `injectContext()` or `updateContext()` calls while that transition is in flight. |
+| SDK-SUBMIT-21 | MUST | `SubmitOptions.context` MUST NOT mutate the runtime current external context. |
 
 ### 11.9 Operational Failure Before Settlement
 
@@ -1431,12 +1486,13 @@ export class ManifestoError extends Error {
 An implementation satisfies this SPEC when:
 
 - `createManifesto()` returns a composable manifesto and `activate()` returns `ManifestoApp<TDomain, TMode>`.
-- The root exposes `snapshot`, `actions`, `action`, `observe`, `inspect`, and `dispose`.
+- The root exposes `snapshot`, `context`, `injectContext`, `updateContext`, `actions`, `action`, `observe`, `inspect`, and `dispose`.
 - `ActionHandle` exposes `info`, `available`, `check`, `preview`, `submit`, and `bind`.
 - `BoundAction.intent()` returns `Intent | null`.
 - `check()` returns the first failing admission layer.
 - `preview()` is non-mutating and preserves Core status.
-- `preview()` and `submit()` accept direct-injected JSON external context through options.
+- `preview()` and `submit()` accept transition-local direct-injected JSON external context through options.
+- `injectContext()` and `updateContext()` full-replace the runtime's current external context without triggering computation.
 - `submit()` returns mode-specific result types and re-checks legality at submit time.
 - `ExecutionOutcome` is the canonical `ok | stop | fail` domain-outcome union.
 - `result.ok` is documented and implemented as protocol envelope success, not domain success.

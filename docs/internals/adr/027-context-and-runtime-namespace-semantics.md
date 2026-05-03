@@ -285,7 +285,67 @@ await app.actions.addTodo.submit(
 
 If user code needs to compute a context value, it must do so before entering Manifesto and pass only the resulting JSON value. Manifesto determinism starts at the materialized context boundary.
 
-### 3.6 `$runtime` is not a user-defined effect alias channel
+### 3.6 Context value lifecycle is explicit and non-reactive
+
+Context is not a parallel mutable state slot. It is the external environment
+value that a runtime captures for a transition attempt.
+
+SDK-facing runtimes MAY expose three public routes for user external context:
+
+```ts
+const app = createManifesto(schema, effects, {
+  context: { tenantId: "acme", locale: "ko-KR" },
+}).activate();
+
+app.injectContext({ tenantId: "acme", locale: "en-US" });
+
+await app.actions.addTodo.submit(
+  { title: "Ship v5" },
+  {
+    context: { tenantId: "other", locale: "ko-KR" },
+  }
+);
+```
+
+Those public values are the flat user external context partition. The runtime
+wraps them as `Context.external` before calling Core. Users do not provide or
+override `Context.runtime`.
+
+Public external context values must conform to the schema-declared `context {}`
+shape. If a schema declares no user context, the valid external context is the
+empty object.
+
+`injectContext(next)` is a full replacement of the current user external
+context for future transition attempts. It is not a partial merge. A convenience
+helper such as:
+
+```ts
+app.updateContext((current) => ({ ...current, locale: "en-US" }));
+```
+
+is allowed only as SDK call-site syntax. The callback must run synchronously at
+the SDK boundary and must immediately materialize a JSON value. Async callbacks,
+promise returns, providers, getters, and function-valued context fields are
+rejected.
+
+Changing context does not create an intent, patch, effect, transition, lineage
+event, or automatic recomputation. It only changes the external context value
+that will be captured by the next transition attempt. If an environment change
+should affect the domain world, user code must submit an explicit action after
+injecting the new context.
+
+For `preview()` and `submit()`, context capture happens at call-entry. The
+runtime must clone, validate, freeze, and retain the materialized Core `Context`
+for that transition attempt before any awaited work can observe a later
+`injectContext()` call. Host/Core re-entry caused by effects reuses the same
+captured context. A transition must never span two different external context
+values.
+
+`PreviewOptions.context` and `SubmitOptions.context`, when supplied, are
+transition-local full overrides. They do not mutate the runtime's current
+external context and they are not merged with it.
+
+### 3.7 `$runtime` is not a user-defined effect alias channel
 
 The following model is rejected:
 
@@ -306,7 +366,7 @@ effect "fetch.api.getUser" {
 
 `$runtime` is for the small set of transition constants that Manifesto itself treats as part of the canonical compute environment. Domain-specific external data belongs to effects.
 
-### 3.7 `$meta.*` and `$system.*` are retired as runtime expression surfaces
+### 3.8 `$meta.*` and `$system.*` are retired as runtime expression surfaces
 
 v5 is a hard cut. There is no compatibility alias from:
 
@@ -332,7 +392,7 @@ Migration is explicit:
 | `$system.timestamp` | `$runtime.time.iso` |
 | `$system.time.now` | `$runtime.time.timestamp` |
 
-### 3.8 Runtime and context namespace legality is phase-bound
+### 3.9 Runtime and context namespace legality is phase-bound
 
 `$runtime.*` and `$context.*` are legal only where a bound transition is being computed.
 
@@ -347,13 +407,13 @@ They are illegal in:
 
 Those phases must remain pure over schema, snapshot, and explicit admission inputs. `available when` must not change answer when a caller changes request-local context such as locale. A later ADR may define narrower legality if a concrete need appears.
 
-### 3.9 Snapshot metadata is not the runtime expression source
+### 3.10 Snapshot metadata is not the runtime expression source
 
 `snapshot.meta.timestamp` and `snapshot.meta.randomSeed` are snapshot envelope facts. They may record facts about the produced snapshot version.
 
 They are not the source of "current external time" or "current external random" for MEL expressions. Expressions read `$runtime.*`, which is derived from `intent` and `context`.
 
-### 3.10 `snapshot.namespaces` is owner bookkeeping only
+### 3.11 `snapshot.namespaces` is owner bookkeeping only
 
 `snapshot.namespaces` remains the ADR-025 container for non-domain owner state. It is not a general semantic read model.
 
@@ -371,7 +431,7 @@ Owner rules:
 - Owner namespaces are excluded from domain projection by default.
 - Owner namespaces do not define MEL expression namespaces.
 
-### 3.11 `onceIntent` lowers to an owner-neutral Core primitive
+### 3.12 `onceIntent` lowers to an owner-neutral Core primitive
 
 MEL source keeps:
 
@@ -449,6 +509,18 @@ action addTodo(title: string) {
 ```
 
 ```ts
+const app = createManifesto(schema, effects, {
+  context: {
+    tenantId: "acme",
+    locale: "ko-KR",
+  },
+}).activate();
+
+app.injectContext({
+  tenantId: "acme",
+  locale: "en-US",
+});
+
 await app.actions.addTodo.submit(
   { title: "Ship v5" },
   {
@@ -460,7 +532,8 @@ await app.actions.addTodo.submit(
 );
 ```
 
-The SDK option above is the user external context partition. The Core compute envelope receives:
+The SDK values above are flat user external context values. The submit option is
+a transition-local full override. The Core compute envelope receives:
 
 ```ts
 const context = {
@@ -514,6 +587,7 @@ Server time is not `$runtime.time.*` because it requires external IO. Host execu
 - Runtime assembly carries responsibility for context materialization before Core execution.
 - User-defined context must be passed as data; v5 intentionally does not provide context generator/resolver extension APIs.
 - Lineage records grow because replayable transition records must include the context used with the intent.
+- Context changes do not automatically trigger transitions; reactive behavior must be expressed by explicit actions.
 
 The last point is intentional. Runtime assembly may capture external environment. Core may only compute from already-materialized data.
 
@@ -551,6 +625,8 @@ The last point is intentional. Runtime assembly may capture external environment
 6. Record context-derived facts through trace/report surfaces where accountability requires them.
 7. Do not write fresh runtime values into hidden namespace storage for Core to read later.
 8. Do not expose user-defined context generator, resolver, provider, or lazy getter APIs in v5.
+9. Treat injected external context as a full replacement, not a partial merge.
+10. Capture preview/submit context at call-entry and reuse it for the whole transition attempt.
 
 ### 6.4 Lineage and Governance
 
@@ -572,6 +648,10 @@ Lineage MUST record the submitted compute envelope needed for deterministic repl
 | ADR027-CTX-5 | No v5 package exposes user-defined context generator, resolver, provider, lazy getter, promise, or callback APIs. |
 | ADR027-CTX-6 | User-defined context is stored under `context.external`; `$context.*` reads only `context.external.*`. |
 | ADR027-CTX-7 | Host re-entry for the same transition attempt reuses the same context. |
+| ADR027-CTX-8 | Injecting external context replaces the current external context for future transitions and does not trigger computation by itself. |
+| ADR027-CTX-9 | Preview/submit context overrides are transition-local full overrides and do not mutate runtime current context. |
+| ADR027-CTX-10 | Runtime context capture happens at preview/submit call-entry before awaited work can observe later context changes. |
+| ADR027-CTX-11 | Public external context values conform to schema-declared `context {}` shape; absent schema context means only empty external context is valid. |
 | ADR027-INTENT-1 | Intent does not carry canonical runtime frame/environment fields. |
 | ADR027-RUNTIME-1 | `$runtime.intent.*`, `$runtime.time.*`, and `$runtime.random.*` are the only built-in v5 runtime expression namespaces. |
 | ADR027-RUNTIME-2 | `$meta.*` and `$system.*` are rejected in v5 MEL. |
