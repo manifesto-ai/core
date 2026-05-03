@@ -125,6 +125,16 @@
 
 ---
 
+### Context
+
+**Definition:** The captured external environment supplied to one Core computation. Context is explicit JSON-serializable data, not a provider, callback, promise, mutable object, or IO handle.
+
+**Key distinction:** Snapshot is schema-driven existence information that persists across computations. Context is external environment captured for the current transition attempt and must be supplied again for deterministic replay.
+
+**See also:** [Core](#core), [Snapshot](#snapshot), [Coordinate Calculation](#coordinate-calculation)
+
+---
+
 ### Coordinate
 
 **Definition:** A single point in semantic space, represented by snapshot state. At the Core/Host boundary this means the canonical snapshot substrate. At the SDK boundary applications usually observe a projected public read model derived from that same coordinate.
@@ -139,9 +149,11 @@
 
 **Definition:** The process by which Core determines the next valid position in semantic space from the current position and an intent.
 
-**Equation:** `compute(schema, snapshot, intent) -> (snapshot', requirements, trace)`
+**Equation:** `compute(schema, snapshot, intent, context) -> (snapshot', requirements, trace)`
 
-**See also:** [Coordinate](#coordinate), [Core](#core)
+Determinism is over the full `schema + snapshot + intent + context` tuple.
+
+**See also:** [Coordinate](#coordinate), [Context](#context), [Core](#core)
 
 ---
 

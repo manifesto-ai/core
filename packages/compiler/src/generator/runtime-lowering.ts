@@ -80,13 +80,11 @@ function lowerFlow(flow: CompilerFlowNode): CoreFlowNode {
         value: flow.value ? lowerActionExpr(flow.value) : undefined,
       };
 
-    case "namespacePatch":
+    case "causalGuard":
       return {
-        kind: "namespacePatch",
-        namespace: flow.namespace,
-        op: flow.op,
-        path: flow.path,
-        value: flow.value ? lowerActionExpr(flow.value) : undefined,
+        kind: "causalGuard",
+        guardId: flow.guardId,
+        body: lowerFlow(flow.body),
       };
 
     case "effect":

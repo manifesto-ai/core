@@ -200,7 +200,8 @@ function collectMutationRootsFromFlow(
         }
         return;
       }
-      case "namespacePatch":
+      case "causalGuard":
+        visit(node.body, callStack);
         return;
       case "effect": {
         const root = rootFromEffectInto(node.params.into);

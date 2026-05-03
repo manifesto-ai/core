@@ -8,8 +8,20 @@ import { TraceNodeKind } from "../schema/trace.js";
 import { hashSchemaSync } from "../utils/hash.js";
 import { semanticPathToPatchPath } from "../utils/patch-path.js";
 
-const HOST_CONTEXT = { now: 100, randomSeed: "seed" };
-const NEXT_CONTEXT = { now: 101, randomSeed: "next-seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 100 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
+const NEXT_CONTEXT = {
+  runtime: {
+    time: { timestamp: 101 },
+    random: { seed: "next-seed" },
+  },
+  external: {},
+};
 const pp = (path: string) => semanticPathToPatchPath(path);
 
 function createSchema(
@@ -73,8 +85,7 @@ describe("ADR-025 core acceptance", () => {
 
       expect(snapshot.state).toEqual({ count: 1 });
       expect(Object.prototype.hasOwnProperty.call(snapshot, "data")).toBe(false);
-      expect(snapshot.namespaces.host).toEqual({});
-      expect(snapshot.namespaces.mel).toEqual({ guards: { intent: {} } });
+      expect(snapshot.namespaces).toEqual({});
     });
   });
 
@@ -97,13 +108,12 @@ describe("ADR-025 core acceptance", () => {
       const result = apply(
         schema,
         snapshot,
-        [{ op: "set", path: pp("namespaces.visible"), value: true }],
-        NEXT_CONTEXT
+        [{ op: "set", path: pp("namespaces.visible"), value: true }]
       );
 
       expect(result.state).toEqual({ namespaces: { visible: true } });
       expect(result.namespaces).toBe(snapshot.namespaces);
-      expect(result.namespaces.host).toEqual({});
+      expect(result.namespaces).toEqual({});
     });
   });
 
@@ -111,10 +121,10 @@ describe("ADR-025 core acceptance", () => {
     it("treats omitted namespaceDelta as empty and leaves empty deltas as a no-op", () => {
       const snapshot = createSnapshot({ count: 1 }, "test-hash", HOST_CONTEXT);
 
-      expect(applyNamespaceDeltas(snapshot, [], NEXT_CONTEXT)).toBe(snapshot);
+      expect(applyNamespaceDeltas(snapshot, [])).toBe(snapshot);
     });
 
-    it("updates only namespaces and meta for valid namespace deltas", () => {
+    it("updates only namespaces and snapshot version for valid namespace deltas", () => {
       const snapshot = {
         ...createSnapshot({ count: 1 }, "test-hash", HOST_CONTEXT),
         computed: { double: 2 },
@@ -123,20 +133,17 @@ describe("ADR-025 core acceptance", () => {
 
       const result = applyNamespaceDeltas(
         snapshot,
-        [{ namespace: "host", patches: [{ op: "merge", path: pp("runtime"), value: { requestId: "req-1" } }] }],
-        NEXT_CONTEXT
+        [{ namespace: "runtime", patches: [{ op: "merge", path: pp("request"), value: { requestId: "req-1" } }] }]
       );
 
       expect(result.state).toBe(snapshot.state);
       expect(result.computed).toBe(snapshot.computed);
       expect(result.input).toBe(snapshot.input);
       expect(result.system).toBe(snapshot.system);
-      expect(result.namespaces.host).toEqual({ runtime: { requestId: "req-1" } });
+      expect(result.namespaces.runtime).toEqual({ request: { requestId: "req-1" } });
       expect(result.meta).toEqual({
         ...snapshot.meta,
         version: snapshot.meta.version + 1,
-        timestamp: NEXT_CONTEXT.now,
-        randomSeed: NEXT_CONTEXT.randomSeed,
       });
     });
 
@@ -144,8 +151,7 @@ describe("ADR-025 core acceptance", () => {
       const snapshot = createSnapshot({ count: 1 }, "test-hash", HOST_CONTEXT);
       const result = applyNamespaceDeltas(
         snapshot,
-        [{ namespace: "", patches: [{ op: "set", path: pp("runtime.requestId"), value: "req-1" }] }],
-        NEXT_CONTEXT
+        [{ namespace: "", patches: [{ op: "set", path: pp("runtime.requestId"), value: "req-1" }] }]
       );
 
       expect(result.state).toBe(snapshot.state);
@@ -160,7 +166,7 @@ describe("ADR-025 core acceptance", () => {
         snapshot,
         [
           {
-            namespace: "host",
+            namespace: "runtime",
             patches: [
               {
                 op: "set",
@@ -169,34 +175,31 @@ describe("ADR-025 core acceptance", () => {
               },
             ],
           },
-        ],
-        NEXT_CONTEXT
+        ]
       );
 
       expect(({} as Record<string, unknown>).polluted).toBeUndefined();
       expect(result.system.status).toBe("error");
       expect(result.system.lastError?.code).toBe("PATH_NOT_FOUND");
-      expect(result.namespaces.host).toEqual({});
+      expect(result.namespaces).toEqual({});
     });
 
     it("rejects namespace merge targets that are present and non-object", () => {
       const snapshot = {
         ...createSnapshot({ count: 1 }, "test-hash", HOST_CONTEXT),
         namespaces: {
-          host: { runtime: "ready" },
-          mel: { guards: { intent: {} } },
+          runtime: { request: "ready" },
         },
       };
 
       const result = applyNamespaceDeltas(
         snapshot,
-        [{ namespace: "host", patches: [{ op: "merge", path: pp("runtime"), value: { requestId: "req-1" } }] }],
-        NEXT_CONTEXT
+        [{ namespace: "runtime", patches: [{ op: "merge", path: pp("request"), value: { requestId: "req-1" } }] }]
       );
 
       expect(result.system.status).toBe("error");
       expect(result.system.lastError?.code).toBe("TYPE_MISMATCH");
-      expect(result.namespaces.host).toEqual({ runtime: "ready" });
+      expect(result.namespaces.runtime).toEqual({ request: "ready" });
     });
   });
 
@@ -252,12 +255,12 @@ describe("ADR-025 core acceptance", () => {
         state: {
           fields: {
             count: { type: "number", required: true },
-            "$host": { type: "string", required: true },
+            "$runtime": { type: "string", required: true },
             nested: {
               type: "object",
               required: true,
               fields: {
-                "$runtime": { type: "string", required: true },
+                "$tooling": { type: "string", required: true },
               },
             },
           },
@@ -271,8 +274,8 @@ describe("ADR-025 core acceptance", () => {
 
       expect(result.valid).toBe(false);
       expect(result.errors).toEqual(expect.arrayContaining([
-        expect.objectContaining({ code: "SCHEMA_ERROR", path: "state.fields.$host" }),
-        expect.objectContaining({ code: "SCHEMA_ERROR", path: "state.fields.nested.$runtime" }),
+        expect.objectContaining({ code: "SCHEMA_ERROR", path: "state.fields.$runtime" }),
+        expect.objectContaining({ code: "SCHEMA_ERROR", path: "state.fields.nested.$tooling" }),
         expect.objectContaining({ code: "SCHEMA_ERROR", path: "state.fieldTypes.$lineage" }),
       ]));
     });
@@ -285,8 +288,8 @@ describe("ADR-025 core acceptance", () => {
               expr: { kind: "add", left: { kind: "get", path: "count" }, right: { kind: "get", path: "count" } },
               deps: ["count"],
             },
-            hostRequestId: {
-              expr: { kind: "get", path: "$host.requestId" },
+            runtimeRequestId: {
+              expr: { kind: "get", path: "$runtime.requestId" },
               deps: [],
             },
           },
@@ -297,21 +300,21 @@ describe("ADR-025 core acceptance", () => {
 
       expect(result.valid).toBe(false);
       expect(result.errors).toEqual(expect.arrayContaining([
-        expect.objectContaining({ code: "V-012", path: "computed.fields.hostRequestId" }),
+        expect.objectContaining({ code: "V-012", path: "computed.fields.runtimeRequestId" }),
       ]));
     });
 
     it("rejects namespace reads from user-authored action expressions", () => {
       const schema = createValidatedSchema({
         actions: {
-          copyHostRequestId: {
-            available: { kind: "get", path: "$host.available" },
-            dispatchable: { kind: "get", path: "$host.dispatchable" },
+          copyRuntimeRequestId: {
+            available: { kind: "get", path: "$runtime.available" },
+            dispatchable: { kind: "get", path: "$runtime.dispatchable" },
             flow: {
               kind: "patch",
               op: "set",
               path: pp("outbox.requestId"),
-              value: { kind: "get", path: "$host.requestId" },
+              value: { kind: "get", path: "$runtime.requestId" },
             },
           },
         },
@@ -321,7 +324,7 @@ describe("ADR-025 core acceptance", () => {
 
       expect(result.valid).toBe(false);
       expect(result.errors).toEqual(expect.arrayContaining([
-        expect.objectContaining({ code: "V-003", path: "actions.copyHostRequestId" }),
+        expect.objectContaining({ code: "V-003", path: "actions.copyRuntimeRequestId" }),
       ]));
     });
   });

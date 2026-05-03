@@ -10,7 +10,7 @@
 - **Current Full SPEC:** [v5.0.0](SPEC-v1.2.0.md) (Full, in-place current file)
 - **FDR:** [v0.5.0](FDR-v0.5.0.md) (Full)
 
-**Note:** [v5.0.0](SPEC-v1.2.0.md) is the current integrated compiler contract. It carries forward the v1.3.0 baseline and aligns the compiler contract to ADR-025: MEL `state {}` maps to runtime `snapshot.state`, compiler-owned bookkeeping uses `snapshot.namespaces.mel`, and `onceIntent` writes through the `NamespaceDelta` channel.
+**Note:** [v5.0.0](SPEC-v1.2.0.md) is the current integrated compiler contract. It carries forward the v1.3.0 baseline and aligns the compiler contract to ADR-025: MEL `state {}` maps to runtime `snapshot.state`, user-authored MEL cannot read or write namespaces, and `onceIntent` lowers to Core's generic `causalGuard` Flow primitive rather than to MEL namespace storage.
 
 **ADR Sources:** [ADR-021](../../../docs/internals/adr/021-mel-structural-annotation-system-meta-sidecar.md) defines the current structural-annotation sidecar contract, [ADR-022](../../../docs/internals/adr/022-compiler-owned-source-location-sidecar-source-map-index.md) defines the current source-location sidecar contract, [ADR-024](../../../docs/internals/adr/024-compiler-owned-mel-source-fragment-editing-primitive.md) defines the current source-fragment editing boundary, and [ADR-025](../../../docs/internals/adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation.md) defines the v5 Snapshot ontology and namespace separation.
 

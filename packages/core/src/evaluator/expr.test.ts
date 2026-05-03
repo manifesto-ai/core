@@ -29,8 +29,8 @@ function createTestContext(
       schemaHash: "test-hash",
     },
     namespaces: {
-      host: {},
-      mel: { guards: { intent: {} } },
+      platform: {},
+      tool: { guards: { intent: {} } },
     },
   };
 
@@ -50,7 +50,17 @@ function createTestContext(
     meta?.actionName ?? null,
     "test",
     meta?.intentId,
-    meta?.timestamp ?? 0
+    meta?.timestamp ?? 0,
+    {
+      context: {
+        runtime: {
+          time: { timestamp: meta?.timestamp ?? 0 },
+          random: { seed: "seed" },
+        },
+        external: {},
+      },
+      phase: "flow",
+    }
   );
 }
 
@@ -115,7 +125,7 @@ describe("Expression Evaluator", () => {
       expect(evaluate({ kind: "get", path: "system.status" }, ctx)).toBe("idle");
     });
 
-    it("get - should get values from platform namespaces", () => {
+    it("get - should not expose platform namespaces to expressions", () => {
       const ctx = createTestContext();
       const namespaceCtx = {
         ...ctx,
@@ -123,7 +133,7 @@ describe("Expression Evaluator", () => {
           ...ctx.snapshot,
           namespaces: {
             ...ctx.snapshot.namespaces,
-            host: {
+            runtime: {
               intentSlots: {
                 "intent-1": { type: "submit" },
               },
@@ -132,25 +142,26 @@ describe("Expression Evaluator", () => {
         },
       };
 
-      expect(evaluate({ kind: "get", path: "$host.intentSlots.intent-1.type" }, namespaceCtx)).toBe("submit");
-      expect(evaluate({ kind: "get", path: "$host.missing" }, namespaceCtx)).toBeNull();
+      expect(isErr(evaluateExpr({ kind: "get", path: "$platform.intentSlots.intent-1.type" }, namespaceCtx))).toBe(true);
+      expect(isErr(evaluateExpr({ kind: "get", path: "$runtime.missing" }, namespaceCtx))).toBe(true);
     });
 
-    it("get - should get values from meta", () => {
+    it("get - should get values from runtime and snapshot meta", () => {
       const ctx = createTestContext({}, undefined, {
         intentId: "intent-123",
         actionName: "testAction",
         timestamp: 1234,
       });
-      expect(evaluate({ kind: "get", path: "meta.intentId" }, ctx)).toBe("intent-123");
-      expect(evaluate({ kind: "get", path: "meta.actionName" }, ctx)).toBe("testAction");
+      expect(evaluate({ kind: "get", path: "$runtime.intent.id" }, ctx)).toBe("intent-123");
+      expect(evaluate({ kind: "get", path: "$runtime.intent.action" }, ctx)).toBe("testAction");
+      expect(evaluate({ kind: "get", path: "$runtime.time.timestamp" }, ctx)).toBe(1234);
       expect(evaluate({ kind: "get", path: "meta.timestamp" }, ctx)).toBe(1234);
     });
 
     it("get - should normalize missing meta values to null", () => {
       const ctx = createTestContext();
-      expect(evaluate({ kind: "get", path: "meta.intentId" }, ctx)).toBeNull();
-      expect(evaluate({ kind: "get", path: "meta.actionName" }, ctx)).toBeNull();
+      expect(evaluate({ kind: "get", path: "$runtime.intent.id" }, ctx)).toBeNull();
+      expect(evaluate({ kind: "get", path: "$runtime.intent.action" }, ctx)).toBeNull();
       expect(evaluate({ kind: "get", path: "meta.missing" }, ctx)).toBeNull();
     });
   });

@@ -20,7 +20,8 @@
 | v1.0 | Initial release — Core-Host boundary, Snapshot communication, Effect handlers | FDR-H001 ~ H010 |
 | v1.x | Compiler Integration — Translator pipeline, Expression evaluation | FDR-H011 ~ H017 |
 | v2.0 | Event-Loop Execution Model — Mailbox, Job model, Single-runner | FDR-H018 ~ H022 |
-| v2.0.1 | Context Determinism — HostContext frozen per job; Compiler/Translator Decoupling | FDR-H023, FDR-H024 |
+| v2.0.1 | Historical Context Determinism — pre-v5 HostContext frozen per job; Compiler/Translator Decoupling | FDR-H023, FDR-H024 |
+| v5.0.0 | ADR-027 context materialization — Host passes owner-neutral Core `Context` and `apply()` no longer accepts context | ADR-027 |
 | v2.0.2 | Snapshot Type Alignment — Core Snapshot canonical reference; Snapshot Ownership | FDR-H025 |
 | v2.0.3 | Baseline snapshot completeness at boundary entry (ADR-011 migration, data-only reset rejected) | FDR-H025 |
 
@@ -60,7 +61,8 @@ The Host is the execution layer that:
 
 This specification defines:
 - The absolute boundary between Core and Host
-- Snapshot as the sole communication channel
+- Snapshot as the sole continuity channel between computations, with explicit
+  `Context` as the current computation's captured environment
 - Effect handler contract (no-throw, Patch[] return)
 - Intent processing model (no resume, re-entry required)
 - Requirement lifecycle (generate, execute, apply domain/namespace results, clear, continue)
@@ -82,11 +84,13 @@ The pure computation engine that evaluates Flows against Snapshots.
 
 ```typescript
 interface Core {
-  compute(schema: DomainSchema, snapshot: Snapshot, intent: Intent, context: HostContext): ComputeResult;
-  apply(schema: DomainSchema, snapshot: Snapshot, patches: Patch[], context: HostContext): Snapshot;
-  applyNamespaceDeltas(snapshot: Snapshot, deltas: readonly NamespaceDelta[], context: HostContext): Snapshot;
+  compute(schema: DomainSchema, snapshot: Snapshot, intent: Intent, context: Context): ComputeResult;
+  apply(schema: DomainSchema, snapshot: Snapshot, patches: Patch[]): Snapshot;
+  applyNamespaceDeltas(snapshot: Snapshot, deltas: readonly NamespaceDelta[]): Snapshot;
   applySystemDelta(snapshot: Snapshot, delta: SystemDelta): Snapshot;
 }
+
+type Context = import("@manifesto-ai/core").Context;
 ```
 
 ### 3.2 Host
@@ -156,7 +160,7 @@ import type {
 // type SnapshotMeta = {
 //   readonly version: number;
 //   readonly timestamp: number;
-//   readonly randomSeed: string;
+//   readonly randomSeed: string; // Snapshot envelope seed, not runtime expression source
 //   readonly schemaHash: string;
 // };
 // ============================================================
@@ -180,11 +184,11 @@ import type {
 | `system.pendingRequirements` | Core | Yes | via `core.applySystemDelta()` | Requirement lifecycle |
 | `system.currentAction` | Core | Yes | No | Core sets during compute |
 | `namespaces.host.*` | **Host** | Yes | via `NamespaceDelta(namespace: "host")` | Host-owned diagnostics/bookkeeping namespace |
-| `namespaces.mel.*` | Compiler/MEL | Yes | Preserve only | Compiler/MEL-owned operational namespace |
+| `namespaces.<owner>.*` | Owner package | Opaque | Preserve only | Host MUST NOT assume non-Host namespace shape |
 | `meta.schemaHash` | Core | Yes | No | Domain schema identity |
 | `meta.version` | Core | Yes | No | Core-owned versioning |
 | `meta.timestamp` | Host | Yes | Yes | Host provides per execution |
-| `meta.randomSeed` | Host | Yes | Yes | Host provides, frozen per job |
+| `meta.randomSeed` | Host | Yes | Yes | Snapshot envelope seed; runtime expressions read `context.runtime.random.seed` |
 
 ### 3.3.1 Host-Owned State Namespace
 
@@ -315,7 +319,7 @@ Host executes reality.
 |---------|-------------|
 | CORE-HOST-1 | Core MUST NOT perform IO, network calls, or any side effects |
 | CORE-HOST-2 | Host MUST NOT interpret Flow semantics or compute derived values |
-| CORE-HOST-3 | Core MUST remain pure: same input -> same output |
+| CORE-HOST-3 | Core MUST remain pure: same schema + snapshot + intent + context -> same output |
 | CORE-HOST-4 | Host MUST handle all IO, network, and persistence |
 | CORE-HOST-5 | Host MUST receive a full canonical Snapshot at reset/bootstrap boundary |
 
@@ -343,7 +347,10 @@ Core
 
 Snapshot is the **only** valid communication channel between Core and Host.
 
-There are no return values, no callbacks, no events, no mutable context passing between jobs; each job receives a fresh frozen HostContext (CTX-1~5).
+There are no return values, no callbacks, no events, and no mutable context
+passing between jobs. Each transition attempt receives one materialized
+owner-neutral `Context` value that is reused for all Core `compute()` re-entry
+within that attempt.
 
 ### 5.2 Rules (MUST)
 
@@ -363,12 +370,12 @@ core.resume(result);  // Hidden state!
 
 // REQUIRED: Effect result as Snapshot mutation
 const fulfillment = await executeEffect();
-// Context is frozen once per job (CTX-1~5)
-// frozenContext.now is captured once (CTX-3)
-// frozenContext.randomSeed = intentId (CTX-4)
-const frozenContext = createFrozenContext(job.id, job.intentId);
-snapshot = core.apply(schema, snapshot, fulfillment.patches, frozenContext);
-snapshot = core.applyNamespaceDeltas(snapshot, fulfillment.namespaceDelta ?? [], frozenContext);
+// Context is materialized once per transition attempt (CTX-1~5)
+// context.runtime.time.timestamp is captured once (CTX-3)
+// context.runtime.random.seed is materialized once (CTX-4)
+const context = materializeContext(job.id, job.intentId, job.externalContext);
+snapshot = core.apply(schema, snapshot, fulfillment.patches);
+snapshot = core.applyNamespaceDeltas(snapshot, fulfillment.namespaceDelta ?? []);
 ```
 
 ---
@@ -647,10 +654,10 @@ async function handleStartIntent(job) {
 // CORRECT: request effect, terminate job
 function handleStartIntent(job) {
   const snapshot = context.getCanonicalHead();  // Fresh read
-  const result = Core.compute(schema, snapshot, job.intent, job.frozenContext);
+  const result = Core.compute(schema, snapshot, job.intent, job.context);
 
-  let next = Core.apply(schema, snapshot, result.patches, job.frozenContext);
-  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? [], job.frozenContext);
+  let next = Core.apply(schema, snapshot, result.patches);
+  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? []);
   next = Core.applySystemDelta(next, result.systemDelta);
   context.setCanonicalHead(next);
 
@@ -707,13 +714,13 @@ Reading effect dispatch list from `snapshot.system.pendingRequirements` after ap
 ```typescript
 function handleStartIntent(job: StartIntent) {
   const snapshot = ctx.getCanonicalHead();
-  const result = Core.compute(schema, snapshot, job.intent);
+  const result = Core.compute(schema, snapshot, job.intent, job.context);
 
   // STEP 1: Apply domain patches first
-  let next = Core.apply(schema, snapshot, result.patches, job.frozenContext);
+  let next = Core.apply(schema, snapshot, result.patches);
 
   // STEP 2: Apply namespace transitions second (omitted means empty)
-  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? [], job.frozenContext);
+  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? []);
 
   // STEP 3: Apply system transitions third
   next = Core.applySystemDelta(next, result.systemDelta);
@@ -743,14 +750,14 @@ observable only after the `systemDelta` is applied to the Snapshot.
 ```typescript
 // WRONG: Effect request before patch apply
 function handleStartIntent(job: StartIntent) {
-  const result = Core.compute(schema, snapshot, job.intent);
+  const result = Core.compute(schema, snapshot, job.intent, job.context);
   
   // Effect requested BEFORE pendingRequirements is materialized in snapshot
   requestEffectExecution(job.intentId, snapshot.system.pendingRequirements[0]);
   
   // Now apply patches - too late!
-  let next = Core.apply(schema, snapshot, result.patches, job.frozenContext);
-  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? [], job.frozenContext);
+  let next = Core.apply(schema, snapshot, result.patches);
+  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? []);
   next = Core.applySystemDelta(next, result.systemDelta);
 }
 ```
@@ -856,8 +863,8 @@ Effect results MUST be reinjected to the mailbox as jobs.
 // WRONG: Direct application from callback
 async function executeEffect(req: Requirement) {
   const fulfillment = await effectRunner.execute(req);
-  let next = Core.apply(schema, snapshot, fulfillment.patches, frozenContext);
-  next = Core.applyNamespaceDeltas(next, fulfillment.namespaceDelta ?? [], frozenContext);
+  let next = Core.apply(schema, snapshot, fulfillment.patches);
+  next = Core.applyNamespaceDeltas(next, fulfillment.namespaceDelta ?? []);
   ctx.setCanonicalHead(next);  // VIOLATION: outside mailbox
 }
 
@@ -1103,10 +1110,10 @@ function handleFulfillEffect(job: FulfillEffect) {
   }
 
   // FULFILL-1: Apply domain result patches
-  let next = Core.apply(schema, snapshot, job.resultPatches, job.frozenContext);
+  let next = Core.apply(schema, snapshot, job.resultPatches);
 
   // FULFILL-NS-1: Apply Host-owned namespace diagnostics/bookkeeping
-  next = Core.applyNamespaceDeltas(next, job.namespaceDelta ?? [], job.frozenContext);
+  next = Core.applyNamespaceDeltas(next, job.namespaceDelta ?? []);
   
   // FULFILL-2: Clear requirement through system delta
   next = Core.applySystemDelta(next, { removeRequirementIds: [job.requirementId] });
@@ -1164,34 +1171,55 @@ function handleJob(job: Job, context: ExecutionContext) {
 
 ## 10. Context Determinism
 
-This section defines the determinism requirements for `HostContext` to preserve the `f(snapshot) = snapshot'` philosophy.
+This section defines Host responsibilities for ADR-027 `Context`
+materialization. Host may capture external environment, but the Core boundary is
+owner-neutral:
 
-> **Rationale (FDR-H023):** HostContext MUST be frozen at the start of each job. All operations within a job MUST use the same frozen context. If `now` is called multiple times during a single job and returns different values, the fundamental equation `f(snapshot, intent) = snapshot'` is broken — same logical operation produces different results depending on wall-clock timing. Jobs are the atomic unit of work (FDR-H019), so context freezing aligns with run-to-completion semantics.
-> **Alternatives rejected:** Context per operation (non-deterministic, breaks replay); mutable context (violates immutability); global frozen context (different jobs need different timestamps).
-> **Consequences:** Context frozen at job start, immutable during job; `randomSeed` deterministic from intentId; trace replay produces identical results.
+```text
+compute(schema, snapshot, intent, context)
+```
+
+> **Rationale (FDR-H023, ADR-027):** Context MUST be materialized once for a
+> transition attempt and reused for every Core `compute()` re-entry in that
+> attempt. If time/random values are captured per operation, determinism over
+> `schema + snapshot + intent + context` is broken.
+> **Alternatives rejected:** Context per operation (non-deterministic, breaks
+> replay); mutable context (violates immutability); hidden namespace transport
+> (pollutes Core with Host/MEL owner shapes).
+> **Consequences:** Runtime values are explicit, replayable, and not hidden in
+> `snapshot.namespaces.host`, `snapshot.namespaces.mel`, or `CoreIntent.frame`.
 
 ### 10.1 Problem Statement
 
-`HostContext` provides temporal and random values to Core computation:
+`Context` provides materialized runtime values and caller-supplied external
+context to Core computation:
 
 ```typescript
-type HostContext = {
-  readonly now: number;        // Current timestamp
-  readonly randomSeed: string; // Seed for deterministic randomness
-  readonly env?: Record<string, unknown>;
+type Context<TExternalContext = Record<string, unknown>> = {
+  readonly runtime: {
+    readonly time: {
+      readonly timestamp: number;
+    };
+    readonly random: {
+      readonly seed: string;
+    };
+  };
+  readonly external: TExternalContext;
 };
 ```
 
-**Issue:** If `now` is called multiple times during a single job and returns different values, determinism is broken.
+**Issue:** If runtime values are materialized multiple times during one
+transition attempt, the same logical operation can observe different external
+environment.
 
 ```typescript
-// WRONG: Different timestamps within same job
+// WRONG: Different context values within one transition attempt
 function handleStartIntent(job) {
-  const ctx1 = getContext();  // now = 1000
+  const ctx1 = materializeContext(); // timestamp = 1000
   Core.compute(..., ctx1);
 
-  const ctx2 = getContext();  // now = 1005 (5ms later!)
-  Core.apply(..., ctx2);      // Different context!
+  const ctx2 = materializeContext(); // timestamp = 1005
+  Core.compute(..., ctx2);           // Different context for same attempt!
 }
 ```
 
@@ -1199,39 +1227,43 @@ function handleStartIntent(job) {
 
 | Rule ID | Description |
 |---------|-------------|
-| CTX-1 | HostContext MUST be frozen at the start of each job |
-| CTX-2 | All operations within a single job MUST use the same frozen context |
-| CTX-3 | `now` value MUST NOT change during job execution |
-| CTX-4 | `randomSeed` MUST be deterministically derived from intentId |
-| CTX-5 | Context MUST be captured ONCE per job, not per operation |
+| CTX-1 | Context MUST be materialized once at the start of each transition attempt |
+| CTX-2 | Every Core `compute()` re-entry for that attempt MUST use the same context |
+| CTX-3 | `context.runtime.time.timestamp` MUST NOT change during the attempt |
+| CTX-4 | `context.runtime.random.seed` MUST be materialized once and remain stable during the attempt |
+| CTX-5 | Context MUST be captured once per transition attempt, not per operation |
+| CTX-6 | Host MUST NOT transport runtime values through `snapshot.namespaces.host` or `snapshot.namespaces.mel` for Core to read |
+| CTX-7 | Host MUST NOT expose `HostContext` as the canonical Core boundary type |
 
-### 10.3 Frozen Context Pattern
+### 10.3 Materialized Context Pattern
 
 ```typescript
-// CORRECT: Freeze context at job start
+// CORRECT: Materialize context once at transition-attempt start
 function handleStartIntent(job: StartIntent) {
-  // Capture context ONCE at job start
-  const frozenContext: HostContext = {
-    now: Date.now(),                    // Captured once
-    randomSeed: job.intentId,           // Deterministic from intentId
-    env: getEnvironment(),
+  const context: Context = {
+    runtime: {
+      time: { timestamp: nowProvider() },
+      random: { seed: seedProvider(job.intentId) },
+    },
+    external: job.externalContext ?? {},
   };
 
   const snapshot = ctx.getCanonicalHead();
-  const result = Core.compute(schema, snapshot, job.intent, frozenContext);
+  const result = Core.compute(schema, snapshot, job.intent, context);
 
-  // Same frozenContext for all Core application calls
-  let next = Core.apply(schema, snapshot, result.patches, frozenContext);
-  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? [], frozenContext);
+  // apply() receives already-materialized patch data, not context
+  let next = Core.apply(schema, snapshot, result.patches);
+  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? []);
   next = Core.applySystemDelta(next, result.systemDelta);
 
-  // ... rest of job uses same frozenContext
+  // Later compute re-entry for this same attempt reuses the same context
+  const resumed = Core.compute(schema, next, job.intent, context);
 }
 
-// WRONG: Call getContext() multiple times
+// WRONG: Materialize context multiple times
 function handleStartIntent(job: StartIntent) {
-  const result = Core.compute(..., getContext());  // now = 1000
-  Core.apply(schema, snapshot, result.patches, getContext()); // now = 1005 - VIOLATION!
+  const result = Core.compute(..., materializeContext());
+  const resumed = Core.compute(..., materializeContext()); // VIOLATION
 }
 ```
 
@@ -1239,51 +1271,55 @@ function handleStartIntent(job: StartIntent) {
 
 | Scope | Context Behavior |
 |-------|-----------------|
-| **Per Job** | Context frozen at job start (REQUIRED) |
-| Per Iteration | Context frozen at iteration start (ACCEPTABLE but less precise) |
+| **Per Transition Attempt** | Context materialized once and reused for all Core re-entry (REQUIRED) |
+| Per Host Job | Acceptable only if the job exactly matches one transition attempt |
 | Per Operation | Context created per call (FORBIDDEN - breaks determinism) |
 
 ### 10.5 Deterministic Replay
 
-For trace replay and debugging, the frozen context values MUST be recorded:
+For trace replay and debugging, the exact materialized context value MUST be
+recorded by the replay owner. In lineage mode, ADR-027 assigns this replay
+envelope to Lineage `SealAttempt` metadata.
 
 ```typescript
 type TraceEntry = {
   jobType: string;
   intentId: string;
-  frozenContext: HostContext;  // Recorded for replay
+  context: Context; // Recorded for replay
   // ...
 };
 
 // Replay uses recorded context, not current time
 function replayJob(trace: TraceEntry) {
-  const frozenContext = trace.frozenContext;  // From trace, not Date.now()
-  Core.compute(schema, snapshot, intent, frozenContext);
+  const context = trace.context;
+  Core.compute(schema, snapshot, intent, context);
 }
 ```
 
 ### 10.6 Implementation Pattern
 
 ```typescript
-interface HostContextProvider {
+interface ContextMaterializer {
   /**
-   * Create a frozen context for a job.
-   * MUST be called once at job start.
+   * Create a materialized Context for a transition attempt.
+   * MUST be called once at attempt start.
    */
-  createFrozenContext(intentId: string): HostContext;
+  materialize(intentId: string, external?: Record<string, unknown>): Context;
 }
 
-class DefaultHostContextProvider implements HostContextProvider {
+class DefaultContextMaterializer implements ContextMaterializer {
   constructor(
     private readonly nowProvider: () => number = Date.now,
-    private readonly envProvider: () => Record<string, unknown> = () => ({})
+    private readonly seedProvider: (intentId: string) => string = (intentId) => intentId
   ) {}
 
-  createFrozenContext(intentId: string): HostContext {
+  materialize(intentId: string, external: Record<string, unknown> = {}): Context {
     return Object.freeze({
-      now: this.nowProvider(),      // Called once, frozen
-      randomSeed: intentId,          // Deterministic
-      env: this.envProvider(),
+      runtime: {
+        time: { timestamp: this.nowProvider() },
+        random: { seed: this.seedProvider(intentId) },
+      },
+      external,
     });
   }
 }
@@ -1295,14 +1331,14 @@ For deterministic tests, inject a fixed `nowProvider`:
 
 ```typescript
 // Test setup
-const testProvider = new DefaultHostContextProvider(
+const materializer = new DefaultContextMaterializer(
   () => 1704067200000,  // Fixed timestamp: 2024-01-01T00:00:00Z
-  () => ({ NODE_ENV: 'test' })
+  () => 'seed-1'
 );
 
-// All jobs will have the same frozen timestamp
-const context = testProvider.createFrozenContext(intentId);
-// context.now === 1704067200000 (always)
+const context = materializer.materialize(intentId, { locale: "ko-KR" });
+// context.runtime.time.timestamp === 1704067200000
+// context.runtime.random.seed === "seed-1"
 ```
 
 ---
@@ -1360,11 +1396,11 @@ const context = testProvider.createFrozenContext(intentId);
 
 | ID | Invariant |
 |----|-----------|
-| INV-CTX-1 | **HostContext MUST be frozen at job start** |
-| INV-CTX-2 | **All operations in a job MUST use the same frozen context** |
-| INV-CTX-3 | **`now` value MUST NOT change during job execution** |
-| INV-CTX-4 | **`randomSeed` MUST be deterministic (derived from intentId)** |
-| INV-CTX-5 | **Frozen context MUST be recorded in trace for replay** |
+| INV-CTX-1 | **Context MUST be materialized once per transition attempt** |
+| INV-CTX-2 | **All Core compute re-entry in an attempt MUST use the same context** |
+| INV-CTX-3 | **`context.runtime.time.timestamp` MUST NOT change during the attempt** |
+| INV-CTX-4 | **`context.runtime.random.seed` MUST remain stable during the attempt** |
+| INV-CTX-5 | **Replay owner MUST record exact context for replayable transitions** |
 
 ### 11.6 Snapshot Type Invariants
 
@@ -1398,6 +1434,11 @@ failure, unknown effects, or fulfillment/apply failure. They do not by
 themselves make a terminal Snapshot semantically failed; semantic failure is
 represented by `system.lastError` or domain state through Core-owned
 transitions.
+
+Host diagnostics are not Flow re-entry guards. Core MUST NOT read
+`namespaces.host`, so effectful flows that may re-enter after fulfillment MUST
+be guarded by domain state or Core-owned Flow primitives such as `causalGuard`.
+Host MUST NOT rely on Host namespace diagnostics to alter Core evaluation.
 
 ### 12.2 Mailbox Processing Errors
 
@@ -1457,8 +1498,8 @@ function handleFulfillEffect(job: FulfillEffect) {
 
   // Step 1: Attempt apply (may fail)
   try {
-    let next = Core.apply(schema, snapshot, job.resultPatches, job.frozenContext);
-    next = Core.applyNamespaceDeltas(next, job.namespaceDelta ?? [], job.frozenContext);
+    let next = Core.apply(schema, snapshot, job.resultPatches);
+    next = Core.applyNamespaceDeltas(next, job.namespaceDelta ?? []);
     ctx.setCanonicalHead(next);
   } catch (error) {
     applyError = error;
@@ -1594,7 +1635,7 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | Order | ORD-1~4: **Deterministic order**; **ORD-TIMEOUT-1~3** (buffer timeout handling) |
 | FulfillEffect | **FULFILL-0~4, FULFILL-NS-1**: Stale check, atomic lifecycle |
 | Error | ERR-FE-1~5: FulfillEffect must guarantee clear, error diagnostic best-effort |
-| Context | CTX-1~5: Frozen per job, deterministic randomSeed |
+| Context | CTX-1~7: Materialized once per transition attempt, stable runtime values |
 | Snapshot | HOST-SNAP-1~4, HOST-NS-1~8, HOST-RESTORE-1~4: Core canonical type, `namespaces.host` |
 
 ### A.2 Critical Violations
@@ -1613,8 +1654,8 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | **Clear only on apply success** | **Apply failure -> infinite loop** |
 | **Effect dispatch before patch apply** | **FULFILL-0 false positive (stale)** |
 | **Timeout not producing fulfillment outcome** | **Ordering buffer stall (ORD-PARALLEL)** |
-| **Multiple getContext() calls per job** | **Non-deterministic timestamps (INV-CTX-3 violation)** |
-| **Context not frozen at job start** | **f(snapshot) = snapshot' broken (INV-CTX-1 violation)** |
+| **Multiple context materializations per attempt** | **Non-deterministic timestamps/seeds (INV-CTX-3 violation)** |
+| **Context not reused for re-entry** | **`schema + snapshot + intent + context` determinism broken (INV-CTX-1 violation)** |
 
 ### A.3 Implementation Checklist
 
@@ -1636,10 +1677,10 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 - [ ] **Host-owned diagnostics/bookkeeping written through NamespaceDelta, not domain Patch[] (HOST-NS-4, HOST-NS-7)**
 - [ ] Effect execution policy documented (ORD-SERIAL or ORD-PARALLEL)
 - [ ] **If ORD-PARALLEL: timeout/cancel produces fulfillment outcome (ORD-TIMEOUT-1)**
-- [ ] **HostContext frozen at job start, not per operation (CTX-1, CTX-5)**
-- [ ] **Same frozen context used for all Core calls in a job (CTX-2)**
-- [ ] **randomSeed derived from intentId (CTX-4)**
-- [ ] **Frozen context recorded in trace for replay (CTX-5)**
+- [ ] **Context materialized once per transition attempt, not per operation (CTX-1, CTX-5)**
+- [ ] **Same context used for all Core compute re-entry in an attempt (CTX-2)**
+- [ ] **`context.runtime.random.seed` stable for the attempt (CTX-4)**
+- [ ] **Materialized context recorded by replay owner for replay (CTX-5)**
 - [ ] **No @manifesto-ai/compiler dependency (v2.0.1 decoupling)**
 
 ---
@@ -1665,15 +1706,15 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | **Compute-effect interlock** | **COMP-REQ-INTERLOCK-1~2** |
 | **Snapshot namespace contract** | **HOST-NS-1~8, HOST-RESTORE-1~4** |
 
-### B.1.1 New Requirements (v2.0.1)
+### B.1.1 Historical Requirements (v2.0.1, superseded by ADR-027)
 
 | Requirement | Rule ID |
 |-------------|---------|
-| **HostContext frozen at job start** | **CTX-1** |
-| **Same context for all operations in job** | **CTX-2** |
-| **now value immutable during job** | **CTX-3** |
-| **randomSeed from intentId** | **CTX-4** |
-| **Context recorded in trace** | **CTX-5** |
+| **Pre-v5 HostContext frozen at job start** | **CTX-1** |
+| **Same pre-v5 context for all operations in job** | **CTX-2** |
+| **Pre-v5 now value immutable during job** | **CTX-3** |
+| **Pre-v5 randomSeed from intentId** | **CTX-4** |
+| **Pre-v5 context recorded in trace** | **CTX-5** |
 
 ### B.1.2 New Requirements (v5.0.0 / ADR-025)
 

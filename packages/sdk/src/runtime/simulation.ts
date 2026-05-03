@@ -87,7 +87,6 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
   function withHostIntentSlot(
     snapshot: CoreSnapshot,
     intent: TypedIntent<T>,
-    context: ReturnType<HostContextProvider["createFrozenContext"]>,
   ): CoreSnapshot {
     const hostState = getHostState(snapshot);
     const intentSlots = hostState?.intentSlots ?? {};
@@ -110,7 +109,6 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
           }],
         },
       ],
-      context,
     );
   }
 
@@ -148,14 +146,12 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
     const baseline = withHostIntentSlot(
       structuredClone(snapshot as CoreSnapshot),
       enrichedIntent,
-      context,
     );
     const result = computeSync(schema, baseline, enrichedIntent, context);
-    const afterPatches = apply(schema, baseline, result.patches, context);
+    const afterPatches = apply(schema, baseline, result.patches);
     const afterNamespaceDeltas = applyNamespaceDeltas(
       afterPatches,
       result.namespaceDelta ?? [],
-      context,
     );
     const canonicalSimulated = applySystemDelta(afterNamespaceDeltas, result.systemDelta);
 

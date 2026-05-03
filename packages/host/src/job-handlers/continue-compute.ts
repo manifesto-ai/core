@@ -45,8 +45,8 @@ export function handleContinueCompute(
     t: "context:frozen",
     key: ctx.key,
     jobId: job.id,
-    now: frozenContext.now,
-    randomSeed: frozenContext.randomSeed,
+    now: frozenContext.runtime.time.timestamp,
+    randomSeed: frozenContext.runtime.random.seed,
   });
 
   // For re-entry, we use a minimal intent with just the intentId

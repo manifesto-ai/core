@@ -80,7 +80,7 @@ export interface MelRuntimePatch {
  * Runtime ConditionalPatchOp for snapshot state mutations.
  *
  * This is the intermediate representation between Translator output
- * and final concrete Patch[]. Host must call evaluateRuntimePatches()
+ * and final concrete Patch[]. Callers must call evaluateRuntimePatches()
  * to get concrete values.
  *
  * @see SPEC v0.4.0 §17.5, §20

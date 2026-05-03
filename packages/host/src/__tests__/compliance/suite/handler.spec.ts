@@ -85,9 +85,9 @@ describe("HCTS Effect Handler Tests", () => {
         actions: {
           throwingHandler: {
             flow: {
-              kind: "if",
-              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
-              then: {
+              kind: "causalGuard",
+              guardId: "hcts-handler-thrower",
+              body: {
                 kind: "effect",
                 type: "thrower",
                 params: {},

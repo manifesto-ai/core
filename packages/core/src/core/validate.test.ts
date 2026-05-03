@@ -422,7 +422,7 @@ describe("validate", () => {
             flow: {
               kind: "patch",
               op: "set", path: pp("dummy"),
-              value: { kind: "get", path: "meta.intentId" },
+              value: { kind: "get", path: "$runtime.intent.id" },
             },
           },
         },

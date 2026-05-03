@@ -277,9 +277,9 @@ describe("HCTS Reinjection Tests", () => {
         actions: {
           errorEffect: {
             flow: {
-              kind: "if",
-              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
-              then: {
+              kind: "causalGuard",
+              guardId: "hcts-reinject-failing",
+              body: {
                 kind: "effect",
                 type: "failing",
                 params: {},

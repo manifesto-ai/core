@@ -49,7 +49,7 @@ describe("Core CTS expression rules", () => {
             deps: ["items"],
           },
           badNamespace: {
-            expr: { kind: "get", path: "$host.requestId" },
+              expr: { kind: "get", path: "$platform.requestId" },
             deps: [],
           },
         },
@@ -60,7 +60,7 @@ describe("Core CTS expression rules", () => {
             kind: "patch",
             op: "set",
             path: [{ kind: "prop", name: "name" }],
-            value: { kind: "get", path: "$host.requestId" },
+            value: { kind: "get", path: "$platform.requestId" },
           },
         },
       },

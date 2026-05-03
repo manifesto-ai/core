@@ -86,7 +86,7 @@ describe("Core CTS schema validation", () => {
     const schema = createComplianceSchema({
       state: {
         fields: {
-          "$host": { type: "string", required: true, default: "" },
+          "$platform": { type: "string", required: true, default: "" },
           nested: {
             type: "object",
             required: true,
@@ -102,7 +102,7 @@ describe("Core CTS schema validation", () => {
       },
       computed: {
         fields: {
-          fromNamespace: { expr: { kind: "get", path: "$host.requestId" }, deps: [] },
+          fromNamespace: { expr: { kind: "get", path: "$platform.requestId" }, deps: [] },
           fromSystem: { expr: { kind: "get", path: "system.status" }, deps: [] },
           fromMeta: { expr: { kind: "get", path: "meta.timestamp" }, deps: [] },
           fromInput: { expr: { kind: "get", path: "input.value" }, deps: [] },
@@ -113,7 +113,7 @@ describe("Core CTS schema validation", () => {
     const result = validate(schema);
 
     expect(result.valid).toBe(false);
-    expectValidationCode(result.errors, "SCHEMA_ERROR", "state.fields.$host");
+    expectValidationCode(result.errors, "SCHEMA_ERROR", "state.fields.$platform");
     expectValidationCode(result.errors, "SCHEMA_ERROR", "state.fields.nested.$runtime");
     expectValidationCode(result.errors, "SCHEMA_ERROR", "state.fieldTypes.$lineage");
     expectValidationCode(result.errors, "V-012", "computed.fields.fromNamespace");

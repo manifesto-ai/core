@@ -606,7 +606,9 @@ export type TypedActionMetadata<
   readonly name: K;
   readonly params: readonly string[];
   readonly publicArity: number;
+  readonly requiredArity: number;
   readonly input: DomainSchema["actions"][string]["input"];
+  readonly inputType?: DomainSchema["actions"][string]["inputType"];
   readonly description: string | undefined;
   readonly annotations?: ActionAnnotation;
   readonly hasDispatchableGate: boolean;

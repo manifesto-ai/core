@@ -75,7 +75,7 @@ describe("HCTS Snapshot Ownership Tests", () => {
       expect(finalSnapshot).toHaveProperty("namespaces");
       expect(finalSnapshot).not.toHaveProperty("data");
       expect(finalSnapshot.namespaces).toHaveProperty("host");
-      expect(finalSnapshot.namespaces).toHaveProperty("mel");
+      expect(finalSnapshot.namespaces).not.toHaveProperty("mel");
 
       // Verify SystemState structure
       expect(finalSnapshot.system).toHaveProperty("status");
@@ -273,9 +273,9 @@ describe("HCTS Snapshot Ownership Tests", () => {
         actions: {
           failingEffect: {
             flow: {
-              kind: "if",
-              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
-              then: {
+              kind: "causalGuard",
+              guardId: "hcts-snapshot-throwing",
+              body: {
                 kind: "effect",
                 type: "throwingEffect",
                 params: {},
@@ -313,9 +313,9 @@ describe("HCTS Snapshot Ownership Tests", () => {
         actions: {
           unknownEffect: {
             flow: {
-              kind: "if",
-              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
-              then: {
+              kind: "causalGuard",
+              guardId: "hcts-snapshot-unknown",
+              body: {
                 kind: "effect",
                 type: "nonexistentEffect",
                 params: {},
@@ -367,9 +367,11 @@ describe("HCTS Snapshot Ownership Tests", () => {
         { count: 5, $host: { currentIntentId: "stale-intent" } },
         schema.hash,
         {
-          ...DEFAULT_HOST_CONTEXT,
-          now: 5,
-          randomSeed: "restored-seed",
+          runtime: {
+            time: { timestamp: 5 },
+            random: { seed: "restored-seed" },
+          },
+          external: {},
         }
       );
 
@@ -384,8 +386,8 @@ describe("HCTS Snapshot Ownership Tests", () => {
       expect((finalSnapshot.state as Record<string, unknown>).processed).toBe(true);
       expect(finalSnapshot.input).toBeUndefined();
       expect(finalSnapshot.system.currentAction).toBeNull();
-      expect(finalSnapshot.meta.timestamp).toBe(100);
-      expect(finalSnapshot.meta.randomSeed).toBe("intent-restore");
+      expect(finalSnapshot.meta.timestamp).toBe(5);
+      expect(finalSnapshot.meta.randomSeed).toBe("restored-seed");
       expect((finalSnapshot.state as Record<string, unknown>).$host).toBeUndefined();
       expect(hostState?.intentSlots?.["intent-restore"]).toEqual({
         type: "resume",

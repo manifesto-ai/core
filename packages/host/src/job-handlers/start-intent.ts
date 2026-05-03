@@ -49,8 +49,8 @@ export function handleStartIntent(
     t: "context:frozen",
     key: ctx.key,
     jobId: job.id,
-    now: frozenContext.now,
-    randomSeed: frozenContext.randomSeed,
+    now: frozenContext.runtime.time.timestamp,
+    randomSeed: frozenContext.runtime.random.seed,
   });
 
   // Store intent slot in namespaces.host (HOST-NS-1)

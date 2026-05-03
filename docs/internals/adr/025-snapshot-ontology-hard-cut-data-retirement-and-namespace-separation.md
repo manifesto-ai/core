@@ -7,6 +7,7 @@
 > **Scope:** Core, Host, SDK, Compiler, Lineage, Governance, Studio, Agent tooling, Constitution, Docs
 > **Type:** Breaking / Major Hard Cut
 > **Release Vehicle:** Manifesto v5 (ontology layer)
+> **Boundary Amendment:** 2026-05-01 — owner-specific namespace shapes are no longer part of Core ontology. Core owns only the opaque `namespaces` container plus Core-owned generic flow bookkeeping.
 > **Supersedes:**
 > - Current Snapshot contract (`Snapshot.data` field)
 > - SPEC §13.3 normative note ("the field name is `data` (not `state`)")
@@ -208,25 +209,21 @@ type Snapshot<TState = Record<string, unknown>> = {
 
 ```ts
 // Before
-snapshot.data.$host
-snapshot.data.$mel
+snapshot.data.$runtime
 
 // After
-snapshot.namespaces.host
-snapshot.namespaces.mel
+snapshot.namespaces.runtime
 ```
 
 Recommended type:
 
 ```ts
-type SnapshotNamespaces = {
-  readonly host?: HostNamespace;
-  readonly mel?: MelNamespace;
-  readonly [namespace: string]: unknown;
-};
+type SnapshotNamespaces = Record<string, unknown>;
 ```
 
 `namespaces` is a Snapshot-level extension surface available to Host, Compiler, Runtime, Studio, Planner, Debugger, and similar platform / tooling layers. It is not domain state.
+
+Core owns only the `namespaces` container contract. Namespace names and nested shapes are owned by the package that owns the namespace. In particular, Core MUST NOT define or validate Host-owned or MEL-owned namespace shapes.
 
 ### 3.3 `state` contains domain-owned fields only
 
@@ -271,13 +268,12 @@ Example:
 { op: "set", path: [{ kind: "prop", name: "count" }], value: 1 }
 // Applies to: snapshot.state.count
 
-// Channel: NamespaceDelta(namespace="mel").patches  → root = snapshot.namespaces.mel
+// Channel: NamespaceDelta(namespace="runtime").patches  → root = snapshot.namespaces.runtime
 { op: "merge", path: [
-    { kind: "prop", name: "guards" },
-    { kind: "prop", name: "intent" }
-  ], value: { [guardId]: intentId }
+    { kind: "prop", name: "request" }
+  ], value: { id: "req-1" }
 }
-// Applies to: snapshot.namespaces.mel.guards.intent
+// Applies to: snapshot.namespaces.runtime.request
 ```
 
 `snapshot.computed`, `snapshot.system`, `snapshot.meta`, and `snapshot.input` are not targetable by any patch channel (Core / Host manage them directly).
@@ -320,17 +316,18 @@ NamespaceDelta is governed by separating **authority** (who owns the namespace) 
 
 ```text
 NSDELTA-1 (MUST):
-NamespaceDelta authority is owned by the namespace owner.
-- Authority for `namespaces.mel` belongs to the Compiler.
-- Authority for `namespaces.host` belongs to the Host.
+NamespaceDelta authority is owned by the namespace owner. Core applies
+NamespaceDelta structurally and opaquely; it MUST NOT encode owner-specific
+namespace names or nested shapes.
 
 NSDELTA-1a (MAY):
-Core MAY materialize NamespaceDelta for `namespaces.mel` only while interpreting
-compiler-owned fixed-shape IR nodes registered under NSDELTA-2a / NSREAD-2.
+Core MAY materialize NamespaceDelta only for Core-owned generic primitives.
+Current registry: `causalGuard` writes Core-owned per-intent bookkeeping under
+the Core namespace.
 
 NSDELTA-1b (MAY):
-Host MAY materialize NamespaceDelta for `namespaces.host` only for Host-owned
-bookkeeping (diagnostics, intent slots, effect coordination).
+External packages MAY materialize NamespaceDelta for their own namespaces, but
+the shape contract lives in the owner package, not in Core.
 
 NSDELTA-2 (MUST NOT):
 User-authored MEL explicit mutation syntax (patch statements, effect handler
@@ -338,9 +335,9 @@ patch returns, action body field writes, etc.) MUST NOT target namespaces or
 express any NamespaceDelta.
 
 NSDELTA-2a (MAY):
-Compiler-owned language-runtime constructs MAY lower to fixed-shape NamespaceDelta.
-Currently this is limited to onceIntent → namespaces.mel.guards.intent.
-Adding a new compiler-owned construct requires a separate ADR.
+Compiler-owned language-runtime constructs MAY lower to Core-owned generic Flow
+primitives, but MUST NOT require Core to know MEL namespace names or MEL-owned
+storage shape.
 
 NSDELTA-3 (MUST):
 apply() processes ComputeResult.patches and NamespaceDelta through distinct paths,
@@ -350,11 +347,16 @@ NSDELTA-4 (MUST):
 NamespaceDelta is recorded as a distinct transition node in the trace.
 ```
 
-**Why authority and materialization are separated:** at runtime, the code that *actually constructs* a `mel` namespace delta object lives in Core (while interpreting compiler-owned IR), but the *legitimacy* of that delta originates from the Compiler's fixed-shape contract. NSDELTA-1 governs legitimacy. NSDELTA-1a / 1b govern who is allowed to perform the construction at runtime.
+**Why authority and materialization are separated:** Core may materialize its own
+operational bookkeeping for generic Flow semantics, and owner packages may
+materialize their own namespace transitions. Core never materializes Host-owned
+or MEL-owned namespace shapes.
 
 #### 3.5.3 Namespace read access (NamespaceRead)
 
-NamespaceDelta defines the write channel. A symmetric contract for read access is required because compiler-owned constructs (notably `onceIntent`) must read previously-set guard state to decide whether to execute. Without an explicit read contract, namespace reads silently leak into general expression evaluation.
+NamespaceDelta defines the write channel. General expression evaluation MUST
+NOT become a side door for namespace reads. Any Core-owned namespace read needed
+for Core semantics must be hidden behind a dedicated Core primitive.
 
 ```text
 NSREAD-1 (MUST NOT):
@@ -363,24 +365,28 @@ effect args, dispatchable when, available when) MUST NOT reference any
 `namespaces.*` path. Compiler rejects with a compile error.
 
 NSREAD-2 (MAY):
-Compiler-generated IR MAY emit reads of `namespaces.{owner}.*` paths for
-owned constructs. Currently limited to onceIntent → `namespaces.mel.guards.intent.*`.
+Core-owned generic primitives MAY read Core-owned bookkeeping from namespaces.
+This privilege is not available to user expressions or compiler-generated
+owner-specific namespace paths.
 
 NSREAD-3 (MUST):
-Compiler-generated namespace reads MUST be recorded in the trace as
-namespace-scoped read events (distinct from domain-state reads).
+Core-owned namespace reads MUST remain scoped to the primitive that owns them
+and MUST NOT appear as general `get("$namespace...")` expression semantics.
 
 NSREAD-4 (MUST):
-NSREAD-2 privileges mirror NSDELTA-2a — the set of compiler-owned constructs
-permitted to read a namespace MUST equal the set permitted to write it,
-defined by the same fixed-shape contract.
+Owner package namespace reads, if needed, must be implemented inside the owner
+package or through explicit owner-level APIs, not through Core expression
+evaluation.
 ```
 
-Together, NSREAD and NSDELTA close the user-facing harness on both sides: user code can neither read nor write namespaces; compiler-owned constructs may do both within fixed-shape contracts.
+Together, NSREAD and NSDELTA close the user-facing harness on both sides: user
+code can neither read nor write namespaces; Core-owned primitives may maintain
+their own deterministic bookkeeping without learning Host or MEL.
 
 #### 3.5.4 Namespace initialization invariants
 
-Compiler-owned constructs that read or write `namespaces.mel` presuppose a fixed-shape path. If fresh, migrated, or partially-restored snapshots lack the expected sub-paths, the first read or merge fails.
+Core requires only the top-level namespace container. Owner-specific namespace
+normalization belongs to the package that owns the namespace.
 
 ```text
 NSINIT-1 (MUST):
@@ -388,74 +394,56 @@ Every v5 canonical Snapshot MUST contain `namespaces` as an object
 (never undefined, never null).
 
 NSINIT-2 (MUST):
-Before evaluating any compiler-owned construct that reads or writes
-namespaces.mel, runtime normalization MUST guarantee the following shape:
-
-namespaces.mel = {
-  guards: {
-    intent: {}
-  }
-}
+Fresh Core snapshots initialize `namespaces` to `{}`. Core MUST NOT deep-create
+Host-owned, MEL-owned, or other external owner namespaces.
 
 NSINIT-3 (MUST):
-NSINIT-2 normalization MUST be applied to:
-- Fresh initial snapshots (factory creation)
-- Read-time migrated snapshots (§7.2.1)
-- Restore-normalized snapshots (§7.2.2)
+Migration and restore code MUST preserve `namespaces` as an object and MAY reset
+or normalize owner namespaces only in the owning package's layer.
 
 NSINIT-4 (MUST):
-If `namespaces.mel` is partially present (e.g., `{}`, `{ guards: {} }`),
-runtime normalization MUST **deep-normalize** rather than preserve.
-Missing sub-paths MUST be filled recursively to satisfy NSINIT-2.
+Core-owned primitive bookkeeping MAY be normalized by Core only for Core-owned
+namespace state.
 
 NSINIT-5 (SHOULD):
 Future namespaces (e.g., namespaces.studio, namespaces.debug) SHOULD follow
-the same pattern: the owning package defines an expected shape, and runtime
-normalization guarantees that shape.
+the same pattern: the owning package defines and normalizes its own expected
+shape outside Core.
 ```
 
-NSINIT-4 is critical — a presence check alone does not catch partial corruption. Both restore normalization and read-time migration are bound by the deep-normalize obligation.
+Owner-specific deep-normalization is deliberately excluded from Core. This keeps
+Core pure and owner-opaque.
 
-### 3.6 The `$mel` symbolic namespace is preserved; only the storage location changes
+### 3.6 onceIntent lowers to a Core-owned generic guard primitive
 
-```text
-$mel symbolic namespace
-  -> snapshot.namespaces.mel
-```
+MEL source surface is unchanged. `onceIntent` semantics are unchanged. The v5
+runtime target changes: the Compiler lowers `onceIntent` to Core's generic
+`causalGuard` Flow primitive rather than to a MEL-owned namespace path.
 
 #### 3.6.1 Fixed lowering contract for onceIntent
 
-Per ADR-002, `onceIntent` is a compiler-owned construct that reads and writes `$mel.guards.intent`. Under this ADR, its lowering target is fixed to the following shape.
+Per ADR-002, `onceIntent` means "execute this block at most once for the current
+intent id." Under this ADR, the Compiler emits:
 
-**Precondition (NSINIT-2):**
-
-```text
-namespaces.mel = { guards: { intent: { ... } } }
+```ts
+{
+  kind: "causalGuard",
+  guardId,
+  body
+}
 ```
 
-This shape is guaranteed before evaluation — by factory creation for fresh snapshots, by normalization for migrated or restored snapshots.
-
-**Read (NSREAD-2):**
-
-```text
-target: snapshot.namespaces.mel.guards.intent[guardId]
-- value === currentIntentId  → already executed; skip body
-- value !== currentIntentId  → proceed
-```
-
-**Write (NSDELTA-2a, NSPATCH-ROOT-1):**
+Core owns the primitive's storage and may materialize an opaque Core namespace
+delta such as:
 
 ```ts
 namespaceDelta: [
   {
-    namespace: "mel",
+    namespace: "core",
     patches: [
       {
         op: "merge",
-        path: [
-          { kind: "prop", name: "guards" },
-          { kind: "prop", name: "intent" }
-        ],
+        path: [{ kind: "prop", name: "causalGuards" }],
         value: { [guardId]: currentIntentId }
       }
     ]
@@ -463,19 +451,17 @@ namespaceDelta: [
 ]
 ```
 
-By NSPATCH-ROOT-1, the patch's PatchPath is rooted at `snapshot.namespaces.mel`, producing `snapshot.namespaces.mel.guards.intent[guardId] = currentIntentId`.
-
-**ADR-002 preservation note:** the merge target is `mel.guards.intent`, not the root `mel`. This preserves the shallow-merge safety condition from ADR-002 — merging at a deeper path prevents one guard entry from clobbering the others.
-
-MEL source surface is unchanged. `onceIntent` semantics are unchanged. Only the lowering target moves.
+The concrete Core namespace shape is Core-owned implementation detail, not MEL
+ontology. Compiler and user code MUST NOT read or write this shape directly.
 
 #### 3.6.2 Compiler-owned construct registry
 
-| Construct | Read path | Write path | ADR |
-|-----------|-----------|------------|-----|
-| `onceIntent` | `namespaces.mel.guards.intent[guardId]` | `namespaces.mel.guards.intent[guardId]` (merge) | This ADR + ADR-002 |
+| Construct | Runtime target | ADR |
+|-----------|----------------|-----|
+| `onceIntent` | Core `causalGuard` Flow primitive | This ADR + ADR-002 |
 
-Any new construct requires a separate ADR per NSDELTA-2a / NSREAD-2.
+Any new construct that needs runtime bookkeeping requires a separate ADR and
+must preserve Core owner-opacity.
 
 ### 3.7 The `$host` namespace remains Host-owned; only the storage location changes
 
@@ -515,8 +501,7 @@ snapshot.meta
 | `system.pendingDigest` | Process | ✅ | ✅ (snapshotHash) | part of top-level |
 | `meta.schemaHash` | Envelope / Binding | structural | ✅ (worldId only) | top-level (binding) |
 | `input` | Transient | per-action | excluded | top-level (transient binding) |
-| `namespaces.host` | **non-semantic, operational** | ❌ | ❌ | namespaces |
-| `namespaces.mel` | **non-semantic, operational** | ❌ | ❌ | namespaces |
+| `namespaces.<owner>` | **non-semantic, operational** | ❌ | ❌ | namespaces |
 
 The classifying axis is **semantic vs operational**:
 
@@ -560,11 +545,7 @@ type Snapshot<TState = Record<string, unknown>> = {
   readonly namespaces: SnapshotNamespaces;  // always present (NSINIT-1)
 };
 
-type SnapshotNamespaces = {
-  readonly host?: HostNamespace;
-  readonly mel?: MelNamespace;
-  readonly [namespace: string]: unknown;
-};
+type SnapshotNamespaces = Record<string, unknown>;
 ```
 
 ### 4.2 Projected Snapshot
@@ -716,9 +697,9 @@ discontinuity, and Genealogy Phase 1 dual schema identity
 - Add `Snapshot.namespaces`
 - PatchPath root anchoring becomes channel-determined (PATCH-ROOT-1 / NSPATCH-ROOT-1 / PATCH-ROOT-2)
 - Add NamespaceDelta application logic (NSDELTA-3)
-- Support compiler-owned namespace materialization (NSDELTA-1a)
-- Support compiler-owned namespace read paths (NSREAD-2)
-- Trace separation: state read vs namespace read (NSREAD-3); Patch vs NamespaceDelta (NSDELTA-4)
+- Keep NamespaceDelta application owner-opaque: validate only structural safety, not owner-specific names or shapes
+- Add the Core-owned generic `causalGuard` Flow primitive for per-intent re-entry safety
+- Remove general expression reads of `$namespace.*` paths
 - Enforce NSINIT-1 (`namespaces` always present)
 - Update Snapshot fixtures and tests
 
@@ -744,11 +725,10 @@ discontinuity, and Genealogy Phase 1 dual schema identity
 ### 6.4 Compiler (`@manifesto-ai/compiler`)
 
 - Domain patch lowering: PatchPath rooted at `snapshot.state` (PATCH-ROOT-1)
-- `$mel` lowering: NamespaceDelta with namespaces-rooted PatchPath (NSDELTA-2a, NSPATCH-ROOT-1)
-- Lower onceIntent's namespace read path (NSREAD-2)
+- Lower `onceIntent` to Core `causalGuard`, not to `$mel` / `namespaces.mel`
 - User expression validator enforces NSREAD-1 and COMP-DEP-1
 - Regression tests for ADR-002 shallow-merge safety
-- Verify whether `withPlatformNamespaces` participates in schemaHash (§5.5)
+- Stop injecting platform namespace fields into domain schema hash inputs
 
 ### 6.5 Lineage (`@manifesto-ai/lineage`)
 
@@ -798,8 +778,6 @@ snapshot.data.$*
 
 // New surface
 snapshot.state
-snapshot.namespaces.host
-snapshot.namespaces.mel
 snapshot.namespaces.*
 ```
 
@@ -852,30 +830,10 @@ function migrateStoredSnapshotShape(stored: unknown): Snapshot {
   });
 }
 
-// NSINIT-1 + NSINIT-4 deep-normalization
+// NSINIT-1 only: Core ensures the namespace container exists.
 function ensureNamespacesPresent(snapshot: Snapshot): Snapshot {
   const namespaces = { ...(snapshot.namespaces ?? {}) };
-
-  // host: ensure object presence (host fields are operational; no deep shape required)
-  if (!namespaces.host || typeof namespaces.host !== 'object') {
-    namespaces.host = {};
-  }
-
-  // mel: deep-normalize to NSINIT-2 shape
-  namespaces.mel = deepNormalizeMel(namespaces.mel);
-
   return { ...snapshot, namespaces };
-}
-
-function deepNormalizeMel(mel: unknown): MelNamespace {
-  const m = (mel && typeof mel === 'object') ? mel as Record<string, unknown> : {};
-  const guards = (m.guards && typeof m.guards === 'object')
-    ? m.guards as Record<string, unknown>
-    : {};
-  const intent = (guards.intent && typeof guards.intent === 'object')
-    ? guards.intent as Record<string, unknown>
-    : {};
-  return { ...m, guards: { ...guards, intent } };
 }
 ```
 
@@ -883,12 +841,12 @@ By SNAP-HASH-2, the migrated snapshot's snapshotHash equals the pre-migration sn
 
 #### 7.2.2 `normalizeForRestore` — execution input normalization
 
-Used on `restore()` paths to produce execution input. Applies the ADR-016 *operational field reset* and enforces NSINIT-2 via deep-normalize.
+Used on `restore()` paths to produce execution input. Applies the ADR-016 *operational field reset* while preserving Core's owner-opaque namespace boundary.
 
 ```text
 RESTORE-ONTO-3 (MUST):
 normalizeForRestore MUST apply ADR-016's non-hash operational field reset
-AND MUST guarantee the NSINIT-2 invariant via deep-normalization.
+AND MUST leave owner-specific namespace reset/normalization to the namespace owner.
 ```
 
 ```ts
@@ -906,12 +864,7 @@ function normalizeForRestore(snapshot: Snapshot): Snapshot {
       timestamp: 0,                           // host context will set
       randomSeed: '',
     },
-    namespaces: {
-      host: {},                               // host bookkeeping reset
-      mel: { guards: { intent: {} } },       // NSINIT-2 deep-normalize
-      // unknown future namespaces: deterministic empty object
-      ...stripUnknownNamespaceContents(snapshot.namespaces ?? {}),
-    },
+    namespaces: stripUnknownNamespaceContents(snapshot.namespaces ?? {}),
   };
 }
 
@@ -920,9 +873,7 @@ function stripUnknownNamespaceContents(
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const key of Object.keys(namespaces)) {
-    if (key !== 'host' && key !== 'mel') {
-      result[key] = {};  // unknown future platform namespace → empty object
-    }
+    result[key] = {};  // owner-specific contents are reset outside Core
   }
   return result;
 }
@@ -1062,11 +1013,11 @@ By §1.4 (V5 hard cut window economics), deferring the cut is a deferral with po
 
 ### 10.2 NamespaceDelta + NamespaceRead increase Core / Host complexity
 
-**Mitigation:** Domain patch semantics unchanged; namespace surfaces accept only fixed-shape contracts (NSREAD-4); authority and materialization separated (NSDELTA-1 / 1a / 1b).
+**Mitigation:** Domain patch semantics unchanged; Core applies namespace deltas opaquely and owner-specific namespace shapes stay outside Core.
 
 ### 10.3 Risk of regression in onceIntent lowering
 
-**Mitigation:** §3.6.1 specifies the fixed-shape merge path; ADR-002 regression tests carried forward.
+**Mitigation:** §3.6.1 specifies the Core `causalGuard` lowering target; ADR-002 regression tests carried forward.
 
 ### 10.4 Stored lineage artifact compatibility
 
@@ -1086,11 +1037,11 @@ If the v3 implementation incorporates platform-namespace augmentation into schem
 - *Not included* → no further action.
 - *Included* → v5 release notes MUST announce worldId epoch boundary; Genealogy Phase 1 dual schema identity consistency MUST be re-examined.
 
-### 10.7 NSINIT normalization gaps
+### 10.7 Namespace normalization gaps
 
-If migration or restore functions skip NSINIT-2 deep-normalization, `onceIntent`'s first execution may fail on a partial path.
+If migration or restore functions silently assume owner-specific namespace shapes, Core becomes coupled to owner packages again.
 
-**Mitigation:** Helper functions in §7.2.1 and §7.2.2 perform deep-normalization; PR-2 (Core) and PR-6 (Lineage) include unit tests.
+**Mitigation:** Core initializes only the top-level `namespaces` object. Owner packages own any deeper reset or normalization.
 
 ### 10.8 Stale computed after restore
 
@@ -1117,8 +1068,8 @@ This ADR is NOT a multi-phase deployable rollout. It is a single PR series; inte
 - `Snapshot.data` → `Snapshot.state`; add `Snapshot.namespaces`.
 - PatchPath channel-based root anchoring (PATCH-ROOT-1 / NSPATCH-ROOT-1 / PATCH-ROOT-2).
 - NamespaceDelta type and apply logic (NSDELTA-3).
-- Compiler-owned namespace read path support (NSREAD-2).
-- Trace separation (NSDELTA-4, NSREAD-3).
+- Core `causalGuard` Flow primitive.
+- Remove general `$namespace.*` expression reads.
 - Enforce NSINIT-1 (always-present namespaces).
 - Test fixtures updated.
 
@@ -1131,8 +1082,7 @@ This ADR is NOT a multi-phase deployable rollout. It is a single PR series; inte
 
 ### PR-4 — Compiler cut
 
-- `$mel` lowering → NamespaceDelta with namespaces-rooted PatchPath.
-- onceIntent read/write lowering (§3.6.1).
+- onceIntent → Core `causalGuard` lowering (§3.6.1).
 - User expression validator: NSREAD-1, COMP-DEP-1 enforcement.
 - ADR-002 shallow-merge safety regression tests.
 - Compiler tests and docs updated.
@@ -1191,15 +1141,15 @@ This ADR is implemented when ALL of the following hold:
 6. The Constitution / CLAUDE.md reflects the new ontology and no longer defines `data` as canonical.
 7. PatchPath is root-relative; the root is determined by the channel (PATCH-ROOT-1 / NSPATCH-ROOT-1 / PATCH-ROOT-2).
 8. ADR-009 §2.8 is retracted.
-9. Host-owned namespace lives at `namespaces.host`.
-10. Compiler / MEL-owned namespace lives at `namespaces.mel`.
+9. Owner-specific namespaces may live under `namespaces`, but Core does not define their names or shapes.
+10. Core-owned re-entry bookkeeping, if present, is exposed only through Core generic primitives.
 11. Domain patches apply through `ComputeResult.patches` to `snapshot.state`.
 12. Namespace mutation is processed exclusively through the NamespaceDelta channel.
-13. NSDELTA-1~4 plus NSDELTA-1a / 1b / 2a are enforced.
+13. NSDELTA-1~4 plus owner-opacity requirements are enforced.
 14. NSREAD-1~4 are enforced.
 15. COMP-DEP-1~3 are enforced.
-16. NSINIT-2 deep-normalization applies to fresh, migrated, and restored snapshots (NSINIT-3 / 4).
-17. onceIntent reads and writes `namespaces.mel.guards.intent` in fixed shape, preserving ADR-002 shallow-merge safety.
+16. Fresh Core snapshots initialize `namespaces` to `{}` and do not deep-create external owner namespaces.
+17. onceIntent lowers to Core `causalGuard`, preserving ADR-002 semantics without Core knowing MEL.
 18. `getSnapshot()` exposes `state`.
 19. `simulateIntent()` results expose `snapshot.state`.
 20. Lineage stored snapshots use `state` and `namespaces`.
@@ -1229,7 +1179,7 @@ New namespaces require:
 
 - A separate ADR.
 - Passing the §3.8.1 semantic-vs-operational test.
-- Registration under NSREAD-2 / NSDELTA-2a if compiler-owned.
+- An owner package contract for any nested namespace shape.
 
 ### 13.3 Type parameter naming
 
@@ -1266,16 +1216,16 @@ Lineage seals:       state (+ semantic system)
 PatchPath:           root-relative; root determined by transition channel
 Domain patches:      ComputeResult.patches → state-rooted
 Namespace writes:    NamespaceDelta.patches → namespaces[namespace]-rooted
-onceIntent:          fixed-shape mel namespace read/write (NSREAD-2 + NSDELTA-2a)
-namespaces.mel:      always deep-normalized to NSINIT-2 shape
+onceIntent:          Core causalGuard primitive
+Core namespaces:     owner-opaque; Core knows only its own primitive bookkeeping
 snapshotHash:        hash(state, semanticSystemDigest)
 worldId:             hash(schemaHash, snapshotHash, parentWorldId)
                      (continuity conditional on SCHEMA-HASH-3 verification)
 User code:           cannot read or write namespaces
-Compiler-owned:      may read/write namespaces in fixed shape only
+Compiler-owned:      lowers syntax to Core primitives without requiring Core to know MEL
 Computed dependency: state and other computed only
 Storage migration:   migrateStoredSnapshotShape (forensic preserve)
-Execution restore:   normalizeForRestore (operational reset, NSINIT-2 enforced)
+Execution restore:   normalizeForRestore (operational reset, owner-specific reset outside Core)
 ```
 
 The intent is to make Manifesto's founding model — a runtime that grounds UI and Agent in the same domain world — *consistent at the ontology level of the runtime itself*. UI authors, MEL authors, and Agent tools all reason about a `state`. The runtime now exposes that same `state` directly, and isolates the operational substrate that supports execution but does not belong to the domain.
@@ -1300,8 +1250,9 @@ This ADR is accepted within the v5 hard cut window — bus factor 1, pre-stable 
   - §3.6.2 compiler-owned construct registry.
 - **revision 3 (2026-04-29):** GPT cross-review round 2 fixes (Korean):
   - **Redline 1 — channel-determined PatchPath root:** retracted §3.4 in favor of PATCH-ROOT-1 / NSPATCH-ROOT-1 / PATCH-ROOT-2. Added ADR-009 §2.8 to the explicit retraction list. Made the differing roots of `NamespaceDelta.patches` and `ComputeResult.patches` explicit at the type level.
-  - **Redline 2 — NSDELTA-1 authority/materialization split:** rewrote "emit" framing as "authority + materialization." Split into NSDELTA-1 (authority), NSDELTA-1a (Core materialization for mel), NSDELTA-1b (Host materialization for host).
+  - **Redline 2 — NSDELTA-1 authority/materialization split:** rewrote "emit" framing as "authority + materialization." This was later superseded by revision 5's owner-opaque Core boundary.
   - **Redline 3 — namespace initialization invariants:** added §3.5.4 with NSINIT-1~5. NSINIT-4's deep-normalize obligation guards against partial corruption and ensures onceIntent's first execution.
   - **Redline 4 — migration vs restore normalization separation:** split §7.2 into §7.2.1 (`migrateStoredSnapshotShape`, forensic preserve), §7.2.2 (`normalizeForRestore`, operational reset), §7.2.3 (call flow). Added RESTORE-ONTO-1~3 as normative rules. Renamed function for clarity.
   - **Redline 5 — worldId continuity precision and schemaHash continuity:** added the §5.4 hash continuity matrix with explicit `parentWorldId` impact. Added §5.5 with SCHEMA-HASH-1~3 — SCHEMA-HASH-3 is honest disclosure regarding the impact of ADR-002's `withPlatformNamespaces` on schemaHash. Added a verification step to PR-1 and a corresponding §10.6 risk.
 - **revision 4 (2026-04-29):** GO confirmed by GPT cross-review round 3. English formalization, ADR number 025 assigned, status promoted to Accepted. Added §10.8 (computed staleness risk) and Acceptance Criterion 31 (computed-not-stale test in PR-6) per cross-review implementation note.
+- **revision 5 (2026-05-01):** Boundary amendment. Removed Core knowledge of Host/MEL namespace names and shapes. Replaced `onceIntent` MEL namespace lowering with Core `causalGuard`.

@@ -39,6 +39,9 @@ function collectEffectTypes(flow: CoreFlowNode | undefined, types: string[] = []
         collectEffectTypes(flow.else, types);
       }
       break;
+    case "causalGuard":
+      collectEffectTypes(flow.body, types);
+      break;
     case "effect":
       types.push(flow.type);
       break;
@@ -226,6 +229,9 @@ function collectCanonicalFlowExprs(flow: CanonicalDomainSchema["actions"][string
         collectCanonicalFlowExprs(flow.else, exprs);
       }
       return;
+    case "causalGuard":
+      collectCanonicalFlowExprs(flow.body, exprs);
+      return;
     case "patch":
       if (flow.value) {
         walkCanonicalExpr(flow.value, (expr) => exprs.push(expr));
@@ -274,6 +280,9 @@ function collectRuntimeFlowExprs(flow: CoreFlowNode, exprs: CoreExprNode[]): voi
       if (flow.else) {
         collectRuntimeFlowExprs(flow.else, exprs);
       }
+      return;
+    case "causalGuard":
+      collectRuntimeFlowExprs(flow.body, exprs);
       return;
     case "patch":
       if (flow.value) {
@@ -449,7 +458,7 @@ describe("CCTS Lowering and IR Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(A20..A24/A27/A34) compiler-owned system lowering inserts explicit effects"), () => {
+  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(A20..A24/A27/A34) system lowering remains MEL-namespace independent"), () => {
     const source = `
       domain Demo {
         state {
@@ -471,65 +480,50 @@ describe("CCTS Lowering and IR Suite", () => {
     const loweredRendered = JSON.stringify(lowered.value);
     const flow = lowered.value?.actions["create"]?.flow as CoreFlowNode | undefined;
     const effectTypes = collectEffectTypes(flow);
-    const melField = lowered.value?.state.fields["$mel"];
-    const slotFields = melField?.type === "object"
-      ? Object.keys(
-          melField.fields?.["sys"]?.fields?.["create"]?.fields?.["uuid"]?.fields ?? {}
-        )
-      : [];
-    const guardedFlow = flow?.kind === "seq"
-      ? flow.steps[flow.steps.length - 1]
-      : undefined;
-    const readinessSatisfied =
-      guardedFlow?.kind === "if" &&
-      guardedFlow.cond.kind === "eq" &&
-      guardedFlow.cond.left.kind === "get" &&
-      guardedFlow.cond.left.path === "$mel.sys.create.uuid.intent" &&
-      guardedFlow.cond.right.kind === "get" &&
-      guardedFlow.cond.right.path === "meta.intentId";
+    const noMelStorage = lowered.success && !loweredRendered.includes("$mel");
 
     expectAllCompliance([
-      evaluateRule(getRuleOrThrow("A20"), lowered.success && effectTypes.includes("system.get"), {
-        passMessage: "System values lower into Host-executed system.get effects.",
-        failMessage: "System values did not lower into explicit system.get effects.",
+      evaluateRule(getRuleOrThrow("A20"), lowered.success && effectTypes.length === 0, {
+        passMessage: "System value compatibility lowering does not introduce Host/MEL execution effects.",
+        failMessage: "System value lowering introduced unexpected effects.",
         evidence: [noteEvidence("Observed effect types", effectTypes)],
       }),
-      evaluateRule(getRuleOrThrow("A21"), lowered.success && effectTypes.length > 0 && effectTypes.every((type) => type === "system.get"), {
-        passMessage: "Lowering uses only the system.get effect.",
-        failMessage: "Lowering emitted non-system.get effects for system values.",
+      evaluateRule(getRuleOrThrow("A21"), lowered.success && !effectTypes.includes("system.get"), {
+        passMessage: "Lowering no longer relies on the system.get compatibility effect.",
+        failMessage: "Lowering still emitted system.get effects.",
         evidence: [noteEvidence("Observed effect types", effectTypes)],
       }),
-      evaluateRule(getRuleOrThrow("A22"), compiled.success && compiledRendered.includes("$system.uuid") && lowered.success && loweredRendered.includes("system.get"), {
-        passMessage: "Compiler inserts system effects at lowering time.",
-        failMessage: "Compiler did not insert system effects across the lowering boundary.",
+      evaluateRule(getRuleOrThrow("A22"), compiled.success && compiledRendered.includes("$system.uuid") && lowered.success && loweredRendered.includes("$system.uuid"), {
+        passMessage: "System values remain on the deterministic Core expression path.",
+        failMessage: "System value compatibility lowering changed the runtime expression path.",
         evidence: [
           noteEvidence("Compiled schema excerpt", compiledRendered.slice(0, 320)),
           noteEvidence("Lowered schema excerpt", loweredRendered.slice(0, 320)),
         ],
       }),
-      evaluateRule(getRuleOrThrow("A23"), lowered.success && slotFields.length === 2, {
-        passMessage: "Repeated $system.uuid use in one action deduplicates to one slot pair.",
-        failMessage: "Repeated $system.uuid use in one action no longer deduplicates to one slot pair.",
-        evidence: [noteEvidence("Observed slot fields", slotFields)],
-      }),
-      evaluateRule(getRuleOrThrow("A24"), readinessSatisfied, {
-        passMessage: "Replay/readiness is expressed through intent slots in the lowered schema.",
-        failMessage: "Replay/readiness is no longer expressed through intent slots in the lowered schema.",
-        evidence: [noteEvidence("Observed lowered flow", flow)],
-      }),
-      evaluateRule(getRuleOrThrow("A27"), readinessSatisfied, {
-        passMessage: "Readiness uses eq(intent_marker, $meta.intentId).",
-        failMessage: "Readiness no longer uses eq(intent_marker, $meta.intentId).",
-        evidence: [noteEvidence("Observed lowered flow", flow)],
-      }),
-      evaluateRule(getRuleOrThrow("A34"), lowered.success && !loweredRendered.includes("$system.uuid"), {
-        passMessage: "Compiler remains the single MEL -> Core lowering boundary for system values.",
-        failMessage: "System values survived past the compiler lowering boundary.",
+      evaluateRule(getRuleOrThrow("A23"), noMelStorage, {
+        passMessage: "System value compatibility lowering does not add MEL-owned slot state.",
+        failMessage: "System value compatibility lowering still adds MEL-owned slot state.",
         evidence: [noteEvidence("Lowered schema excerpt", loweredRendered.slice(0, 320))],
       }),
-      evaluateRule(getRuleOrThrow("AD-COMP-LOW-001"), compiled.success && compiledRendered.includes("$system.uuid") && lowered.success && !loweredRendered.includes("$system.uuid"), {
-        passMessage: "Compiler owns the lowering boundary from MEL Canonical IR to lowered runtime IR.",
-        failMessage: "Lowering boundary ownership is no longer isolated to the compiler.",
+      evaluateRule(getRuleOrThrow("A24"), noMelStorage, {
+        passMessage: "Replay bookkeeping is not expressed through MEL namespace slots.",
+        failMessage: "Replay bookkeeping still uses MEL namespace slots.",
+        evidence: [noteEvidence("Observed lowered flow", flow)],
+      }),
+      evaluateRule(getRuleOrThrow("A27"), noMelStorage, {
+        passMessage: "No MEL intent marker readiness check is emitted.",
+        failMessage: "MEL intent marker readiness is still emitted.",
+        evidence: [noteEvidence("Observed lowered flow", flow)],
+      }),
+      evaluateRule(getRuleOrThrow("A34"), noMelStorage, {
+        passMessage: "Compiler lowering preserves Core/Compiler storage boundaries.",
+        failMessage: "Compiler lowering reintroduced MEL-owned runtime storage.",
+        evidence: [noteEvidence("Lowered schema excerpt", loweredRendered.slice(0, 320))],
+      }),
+      evaluateRule(getRuleOrThrow("AD-COMP-LOW-001"), compiled.success && compiledRendered.includes("$system.uuid") && noMelStorage, {
+        passMessage: "Compiler compatibility lowering does not cross into owner-specific runtime storage.",
+        failMessage: "Compiler compatibility lowering crossed an owner-specific runtime boundary.",
         evidence: [
           noteEvidence("Compiled schema excerpt", compiledRendered.slice(0, 320)),
           noteEvidence("Lowered schema excerpt", loweredRendered.slice(0, 320)),
@@ -538,7 +532,7 @@ describe("CCTS Lowering and IR Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.IR_PLATFORM_NAMESPACE, "(A26, COMPILER-MEL-4, SCHEMA-RESERVED-1) platform namespace alignment stays tracked"), () => {
+  it(caseTitle(CCTS_CASES.IR_PLATFORM_NAMESPACE, "(A26, COMPILER-MEL-4, SCHEMA-RESERVED-1) platform namespace alignment stays owner-neutral"), () => {
     const lowered = adapter.lower(`
       domain Demo {
         state { id: string = "" }
@@ -553,19 +547,19 @@ describe("CCTS Lowering and IR Suite", () => {
     const rendered = JSON.stringify(lowered.value);
 
     expectAllCompliance([
-      evaluateRule(getRuleOrThrow("A26"), lowered.success && rendered.includes("$mel.sys"), {
-        passMessage: "Lowered system slots live under $mel.sys.",
-        failMessage: "Lowered system slots still use a legacy namespace.",
+      evaluateRule(getRuleOrThrow("A26"), lowered.success && !rendered.includes("$mel.sys"), {
+        passMessage: "Lowered runtime schema does not introduce $mel.sys slots.",
+        failMessage: "Lowered runtime schema still introduces $mel.sys slots.",
         evidence: [noteEvidence("Observed lowered schema excerpt", rendered.slice(0, 320))],
       }),
-      evaluateRule(getRuleOrThrow("COMPILER-MEL-4"), lowered.success && rendered.includes("$mel.sys") && rendered.includes("\"op\":\"set\""), {
-        passMessage: "System value patch bookkeeping uses leaf-level writes under $mel.sys.",
-        failMessage: "System value patch bookkeeping is not yet aligned with $mel.sys leaf writes.",
+      evaluateRule(getRuleOrThrow("COMPILER-MEL-4"), lowered.success && !rendered.includes("$mel"), {
+        passMessage: "System value compatibility lowering stays independent of MEL-owned storage.",
+        failMessage: "System value compatibility lowering still references MEL-owned storage.",
         evidence: [noteEvidence("Observed lowered schema excerpt", rendered.slice(0, 320))],
       }),
-      evaluateRule(getRuleOrThrow("SCHEMA-RESERVED-1"), lowered.success && rendered.includes("$mel"), {
-        passMessage: "Compiler-owned schema state is isolated under the reserved $mel namespace.",
-        failMessage: "Compiler-owned schema state is not yet isolated under the reserved $mel namespace.",
+      evaluateRule(getRuleOrThrow("SCHEMA-RESERVED-1"), lowered.success && !rendered.includes("$mel"), {
+        passMessage: "Compiler-owned runtime bookkeeping is not injected into domain state.",
+        failMessage: "Compiler-owned runtime bookkeeping still appears in domain state.",
         evidence: [noteEvidence("Observed lowered schema excerpt", rendered.slice(0, 320))],
       }),
     ]);

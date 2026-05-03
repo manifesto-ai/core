@@ -59,7 +59,7 @@ export type CoreFlowNode =
   | { kind: "seq"; steps: CoreFlowNode[] }
   | { kind: "if"; cond: CoreExprNode; then: CoreFlowNode; else?: CoreFlowNode }
   | { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CoreExprNode }
-  | { kind: "namespacePatch"; namespace: "mel"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CoreExprNode }
+  | { kind: "causalGuard"; guardId: string; body: CoreFlowNode }
   | { kind: "effect"; type: string; params: Record<string, CoreExprNode> }
   | { kind: "call"; flow: string }
   | { kind: "halt"; reason?: string }
@@ -69,7 +69,7 @@ export type CompilerFlowNode =
   | { kind: "seq"; steps: CompilerFlowNode[] }
   | { kind: "if"; cond: CompilerExprNode; then: CompilerFlowNode; else?: CompilerFlowNode }
   | { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CompilerExprNode }
-  | { kind: "namespacePatch"; namespace: "mel"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CompilerExprNode }
+  | { kind: "causalGuard"; guardId: string; body: CompilerFlowNode }
   | { kind: "effect"; type: string; params: Record<string, CompilerExprNode> }
   | { kind: "call"; flow: string }
   | { kind: "halt"; reason?: string }
@@ -1413,13 +1413,12 @@ function generateWhen(stmt: WhenStmtNode, ctx: GeneratorContext): CompilerFlowNo
 
 function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CompilerFlowNode {
   // Desugar once(marker) { ... } to:
-  // when neq(marker, $meta.intentId) { patch marker = $meta.intentId; ... }
-  // Note: Core accesses $meta intent values via meta.*
+  // when neq(marker, $runtime.intent.id) { patch marker = $runtime.intent.id; ... }
 
   const markerPath = generatePath(stmt.marker, ctx);
-  const intentIdExpr: CompilerExprNode = sysPathExpr("meta", "intentId");
+  const intentIdExpr: CompilerExprNode = getPathExpr("$runtime", "intent", "id");
 
-  // Condition: marker != $meta.intentId
+  // Condition: marker != $runtime.intent.id
   let cond: CompilerExprNode = callExpr("neq", [getPathExpr(...pathToSegments(markerPath)), intentIdExpr]);
 
   // Add extra condition if present
@@ -1428,7 +1427,7 @@ function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CompilerFlowNo
     cond = callExpr("and", [cond, extraCond]);
   }
 
-  // Body: patch marker = $meta.intentId, then rest
+  // Body: patch marker = $runtime.intent.id, then rest
   const markerPatch: CompilerFlowNode = {
     kind: "patch",
     op: "set",
@@ -1454,34 +1453,24 @@ function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): Co
   ctx.onceIntentCounters.set(actionName, nextIndex + 1);
 
   const guardId = sha256Sync(`${actionName}:${nextIndex}:intent`);
-  const guardPath = `$mel.guards.intent.${guardId}`;
-  const intentIdExpr: CompilerExprNode = sysPathExpr("meta", "intentId");
-
-  let cond: CompilerExprNode = callExpr("neq", [getPathExpr(...pathToSegments(guardPath)), intentIdExpr]);
-
-  if (stmt.condition) {
-    const extraCond = generateExpr(stmt.condition, ctx);
-    cond = callExpr("and", [cond, extraCond]);
-  }
-
-  // Guard write: compiler-owned MEL namespace merge.
-  const markerPatch: CompilerFlowNode = {
-    kind: "namespacePatch",
-    namespace: "mel",
-    op: "merge",
-    path: toPatchPath("guards.intent"),
-    value: objExpr({ [guardId]: intentIdExpr }),
+  const bodySteps = stmt.body.map(s => generateStmt(s, ctx));
+  const guarded: CompilerFlowNode = {
+    kind: "causalGuard",
+    guardId,
+    body: {
+      kind: "seq",
+      steps: bodySteps,
+    },
   };
 
-  const bodySteps = stmt.body.map(s => generateStmt(s, ctx));
+  if (!stmt.condition) {
+    return guarded;
+  }
 
   return {
     kind: "if",
-    cond,
-    then: {
-      kind: "seq",
-      steps: [markerPatch, ...bodySteps],
-    },
+    cond: generateExpr(stmt.condition, ctx),
+    then: guarded,
   };
 }
 

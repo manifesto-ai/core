@@ -47,6 +47,7 @@ const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
   // Context/seed test fields
   firstTimestamp: { type: "number", required: true },
   secondTimestamp: { type: "number", required: true },
+  capturedTimestamp: { type: "number", required: true },
   firstSeed: { type: "string", required: true },
   secondSeed: { type: "string", required: true },
   capturedSeed: { type: "string", required: true },

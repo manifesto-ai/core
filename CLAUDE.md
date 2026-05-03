@@ -42,7 +42,7 @@ When documents conflict, prefer higher-ranked sources.
 - Codex setup is explicit, not `postinstall`-driven: install the package, then run `npm exec manifesto-skills install-codex` or `pnpm exec manifesto-skills install-codex`.
 - Claude Code users can reference `@node_modules/@manifesto-ai/skills/SKILL.md` from their local `CLAUDE.md`.
 
-**Current contract note:** The canonical Snapshot block below reflects the ADR-025 v5 ontology hard cut. Domain state is `snapshot.state`; platform/runtime/tooling namespaces live under `snapshot.namespaces`. Accumulated `system.errors` and `appendErrors` are no longer part of the current Snapshot/SystemDelta surface.
+**Current contract note:** The canonical Snapshot block below reflects the ADR-025 v5 ontology hard cut. Domain state is `snapshot.state`; platform/runtime/tooling namespaces live under `snapshot.namespaces`. Accumulated `system.errors` and `appendErrors` are no longer part of the current Snapshot/SystemDelta surface. ADR-027 adds explicit `context` as the captured external environment for one compute call.
 
 ---
 
@@ -53,14 +53,14 @@ When documents conflict, prefer higher-ranked sources.
 The fundamental equation is:
 
 ```
-compute(schema, snapshot, intent) -> (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) -> (snapshot', requirements, trace)
 ```
 
 This equation is:
-- **Pure**: Same inputs MUST always produce same outputs
+- **Pure**: Same schema + snapshot + intent + context MUST always produce same outputs
 - **Total**: MUST always return a result (never throws)
 - **Traceable**: Every step MUST be recorded
-- **Complete**: Snapshot MUST be the whole truth
+- **Complete**: Snapshot MUST be the whole persisted truth; context MUST be explicit captured environment data
 
 ---
 
@@ -98,7 +98,7 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 - Access wall-clock time (`Date.now()` is forbidden)
 - Execute effects
 - Have mutable state
-- Know about Host, SDK runtime assembly, Lineage, or Governance
+- Know about Host, MEL, SDK runtime assembly, Lineage, or Governance
 
 **Forbidden imports:** Host, SDK runtime internals, Lineage, Governance, network libraries
 
@@ -193,17 +193,31 @@ type Snapshot = {
   input: unknown;                    // Transient action input
   meta: {
     version: number;                 // Monotonically increasing
-    timestamp: number;               // Host-provided logical time
-    randomSeed: string;              // Host-provided deterministic seed
+    timestamp: number;               // Snapshot envelope timestamp, not a runtime expression source
+    randomSeed: string;              // Snapshot envelope seed, not a runtime expression source
     schemaHash: string;              // Schema hash this snapshot conforms to
   };
-  namespaces: {
-    host?: Record<string, unknown>;  // Host-owned operational bookkeeping
-    mel?: Record<string, unknown>;   // Compiler/MEL-owned operational bookkeeping
-    [namespace: string]: unknown;    // Platform/runtime/tooling namespaces
-  };
+  namespaces: Record<string, unknown>; // Opaque owner-partitioned platform/runtime/tooling namespaces
 };
 ```
+
+#### 4.1.1 Context Structure (Canonical)
+
+```typescript
+type Context<TExternalContext = Record<string, unknown>> = {
+  runtime: {
+    time: {
+      timestamp: number;
+    };
+    random: {
+      seed: string;
+    };
+  };
+  external: TExternalContext;
+};
+```
+
+`context` is captured external environment for the current computation. It is JSON-serializable data, not a provider, callback, promise, mutable object, or IO handle. Core never names `HostContext`, `RuntimeFrameProvider`, `CoreIntent.frame`, Host, or MEL as part of the canonical compute input.
 
 ### 4.2 State Mutation Rules
 
@@ -241,10 +255,10 @@ Actor submits typed Intent
 SDK runtime
       |
       v
-Host (compute loop + effect execution)
+Host / runtime assembly captures Context
       |
       v
-Core (pure computation)
+Core (pure computation over schema + snapshot + intent + context)
       |
       v
 New Snapshot (via patches)
@@ -265,7 +279,9 @@ SDK runtime -> Host -> Core -> terminal Snapshot
 Lineage (sealed immutable World record)
 ```
 
-**CRITICAL:** Information flows ONLY through Snapshot. There are no other channels.
+**CRITICAL:** Continuity between computations flows ONLY through Snapshot. The
+current computation's external environment enters only through explicit
+`context`; there are no hidden channels.
 
 ---
 
@@ -439,7 +455,7 @@ type ComputedRef<T> = {
 
 ### 9.1 What Tests Prove
 
-- **Core tests:** Determinism (same input -> same output)
+- **Core tests:** Determinism (same schema + snapshot + intent + context -> same output)
 - **Host tests:** Effect handler correctness, patch application
 - **Lineage/Governance tests:** continuity invariants, sealed World record integrity, legitimacy settlement
 - **Integration tests:** End-to-end flow correctness
@@ -451,7 +467,7 @@ Core is pure. Tests require NO mocking.
 ```typescript
 // CORRECT - Core test
 it('computes transition', () => {
-  const result = core.compute(schema, snapshot, intent);
+  const result = core.compute(schema, snapshot, intent, context);
   expect(result.snapshot.state.count).toBe(1);
 });
 ```
@@ -467,7 +483,7 @@ it('computes transition', () => {
 ### 9.4 REQUIRED Test Patterns
 
 - Effect handlers tested with explicit return values
-- Determinism tests: run same input twice, assert identical output
+- Determinism tests: run same schema + snapshot + intent + context twice, assert identical output
 - Boundary tests: verify layer doesn't import forbidden dependencies
 - Invariant tests: verify constitutional axioms hold
 
@@ -599,7 +615,7 @@ Before producing any code change, mentally verify ALL of the following:
 
 ### Constitutional Compliance
 
-- [ ] Does this change preserve determinism? (Same input -> same output)
+- [ ] Does this change preserve determinism? (Same schema + snapshot + intent + context -> same output)
 - [ ] Does this change maintain Snapshot as sole communication medium?
 - [ ] Does this change respect sovereignty boundaries? (Core computes, Host executes, SDK exposes runtime, Lineage records continuity, Governance authorizes)
 - [ ] Are all state changes expressed as Patches?

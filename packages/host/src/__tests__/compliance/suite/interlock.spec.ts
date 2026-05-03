@@ -203,7 +203,13 @@ describe("HCTS Interlock Tests", () => {
           snapshot = next;
         },
         resetFrozenContext: () => {},
-        getFrozenContext: () => ({ now: 0, randomSeed: intent.intentId, durationMs: 0 }),
+        getFrozenContext: () => ({
+          runtime: {
+            time: { timestamp: 0 },
+            random: { seed: intent.intentId },
+          },
+          external: {},
+        }),
         applyPatches: () => {
           order.push("patches");
           snapshot = {

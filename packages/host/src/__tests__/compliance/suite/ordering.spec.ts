@@ -324,9 +324,9 @@ describe("HCTS Ordering Tests", () => {
         actions: {
           withTimeout: {
             flow: {
-              kind: "if",
-              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
-              then: {
+              kind: "causalGuard",
+              guardId: "hcts-order-timeout",
+              body: {
                 kind: "effect",
                 type: "mayTimeout",
                 params: {},
@@ -364,9 +364,9 @@ describe("HCTS Ordering Tests", () => {
         actions: {
           slowAction: {
             flow: {
-              kind: "if",
-              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
-              then: {
+              kind: "causalGuard",
+              guardId: "hcts-order-slow",
+              body: {
                 kind: "effect",
                 type: "slowEffect",
                 params: {},
@@ -401,9 +401,9 @@ describe("HCTS Ordering Tests", () => {
         actions: {
           failingAction: {
             flow: {
-              kind: "if",
-              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
-              then: {
+              kind: "causalGuard",
+              guardId: "hcts-order-failing",
+              body: {
                 kind: "effect",
                 type: "failing",
                 params: {},

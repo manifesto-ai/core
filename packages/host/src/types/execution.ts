@@ -10,7 +10,7 @@
 
 import type {
   DomainSchema,
-  HostContext,
+  Context,
   Intent,
   ManifestoCore,
   NamespaceDelta,
@@ -115,13 +115,13 @@ export interface ExecutionContext {
   setSnapshot(snapshot: Snapshot): void;
 
   /**
-   * Get the frozen HostContext for the current job.
+   * Get the frozen Context for the current job.
    *
    * Context is frozen at job start and reused throughout the job.
    *
    * @see SPEC §11.3 CTX-1~5
    */
-  getFrozenContext(): HostContext;
+  getFrozenContext(): Context;
 
   /**
    * Reset frozen context (call at job start)
@@ -133,7 +133,7 @@ export interface ExecutionContext {
    *
    * This is a convenience method that:
    * 1. Gets current snapshot
-   * 2. Calls core.apply with frozen context
+   * 2. Calls core.apply with already-materialized patches
    * 3. Sets the new snapshot
    *
    * @returns The new snapshot after applying patches

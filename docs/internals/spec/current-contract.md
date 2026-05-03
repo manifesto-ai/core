@@ -35,12 +35,12 @@ This is the canonical entry story for new integrations.
 
 | Package | Current Contract | Role |
 |---------|------------------|------|
-| `@manifesto-ai/core` | [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (current through v5.0.0 ADR-025 baseline) | Pure semantic runtime, schema validation, patch/apply semantics |
-| `@manifesto-ai/host` | [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (current through v5.0.0 ADR-025 alignment) | Effect execution, compute loop orchestration, canonical snapshot substrate |
-| `@manifesto-ai/sdk` | [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (current v5.0.0 ADR-026 surface) | Action-candidate application surface, projected reads, observe/inspect, law-aware `submit()` ingress |
+| `@manifesto-ai/core` | [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (current through v5.0.0 ADR-025/ADR-027 baseline) | Pure semantic runtime, schema validation, patch/apply semantics |
+| `@manifesto-ai/host` | [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (current through v5.0.0 ADR-025/ADR-027 alignment) | Effect execution, context materialization, compute loop orchestration, canonical snapshot substrate |
+| `@manifesto-ai/sdk` | [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (current v5.0.0 ADR-026/ADR-027 surface) | Action-candidate application surface, projected reads, observe/inspect, law-aware `submit()` ingress |
 | `@manifesto-ai/compiler` | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v1.3.0 in-place) | Full current MEL compiler contract |
-| `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v5.0.0 ADR-026 surface) | Seal-aware continuity, lineage-mode `submit()` results, canonical snapshot persistence, restore |
-| `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v5.0.0 ADR-026 surface) | Proposal legitimacy, governance-mode `submit()` results, durable `ProposalRef`, settlement observation, and control surface |
+| `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v5.0.0 ADR-026/ADR-027 surface) | Seal-aware continuity, lineage-mode `submit()` results, canonical snapshot persistence, replay envelope, restore |
+| `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v5.0.0 ADR-026/ADR-027 surface) | Proposal legitimacy, submitted compute envelope preservation, governance-mode `submit()` results, durable `ProposalRef`, settlement observation, and control surface |
 | `@manifesto-ai/codegen` | [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md) (current v0.2.8, v5 facade alignment in-place) | Build-time domain facade generation aligned to ADR-025 ontology and ADR-026 SDK v5 action candidates |
 
 ## ADR-025 v5 Ontology Baseline
@@ -50,8 +50,8 @@ The v5 branch adopts ADR-025 as the current Snapshot ontology baseline:
 - Domain-owned state is `snapshot.state`.
 - `Snapshot.data` is retired from the current public/canonical contract.
 - Platform/runtime/compiler/tooling state lives under `snapshot.namespaces`.
-- Host diagnostics live under `snapshot.namespaces.host.*`.
-- Compiler/MEL operational guards live under `snapshot.namespaces.mel.*`.
+- Core treats `snapshot.namespaces` as an opaque owner-partitioned container.
+- Host-owned and Compiler/MEL-owned namespace shapes are defined only by their owner packages, not by Core.
 - `computed`, `system`, `input`, and `meta` remain top-level Snapshot partitions.
 
 Current package SPECs remain authoritative while their v5 patches land. When this page and an owning package SPEC disagree, the owning current package SPEC wins.
@@ -81,9 +81,9 @@ The v5 branch adopts ADR-026 as the current SDK public-surface baseline:
 - Canonical v3 root runtime verbs such as `createIntent()`, `dispatchAsync()`,
   `simulate()`, `subscribe()`, and `on()` are retired from the v5 public root.
 
-ADR-025 and ADR-026 are the two required layers of the same v5 hard cut:
-ADR-025 defines the canonical Snapshot substrate, and ADR-026 defines the SDK
-surface that exposes that substrate to application and agent callers.
+ADR-025, ADR-026, and ADR-027 are the three required layers of the same v5 hard
+cut: ADR-025 defines the canonical Snapshot substrate, ADR-026 defines the SDK
+surface, and ADR-027 defines the explicit compute input model.
 
 ## Core Runtime Contract
 
@@ -91,9 +91,17 @@ surface that exposes that substrate to application and agent callers.
 
 Current contract highlights:
 
-- `compute(schema, snapshot, intent)` is pure and deterministic.
+- `compute(schema, snapshot, intent, context)` is the canonical pure compute equation.
+- Determinism is over the full `schema + snapshot + intent + context` tuple.
+- `snapshot` is schema-driven existence information; `context` is captured external environment for the current computation.
 - `apply(schema, snapshot, patches)` applies domain patches rooted at `snapshot.state`.
-- Namespace transitions are separate from domain patches and are rooted at `snapshot.namespaces[namespace]`.
+- Namespace transitions are separate from domain patches and are rooted at `snapshot.namespaces[namespace]`; Core validates structural safety only.
+- Core does not expose general `$namespace.*` expression reads and does not know Host or MEL namespace names/shapes.
+- Core canonical APIs do not expose `HostContext`, `CoreIntent.frame`, runtime providers, callbacks, or owner-specific context shapes.
+- Compiler `onceIntent` lowers to Core's generic `causalGuard` primitive.
+- `$runtime.*` reads built-in runtime facts from `intent` and `context.runtime`; `$context.*` reads schema-declared values from `context.external`.
+- `$runtime.*` and `$context.*` are illegal in state initializers, computed values, `available when`, and `dispatchable when`.
+- `$meta.*`, `$system.*`, and `$mel.sys` runtime-value lowering are retired from the current v5 contract.
 - `available` remains the coarse action-family gate.
 - `isIntentDispatchable(schema, snapshot, intent)` is the fine bound-intent legality query.
 - `FieldSpec` remains the compatibility and coarse-introspection seam.
@@ -113,10 +121,12 @@ Current typing consequences:
 Current contract highlights:
 
 - Host consumes the canonical Core snapshot substrate.
+- Host materializes ADR-027 `Context` before Core execution and reuses the same context across compute re-entry for one transition attempt.
 - Host executes effect requirements and applies the resulting patches.
 - Host does not reinterpret domain legality or policy.
 - Host remains aligned to the current Core snapshot contract and does not use accumulated `system.errors`.
 - Host-owned execution diagnostics live under canonical `namespaces.host.*`. In particular, `namespaces.host.lastError` is a canonical-only diagnostic, not the semantic Snapshot error surface.
+- Host does not depend on MEL namespace shape and does not transport runtime values through `namespaces.host` or `namespaces.mel`.
 
 ## SDK Contract
 
@@ -134,6 +144,7 @@ Current contract highlights:
 - `ActionHandle.check(input)` returns first-failing admission state.
 - `ActionHandle.preview(input)` is the non-committing dry-run surface.
 - `ActionHandle.submit(input)` submits the candidate to the active runtime law boundary.
+- `preview(input, { context })` and `submit(input, { context })` accept direct-injected JSON user context that SDK maps to Core `Context.external`.
 - `ActionHandle.bind(input)` creates a reusable bound candidate with nullable `intent()`.
 - `observe.state()` and `observe.event()` separate projected state observation from runtime telemetry.
 - `inspect.graph()`, `inspect.action()`, `inspect.availableActions()`, `inspect.schemaHash()`, and `inspect.canonicalSnapshot()` are the advanced/tooling reads.
@@ -170,7 +181,8 @@ Current MEL/compiler highlights:
 - `available when` is the coarse action gate.
 - `dispatchable when` is the bound-intent fine gate.
 - `dispatchable when` may read state, computed values, and bare action parameters.
-- `dispatchable when` does not allow direct `$input.*`, `$meta.*`, `$system.*`, or effects.
+- `dispatchable when` does not allow direct `$input.*`, `$runtime.*`, `$context.*`, `$meta.*`, `$system.*`, or effects.
+- MEL `context {}` declares direct-injected user context shape and does not define providers, generators, or effect aliases.
 - tooling-only compiler sidecars now include structural annotations and declaration-level source maps through `DomainModule`
 - runtime seams continue to consume `DomainSchema` only; `DomainModule` remains tooling-only
 - `compileFragmentInContext()` is the compiler-owned authoring-time MEL source-fragment editing primitive
@@ -239,10 +251,12 @@ Current contract highlights:
 - lineage returns `WorldRecord` refs and additive `LineageWriteReport` data through mode-specific submit results
 - root `commitAsync()` and `commitAsyncWithReport()` are superseded historical migration inputs, not canonical v5 lineage runtime methods
 - lineage derives sealed failure outcome from the terminal Snapshot's `system.lastError` and pending requirements, not from Host-owned `namespaces.host.lastError` alone
+- lineage records exact `intent + context` replay envelopes on `SealAttempt` metadata; context does not enter world identity hashes
 - governance composes on top of lineage, not beside it
 - decorated runtimes use the SDK v5 action-candidate legality ladder: `available()`, `check()`, `preview()`, and `submit()`
 - lineage-mode `submit()` preserves first-failing admission order and re-checks legality against the then-current runtime state
 - governance-mode `submit()` creates or enters the proposal path and never directly executes base or lineage lower-authority verbs
+- governance proposals carry or reference the submitted `intent + context` compute envelope and must not regenerate context at approval or settlement time
 - governance-mode `submit()` returns `GovernanceSubmissionResult` with durable `ProposalRef`
 - governed settlement is observed through result-bound `waitForSettlement()` or runtime `app.waitForSettlement(ref)`
 - helper authors may share legality/read helpers across decorators, but write helpers must enter through the active runtime's `submit()` implementation

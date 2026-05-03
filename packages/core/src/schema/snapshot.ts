@@ -143,40 +143,13 @@ export const SnapshotMeta = z.object({
 export type SnapshotMeta = z.infer<typeof SnapshotMeta>;
 
 /**
- * HostNamespace - Host-owned operational bookkeeping.
+ * SnapshotNamespaces - Opaque platform/runtime/tooling namespaces.
+ *
+ * Core owns only the container contract. Namespace names and nested shapes are
+ * package-owned and must not be encoded in Core's canonical Snapshot type.
  */
-export const HostNamespace = z.record(z.string(), z.unknown());
-export type HostNamespace = z.infer<typeof HostNamespace>;
-
-export type MelNamespace = {
-  readonly guards: {
-    readonly intent: Record<string, string>;
-  };
-  readonly [key: string]: unknown;
-};
-
-/**
- * MelNamespace - Compiler/MEL-owned operational bookkeeping.
- */
-export const MelNamespace: z.ZodType<MelNamespace> = z.object({
-  guards: z.object({
-    intent: z.record(z.string(), z.string()).default({}),
-  }).default({ intent: {} }),
-}).catchall(z.unknown());
-
-export type SnapshotNamespaces = {
-  readonly host?: HostNamespace;
-  readonly mel?: MelNamespace;
-  readonly [namespace: string]: unknown;
-};
-
-/**
- * SnapshotNamespaces - Platform/runtime/compiler/tooling namespaces.
- */
-export const SnapshotNamespaces: z.ZodType<SnapshotNamespaces> = z.object({
-  host: HostNamespace.optional(),
-  mel: MelNamespace.optional(),
-}).catchall(z.unknown());
+export const SnapshotNamespaces = z.record(z.string(), z.unknown());
+export type SnapshotNamespaces = z.infer<typeof SnapshotNamespaces>;
 
 /**
  * Snapshot - Immutable, point-in-time representation of world state.
@@ -228,11 +201,8 @@ export function createInitialSystemState(): SystemState {
 }
 
 /**
- * Create initial platform namespaces.
+ * Create initial namespace container.
  */
 export function createInitialNamespaces(): SnapshotNamespaces {
-  return {
-    host: {},
-    mel: { guards: { intent: {} } },
-  };
+  return {};
 }

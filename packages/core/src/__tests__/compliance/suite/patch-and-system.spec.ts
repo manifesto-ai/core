@@ -45,7 +45,6 @@ describe("Core CTS patch and system delta rules", () => {
         { op: "set", path: pp("namespaces.visible"), value: true },
         { op: "set", path: pp("system.status"), value: "domain-updated" },
       ],
-      NEXT_CONTEXT,
     );
 
     expect(result.state).toEqual({
@@ -63,8 +62,7 @@ describe("Core CTS patch and system delta rules", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "merge", path: pp("$host.runtime"), value: { requestId: "req-1" } }],
-      NEXT_CONTEXT,
+      [{ op: "merge", path: pp("$platform.runtime"), value: { requestId: "req-1" } }],
     );
 
     expect(result.state).toEqual({ count: 1 });
@@ -81,7 +79,6 @@ describe("Core CTS patch and system delta rules", () => {
       schema,
       snapshot,
       [{ op: "set", path: pp("count"), value: "not-a-number" }],
-      NEXT_CONTEXT,
     );
 
     expect(result.state).toEqual({ count: 1 });
@@ -97,7 +94,7 @@ describe("Core CTS patch and system delta rules", () => {
       params: { url: "/ok" },
       actionId: "load",
       flowPosition: { nodePath: "actions.load.flow", snapshotVersion: 0 },
-      createdAt: NEXT_CONTEXT.now,
+      createdAt: NEXT_CONTEXT.runtime.time.timestamp,
     };
 
     const result = applySystemDelta(snapshot, {

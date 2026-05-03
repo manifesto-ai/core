@@ -9,7 +9,13 @@ import {
 import type { DomainSchema } from "../schema/domain.js";
 import { hashSchemaSync } from "../utils/hash.js";
 
-const HOST_CONTEXT = { now: 123, randomSeed: "seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 123 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
 
 function createTestSchema(
   options: { includeInvalid?: boolean; includeUnavailableInvalid?: boolean } = {},

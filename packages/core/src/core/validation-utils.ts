@@ -199,10 +199,8 @@ export function collectGetPathsFromFlow(flow: FlowNode): string[] {
           paths.push(...collectGetPathsFromExpr(node.value));
         }
         return;
-      case "namespacePatch":
-        if (node.op !== "unset" && node.value) {
-          paths.push(...collectGetPathsFromExpr(node.value));
-        }
+      case "causalGuard":
+        visitFlow(node.body);
         return;
       case "effect":
         Object.values(node.params).forEach((expr) => {

@@ -483,7 +483,7 @@ describe("CCTS Introspection Suite", () => {
   it(
     caseTitle(
       CCTS_CASES.INTROSPECTION_PROJECTION,
-      "(SGRAPH-12) compiler-owned onceIntent namespace writes stay outside SchemaGraph.",
+      "(SGRAPH-12) Core-owned onceIntent guard bookkeeping stays outside SchemaGraph.",
     ),
     () => {
       const compiled = adapter.compile(`
@@ -518,8 +518,8 @@ describe("CCTS Introspection Suite", () => {
             && !nodeIds.some((id) => id.includes("$mel") || id.includes("guards"))
             && !edges.some((edge) => edge.includes("$mel") || edge.includes("guards")),
           {
-            passMessage: "Compiler-owned onceIntent namespace writes stay outside SchemaGraph.",
-            failMessage: "onceIntent namespace bookkeeping leaked into SchemaGraph.",
+            passMessage: "Core-owned onceIntent guard bookkeeping stays outside SchemaGraph.",
+            failMessage: "onceIntent guard bookkeeping leaked into SchemaGraph.",
             evidence: [
               noteEvidence("Observed node ids", nodeIds),
               noteEvidence("Observed edges", edges),

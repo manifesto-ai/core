@@ -14,10 +14,6 @@ function compile(source: string): CompileMelDomainResult & { success: boolean } 
   };
 }
 
-function getSystemSlotFields(schema: DomainSchema, actionName: string, key: string) {
-  return schema.state.fields["$mel"]?.fields?.["sys"]?.fields?.[actionName]?.fields?.[key]?.fields;
-}
-
 describe("System Value Lowering", () => {
   describe("lowering with compile option", () => {
     it("does not lower by default", () => {
@@ -41,7 +37,7 @@ describe("System Value Lowering", () => {
       }
     });
 
-    it("lowers when option is set", () => {
+    it("does not inject MEL-owned slots when compatibility hook is used", () => {
       const result = compile(
         `
         domain Test {
@@ -61,19 +57,13 @@ describe("System Value Lowering", () => {
       expect(lowered).not.toBeNull();
       if (!lowered) return;
 
-      // After lowering, $system.uuid should be replaced with slot path
       const flow = lowered.actions.generateId.flow;
       const hasSystemRef = JSON.stringify(flow).includes("$system.uuid");
-      expect(hasSystemRef).toBe(false);
-
-      // Should have the slot fields
-      expect(getSystemSlotFields(lowered, "generateId", "uuid")).toMatchObject({
-        value: expect.objectContaining({ default: null }),
-        intent: expect.objectContaining({ default: null }),
-      });
+      expect(hasSystemRef).toBe(true);
+      expect(lowered.state.fields["$mel"]).toBeUndefined();
     });
 
-    it("normalizes dotted system keys when lowering", () => {
+    it("preserves dotted system keys without MEL namespace lowering", () => {
       const result = compile(
         `
         domain Test {
@@ -95,14 +85,10 @@ describe("System Value Lowering", () => {
       const flow = lowered.actions.create.flow;
       const flowStr = JSON.stringify(flow);
 
-      expect(flowStr).not.toContain("$system.time.now");
-      expect(flowStr).toContain("system.get");
-      expect(flowStr).toContain("$mel.sys.create.time_now.value");
-      expect(flowStr).toContain("$mel.sys.create.time_now.intent");
-      expect(getSystemSlotFields(lowered, "create", "time_now")).toMatchObject({
-        value: expect.objectContaining({ default: null }),
-        intent: expect.objectContaining({ default: null }),
-      });
+      expect(flowStr).toContain("$system.time.now");
+      expect(flowStr).not.toContain("system.get");
+      expect(flowStr).not.toContain("$mel");
+      expect(lowered.state.fields["$mel"]).toBeUndefined();
     });
   });
 
@@ -113,7 +99,7 @@ describe("System Value Lowering", () => {
       return lowerSystemValues(result.schema);
     }
 
-    it("adds state slots for system values", () => {
+    it("does not add state slots for system values", () => {
       const schema = compileAndLower(`
         domain Test {
           state { id: string = "" }
@@ -127,14 +113,11 @@ describe("System Value Lowering", () => {
 
       expect(schema).not.toBeNull();
       if (schema) {
-        expect(getSystemSlotFields(schema, "create", "uuid")).toMatchObject({
-          value: expect.objectContaining({ default: null }),
-          intent: expect.objectContaining({ default: null }),
-        });
+        expect(schema.state.fields["$mel"]).toBeUndefined();
       }
     });
 
-    it("generates acquisition effects", () => {
+    it("does not generate acquisition effects", () => {
       const schema = compileAndLower(`
         domain Test {
           state { id: string = "" }
@@ -151,16 +134,13 @@ describe("System Value Lowering", () => {
         const flow = schema.actions.create.flow;
         const flowStr = JSON.stringify(flow);
 
-        // Should have system.get effect
-        expect(flowStr).toContain("system.get");
-        // Should reference the value slot
-        expect(flowStr).toContain("$mel.sys.create.uuid.value");
-        // Should reference the intent slot
-        expect(flowStr).toContain("$mel.sys.create.uuid.intent");
+        expect(flowStr).not.toContain("system.get");
+        expect(flowStr).not.toContain("$mel");
+        expect(flowStr).toContain("$system.uuid");
       }
     });
 
-    it("generates readiness conditions", () => {
+    it("does not wrap flows in MEL readiness conditions", () => {
       const schema = compileAndLower(`
         domain Test {
           state { id: string = "" }
@@ -176,16 +156,12 @@ describe("System Value Lowering", () => {
       if (schema) {
         const flow = schema.actions.create.flow;
 
-        // The flow should be wrapped with readiness check
-        // seq: [acquisition, if(readiness, original_flow)]
-        expect(flow.kind).toBe("seq");
-        if (flow.kind === "seq") {
-          expect(flow.steps.length).toBeGreaterThanOrEqual(2);
-        }
+        expect(flow.kind).toBe("if");
+        expect(JSON.stringify(flow)).not.toContain("$mel");
       }
     });
 
-    it("handles multiple system values", () => {
+    it("preserves multiple system values without namespace bookkeeping", () => {
       const schema = compileAndLower(`
         domain Test {
           state {
@@ -203,19 +179,14 @@ describe("System Value Lowering", () => {
 
       expect(schema).not.toBeNull();
       if (schema) {
-        // Should have slots for both uuid and timestamp
-        expect(getSystemSlotFields(schema, "create", "uuid")).toMatchObject({
-          value: expect.objectContaining({ default: null }),
-          intent: expect.objectContaining({ default: null }),
-        });
-        expect(getSystemSlotFields(schema, "create", "timestamp")).toMatchObject({
-          value: expect.objectContaining({ default: null }),
-          intent: expect.objectContaining({ default: null }),
-        });
+        const flowStr = JSON.stringify(schema.actions.create.flow);
+        expect(flowStr).toContain("$system.uuid");
+        expect(flowStr).toContain("$system.timestamp");
+        expect(flowStr).not.toContain("$mel");
       }
     });
 
-    it("deduplicates same system value in same action", () => {
+    it("keeps repeated system values on the deterministic expression path", () => {
       const schema = compileAndLower(`
         domain Test {
           state {
@@ -233,9 +204,9 @@ describe("System Value Lowering", () => {
 
       expect(schema).not.toBeNull();
       if (schema) {
-        // Should have only one set of uuid slots
-        const slotFields = Object.keys(getSystemSlotFields(schema, "create", "uuid") ?? {});
-        expect(slotFields).toHaveLength(2); // value and intent
+        const flowStr = JSON.stringify(schema.actions.create.flow);
+        expect(flowStr.match(/\$system\.uuid/g)?.length).toBe(2);
+        expect(flowStr).not.toContain("$mel");
       }
     });
 

@@ -4,6 +4,9 @@ import { ComputedSpec } from "./computed.js";
 import { ActionSpec } from "./action.js";
 import { TypeSpec } from "./type-spec.js";
 
+export const ContextSpec = StateSpec;
+export type ContextSpec = z.infer<typeof ContextSpec>;
+
 /**
  * Schema metadata
  */
@@ -51,6 +54,11 @@ export const DomainSchema = z.object({
    * State structure definition
    */
   state: StateSpec,
+
+  /**
+   * Direct-injected external context shape.
+   */
+  context: ContextSpec.optional(),
 
   /**
    * Computed values (DAG)

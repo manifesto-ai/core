@@ -3,7 +3,7 @@
 > **Status:** Normative (Living Document)
 > **Package:** `@manifesto-ai/lineage`
 > **Compatible with:** Manifesto v5 substrate, ADR-025 Snapshot Ontology, SDK SPEC v5, Governance SPEC v5
-> **Implements:** ADR-015, ADR-016, ADR-017, ADR-025, ADR-026
+> **Implements:** ADR-015, ADR-016, ADR-017, ADR-025, ADR-026, ADR-027
 
 > **Historical Note:** [lineage-SPEC-2.0.0v.md](lineage-SPEC-2.0.0v.md)
 > is retained as the pre-ADR-017 service-first baseline. Git history preserves
@@ -22,7 +22,7 @@
 
 | Version | Change | Source |
 |---------|--------|--------|
-| v5.0.0 | Adopt ADR-026 lineage-mode `submit()` surface and ADR-025 `state` / `namespaces` Snapshot ontology | ADR-025, ADR-026 |
+| v5.0.0 | Adopt ADR-026 lineage-mode `submit()` surface, ADR-025 `state` / `namespaces` Snapshot ontology, and ADR-027 replay context envelope | ADR-025, ADR-026, ADR-027 |
 | v3.0.0 | Decorator runtime with `commitAsync()` / `commitAsyncWithReport()` over the continuity substrate | ADR-017 |
 | v2.0.0 | Service-first continuity substrate baseline | ADR-015, ADR-016 |
 
@@ -36,6 +36,7 @@ Lineage owns:
 - branch, head, tip, and epoch semantics
 - seal preparation and commit
 - restore normalization and stored canonical snapshot lookup
+- replay envelope recording for submitted `intent + context`
 - `LineageStore` and `LineageService`
 - the lineage-mode decorator implementation of law-aware `submit()`
 - additive lineage write reports
@@ -265,6 +266,7 @@ Lineage-mode `submit()` means:
 | LIN-V5-SUBMIT-7 | MUST | `submit()` MUST resolve only after the lineage seal commit succeeds and any required visible-state restoration is complete. |
 | LIN-V5-SUBMIT-8 | MUST | State observers MUST fire only after seal commit succeeds and lineage publication is legitimate. |
 | LIN-V5-SUBMIT-9 | MUST | When `report.published === true`, the visible runtime snapshot and active branch head MUST refer to the same completed lineage world. |
+| LIN-V5-SUBMIT-9A | MUST | Lineage `submit()` MUST store the exact ADR-027 `intent + context` replay envelope on the corresponding seal attempt metadata. |
 
 ### 5.3 Terminal Domain Stop/Fail Outcomes
 
@@ -332,6 +334,10 @@ semanticSystemDigest = hash(
 `snapshot.namespaces` is operational state. It is stored in canonical snapshots
 where appropriate, but it does not enter `snapshotHash` or `worldId`.
 
+ADR-027 `Context` is replay metadata, not world identity. The exact context used
+for a transition MUST be stored with the seal attempt metadata described in
+§6.1, but it MUST NOT enter `snapshotHash` or `worldId`.
+
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | LIN-V5-HASH-1 | MUST | `snapshotHash` MUST be derived from `snapshot.state` and semantic system digest. |
@@ -341,6 +347,40 @@ where appropriate, but it does not enter `snapshotHash` or `worldId`.
 | LIN-V5-HASH-5 | MUST | `system.lastError` and pending requirements MUST participate through the semantic system digest. |
 | LIN-V5-HASH-6 | MUST NOT | Host-owned namespace diagnostics MUST NOT be promoted into semantic system digest without domain authority. |
 | LIN-V5-HASH-7 | MUST | Stored canonical snapshots MAY retain `namespaces`, but hash input construction MUST exclude them. |
+| LIN-V5-HASH-8 | MUST NOT | ADR-027 `Context` MUST NOT enter `snapshotHash` or `worldId`. |
+
+### 6.1 ADR-027 Replay Envelope
+
+Lineage stores deterministic replay inputs on seal attempt metadata, not on
+`WorldRecord` identity.
+
+```typescript
+type ReplayEnvelope = {
+  readonly intent: Intent;
+  readonly context: Context;
+};
+
+type SealAttemptMetadata = {
+  readonly replay: ReplayEnvelope;
+};
+
+type Intent = import("@manifesto-ai/core").Intent;
+type Context = import("@manifesto-ai/core").Context;
+```
+
+Rules:
+
+- The replay envelope MUST contain the exact `Intent` and exact materialized
+  `Context` used for the transition attempt.
+- The envelope MUST be JSON-serializable with no providers, callbacks, promises,
+  lazy getters, or function-valued fields.
+- Replay of a sealed transition reconstructs
+  `schema + base snapshot + intent + context` from stored lineage data and the
+  seal attempt metadata.
+- `WorldRecord` remains the sealed world identity/read model and MUST NOT be
+  overloaded with context semantics.
+- Lineage MUST NOT interpret `$runtime.*` or `$context.*`; it records the
+  envelope for replay and accountability only.
 
 ---
 
@@ -367,8 +407,9 @@ ADR-025 separates stored canonical lookup from execution restore:
   preserving stored namespaces for forensic inspection
 - runtime restore uses `normalizeForRestore(worldId)` or an equivalent path to
   reset operational namespace state for execution safety
-- partial `namespaces.host` and `namespaces.mel` payloads MUST be
-  deep-normalized according to NSINIT-2 before runtime resume
+- runtime restore MUST normalize `snapshot.namespaces` structurally without
+  interpreting owner-specific namespace shapes. Namespace owners define any
+  owner-specific restore semantics outside Lineage.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -377,7 +418,7 @@ ADR-025 separates stored canonical lookup from execution restore:
 | LIN-V5-RESTORE-3 | MUST | Stored canonical lookup MUST migrate sealed snapshots to ADR-025 shape and preserve stored namespaces. |
 | LIN-V5-RESTORE-4 | MUST | Runtime restore MUST normalize operational namespaces before runtime resume. |
 | LIN-V5-RESTORE-5 | MUST | Restore normalization MUST produce ADR-025 canonical shape with always-present `state` and `namespaces`. |
-| LIN-V5-RESTORE-6 | MUST | Runtime restore MUST deep-normalize partial `namespaces.host` and `namespaces.mel` payloads before resume. |
+| LIN-V5-RESTORE-6 | MUST | Runtime restore MUST structurally normalize `snapshot.namespaces` without interpreting owner-specific namespace shapes. |
 | LIN-V5-RESTORE-7 | SHOULD | Callers SHOULD use `switchActiveBranch()` when they want branch continuity to move explicitly. |
 
 ### 7.2 Branch Switching

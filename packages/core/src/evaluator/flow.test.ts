@@ -69,8 +69,8 @@ function createTestContext(
       schemaHash: "test-hash",
     },
     namespaces: {
-      host: {},
-      mel: { guards: { intent: {} } },
+      platform: {},
+      tool: { guards: { intent: {} } },
     },
   };
 
@@ -105,8 +105,8 @@ function createTestFlowState(state: unknown = {}): FlowState {
       schemaHash: "test-hash",
     },
     namespaces: {
-      host: {},
-      mel: { guards: { intent: {} } },
+      platform: {},
+      tool: { guards: { intent: {} } },
     },
   };
   return createFlowState(snapshot);
@@ -349,8 +349,8 @@ describe("Flow Evaluator", () => {
         input: { value: 21 },
         meta: { version: 0, timestamp: 0, randomSeed: "seed", schemaHash: "test-hash" },
         namespaces: {
-          host: {},
-          mel: { guards: { intent: {} } },
+          platform: {},
+          tool: { guards: { intent: {} } },
         },
       });
       const result = await evaluateFlow(flow, ctx, state, "test");

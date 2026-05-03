@@ -9,7 +9,13 @@ import {
   type Snapshot,
 } from "@manifesto-ai/core";
 
-const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
 let intentCounter = 0;
 
 function adaptSchema(schema: MelDomainSchema): CoreDomainSchema {
@@ -36,11 +42,10 @@ function applyComputeResult(
   snapshot: Snapshot,
   result: ComputeResult
 ): Snapshot {
-  const patched = core.apply(schema, snapshot, result.patches, HOST_CONTEXT);
+  const patched = core.apply(schema, snapshot, result.patches);
   const namespaced = core.applyNamespaceDeltas(
     patched,
-    result.namespaceDelta ?? [],
-    HOST_CONTEXT
+    result.namespaceDelta ?? []
   );
   return core.applySystemDelta(namespaced, result.systemDelta);
 }

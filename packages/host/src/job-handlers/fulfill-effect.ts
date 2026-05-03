@@ -59,8 +59,8 @@ export function handleFulfillEffect(
     t: "context:frozen",
     key: ctx.key,
     jobId: job.id,
-    now: frozenContext.now,
-    randomSeed: frozenContext.randomSeed,
+    now: frozenContext.runtime.time.timestamp,
+    randomSeed: frozenContext.runtime.random.seed,
   });
 
   const snapshot = ctx.getSnapshot();
@@ -233,7 +233,7 @@ function applyHostErrorPatch(
       actionId: requirement.actionId,
       nodePath: requirement.flowPosition.nodePath,
     },
-    timestamp: frozenContext.now,
+    timestamp: frozenContext.runtime.time.timestamp,
     context: {
       intentId,
       requirementId: requirement.id,

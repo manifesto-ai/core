@@ -11,7 +11,7 @@
 
 import type {
   DomainSchema,
-  HostContext,
+  Context,
   Intent,
   ManifestoCore,
   NamespaceDelta,
@@ -53,7 +53,7 @@ export class ExecutionContextImpl implements ExecutionContext {
   readonly runtime: Runtime;
 
   private snapshot: Snapshot;
-  private frozenContext: HostContext | null = null;
+  private frozenContext: Context | null = null;
   private currentIntentId: string | null = null;
   private readonly coreTraces: TraceGraph[] = [];
 
@@ -162,11 +162,11 @@ export class ExecutionContextImpl implements ExecutionContext {
   }
 
   /**
-   * Get the frozen HostContext for the current job
+   * Get the frozen Context for the current job
    *
    * @see SPEC §11.3 CTX-1~5
    */
-  getFrozenContext(): HostContext {
+  getFrozenContext(): Context {
     // CTX-5: Context captured ONCE per job
     if (!this.frozenContext) {
       const intentId = this.currentIntentId ?? "unknown";
@@ -186,12 +186,10 @@ export class ExecutionContextImpl implements ExecutionContext {
    * Apply patches to the current snapshot
    */
   applyPatches(patches: Patch[], source: string): Snapshot {
-    const frozenContext = this.getFrozenContext();
     const newSnapshot = this.core.apply(
       this.schema,
       this.snapshot,
-      patches,
-      frozenContext
+      patches
     );
     this.snapshot = newSnapshot;
 
@@ -214,11 +212,9 @@ export class ExecutionContextImpl implements ExecutionContext {
       return this.snapshot;
     }
 
-    const frozenContext = this.getFrozenContext();
     const newSnapshot = this.core.applyNamespaceDeltas(
       this.snapshot,
-      deltas,
-      frozenContext
+      deltas
     );
     this.snapshot = newSnapshot;
 

@@ -13,13 +13,25 @@ import {
   semanticPathToPatchPath,
   type DomainSchema,
   type ExprNode,
-  type HostContext,
+  type Context,
   type Intent,
   type Snapshot,
 } from "../../../index.js";
 
-export const HOST_CONTEXT: HostContext = { now: 100, randomSeed: "seed" };
-export const NEXT_CONTEXT: HostContext = { now: 101, randomSeed: "next-seed" };
+export const HOST_CONTEXT: Context = {
+  runtime: {
+    time: { timestamp: 100 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
+export const NEXT_CONTEXT: Context = {
+  runtime: {
+    time: { timestamp: 101 },
+    random: { seed: "next-seed" },
+  },
+  external: {},
+};
 export const pp = (path: string) => semanticPathToPatchPath(path);
 
 export function caseTitle(caseId: string, title: string): string {
@@ -147,11 +159,11 @@ export function computeAndMaterialize(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
-  context: HostContext = NEXT_CONTEXT,
+  context: Context = NEXT_CONTEXT,
 ): { result: ReturnType<typeof computeSync>; snapshot: Snapshot } {
   const result = computeSync(schema, snapshot, intent, context);
-  const patched = apply(schema, snapshot, result.patches, context);
-  const namespaced = applyNamespaceDeltas(patched, result.namespaceDelta ?? [], context);
+  const patched = apply(schema, snapshot, result.patches);
+  const namespaced = applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
   const finalSnapshot = applySystemDelta(namespaced, result.systemDelta);
   return { result, snapshot: finalSnapshot };
 }

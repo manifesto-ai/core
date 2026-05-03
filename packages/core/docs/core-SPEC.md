@@ -11,7 +11,7 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
-| v5.0.0 | ADR-025 hard cut — retire `Snapshot.data`, promote `Snapshot.state`, add `Snapshot.namespaces`, and make PatchPath root channel-determined | FDR-002, FDR-012, FDR-015 |
+| v5.0.0 | ADR-025/ADR-027 hard cut — retire `Snapshot.data`, promote `Snapshot.state`, add `Snapshot.namespaces`, make PatchPath root channel-determined, and define explicit compute `Context` | FDR-002, FDR-012, FDR-015 |
 | v4.2.0 | TypeDefinition-backed runtime typing seam — `StateSpec.fieldTypes`, `ActionSpec.inputType`, and `ActionSpec.params` become normative when present | — |
 | v4.1.0 | Add intent dispatchability query API — `ActionSpec.dispatchable`, `isIntentDispatchable()` | — |
 | v4.0.0 | ADR-015 hard cut — remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface | FDR-002, FDR-005 |
@@ -41,7 +41,7 @@
 13. [Snapshot](#13-snapshot)
 14. [Validation Rules](#14-validation-rules)
 15. [Canonical Form](#15-canonical-form)
-16. [Host Interface](#16-host-interface)
+16. [Runtime Boundary Interface](#16-runtime-boundary-interface)
 
 ---
 
@@ -70,7 +70,7 @@ Manifesto is NOT:
 
 | Goal | Description |
 |------|-------------|
-| **Determinism** | Same input always produces same output |
+| **Determinism** | Same `schema + snapshot + intent + context` always produces same output |
 | **Explainability** | Every value can answer "why?" |
 | **Schema-first** | All semantics expressed as data |
 | **Host-agnostic** | No assumptions about execution environment |
@@ -87,14 +87,14 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 ### 3.1 The Manifesto Constitution
 
-> **Rationale (FDR-001):** Core is a pure semantic calculator. By separating computation from execution: determinism is guaranteed (`compute(snapshot, intent, context)` always produces the same result); testing requires no mocking; every step is traceable without IO interference; Core is portable (browser, server, edge, WASM).
+> **Rationale (FDR-001, ADR-027):** Core is a pure semantic calculator. By separating computation from execution and making context explicit: determinism is guaranteed (`compute(schema, snapshot, intent, context)` always produces the same result for the same four inputs); testing requires no mocking; every step is traceable without IO interference; Core is portable (browser, server, edge, WASM).
 > **Alternatives rejected:** Integrated runtime (violates purity); plugin architecture (still couples execution); actor model (adds complexity).
 > **Canonical statement:** "Core computes. Host executes. These concerns never mix."
 
 ```
 1. Core is a calculator, not an executor.
 2. Schema is the single source of truth.
-3. Snapshot is the only medium of communication.
+3. Snapshot is the only medium of communication between computations.
 4. Effects are declarations, not executions.
 5. Errors are values, not exceptions.
 6. Everything is explainable.
@@ -112,7 +112,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 │  - User interaction                                         │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              │ compute(snapshot, intent, context)
+                              │ compute(schema, snapshot, intent, context)
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                         CORE                                 │
@@ -125,7 +125,10 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 ### 3.3 The Snapshot Principle
 
-> **All communication happens through Snapshot. There is no other channel.**
+> **All continuity between computations happens through Snapshot. There is no hidden channel.**
+
+Context is the explicit captured external environment for the current compute
+call. It does not replace Snapshot and it is not a continuation channel.
 
 - Effects do NOT "return" values to Flows.
 - Effects produce Patches that modify Snapshot.
@@ -148,7 +151,7 @@ RIGHT:  effect('api:call')             // Declares requirement
 Each `compute()` call is **complete and independent**:
 
 ```
-compute(snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
+compute(schema, snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
 ```
 
 - If `requirements` is empty: computation is **complete**.
@@ -160,7 +163,7 @@ compute(snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
 │                    COMPUTATION CYCLE                         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Host calls: compute(snapshot, intent, context)             │
+│  Host calls: compute(schema, snapshot, intent, context)     │
 │                     │                                       │
 │                     ▼                                       │
 │  ┌─────────────────────────────────────┐                   │
@@ -210,6 +213,9 @@ type DomainSchema = {
 
   /** State structure definition */
   readonly state: StateSpec;
+
+  /** Direct-injected external context shape, when declared */
+  readonly context?: ContextSpec;
   
   /** Computed values (DAG) */
   readonly computed: ComputedSpec;
@@ -226,6 +232,17 @@ type DomainSchema = {
 };
 ```
 
+`context` declares the shape of `Context.external` values that may be read by
+`$context.*` during bound action Flow evaluation. It does not declare
+`context.runtime`; built-in runtime facts are owned by Core's `Context` type.
+
+```typescript
+type ContextSpec = {
+  readonly fields: Record<string, FieldSpec>;
+  readonly fieldTypes?: Record<string, TypeDefinition>;
+};
+```
+
 ### 4.2 Requirements
 
 - `id` MUST be a valid URI or UUID.
@@ -239,6 +256,8 @@ type DomainSchema = {
   verifies this behavior in `hashSchema()` semantic mode; effective/runtime
   hash modes include those fields and remain internal artifacts.
 - `state`, `computed`, and `actions` MUST NOT be empty.
+- `context` MAY be omitted. When present, it is part of the semantic schema and
+  MUST be included in schema hashing.
 
 ### 4.3 Types
 
@@ -364,9 +383,7 @@ domain state. They live under the top-level `Snapshot.namespaces` partition.
 
 | Symbolic Namespace | Storage Location | Owner | Examples |
 |--------|-------|-------|----------|
-| `$host` | `snapshot.namespaces.host` | Host layer | `namespaces.host.intentSlots`, `namespaces.host.lastError` |
-| `$mel` | `snapshot.namespaces.mel` | MEL Compiler | `namespaces.mel.guards.intent.*` |
-| `$*` (future) | `snapshot.namespaces.*` | Platform/runtime/tooling | Owner-defined |
+| `$*` | `snapshot.namespaces.*` | Owner package | Owner-defined outside Core |
 
 **Enforcement:**
 - Compiler MUST reject domain field names starting with `$` (compile error)
@@ -603,8 +620,12 @@ Within collection operations (`filter`, `map`, `find`, `every`, `some`):
 - Expressions MUST be **total** (always return a value).
 - User-authored expressions MUST NOT read `snapshot.namespaces` paths.
 - User-authored `get` paths MUST NOT start with `$` except for Core-defined lexical/runtime variables:
-  `$item`, `$index`, `$array`, and `$system.*`.
-- Compiler-generated namespace reads are not general expression access. They are allowed only for registered fixed-shape compiler-owned constructs under NSREAD-2 / NSREAD-4.
+  `$item`, `$index`, `$array`, `$runtime.*`, and `$context.*`.
+- `$runtime.*` reads built-in runtime facts from `intent` and `context.runtime`.
+- `$context.*` reads only schema-declared user context under `context.external`.
+- `$runtime.*` and `$context.*` are legal only during bound action Flow evaluation; they are illegal in state initializers, computed values, `available`, and `dispatchable` evaluation.
+- `$meta.*` and `$system.*` are not current v5 expression namespaces.
+- Compiler-generated owner-specific namespace reads are not part of Core expression semantics.
 - Division by zero MUST return `null`, not throw.
 - Out-of-bounds array access MUST return `null`, not throw.
 - `null` in boolean context MUST be treated as `false`.
@@ -752,11 +773,11 @@ ALLOWED:
   patch user.profile.name = ...  // lowered to concrete PatchPath
 
 NOT ALLOWED at apply-time:
-  patch items[$system.uuid] = ...   // unresolved expr segment
+  patch items[$runtime.random.uuid] = ... // unresolved expr segment
   patch records[activeId] = ...     // unresolved expr segment
 ```
 
-When MEL source contains a dynamic path like `patch items[$system.uuid] = value`, lower/evaluate stages MUST:
+When MEL source contains a dynamic path like `patch items[$runtime.random.uuid] = value`, lower/evaluate stages MUST:
 
 1. Parse as valid MEL syntax.
 2. Resolve expression segments to concrete runtime values.
@@ -1056,7 +1077,7 @@ type FlowPosition = {
 │                   REQUIREMENT LIFECYCLE                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  1. Host calls compute(snapshot, intent, context)           │
+│  1. Host calls compute(schema, snapshot, intent, context)   │
 │                                                             │
 │  2. Core evaluates Flow                                     │
 │     - Applies patches to snapshot                           │
@@ -1076,9 +1097,9 @@ type FlowPosition = {
 │  5. Host executes effect (IO, network, etc.)                │
 │                                                             │
 │  6. Host applies result patches to snapshot:                │
-│     snapshot'' = apply(snapshot', resultPatches, context)   │
+│     snapshot'' = apply(schema, snapshot', resultPatches)    │
 │                                                             │
-│  7. Host calls compute(snapshot'', intent, context) AGAIN   │
+│  7. Host calls compute(schema, snapshot'', intent, context) AGAIN │
 │     - This is a NEW computation, not a resume               │
 │     - Flow will check snapshot state and proceed            │
 │                                                             │
@@ -1327,24 +1348,8 @@ type Snapshot<TState = Record<string, unknown>> = {
 };
 
 type SnapshotNamespaces = {
-  /** Host-owned operational bookkeeping and diagnostics */
-  readonly host?: HostNamespace;
-
-  /** Compiler/MEL-owned operational bookkeeping */
-  readonly mel?: MelNamespace;
-
-  /** Future platform/runtime/tooling namespaces */
+  /** Platform/runtime/tooling namespaces; nested shapes are owner-defined. */
   readonly [namespace: string]: unknown;
-};
-
-type HostNamespace = Record<string, unknown>;
-
-type MelNamespace = {
-  readonly guards: {
-    readonly intent: Record<string, string>;
-  };
-
-  readonly [key: string]: unknown;
 };
 
 type SystemState = {
@@ -1368,7 +1373,7 @@ type SnapshotMeta = {
   /** Timestamp of last modification */
   readonly timestamp: number;
 
-  /** Deterministic random seed from Host context */
+  /** Snapshot envelope seed; runtime expressions read Context.runtime.random.seed */
   readonly randomSeed: string;
   
   /** Hash of the schema this snapshot conforms to */
@@ -1396,39 +1401,39 @@ In this specification, domain-owned mutable state is stored under `snapshot.stat
 
 | Rule ID | Requirement |
 |---------|-------------|
-| NSDELTA-1 | Namespace authority is owned by the namespace owner. Host owns `namespaces.host`; Compiler/MEL owns `namespaces.mel`. |
-| NSDELTA-1a | Core MAY materialize `NamespaceDelta` for `namespaces.mel` only while interpreting compiler-owned fixed-shape IR nodes registered under NSDELTA-2a / NSREAD-2. |
-| NSDELTA-1b | Host MAY materialize `NamespaceDelta` for `namespaces.host` only for Host-owned bookkeeping such as diagnostics, intent slots, and effect coordination. |
+| NSDELTA-1 | Namespace authority is owned by the namespace owner. Core applies namespace deltas structurally and opaquely. |
+| NSDELTA-1a | Core MAY materialize `NamespaceDelta` only for Core-owned generic primitives such as `causalGuard`. |
+| NSDELTA-1b | External packages MAY materialize `NamespaceDelta` for their own namespaces; their shapes are not Core contract. |
 | NSDELTA-2 | User-authored MEL explicit mutation syntax and user-supplied effect patches MUST NOT target namespaces or express `NamespaceDelta`. |
-| NSDELTA-2a | Compiler-owned language-runtime constructs MAY lower to fixed-shape `NamespaceDelta`. Current registered construct: `onceIntent` writes `namespaces.mel.guards.intent.*`. Adding another construct requires a new ADR. |
+| NSDELTA-2a | Compiler-owned language-runtime constructs MAY lower to Core-owned generic Flow primitives but MUST NOT require Core to know MEL storage shape. |
 | NSDELTA-3 | Namespace mutation MUST travel through `NamespaceDelta`; `NamespaceDelta.patches` are rooted at `snapshot.namespaces[namespace]`. |
 | NSDELTA-4 | Namespace transitions MUST be recorded as namespace-scoped trace nodes, distinct from domain patch nodes. |
 | NSREAD-1 | User-authored expressions MUST NOT reference `snapshot.namespaces` paths. |
-| NSREAD-2 | Compiler-generated IR MAY read owned namespace paths only for registered fixed-shape constructs. Current registered construct: `onceIntent` reads `namespaces.mel.guards.intent.*`. |
-| NSREAD-3 | Compiler-generated namespace reads MUST be recorded as namespace-scoped read events, distinct from domain-state reads. |
-| NSREAD-4 | NSREAD-2 privileges mirror NSDELTA-2a; the constructs allowed to read a namespace MUST be the same constructs allowed to write it under the same fixed-shape contract. |
+| NSREAD-2 | Core-owned generic primitives MAY read Core-owned bookkeeping; general expressions and compiler-generated owner-specific paths MUST NOT. |
+| NSREAD-3 | Core-owned namespace reads MUST remain scoped to the primitive that owns them. |
+| NSREAD-4 | Owner package namespace reads must be implemented by the owner package, not by Core expression evaluation. |
 | NSINIT-1 | Every canonical Snapshot MUST contain `namespaces` as an object. |
-| NSINIT-2 | Before evaluating compiler-owned constructs that read or write `namespaces.mel`, runtime normalization MUST guarantee `namespaces.mel.guards.intent` is an object. |
-| NSINIT-3 | NSINIT-2 normalization MUST be applied to fresh initial snapshots, read-time migrated snapshots, and restore-normalized snapshots. |
-| NSINIT-4 | If `namespaces.mel` is partially present, runtime normalization MUST deep-normalize it by recursively filling missing sub-paths required by NSINIT-2. |
+| NSINIT-2 | Fresh Core snapshots initialize `namespaces` to `{}`. |
+| NSINIT-3 | Migration and restore code preserve `namespaces` as an object. |
+| NSINIT-4 | Core normalizes only Core-owned primitive bookkeeping. |
 | NSINIT-5 | Future namespaces SHOULD follow the same owner-defined shape and runtime-normalization pattern. |
 
 #### 13.4.1 Registered Namespace Constructs
 
-| Construct | Owner | Read Target | Write Target | Materializer |
-|-----------|-------|-------------|--------------|--------------|
-| `onceIntent` | Compiler/MEL | `namespaces.mel.guards.intent[guardId]` | `NamespaceDelta(namespace: "mel")` patch at `guards.intent` | Core while interpreting compiler-owned IR |
+| Construct | Owner | Runtime Target | Materializer |
+|-----------|-------|----------------|--------------|
+| `causalGuard` | Core | Core-owned per-causal-intent bookkeeping | Core |
 
-For `onceIntent`, Core MUST preserve ADR-002 shallow-merge safety by merging at
-`guards.intent`, not by replacing `namespaces.mel` or `namespaces.mel.guards`.
-The value written for a guard key MUST be the current intent id.
+Compiler `onceIntent` lowers to Core `causalGuard`. Core MUST NOT know MEL
+namespace names or MEL-owned storage shape.
 
 ### 13.5 Requirements
 
 - Snapshots MUST be immutable.
 - `version` MUST be incremented on every change.
 - `computed` MUST be consistent with `state` (no stale values).
-- All communication between Host and Core happens through Snapshot.
+- All cross-computation continuity between Host and Core happens through Snapshot.
+- Current-computation external environment MUST be passed as explicit `Context`, not hidden in Snapshot namespaces.
 - `namespaces` entries are platform-owned, operational, and opaque to domain logic.
 - Core validates namespace roots as objects; namespace owners validate nested namespace shape.
 
@@ -1442,7 +1447,7 @@ The value written for a guard key MUST be the current intent id.
 |---------|-------------|
 | V-001 | All paths in ComputedSpec.deps MUST exist |
 | V-002 | ComputedSpec dependency graph MUST be acyclic |
-| V-003 | User-authored `ExprNode.get` paths MUST resolve to allowed state, computed, input, system, meta, or lexical/runtime variables; namespace reads are valid only for registered compiler-owned constructs under NSREAD-2 / NSREAD-4 |
+| V-003 | User-authored `ExprNode.get` paths MUST resolve to allowed state, computed, input, system, meta, or lexical/runtime variables; owner-specific namespace reads are not valid Core expression semantics |
 | V-004 | All `call` references in FlowSpec MUST exist |
 | V-005 | FlowSpec `call` graph MUST be acyclic |
 | V-006 | ActionSpec.available expression MUST return boolean |
@@ -1536,11 +1541,13 @@ Core and its dependent packages (Host, Compiler, App) must work in browsers for 
 
 ---
 
-## 16. Host Interface
+## 16. Runtime Boundary Interface
 
 ### 16.1 Purpose
 
-The Host interface defines how external systems interact with Core.
+The runtime boundary interface defines how callers interact with Core. Host and
+SDK may assemble context, but Core's canonical input type is owner-neutral
+`Context`, not `HostContext`.
 
 ### 16.2 Core API
 
@@ -1556,7 +1563,7 @@ interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot,
     intent: Intent,
-    context: HostContext
+    context: Context
   ): Promise<ComputeResult>;
 
   /**
@@ -1568,7 +1575,7 @@ interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot,
     intent: Intent,
-    context: HostContext
+    context: Context
   ): ComputeResult;
   
   /**
@@ -1578,8 +1585,7 @@ interface ManifestoCore {
   apply(
     schema: DomainSchema,
     snapshot: Snapshot,
-    patches: readonly Patch[],
-    context: HostContext
+    patches: readonly Patch[]
   ): Snapshot;
 
   /**
@@ -1588,8 +1594,7 @@ interface ManifestoCore {
    */
   applyNamespaceDeltas(
     snapshot: Snapshot,
-    deltas: readonly NamespaceDelta[],
-    context: HostContext
+    deltas: readonly NamespaceDelta[]
   ): Snapshot;
 
   /**
@@ -1657,18 +1662,16 @@ type Intent = {
   readonly intentId: string;
 };
 
-type HostContext = {
-  /** Logical time provided by Host */
-  readonly now: number;
-
-  /** Deterministic random seed provided by Host */
-  readonly randomSeed: string;
-
-  /** Optional host environment metadata */
-  readonly env?: Record<string, unknown>;
-
-  /** Optional measured compute duration (ms) */
-  readonly durationMs?: number;
+type Context<TExternalContext = Record<string, unknown>> = {
+  readonly runtime: {
+    readonly time: {
+      readonly timestamp: number;
+    };
+    readonly random: {
+      readonly seed: string;
+    };
+  };
+  readonly external: TExternalContext;
 };
 
 type PatchSegment =
@@ -1722,6 +1725,10 @@ type ComputeStatus =
 
 **Normative rules:**
 
+- `Context` MUST be JSON-serializable materialized data.
+- `Context` MUST NOT contain providers, callbacks, promises, mutable service objects, IO handles, or owner-specific shapes.
+- `compute()` is the only Core API in this section that accepts `Context`.
+- `apply()` and `applyNamespaceDeltas()` MUST NOT accept `Context`; they apply already-materialized patch data.
 - `PatchPath` is root-relative and MUST NOT carry root information.
 - Domain patches in `ComputeResult.patches` are rooted at `snapshot.state`.
 - Namespace patches in `NamespaceDelta.patches` are rooted at `snapshot.namespaces[namespace]`.
@@ -1732,7 +1739,7 @@ type ComputeStatus =
 - Omitted `namespaceDelta` MUST be interpreted as an empty list.
 - `applyNamespaceDeltas()` MUST NOT mutate `snapshot.state`, `snapshot.computed`, `snapshot.input`, or `snapshot.system` except to record namespace-delta validation failures as error values in `system.lastError`.
 - `applyNamespaceDeltas()` MUST preserve computed values; namespace transitions are operational and MUST NOT trigger computed recomputation.
-- Core MAY materialize `namespaceDelta` only for registered Compiler/MEL-owned constructs. It MUST NOT materialize Host-owned namespace deltas.
+- Core MAY materialize `namespaceDelta` only for registered Core-owned generic constructs. It MUST NOT materialize Host-owned, Compiler-owned, or MEL-owned namespace deltas.
 - `patchPathToDisplayString(path)` is display-only and MUST NOT be used as parse input.
 
 ### 16.3 Host Responsibilities
@@ -1756,7 +1763,7 @@ async function processIntent(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
-  context: HostContext
+  context: Context
 ): Promise<Snapshot> {
   let current = snapshot;
   
@@ -1766,12 +1773,12 @@ async function processIntent(
     
     // Step 1: apply domain patches
     if (result.patches.length > 0) {
-      current = core.apply(schema, current, result.patches, context);
+      current = core.apply(schema, current, result.patches);
     }
 
     // Step 2: apply namespace transitions
     if (result.namespaceDelta?.length) {
-      current = core.applyNamespaceDeltas(current, result.namespaceDelta, context);
+      current = core.applyNamespaceDeltas(current, result.namespaceDelta);
     }
     
     // Step 3: apply system transition
@@ -1793,10 +1800,10 @@ async function processIntent(
         for (const req of current.system.pendingRequirements) {
           const fulfillment = await executeEffect(req, current, context);
           if (fulfillment.patches.length > 0) {
-            current = core.apply(schema, current, fulfillment.patches, context);
+            current = core.apply(schema, current, fulfillment.patches);
           }
           if (fulfillment.namespaceDelta.length > 0) {
-            current = core.applyNamespaceDeltas(current, fulfillment.namespaceDelta, context);
+            current = core.applyNamespaceDeltas(current, fulfillment.namespaceDelta);
           }
           current = core.applySystemDelta(current, {
             removeRequirementIds: [req.id],
@@ -1816,7 +1823,7 @@ type EffectFulfillment = {
 async function executeEffect(
   requirement: Requirement,
   snapshot: Snapshot,
-  context: HostContext
+  context: Context
 ): Promise<EffectFulfillment> {
   const handler = effectHandlers[requirement.type];
   if (!handler) {
@@ -1830,7 +1837,7 @@ async function executeEffect(
               code: 'UNKNOWN_EFFECT',
               message: `No handler for effect type: ${requirement.type}`,
               source: { actionId: snapshot.system.currentAction, nodePath: '' },
-              timestamp: context.now
+              timestamp: context.runtime.time.timestamp
             }}
           ],
         },
@@ -1883,7 +1890,7 @@ an explicit query path for host control flow.
 | AVAIL-Q-4 | MUST | If `actionName` does not exist in `schema.actions`, `isActionAvailable()` MUST throw. This is a schema contract violation, not a runtime availability question. |
 | AVAIL-Q-5 | MUST | `getAvailableActions()` MUST return the same result as filtering action names through `isActionAvailable()`. Order SHOULD follow `schema.actions` key order. |
 | AVAIL-Q-6 | MUST NOT | Availability query MUST NOT treat `snapshot.system.currentAction` as re-entry state. It answers whether the action family is currently available for a new invocation attempt against the current Snapshot. |
-| AVAIL-Q-7 | MUST NOT | Availability query MUST NOT require `HostContext`. It is pure over schema + snapshot. |
+| AVAIL-Q-7 | MUST NOT | Availability query MUST NOT require `Context`. It is pure over schema + snapshot. |
 
 ---
 
@@ -1905,7 +1912,7 @@ The query does not mutate Snapshot, does not emit `SystemDelta`, and does not re
 | DISP-Q-3 | MUST | `isIntentDispatchable()` MUST be pure and side-effect-free. It MUST NOT modify Snapshot, emit `SystemDelta`, create Patches, or generate trace entries. |
 | DISP-Q-4 | MUST | If the intent's action is not available under `isActionAvailable()`, `isIntentDispatchable()` MUST return `false` without evaluating `ActionSpec.dispatchable`. |
 | DISP-Q-5 | MUST | `isIntentDispatchable()` MUST reuse the same expression-evaluation machinery used by `compute()` rather than defining a second evaluation model. |
-| DISP-Q-6 | MUST NOT | `isIntentDispatchable()` MUST NOT require `HostContext`. It is pure over schema + snapshot + intent. |
+| DISP-Q-6 | MUST NOT | `isIntentDispatchable()` MUST NOT require `Context`. It is pure over schema + snapshot + intent. |
 
 ---
 

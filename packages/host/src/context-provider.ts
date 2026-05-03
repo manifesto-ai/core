@@ -1,23 +1,23 @@
 /**
- * HostContext Provider for Host v2.0.1
+ * Context Provider for Host v2.0.1
  *
- * Provides frozen HostContext per job to ensure determinism.
+ * Provides frozen Context per job to ensure determinism.
  *
  * @see host-SPEC-v2.0.1.md §11 Context Determinism
  *
  * Key requirements:
- * - CTX-1: HostContext MUST be frozen at the start of each job
+ * - CTX-1: Context MUST be frozen at the start of each job
  * - CTX-2: All operations within a single job MUST use the same frozen context
  * - CTX-3: `now` value MUST NOT change during job execution
  * - CTX-4: `randomSeed` MUST be deterministically derived from intentId
  * - CTX-5: Context MUST be captured ONCE per job, not per operation
  */
 
-import type { HostContext } from "@manifesto-ai/core";
+import type { Context, JsonValue } from "@manifesto-ai/core";
 import type { Runtime } from "./types/execution.js";
 
 /**
- * Options for creating HostContext
+ * Options for creating Context
  */
 export interface HostContextProviderOptions {
   /**
@@ -28,7 +28,7 @@ export interface HostContextProviderOptions {
   /**
    * Environment variables to include in context
    */
-  env?: Record<string, unknown>;
+  env?: Record<string, JsonValue>;
 }
 
 /**
@@ -44,21 +44,21 @@ export interface HostContextProvider {
    * and should be reused for all operations within the job.
    *
    * @param intentId - The intent ID for deterministic randomSeed derivation
-   * @returns Frozen HostContext
+   * @returns Frozen Context
    */
-  createFrozenContext(intentId: string): HostContext;
+  createFrozenContext(intentId: string): Context;
 
   /**
    * Create an initial context for snapshot creation (before intents)
    *
    * @param randomSeed - Optional seed (defaults to "initial")
    */
-  createInitialContext(randomSeed?: string): HostContext;
+  createInitialContext(randomSeed?: string): Context;
 
   /**
    * Get environment variables
    */
-  getEnv(): Record<string, unknown> | undefined;
+  getEnv(): Record<string, JsonValue> | undefined;
 }
 
 /**
@@ -68,7 +68,7 @@ export interface HostContextProvider {
  */
 export class DefaultHostContextProvider implements HostContextProvider {
   private readonly nowProvider: () => number;
-  private readonly envProvider: () => Record<string, unknown> | undefined;
+  private readonly envProvider: () => Record<string, JsonValue> | undefined;
 
   constructor(options: HostContextProviderOptions = {}) {
     this.nowProvider = options.now ?? (() => Date.now());
@@ -80,7 +80,7 @@ export class DefaultHostContextProvider implements HostContextProvider {
    *
    * @see SPEC §11.3 Frozen Context Pattern
    */
-  createFrozenContext(intentId: string): HostContext {
+  createFrozenContext(intentId: string): Context {
     // CTX-3: Call now() exactly once and freeze the value
     const now = this.nowProvider();
 
@@ -89,29 +89,31 @@ export class DefaultHostContextProvider implements HostContextProvider {
 
     // CTX-1: Freeze the context object
     return Object.freeze({
-      now,
-      randomSeed,
-      env: this.envProvider(),
-      durationMs: 0,
+      runtime: {
+        time: { timestamp: now },
+        random: { seed: randomSeed },
+      },
+      external: this.envProvider() ?? {},
     });
   }
 
   /**
    * Create initial context for snapshot creation
    */
-  createInitialContext(randomSeed: string = "initial"): HostContext {
+  createInitialContext(randomSeed: string = "initial"): Context {
     return Object.freeze({
-      now: this.nowProvider(),
-      randomSeed,
-      env: this.envProvider(),
-      durationMs: 0,
+      runtime: {
+        time: { timestamp: this.nowProvider() },
+        random: { seed: randomSeed },
+      },
+      external: this.envProvider() ?? {},
     });
   }
 
   /**
    * Get environment variables
    */
-  getEnv(): Record<string, unknown> | undefined {
+  getEnv(): Record<string, JsonValue> | undefined {
     return this.envProvider();
   }
 }
@@ -142,7 +144,7 @@ export function createHostContextProvider(
  */
 export function createTestHostContextProvider(
   fixedTimestamp: number,
-  env?: Record<string, unknown>
+  env?: Record<string, JsonValue>
 ): HostContextProvider {
   return new DefaultHostContextProvider({
     now: () => fixedTimestamp,

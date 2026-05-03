@@ -20,6 +20,9 @@ export * from "./action.js";
 export * from "./domain.js";
 export * from "./type-spec.js";
 
+// Context input
+export * from "./context.js";
+
 // Snapshot types
 export * from "./snapshot.js";
 
@@ -28,9 +31,6 @@ export * from "./defaults.js";
 
 // Patch and Intent types
 export * from "./patch.js";
-
-// Host context types
-export * from "./host-context.js";
 
 // Trace types
 export * from "./trace.js";

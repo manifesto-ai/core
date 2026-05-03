@@ -33,8 +33,8 @@ describe("activated v5 base runtime", () => {
 
     expect(projected.state).toEqual({ count: 0, status: "idle" });
     expect(projected).not.toHaveProperty("namespaces");
-    expect(canonical.state.$host).toBeDefined();
-    expect(canonical.state.$mel).toBeDefined();
+    expect(canonical.state).not.toHaveProperty("$host");
+    expect(canonical.state).not.toHaveProperty("$mel");
     expect(canonical.namespaces).toBeDefined();
   });
 

@@ -111,9 +111,9 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
         actions: {
           fetchOnce: {
             flow: {
-              kind: "if",
-              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
-              then: {
+              kind: "causalGuard",
+              guardId: "host-namespace-fetch-once",
+              body: {
                 kind: "effect",
                 type: "needsNamespace",
                 params: {},
@@ -145,12 +145,16 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
           currentAction: "fetchOnce",
         },
         namespaces: {
+          core: {
+            causalGuards: {
+              "host-namespace-fetch-once": intent.intentId!,
+            },
+          },
           host: {
             intentSlots: {
               [intent.intentId!]: { type: "fetchOnce" },
             },
           },
-          mel: { guards: { intent: {} } },
         },
       };
       host.seedSnapshot(key, snapshot);

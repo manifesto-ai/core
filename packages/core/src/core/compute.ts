@@ -10,7 +10,7 @@ import { createContext } from "../evaluator/context.js";
 import { evaluateFlowSync, createFlowState, type FlowStatus } from "../evaluator/flow.js";
 import { evaluateComputed } from "../evaluator/computed.js";
 import { isOk } from "../schema/common.js";
-import type { HostContext } from "../schema/host-context.js";
+import { Context, type Context as CoreContext } from "../schema/context.js";
 import { evaluateActionAvailability } from "./action-availability.js";
 import { applySystemDelta } from "./system-delta.js";
 import { validateValueAgainstTypeDefinition } from "./type-definition-utils.js";
@@ -25,8 +25,21 @@ export function computeSync(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
-  context: HostContext
+  context: CoreContext
 ): ComputeResult {
+  const parsedContext = Context.safeParse(context);
+  if (!parsedContext.success) {
+    return createErrorResult(
+      snapshot,
+      intent,
+      "INVALID_INPUT",
+      `Invalid context: ${parsedContext.error.issues.map((issue) => issue.message).join("; ")}`,
+      snapshot.meta.timestamp
+    );
+  }
+  const coreContext = parsedContext.data;
+  const timestamp = coreContext.runtime.time.timestamp;
+
   let currentSnapshot = snapshot;
   const initialComputedResult = evaluateComputed(schema, snapshot);
   if (isOk(initialComputedResult)) {
@@ -43,7 +56,7 @@ export function computeSync(
       intent,
       "UNKNOWN_ACTION",
       `Unknown action: ${intent.type}`,
-      context
+      timestamp
     );
   }
 
@@ -54,21 +67,21 @@ export function computeSync(
       intent,
       "INVALID_INPUT",
       inputError,
-      context
+      timestamp
     );
   }
 
   const isReEntry = currentSnapshot.system.currentAction === intent.type;
 
   if (action.available && !isReEntry) {
-    const availability = evaluateActionAvailability(schema, currentSnapshot, intent.type, context.now);
+    const availability = evaluateActionAvailability(schema, currentSnapshot, intent.type);
     if (availability.kind === "error") {
       return createErrorResult(
         currentSnapshot,
         intent,
         availability.code,
         availability.message,
-        context
+        timestamp
       );
     }
 
@@ -78,7 +91,7 @@ export function computeSync(
         intent,
         "ACTION_UNAVAILABLE",
         `Action "${intent.type}" is not available`,
-        context
+        timestamp
       );
     }
   }
@@ -93,7 +106,15 @@ export function computeSync(
     },
   };
 
-  const ctx = createContext(preparedSnapshot, schema, intent.type, `actions.${intent.type}.flow`, intent.intentId, context.now);
+  const ctx = createContext(
+    preparedSnapshot,
+    schema,
+    intent.type,
+    `actions.${intent.type}.flow`,
+    intent.intentId,
+    timestamp,
+    { context: coreContext, phase: "flow" }
+  );
   const flowState = createFlowState(preparedSnapshot);
 
   const flowResult = evaluateFlowSync(
@@ -114,7 +135,7 @@ export function computeSync(
     intent: { type: intent.type, input: intent.input },
     baseVersion: currentSnapshot.meta.version,
     resultVersion: estimateResultVersion(currentSnapshot, patches, namespaceDelta, systemDelta),
-    duration: context.durationMs ?? 0,
+    duration: 0,
     terminatedBy: mapFlowStatusToTermination(flowResult.state.status),
   };
 
@@ -134,7 +155,7 @@ export async function compute(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
-  context: HostContext
+  context: CoreContext
 ): Promise<ComputeResult> {
   return computeSync(schema, snapshot, intent, context);
 }
@@ -222,14 +243,14 @@ function createErrorResult(
   intent: Intent,
   code: string,
   message: string,
-  context: HostContext
+  timestamp: number
 ): ComputeResult {
   const error = createError(
     code as import("../errors.js").CoreErrorCode,
     message,
     intent.type,
     "",
-    context.now
+    timestamp
   );
 
   const systemDelta: SystemDelta = {
@@ -248,13 +269,13 @@ function createErrorResult(
       inputs: {},
       output: error,
       children: [],
-      timestamp: context.now,
+      timestamp,
     },
     nodes: {},
     intent: { type: intent.type, input: intent.input },
     baseVersion: snapshot.meta.version,
     resultVersion: estimateResultVersion(snapshot, [], [], systemDelta),
-    duration: context.durationMs ?? 0,
+    duration: 0,
     terminatedBy: "error",
   };
 

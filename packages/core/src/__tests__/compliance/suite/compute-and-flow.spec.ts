@@ -148,7 +148,7 @@ describe("Core CTS compute and flow rules", () => {
     });
   });
 
-  it(caseTitle(CORE_CTS_CASES.SNAPSHOT_NAMESPACE_DELTAS, "materializes compiler-owned MEL namespace deltas during flow evaluation"), () => {
+  it(caseTitle(CORE_CTS_CASES.SNAPSHOT_NAMESPACE_DELTAS, "materializes Core-owned intent guard namespace deltas during flow evaluation"), () => {
     const schema = createComplianceSchema({
       state: {
         fields: {
@@ -158,27 +158,19 @@ describe("Core CTS compute and flow rules", () => {
       actions: {
         markIntent: {
           flow: {
-            kind: "seq",
-            steps: [
-              {
-                kind: "namespacePatch",
-                namespace: "mel",
-                op: "merge",
-                path: pp("guards.intent"),
-                value: {
-                  kind: "object",
-                  fields: {
-                    guardA: { kind: "get", path: "meta.intentId" },
-                  },
-                },
-              },
+            kind: "causalGuard",
+            guardId: "guardA",
+            body: {
+              kind: "seq",
+              steps: [
               {
                 kind: "patch",
                 op: "set",
                 path: pp("observed"),
-                value: { kind: "get", path: "$mel.guards.intent.guardA" },
+                value: { kind: "get", path: "$runtime.intent.id" },
               },
-            ],
+              ],
+            },
           },
         },
       },
@@ -199,20 +191,19 @@ describe("Core CTS compute and flow rules", () => {
     ]);
     expect(result.namespaceDelta).toEqual([
       {
-        namespace: "mel",
+        namespace: "core",
         patches: [
-          { op: "merge", path: pp("guards.intent"), value: { guardA: "intent-A" } },
+          { op: "merge", path: pp("causalGuards"), value: { guardA: "intent-A" } },
         ],
       },
     ]);
     expect(finalSnapshot.state).toEqual({ observed: "intent-A" });
-    expect(finalSnapshot.namespaces.mel).toMatchObject({
-      guards: { intent: { guardA: "intent-A" } },
+    expect(finalSnapshot.namespaces.core).toMatchObject({
+      causalGuards: { guardA: "intent-A" },
     });
-    expect(Object.values(result.trace.nodes).some((node) => node.kind === "namespaceDelta")).toBe(true);
   });
 
-  it(caseTitle(CORE_CTS_CASES.SNAPSHOT_NAMESPACE_DELTAS, "normalizes partial MEL namespace roots before namespace writes"), () => {
+  it(caseTitle(CORE_CTS_CASES.SNAPSHOT_NAMESPACE_DELTAS, "skips Core intent guard bodies already marked for the current intent"), () => {
     const schema = createComplianceSchema({
       state: {
         fields: {
@@ -222,34 +213,26 @@ describe("Core CTS compute and flow rules", () => {
       actions: {
         markIntent: {
           flow: {
-            kind: "seq",
-            steps: [
-              {
-                kind: "namespacePatch",
-                namespace: "mel",
-                op: "merge",
-                path: pp("guards.intent"),
-                value: {
-                  kind: "object",
-                  fields: {
-                    guardA: { kind: "get", path: "meta.intentId" },
-                  },
-                },
-              },
+            kind: "causalGuard",
+            guardId: "guardA",
+            body: {
+              kind: "seq",
+              steps: [
               {
                 kind: "patch",
                 op: "set",
                 path: pp("observed"),
-                value: { kind: "get", path: "$mel.guards.intent.guardA" },
+                value: { kind: "get", path: "$runtime.intent.id" },
               },
-            ],
+              ],
+            },
           },
         },
       },
     });
     const snapshot = {
       ...createComplianceSnapshot({ observed: "" }, schema.hash),
-      namespaces: { mel: {} },
+      namespaces: { core: { causalGuards: { guardA: "intent-A" } } },
     } as never;
 
     const { result, snapshot: finalSnapshot } = computeAndMaterialize(
@@ -259,42 +242,21 @@ describe("Core CTS compute and flow rules", () => {
     );
 
     expect(result.status).toBe("complete");
-    expect(finalSnapshot.namespaces.mel).toMatchObject({
-      guards: { intent: { guardA: "intent-A" } },
-    });
+    expect(result.patches).toEqual([]);
+    expect(result.namespaceDelta).toEqual([]);
+    expect(finalSnapshot.state).toEqual({ observed: "" });
   });
 
-  it(caseTitle(CORE_CTS_CASES.SNAPSHOT_NAMESPACE_DELTAS, "rejects arbitrary MEL namespacePatch flow shapes"), () => {
+  it(caseTitle(CORE_CTS_CASES.SNAPSHOT_NAMESPACE_DELTAS, "rejects namespacePatch flow nodes from Core schemas"), () => {
     const schema = createComplianceSchema({
       actions: {
-        badMelPatch: {
+        badNamespacePatch: {
           flow: {
             kind: "namespacePatch",
-            namespace: "mel",
+            namespace: "runtime",
             op: "set",
             path: pp("arbitrary"),
             value: { kind: "lit", value: "bad" },
-          },
-        },
-      },
-    });
-
-    const result = validate(schema);
-
-    expect(result.valid).toBe(false);
-    expectValidationCode(result.errors, "SCHEMA_ERROR");
-  });
-
-  it(caseTitle(CORE_CTS_CASES.SNAPSHOT_NAMESPACE_DELTAS, "rejects non-MEL namespacePatch flow nodes"), () => {
-    const schema = createComplianceSchema({
-      actions: {
-        badNamespace: {
-          flow: {
-            kind: "namespacePatch",
-            namespace: "host",
-            op: "merge",
-            path: pp("guards.intent"),
-            value: { kind: "lit", value: { guardA: "intent-A" } },
           } as never,
         },
       },

@@ -23,6 +23,7 @@ import {
   type NamespaceDelta,
   type TraceGraph,
   type Patch,
+  type JsonValue,
 } from "@manifesto-ai/core";
 import { EffectHandlerRegistry, createEffectRegistry } from "./effects/registry.js";
 import { EffectExecutor, createEffectExecutor } from "./effects/executor.js";
@@ -39,6 +40,7 @@ import type { ExecutionKey, Runtime } from "./types/execution.js";
 import type { TraceEvent } from "./types/trace.js";
 import { createStartIntentJob, createFulfillEffectJob } from "./types/job.js";
 import { defaultRuntime } from "./types/execution.js";
+import { getHostState } from "./types/host-state.js";
 
 /**
  * Host result returned from dispatch
@@ -87,7 +89,7 @@ export interface HostOptions {
   /**
    * Environment variables to include in context
    */
-  env?: Record<string, unknown>;
+  env?: Record<string, JsonValue>;
 
   /**
    * Trace event handler for debugging
@@ -290,6 +292,8 @@ export class ManifestoHost {
       };
     }
 
+    const initialHostLastError = getHostState(this.currentSnapshot)?.lastError ?? null;
+
     // Use explicit execution key when provided, otherwise fallback to intentId
     const key: ExecutionKey = options?.key ?? intent.intentId;
 
@@ -371,6 +375,20 @@ export class ManifestoHost {
           "EFFECT_EXECUTION_FAILED",
           finalSnapshot.system.lastError?.message ?? "Unknown error",
           { lastError: finalSnapshot.system.lastError }
+        ),
+      };
+    }
+
+    const hostLastError = getHostState(finalSnapshot)?.lastError ?? null;
+    if (hostLastError && !isSameErrorValue(initialHostLastError, hostLastError)) {
+      return {
+        status: "error",
+        snapshot: finalSnapshot,
+        traces,
+        error: createHostError(
+          "EFFECT_EXECUTION_FAILED",
+          hostLastError.message,
+          { lastError: hostLastError }
         ),
       };
     }
@@ -581,7 +599,7 @@ export class ManifestoHost {
           code: "FATAL_ERROR",
           message: error.message,
           source: { actionId: intentId, nodePath: "host.fatal" },
-          timestamp: frozenContext.now,
+          timestamp: frozenContext.runtime.time.timestamp,
         };
         const deltas: NamespaceDelta[] = [{
           namespace: "host",
@@ -767,6 +785,20 @@ export class ManifestoHost {
     }
     return this.cloneSnapshot(snapshot);
   }
+}
+
+function isSameErrorValue(left: Snapshot["system"]["lastError"], right: Snapshot["system"]["lastError"]): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (left === null || right === null) {
+    return false;
+  }
+  return left.code === right.code
+    && left.message === right.message
+    && left.timestamp === right.timestamp
+    && left.source.actionId === right.source.actionId
+    && left.source.nodePath === right.source.nodePath;
 }
 
 /**

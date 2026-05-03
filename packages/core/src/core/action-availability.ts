@@ -68,7 +68,8 @@ function evaluateAvailabilityAgainstPreparedSnapshot(
     null,
     `actions.${actionName}.available`,
     undefined,
-    timestamp
+    timestamp,
+    { phase: "availability" }
   );
   const result = evaluateExpr(action.available, ctx);
 
@@ -181,7 +182,8 @@ export function evaluateIntentDispatchability(
     intent.type,
     `actions.${intent.type}.dispatchable`,
     intent.intentId,
-    timestamp
+    timestamp,
+    { phase: "dispatchability" }
   );
   const result = evaluateExpr(action.dispatchable, ctx);
 

@@ -4,7 +4,7 @@
 > **Scope:** Manifesto SDK Layer - Public Developer API
 > **Compatible with:** Manifesto v5 substrate, ADR-025 Snapshot Ontology, Core SPEC v5, Host Contract v5, Lineage SPEC v5, Governance SPEC v5
 > **Replaces:** SDK v3 activated-runtime caller ladder as the current SDK contract
-> **Implements:** ADR-017, ADR-019, ADR-020, ADR-025, ADR-026
+> **Implements:** ADR-017, ADR-019, ADR-020, ADR-025, ADR-026, ADR-027
 
 > **Historical Note:** SDK v3 APIs remain available in Git history and in the v3
 > FDR companion for rationale. They are not compatibility targets for the v5
@@ -38,6 +38,10 @@ app.actions.addTodo.available();
 app.actions.addTodo.check({ title: "Ship v5" });
 app.actions.addTodo.preview({ title: "Ship v5" });
 await app.actions.addTodo.submit({ title: "Ship v5" });
+await app.actions.addTodo.submit(
+  { title: "Ship v5" },
+  { __kind: "SubmitOptions", context: { locale: "ko-KR" } },
+);
 ```
 
 The SDK does not present `@manifesto-ai/world` as part of its public story.
@@ -63,6 +67,7 @@ Normative rule prefixes:
 | `SDK-ADMISSION-*` | `check()` and first-failing-layer rules |
 | `SDK-PREVIEW-*` | `preview()` dry-run rules |
 | `SDK-SUBMIT-*` | law-aware `submit()` rules |
+| `SDK-CONTEXT-*` | ADR-027 context option and materialization rules |
 | `SDK-RESULT-*` | result envelope and outcome rules |
 | `SDK-SNAPSHOT-*` | projected/canonical snapshot visibility |
 | `SDK-OBSERVE-*` | state/event observation |
@@ -333,12 +338,24 @@ export type PreviewOptions = {
   readonly __kind: "PreviewOptions";
   readonly diagnostics?: "none" | "summary" | "trace";
   readonly includeAvailableActions?: boolean;
+  readonly context?: ExternalContext;
 };
 
 export type SubmitOptions = {
   readonly __kind: "SubmitOptions";
   readonly report?: "none" | "summary" | "full";
+  readonly context?: ExternalContext;
 };
+
+export type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue };
+
+export type ExternalContext = Readonly<Record<string, JsonValue>>;
 
 export type PathSegment = string | number;
 
@@ -364,6 +381,11 @@ export type BaseWriteReport = {
 
 `PreviewOptions` and `SubmitOptions` use explicit `__kind` discriminants to keep
 SDK option bags distinguishable from domain action input objects.
+
+`context`, when present, is the user-supplied external context partition. SDK
+MUST pass it to Core as `Context.external` after materializing Manifesto-owned
+`Context.runtime`. SDK MUST reject functions, promises, providers, lazy getters,
+class instances, symbols, `undefined`, and other non-JSON values in this option.
 
 `LineageWriteReport` and `GovernanceSettlementReport` are boundary names owned
 by Lineage and Governance. SDK fixes only where those reports attach in the
@@ -626,12 +648,12 @@ the final argument carries the matching SDK option discriminant:
 ```typescript
 app.actions.addTodo.preview(
   { title: "Ship v5" },
-  { __kind: "PreviewOptions", diagnostics: "summary" },
+  { __kind: "PreviewOptions", diagnostics: "summary", context: { locale: "ko-KR" } },
 );
 
 await app.actions.addTodo.submit(
   { title: "Ship v5" },
-  { __kind: "SubmitOptions", report: "summary" },
+  { __kind: "SubmitOptions", report: "summary", context: { locale: "ko-KR" } },
 );
 ```
 
@@ -646,6 +668,24 @@ this ambiguity because the action input has already been bound.
 | SDK-ACTION-7 | MUST | Inline `PreviewOptions` MUST be recognized only as an extra final argument with `__kind: "PreviewOptions"`. |
 | SDK-ACTION-8 | MUST | Inline `SubmitOptions` MUST be recognized only as an extra final argument with `__kind: "SubmitOptions"`. |
 | SDK-ACTION-9 | MUST | Values inside the declared action arity MUST be treated as domain input, not SDK options. |
+
+### 8.6 ADR-027 Context Option Rules
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-CONTEXT-1 | MUST | `PreviewOptions.context` and `SubmitOptions.context` MUST represent only user external context. |
+| SDK-CONTEXT-2 | MUST | SDK MUST map public `options.context` to Core `Context.external`. |
+| SDK-CONTEXT-3 | MUST | SDK/Host runtime assembly MUST materialize Core `Context.runtime` before calling Core. |
+| SDK-CONTEXT-4 | MUST NOT | SDK MUST NOT expose user-defined context generators, resolvers, providers, callbacks, promises, lazy getters, or function-valued context fields. |
+| SDK-CONTEXT-5 | MUST | SDK MUST reject non-JSON external context values at the SDK boundary. |
+| SDK-CONTEXT-6 | MUST | SDK MUST NOT store runtime values in `snapshot.namespaces.host`, `snapshot.namespaces.mel`, or raw `Intent` frame fields for Core to read. |
+| SDK-CONTEXT-7 | MUST | SDK admission helpers `available()` and `check()` MUST remain context-blind because `$runtime.*` and `$context.*` are illegal in availability and dispatchability. |
+
+`preview()` and `submit()` each materialize their own full Core `Context` unless
+a future explicit prepared-transition API says otherwise. Passing the same
+`options.context` to both calls reuses the same external context data, but it
+does not by itself guarantee byte-identical `Context.runtime` values across the
+two calls.
 
 ## 9. Admission
 
@@ -737,6 +777,8 @@ export type PreviewResult<
 | SDK-PREVIEW-5 | MUST | `preview()` MUST preserve Core status: `complete`, `pending`, `halted`, or `error`. |
 | SDK-PREVIEW-6 | MUST | `admitted: true` MUST mean dry-run computation was admitted, not that the action would settle successfully. |
 | SDK-PREVIEW-7 | MUST | `admitted: false` MUST include the same first-failing admission layer as `check()`. |
+| SDK-PREVIEW-8 | MUST | `preview()` MUST call Core with an explicit ADR-027 `Context` built from materialized runtime facts plus `PreviewOptions.context` as `Context.external`. |
+| SDK-PREVIEW-9 | MUST NOT | A `preview()` result MUST NOT be treated as a capability token or as byte-identical proof of a later `submit()` unless a future prepared-transition API provides that guarantee. |
 
 ## 11. Submit
 
@@ -995,6 +1037,9 @@ terminal state produces the same result shape regardless of payload size.
 | SDK-SUBMIT-11 | MUST | In generic mode, callers MUST narrow `SubmissionResult` by `mode` before consuming mode-specific fields. |
 | SDK-SUBMIT-12 | MUST | Governance settlement observation MUST be named `waitForSettlement()`, not `settle()`. |
 | SDK-SUBMIT-13 | MUST | `ProposalRef` alone MUST be sufficient to re-observe governance settlement after process restart or agent handoff. |
+| SDK-SUBMIT-17 | MUST | `submit()` MUST call the active runtime with an explicit ADR-027 `Context` built from materialized runtime facts plus `SubmitOptions.context` as `Context.external`. |
+| SDK-SUBMIT-18 | MUST | For one submitted transition attempt, the runtime MUST reuse the same materialized `Context` across Host/Core re-entry. |
+| SDK-SUBMIT-19 | MUST | Submit reports or owning decorator records MUST attach or reference the materialized context when replay/accountability requires it. |
 
 ### 11.9 Operational Failure Before Settlement
 
@@ -1391,6 +1436,7 @@ An implementation satisfies this SPEC when:
 - `BoundAction.intent()` returns `Intent | null`.
 - `check()` returns the first failing admission layer.
 - `preview()` is non-mutating and preserves Core status.
+- `preview()` and `submit()` accept direct-injected JSON external context through options.
 - `submit()` returns mode-specific result types and re-checks legality at submit time.
 - `ExecutionOutcome` is the canonical `ok | stop | fail` domain-outcome union.
 - `result.ok` is documented and implemented as protocol envelope success, not domain success.

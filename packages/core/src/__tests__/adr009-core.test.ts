@@ -7,7 +7,13 @@ import type { DomainSchema } from "../schema/domain.js";
 import type { Requirement } from "../schema/snapshot.js";
 import { patchPathToDisplayString, semanticPathToPatchPath } from "../utils/patch-path.js";
 
-const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
 const pp = (path: string) => semanticPathToPatchPath(path);
 
 function createSchema(stateFields: DomainSchema["state"]["fields"], actions: DomainSchema["actions"]): DomainSchema {
@@ -53,8 +59,7 @@ describe("ADR-009 core acceptance", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "set", path: [{ kind: "prop", name: "history" }, { kind: "prop", name: "files" }, { kind: "prop", name: "file:///proof.lean" }], value: "ok" }],
-      HOST_CONTEXT
+      [{ op: "set", path: [{ kind: "prop", name: "history" }, { kind: "prop", name: "files" }, { kind: "prop", name: "file:///proof.lean" }], value: "ok" }]
     );
 
     expect(result.state).toEqual({
@@ -99,8 +104,7 @@ describe("ADR-009 core acceptance", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "set", path: pp("metrics.2024"), value: 7 }],
-      HOST_CONTEXT
+      [{ op: "set", path: pp("metrics.2024"), value: 7 }]
     );
 
     const metrics = (result.state as { metrics: unknown }).metrics;
@@ -127,8 +131,7 @@ describe("ADR-009 core acceptance", () => {
       [
         { op: "unset", path: [{ kind: "prop", name: "items" }, { kind: "index", index: 0 }] },
         { op: "set", path: [{ kind: "prop", name: "items" }, { kind: "index", index: 1 }], value: "B" },
-      ],
-      HOST_CONTEXT
+      ]
     );
 
     const items = (result.state as { items: unknown[] }).items;
@@ -162,8 +165,7 @@ describe("ADR-009 core acceptance", () => {
     const dottedResult = apply(
       schema,
       snapshot,
-      [{ op: "set", path: pp("history.files.TACTIC_FAILED:simp"), value: "safe" }],
-      HOST_CONTEXT
+      [{ op: "set", path: pp("history.files.TACTIC_FAILED:simp"), value: "safe" }]
     );
 
     expect(dottedResult.state).toEqual({ history: { files: { "TACTIC_FAILED:simp": "safe" } } });
@@ -171,8 +173,7 @@ describe("ADR-009 core acceptance", () => {
     const polluted = apply(
       schema,
       snapshot,
-      [{ op: "set", path: [{ kind: "prop", name: "__proto__" }, { kind: "prop", name: "polluted" }], value: true }],
-      HOST_CONTEXT
+      [{ op: "set", path: [{ kind: "prop", name: "__proto__" }, { kind: "prop", name: "polluted" }], value: true }]
     );
 
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
@@ -192,8 +193,7 @@ describe("ADR-009 core acceptance", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "merge", path: pp("$host.runtime"), value: { marker: "ok" } }],
-      HOST_CONTEXT
+      [{ op: "merge", path: pp("$runtime.runtime"), value: { marker: "ok" } }]
     );
 
     expect(result.state).toEqual({ count: 1 });
@@ -202,12 +202,11 @@ describe("ADR-009 core acceptance", () => {
 
     const namespaceResult = applyNamespaceDeltas(
       snapshot,
-      [{ namespace: "host", patches: [{ op: "merge", path: pp("runtime"), value: { marker: "ok" } }] }],
-      HOST_CONTEXT
+      [{ namespace: "runtime", patches: [{ op: "merge", path: pp("runtime"), value: { marker: "ok" } }] }]
     );
 
     expect(namespaceResult.state).toEqual({ count: 1 });
-    expect(namespaceResult.namespaces.host).toEqual({
+    expect(namespaceResult.namespaces.runtime).toEqual({
         runtime: {
           marker: "ok",
         },
@@ -233,8 +232,7 @@ describe("ADR-009 core acceptance", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "set", path: pp("system.status"), value: "domain-updated" }],
-      HOST_CONTEXT
+      [{ op: "set", path: pp("system.status"), value: "domain-updated" }]
     );
 
     expect((result.state as { system: { status: string } }).system.status).toBe("domain-updated");
@@ -277,7 +275,7 @@ describe("ADR-009 core acceptance", () => {
     });
     expect("snapshot" in result).toBe(false);
 
-    const withPatches = apply(schema, snapshot, result.patches, HOST_CONTEXT);
+    const withPatches = apply(schema, snapshot, result.patches);
     const finalSnapshot = applySystemDelta(withPatches, result.systemDelta);
     expect(finalSnapshot.state).toEqual({ count: 1 });
   });

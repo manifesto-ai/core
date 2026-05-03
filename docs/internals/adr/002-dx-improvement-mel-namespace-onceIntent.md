@@ -20,6 +20,12 @@
   - MEL SPEC v0.3.3: `once()` guard pattern, FDR-MEL-044
   - Core SPEC: `merge`는 shallow merge로 정의됨
 
+> **v5 Boundary Amendment (2026-05-01):**
+> ADR-025 supersedes this ADR's `$mel` runtime-storage strategy. The MEL
+> `onceIntent` source syntax and semantics remain valid, but v5 Compiler lowers
+> it to Core's generic `causalGuard` Flow primitive. Core MUST NOT know the MEL
+> namespace name or `$mel.guards.intent` shape.
+
 ---
 
 ## 1. Context

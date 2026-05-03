@@ -1,15 +1,17 @@
 /**
  * Common test snapshot helper
  */
-import { createSnapshot, type Snapshot, type Requirement, type HostContext } from "@manifesto-ai/core";
+import { createSnapshot, type Snapshot, type Requirement, type Context } from "@manifesto-ai/core";
 
 /**
  * Default host context for tests (deterministic)
  */
-export const DEFAULT_HOST_CONTEXT: HostContext = {
-  now: 0,
-  randomSeed: "seed",
-  durationMs: 0,
+export const DEFAULT_HOST_CONTEXT: Context = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
 };
 
 /**
@@ -18,7 +20,7 @@ export const DEFAULT_HOST_CONTEXT: HostContext = {
 export function createTestSnapshot(
   state: unknown,
   schemaHash: string,
-  context: HostContext = DEFAULT_HOST_CONTEXT
+  context: Context = DEFAULT_HOST_CONTEXT
 ): Snapshot {
   return createSnapshot(state, schemaHash, context);
 }
@@ -43,14 +45,7 @@ export function createMinimalSnapshot(state: unknown = {}): Snapshot {
     },
     computed: {},
     input: undefined,
-    namespaces: {
-      host: {},
-      mel: {
-        guards: {
-          intent: {},
-        },
-      },
-    },
+    namespaces: {},
   };
 }
 
@@ -63,7 +58,7 @@ export function createMinimalSnapshot(state: unknown = {}): Snapshot {
 export function createRestoreNormalizedSnapshot(
   state: unknown,
   schemaHash: string,
-  context: HostContext = DEFAULT_HOST_CONTEXT
+  context: Context = DEFAULT_HOST_CONTEXT
 ): Snapshot {
   const snapshot = createSnapshot(state, schemaHash, context);
   const normalizedState = typeof snapshot.state === "object"
@@ -97,7 +92,7 @@ export function createSnapshotWithRequirements(
   state: unknown,
   schemaHash: string,
   requirements: Requirement[],
-  context: HostContext = DEFAULT_HOST_CONTEXT
+  context: Context = DEFAULT_HOST_CONTEXT
 ): Snapshot {
   const snapshot = createSnapshot(state, schemaHash, context);
   return {

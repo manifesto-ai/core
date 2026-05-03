@@ -1,6 +1,6 @@
 import type { Snapshot } from "./schema/snapshot.js";
 import type { Intent } from "./schema/patch.js";
-import type { HostContext } from "./schema/host-context.js";
+import type { Context } from "./schema/context.js";
 import { createInitialNamespaces, createInitialSystemState } from "./schema/snapshot.js";
 
 /**
@@ -13,7 +13,7 @@ import { createInitialNamespaces, createInitialSystemState } from "./schema/snap
 export function createSnapshot<T>(
   state: T,
   schemaHash: string,
-  context: HostContext
+  context: Context
 ): Snapshot {
   return {
     state,
@@ -22,8 +22,8 @@ export function createSnapshot<T>(
     input: undefined,
     meta: {
       version: 0,
-      timestamp: context.now,
-      randomSeed: context.randomSeed,
+      timestamp: context.runtime.time.timestamp,
+      randomSeed: context.runtime.random.seed,
       schemaHash,
     },
     namespaces: createInitialNamespaces(),

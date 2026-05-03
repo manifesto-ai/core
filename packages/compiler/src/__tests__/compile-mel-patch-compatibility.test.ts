@@ -22,7 +22,13 @@ import {
 } from "@manifesto-ai/core";
 import { createEvaluationContext, evaluateRuntimePatches } from "../evaluation/index.js";
 
-const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
 
 const DEFAULT_STATE = `
   state {
@@ -165,8 +171,8 @@ function runCompileMelPatchCycle(
   );
 
   const { domainPatches, namespaceDeltas } = splitNamespacePatches(stripInternalGuards(concretePatches));
-  const patched = core.apply(schema, snapshot, domainPatches, HOST_CONTEXT);
-  return core.applyNamespaceDeltas(patched, namespaceDeltas, HOST_CONTEXT);
+  const patched = core.apply(schema, snapshot, domainPatches);
+  return core.applyNamespaceDeltas(patched, namespaceDeltas);
 }
 
 function applyComputeResult(
@@ -175,11 +181,10 @@ function applyComputeResult(
   snapshot: Snapshot,
   result: ComputeResult
 ): Snapshot {
-  const patchedSnapshot = core.apply(schema, snapshot, result.patches, HOST_CONTEXT);
+  const patchedSnapshot = core.apply(schema, snapshot, result.patches);
   const namespacedSnapshot = core.applyNamespaceDeltas(
     patchedSnapshot,
-    result.namespaceDelta ?? [],
-    HOST_CONTEXT
+    result.namespaceDelta ?? []
   );
   return core.applySystemDelta(namespacedSnapshot, result.systemDelta);
 }

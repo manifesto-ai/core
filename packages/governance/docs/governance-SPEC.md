@@ -3,7 +3,7 @@
 > **Status:** Normative (Living Document)
 > **Package:** `@manifesto-ai/governance`
 > **Compatible with:** Manifesto v5 substrate, ADR-025 Snapshot Ontology, SDK SPEC v5, Lineage SPEC v5
-> **Implements:** ADR-017, ADR-025, ADR-026
+> **Implements:** ADR-017, ADR-025, ADR-026, ADR-027
 
 > **Historical Note:** [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md)
 > is retained as the service-first baseline before ADR-017. Git history
@@ -22,7 +22,7 @@
 
 | Version | Change | Source |
 |---------|--------|--------|
-| v5.0.0 | Adopt ADR-026 governance-mode `submit()` surface, durable `ProposalRef`, runtime `waitForSettlement(ref)`, and ADR-025 failure observation wording | ADR-025, ADR-026 |
+| v5.0.0 | Adopt ADR-026 governance-mode `submit()` surface, durable `ProposalRef`, runtime `waitForSettlement(ref)`, ADR-025 failure observation wording, and ADR-027 submitted compute envelope preservation | ADR-025, ADR-026, ADR-027 |
 | v3.0.0 | Decorator runtime with `proposeAsync()`, pending resolution, and additive proposal settlement helpers | ADR-017 |
 | v2.0.0 | Service-first governance protocol baseline | ADR-015, ADR-016 |
 
@@ -34,6 +34,7 @@ Governance owns:
 
 - `withGovernance()` composition over explicit lineage semantics
 - proposal creation and durable proposal references
+- submitted compute envelope preservation (`intent + context`)
 - authority evaluation and decision recording
 - pending human or tribunal resolution
 - governance-mode `submit()` semantics
@@ -107,11 +108,30 @@ type GovernanceSubmittedCandidate<
 > = {
   readonly action: Name;
   readonly input: ActionInput<TDomain, Name>;
+  readonly context?: ExternalContext;
 };
+
+type SubmittedComputeEnvelope = {
+  readonly intent: Intent;
+  readonly context: Context;
+};
+
+type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue };
+
+type ExternalContext = Readonly<Record<string, JsonValue>>;
+type Intent = import("@manifesto-ai/core").Intent;
+type Context = import("@manifesto-ai/core").Context;
 ```
 
 The current implementation may derive actor/source from the internal `Intent`
-protocol. The v5 public contract describes the action candidate boundary. The
+protocol. The v5 public contract describes the action candidate boundary and
+the optional user external context supplied through SDK `submit()` options. The
 internal protocol remains an implementation detail.
 
 ### 3.3 Activated Runtime
@@ -398,7 +418,8 @@ type GovernanceSettlementReport =
 Governance-mode `submit()` means:
 
 1. Run SDK admission for the bound action candidate.
-2. Create a durable governance proposal.
+2. Materialize the ADR-027 compute context and create a durable governance
+   proposal carrying or referencing the submitted compute envelope.
 3. Return a pending governance result carrying `ProposalRef`.
 4. Evaluate authority and execute settlement through governance-controlled
    lifecycle processing.
@@ -417,6 +438,8 @@ Governance-mode `submit()` means:
 | GOV-V5-SUBMIT-8 | MUST | A proposal created by `submit()` MUST be observable through `ProposalRef`. |
 | GOV-V5-SUBMIT-9 | MUST | Governance `submit()` MUST emit governance proposal lifecycle events only after the corresponding governance record exists. |
 | GOV-V5-SUBMIT-10 | MUST | Governance `submit()` MUST initially resolve with `status: "pending"` even when authority can auto-approve. |
+| GOV-V5-SUBMIT-11 | MUST | A proposal created by `submit()` MUST carry or durably reference the exact `intent + context` compute envelope submitted at proposal creation time. |
+| GOV-V5-SUBMIT-12 | MUST NOT | Governance MUST NOT regenerate ADR-027 context at approval or settlement time for an existing proposal. |
 
 ### 6.1 Authority and Control
 
@@ -429,6 +452,7 @@ surface methods resolve them.
 | GOV-V5-AUTH-2 | MUST | `approve()` and `reject()` MUST operate on governance proposal records, not on raw action candidates. |
 | GOV-V5-AUTH-3 | MUST | Authority decisions MUST be recorded before settlement observation reports the decision. |
 | GOV-V5-AUTH-4 | MUST NOT | Governance MUST NOT rewrite the submitted action candidate except through explicit approved scope constraints. |
+| GOV-V5-AUTH-5 | MUST NOT | Authority evaluation MUST NOT execute context generators, providers, effects, or `$runtime.*` / `$context.*` expression semantics. |
 
 ### 6.2 Execution and Publication
 
@@ -442,6 +466,7 @@ does not use governance-owned direct execution.
 | GOV-V5-EXEC-3 | MUST | Failed terminal governed execution MAY seal a failed lineage world and terminal proposal record. |
 | GOV-V5-EXEC-4 | MUST NOT | Failed terminal governed execution MUST NOT publish the failed snapshot as the visible runtime snapshot. |
 | GOV-V5-EXEC-5 | MUST | Governance events MUST be emitted only after the corresponding proposal, decision, seal, or settlement record is durable. |
+| GOV-V5-EXEC-6 | MUST | Governed execution MUST use the proposal's submitted compute envelope and pass its exact context to the SDK/Host/Core runtime path. |
 
 ---
 

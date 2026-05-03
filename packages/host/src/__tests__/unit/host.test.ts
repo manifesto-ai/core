@@ -248,9 +248,11 @@ describe("ManifestoHost", () => {
         { count: 7, $host: { currentIntentId: "stale-intent" } },
         schema.hash,
         {
-          ...DEFAULT_HOST_CONTEXT,
-          now,
-          randomSeed: "restored-seed",
+          runtime: {
+            time: { timestamp: now },
+            random: { seed: "restored-seed" },
+          },
+          external: {},
         }
       );
 
@@ -260,8 +262,8 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntentWithId("increment", "intent-restore"));
 
       expect(stripHostState(result.snapshot.state)).toEqual({ count: 8 });
-      expect(result.snapshot.meta.timestamp).toBe(100);
-      expect(result.snapshot.meta.randomSeed).toBe("intent-restore");
+      expect(result.snapshot.meta.timestamp).toBe(5);
+      expect(result.snapshot.meta.randomSeed).toBe("restored-seed");
       expect(result.snapshot.input).toBeNull();
       expect(result.snapshot.system.currentAction).toBeNull();
     });
@@ -485,7 +487,7 @@ describe("ManifestoHost", () => {
                   {
                     kind: "patch",
                     op: "set", path: pp("pending"),
-                    value: { kind: "get", path: "meta.intentId" },
+                    value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
                     kind: "effect",
@@ -567,7 +569,7 @@ describe("ManifestoHost", () => {
                   {
                     kind: "patch",
                     op: "set", path: pp("pending"),
-                    value: { kind: "get", path: "meta.intentId" },
+                    value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
                     kind: "effect",

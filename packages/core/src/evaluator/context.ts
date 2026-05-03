@@ -1,6 +1,9 @@
 import type { Snapshot } from "../schema/snapshot.js";
 import type { DomainSchema } from "../schema/domain.js";
+import type { Context } from "../schema/context.js";
 import { type TraceContext, createTraceContext } from "../schema/trace.js";
+
+export type EvalPhase = "flow" | "computed" | "availability" | "dispatchability" | "snapshot";
 
 /**
  * Evaluation context for expressions and flows
@@ -32,9 +35,19 @@ export type EvalContext = {
   readonly intentId?: string;
 
   /**
-   * UUID generator counter (for deterministic UUID generation)
+   * Runtime context for bound action flow evaluation.
    */
-  uuidCounter?: number;
+  readonly context?: Context;
+
+  /**
+   * Current evaluation phase. Runtime/context reads are legal only in flow.
+   */
+  readonly phase: EvalPhase;
+
+  /**
+   * Context-local occurrence ordinal for deterministic runtime allocation.
+   */
+  runtimeOrdinal?: number;
 
   /**
    * Trace context for deterministic trace ID generation
@@ -47,13 +60,13 @@ export type EvalContext = {
   readonly $item?: unknown;
   readonly $index?: number;
   readonly $array?: unknown[];
+  readonly collectionStack?: readonly number[];
 };
 
 /**
  * Create a new evaluation context
  *
  * @param timestampOrTrace - Required timestamp or TraceContext for deterministic tracing.
- *                           MUST be provided by Host via HostContext.now to ensure determinism.
  */
 export function createContext(
   snapshot: Snapshot,
@@ -61,7 +74,11 @@ export function createContext(
   currentAction: string | null,
   nodePath: string,
   intentId: string | undefined,
-  timestampOrTrace: number | TraceContext
+  timestampOrTrace: number | TraceContext,
+  options: {
+    readonly context?: Context;
+    readonly phase?: EvalPhase;
+  } = {}
 ): EvalContext {
   return {
     snapshot,
@@ -69,10 +86,13 @@ export function createContext(
     currentAction,
     nodePath,
     intentId,
-    uuidCounter: 0,
+    context: options.context,
+    phase: options.phase ?? (options.context ? "flow" : "snapshot"),
+    runtimeOrdinal: 0,
     trace: typeof timestampOrTrace === "object"
       ? timestampOrTrace
       : createTraceContext(timestampOrTrace),
+    collectionStack: [],
   };
 }
 
@@ -90,6 +110,7 @@ export function withCollectionContext(
     $item: item,
     $index: index,
     $array: array,
+    collectionStack: [...(ctx.collectionStack ?? []), index],
   };
 }
 

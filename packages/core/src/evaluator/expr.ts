@@ -4,7 +4,9 @@ import type { Result } from "../schema/common.js";
 import { ok, err } from "../schema/common.js";
 import { createError } from "../errors.js";
 import { getByPath } from "../utils/path.js";
-import { compareUnicodeCodePoints } from "../utils/canonical.js";
+import { compareUnicodeCodePoints, toCanonical } from "../utils/canonical.js";
+import { sha256Sync } from "../utils/hash.js";
+import { pathExistsInStateSpec } from "../core/validation-utils.js";
 import { type EvalContext, withCollectionContext } from "./context.js";
 
 export type ExprResult = Result<unknown, ErrorValue>;
@@ -216,31 +218,6 @@ function toString(value: unknown): string {
 
 // ============ Get ============
 
-/**
- * Generate a deterministic UUID from intentId and counter
- * Uses a simple hash to create reproducible UUIDs
- */
-function generateDeterministicUuid(intentId: string, counter: number): string {
-  // Create a simple hash-based UUID from intentId and counter
-  // This ensures the same intentId + counter always produces the same UUID
-  const seed = `${intentId}-${counter}`;
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    const char = seed.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-
-  // Convert hash to hex string and format as UUID
-  const hex = Math.abs(hash).toString(16).padStart(8, '0');
-  const hex2 = Math.abs(hash * 31).toString(16).padStart(4, '0');
-  const hex3 = Math.abs(hash * 37).toString(16).padStart(4, '0');
-  const hex4 = Math.abs(hash * 41).toString(16).padStart(4, '0');
-  const hex5 = Math.abs(hash * 43).toString(16).padStart(12, '0');
-
-  return `${hex.slice(0, 8)}-${hex2.slice(0, 4)}-4${hex3.slice(1, 4)}-${hex4.slice(0, 4)}-${hex5.slice(0, 12)}`;
-}
-
 function evaluateGet(path: string, ctx: EvalContext): ExprResult {
   // Handle collection context variables
   if (path.startsWith("$item")) {
@@ -263,57 +240,29 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
     return ok(ctx.$array);
   }
 
-  // Handle $system paths (special runtime values)
-  if (path.startsWith("$system.")) {
-    const systemPath = path.slice(8); // Remove "$system."
-
-    if (systemPath === "uuid") {
-      // Generate deterministic UUID from intentId + counter
-      const intentId = ctx.intentId ?? "no-intent";
-      const counter = ctx.uuidCounter ?? 0;
-      // Increment counter for next uuid call (mutable on purpose for determinism across calls)
-      if (ctx.uuidCounter !== undefined) {
-        ctx.uuidCounter = counter + 1;
-      }
-      return ok(generateDeterministicUuid(intentId, counter));
-    }
-
-    if (systemPath === "timestamp") {
-      // Return the snapshot's timestamp (set by Host)
-      return ok(new Date(ctx.snapshot.meta.timestamp).toISOString());
-    }
-
-    // Unknown $system path
-    return ok(null);
+  if (path === "$runtime" || path.startsWith("$runtime.")) {
+    return evaluateRuntimeGet(path, ctx);
   }
 
-  // Handle platform namespace reads (for example $host.intentSlots).
-  // Domain state identifiers cannot start with "$", so these paths are never
-  // ambiguous with StateSpec fields.
+  if (path === "$context" || path.startsWith("$context.")) {
+    return evaluateExternalContextGet(path, ctx);
+  }
+
+  // Namespace reads are not part of the public expression language. Core-owned
+  // internals that need namespace bookkeeping use dedicated Flow primitives.
   if (path.startsWith("$")) {
-    const dotIndex = path.indexOf(".");
-    const root = dotIndex === -1 ? path : path.slice(0, dotIndex);
-    const namespace = root.slice(1);
-    const namespaceRoot = ctx.snapshot.namespaces[namespace];
-    if (dotIndex === -1) {
-      return ok(normalizeMissingPathValue(namespaceRoot));
-    }
-    const subPath = path.slice(dotIndex + 1);
-    return ok(normalizeMissingPathValue(getByPath(namespaceRoot, subPath)));
+    return err(createError(
+      "PATH_NOT_FOUND",
+      `Unknown reserved expression path: ${path}`,
+      ctx.currentAction ?? "",
+      ctx.nodePath,
+      ctx.trace.timestamp
+    ));
   }
 
   // Handle meta path (snapshot metadata)
   if (path.startsWith("meta.")) {
     const metaPath = path.slice(5); // Remove "meta."
-
-    if (metaPath === "intentId") {
-      return ok(normalizeMissingPathValue(ctx.intentId));
-    }
-
-    if (metaPath === "actionName") {
-      return ok(normalizeMissingPathValue(ctx.currentAction));
-    }
-
     return ok(normalizeMissingPathValue(getByPath(ctx.snapshot.meta, metaPath)));
   }
 
@@ -336,6 +285,119 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
 
   // Default: get from domain state
   return ok(normalizeMissingPathValue(getByPath(ctx.snapshot.state, path)));
+}
+
+function evaluateRuntimeGet(path: string, ctx: EvalContext): ExprResult {
+  if (ctx.phase !== "flow" || !ctx.context) {
+    return err(createError(
+      "PATH_NOT_FOUND",
+      `Runtime path is only available during bound action flow evaluation: ${path}`,
+      ctx.currentAction ?? "",
+      ctx.nodePath,
+      ctx.trace.timestamp
+    ));
+  }
+
+  switch (path) {
+    case "$runtime.intent.id":
+      return ok(normalizeMissingPathValue(ctx.intentId));
+    case "$runtime.intent.action":
+      return ok(normalizeMissingPathValue(ctx.currentAction));
+    case "$runtime.time.timestamp":
+      return ok(ctx.context.runtime.time.timestamp);
+    case "$runtime.time.iso":
+      return ok(timestampToIso(ctx.context.runtime.time.timestamp));
+    case "$runtime.random.seed":
+      return ok(ctx.context.runtime.random.seed);
+    case "$runtime.random.uuid":
+      return ok(deriveRuntimeUuid(ctx));
+    default:
+      return err(createError(
+        "PATH_NOT_FOUND",
+        `Unknown runtime path: ${path}`,
+        ctx.currentAction ?? "",
+        ctx.nodePath,
+        ctx.trace.timestamp
+      ));
+  }
+}
+
+function evaluateExternalContextGet(path: string, ctx: EvalContext): ExprResult {
+  if (ctx.phase !== "flow" || !ctx.context) {
+    return err(createError(
+      "PATH_NOT_FOUND",
+      `Context path is only available during bound action flow evaluation: ${path}`,
+      ctx.currentAction ?? "",
+      ctx.nodePath,
+      ctx.trace.timestamp
+    ));
+  }
+
+  if (!ctx.schema.context) {
+    return err(createError(
+      "PATH_NOT_FOUND",
+      `Schema does not declare user context path: ${path}`,
+      ctx.currentAction ?? "",
+      ctx.nodePath,
+      ctx.trace.timestamp
+    ));
+  }
+
+  if (path === "$context") {
+    return ok(ctx.context.external);
+  }
+
+  const subPath = path.slice("$context.".length);
+  if (!pathExistsInStateSpec(ctx.schema.context, subPath, ctx.schema.types)) {
+    return err(createError(
+      "PATH_NOT_FOUND",
+      `Unknown user context path: ${path}`,
+      ctx.currentAction ?? "",
+      ctx.nodePath,
+      ctx.trace.timestamp
+    ));
+  }
+
+  return ok(normalizeMissingPathValue(getByPath(ctx.context.external, subPath)));
+}
+
+function timestampToIso(timestamp: number): string | null {
+  if (!Number.isFinite(timestamp)) {
+    return null;
+  }
+
+  const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString();
+}
+
+function deriveRuntimeUuid(ctx: EvalContext): string {
+  const ordinal = ctx.runtimeOrdinal ?? 0;
+  ctx.runtimeOrdinal = ordinal + 1;
+
+  const allocationSite = toCanonical({
+    nodePath: ctx.nodePath,
+    collectionStack: ctx.collectionStack ?? [],
+    ordinal,
+  });
+  const seed = toCanonical({
+    runtimeSeed: ctx.context?.runtime.random.seed ?? "",
+    intentId: ctx.intentId ?? "",
+    allocationSite,
+  });
+  const hex = sha256Sync(seed).slice(0, 32).padEnd(32, "0");
+  const variant = ((Number.parseInt(hex[16] ?? "0", 16) & 0x3) | 0x8).toString(16);
+
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    `4${hex.slice(13, 16)}`,
+    `${variant}${hex.slice(17, 20)}`,
+    hex.slice(20, 32),
+  ].join("-");
 }
 
 function normalizeMissingPathValue(value: unknown): unknown {

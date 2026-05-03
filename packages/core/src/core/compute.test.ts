@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { compute as computeRaw, computeSync as computeSyncRaw } from "./compute.js";
-import { apply } from "./apply.js";
+import { apply, applyNamespaceDeltas } from "./apply.js";
 import { applySystemDelta } from "./system-delta.js";
 import { createSnapshot, createIntent } from "../factories.js";
 import { hashSchemaSync } from "../utils/hash.js";
@@ -80,7 +80,13 @@ function createTestSchema(overrides: Partial<DomainSchema> = {}): DomainSchema {
   };
 }
 
-const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
 const pp = (path: string) => semanticPathToPatchPath(path);
 let intentCounter = 0;
 const nextIntentId = () => `intent-${intentCounter++}`;
@@ -99,8 +105,9 @@ function materializeComputeResult(
   snapshot: SnapshotType,
   result: ComputeResult
 ): SnapshotType {
-  const patched = apply(schema, snapshot, result.patches, HOST_CONTEXT);
-  return applySystemDelta(patched, result.systemDelta) as SnapshotType;
+  const patched = apply(schema, snapshot, result.patches);
+  const namespaced = applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+  return applySystemDelta(namespaced, result.systemDelta) as SnapshotType;
 }
 
 const computeSync = (
@@ -228,7 +235,7 @@ describe("compute", () => {
             flow: {
               kind: "patch",
               op: "set", path: pp("value"),
-              value: { kind: "get", path: "meta.intentId" },
+              value: { kind: "get", path: "$runtime.intent.id" },
             },
           },
         },
@@ -920,7 +927,7 @@ describe("compute", () => {
                   {
                     kind: "patch",
                     op: "set", path: pp("pending"),
-                    value: { kind: "get", path: "meta.intentId" },
+                    value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
                     kind: "effect",
@@ -990,7 +997,7 @@ describe("compute", () => {
                   {
                     kind: "patch",
                     op: "set", path: pp("pending"),
-                    value: { kind: "get", path: "meta.intentId" },
+                    value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
                     kind: "effect",
@@ -1068,7 +1075,7 @@ describe("compute", () => {
                   {
                     kind: "patch",
                     op: "set", path: pp("pending"),
-                    value: { kind: "get", path: "meta.intentId" },
+                    value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
                     kind: "effect",
@@ -1127,7 +1134,7 @@ describe("compute", () => {
                 {
                   kind: "patch",
                   op: "set", path: pp("pending"),
-                  value: { kind: "get", path: "meta.intentId" },
+                  value: { kind: "get", path: "$runtime.intent.id" },
                 },
                 {
                   kind: "effect",
@@ -1190,7 +1197,7 @@ describe("compute", () => {
             flow: {
               kind: "patch",
               op: "set", path: pp("pending"),
-              value: { kind: "get", path: "meta.intentId" },
+              value: { kind: "get", path: "$runtime.intent.id" },
             },
           },
         },

@@ -243,9 +243,11 @@ export function createGoldenSnapshot(
   schemaHash: string
 ): Snapshot {
   return createSnapshot(data, schemaHash, {
-    now: 0,
-    randomSeed: "golden-seed",
-    durationMs: 0,
+    runtime: {
+      time: { timestamp: 0 },
+      random: { seed: "golden-seed" },
+    },
+    external: {},
   });
 }
 

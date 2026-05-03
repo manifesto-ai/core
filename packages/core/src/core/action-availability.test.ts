@@ -5,7 +5,13 @@ import type { DomainSchema } from "../schema/domain.js";
 import { hashSchemaSync } from "../utils/hash.js";
 import * as computedEvaluator from "../evaluator/computed.js";
 
-const HOST_CONTEXT = { now: 123, randomSeed: "seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 123 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
 
 function createTestSchema(options: { includeInvalid?: boolean } = {}): DomainSchema {
   const schemaWithoutHash: Omit<DomainSchema, "hash"> = {

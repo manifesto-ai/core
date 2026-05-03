@@ -260,14 +260,14 @@ describe("HCTS Fulfillment Tests", () => {
     it("HCTS-FULFILL-002: Requirement is cleared even when effect handler throws", async () => {
       // This test verifies that when an effect handler throws, the requirement
       // is still cleared from pendingRequirements and the error is recorded.
-      // The flow uses state-guard pattern to ensure completion after error.
+      // Core-owned causalGuard prevents re-entry without letting Core read Host diagnostics.
       const schema = createTestSchema({
         actions: {
           failingEffect: {
             flow: {
-              kind: "if",
-              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
-              then: {
+              kind: "causalGuard",
+              guardId: "hcts-fulfill-failing",
+              body: {
                 kind: "effect",
                 type: "failing",
                 params: {},
@@ -307,14 +307,9 @@ describe("HCTS Fulfillment Tests", () => {
         actions: {
           unknownEffect: {
             flow: {
-              kind: "if",
-              cond: { kind: "get", path: "$host.lastError" },
-              then: {
-                kind: "patch",
-                op: "set", path: pp("errorHandled"),
-                value: { kind: "lit", value: true },
-              },
-              else: {
+              kind: "causalGuard",
+              guardId: "hcts-fulfill-unknown",
+              body: {
                 kind: "effect",
                 type: "nonexistent",
                 params: {},

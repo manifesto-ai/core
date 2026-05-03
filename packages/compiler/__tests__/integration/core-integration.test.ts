@@ -22,7 +22,13 @@ function adaptSchema(melSchema: MelDomainSchema): CoreDomainSchema {
   return melSchema as unknown as CoreDomainSchema;
 }
 
-const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
 let intentCounter = 0;
 const nextIntentId = () => `intent-${intentCounter++}`;
 const createTestIntent = (type: string, input?: unknown) =>
@@ -48,11 +54,10 @@ function applyComputeResult(
   snapshot: Snapshot,
   result: ComputeResult
 ): Snapshot {
-  const patchedSnapshot = core.apply(schema, snapshot, result.patches, HOST_CONTEXT);
+  const patchedSnapshot = core.apply(schema, snapshot, result.patches);
   const namespacedSnapshot = core.applyNamespaceDeltas(
     patchedSnapshot,
-    result.namespaceDelta ?? [],
-    HOST_CONTEXT
+    result.namespaceDelta ?? []
   );
   return core.applySystemDelta(namespacedSnapshot, result.systemDelta);
 }
@@ -294,7 +299,7 @@ describe("Core Integration", () => {
       const core = createCore();
 
       // First call should increment
-      // Note: Core exposes intentId via meta for once() guards
+      // Core exposes intent identity via the runtime context for once() guards.
       const snapshot1 = createTestSnapshot({ count: 0, lastIntent: "" }, schema.hash);
       const intent1 = createIntent("increment", "intent-1");
       const result1 = await computeWithContext(core, schema, snapshot1, intent1);
@@ -311,7 +316,7 @@ describe("Core Integration", () => {
       expect((result3.snapshot.state as { count: number }).count).toBe(2);
     });
 
-    it("handles onceIntent through namespaceDelta materialization", async () => {
+    it("handles onceIntent through Core causalGuard materialization", async () => {
       const result = compile(`
         domain Counter {
           state { count: number = 0 }
@@ -336,11 +341,11 @@ describe("Core Integration", () => {
       expect(result1.status).toBe("complete");
       expect(result1.namespaceDelta).toEqual([
         {
-          namespace: "mel",
+          namespace: "core",
           patches: [
             {
               op: "merge",
-              path: semanticPathToPatchPath("guards.intent"),
+              path: semanticPathToPatchPath("causalGuards"),
               value: expect.objectContaining({}),
             },
           ],
@@ -352,7 +357,7 @@ describe("Core Integration", () => {
         expect(Object.values(firstNamespacePatch.value)).toEqual(["intent-1"]);
       }
       expect((result1.snapshot.state as { count: number }).count).toBe(1);
-      expect(Object.values(result1.snapshot.namespaces.mel?.guards.intent ?? {})).toContain("intent-1");
+      expect(Object.values((result1.snapshot.namespaces.core as { causalGuards?: Record<string, string> })?.causalGuards ?? {})).toContain("intent-1");
 
       const result2 = await computeWithContext(core, schema, result1.snapshot, intent1);
       expect(result2.status).toBe("complete");
@@ -368,7 +373,7 @@ describe("Core Integration", () => {
         expect(Object.values(thirdNamespacePatch.value)).toEqual(["intent-2"]);
       }
       expect((result3.snapshot.state as { count: number }).count).toBe(2);
-      expect(Object.values(result3.snapshot.namespaces.mel?.guards.intent ?? {})).toContain("intent-2");
+      expect(Object.values((result3.snapshot.namespaces.core as { causalGuards?: Record<string, string> })?.causalGuards ?? {})).toContain("intent-2");
     });
 
     it("handles multiple patches in sequence", async () => {

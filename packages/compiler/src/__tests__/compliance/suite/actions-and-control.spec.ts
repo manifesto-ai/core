@@ -78,15 +78,11 @@ describe("CCTS Actions and Control Suite", () => {
       flow.cond.left?.kind === "get" &&
       flow.cond.left.path === "marker" &&
       flow.cond.right?.kind === "get" &&
-      flow.cond.right.path === "meta.intentId" &&
+      flow.cond.right.path === "$runtime.intent.id" &&
       firstStep?.kind === "patch" &&
       firstStep.op === "set" &&
       JSON.stringify(firstStep.path) === JSON.stringify(semanticPathToPatchPath("marker"));
-    const mayMergeEquivalent =
-      semanticMarkerSatisfied ||
-      (firstStep?.kind === "patch" &&
-        firstStep.op === "merge" &&
-        JSON.stringify(firstStep.path) === JSON.stringify(semanticPathToPatchPath("$mel.guards.intent")));
+    const mayMergeEquivalent = semanticMarkerSatisfied;
 
     expectAllCompliance([
       evaluateRule(getRuleOrThrow("A10"), semanticMarkerSatisfied, {
@@ -107,7 +103,7 @@ describe("CCTS Actions and Control Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.ACTIONS_ONCE_INTENT_DESUGARING, "(COMPILER-MEL-1) onceIntent lowers to MEL namespace guard merges"), () => {
+  it(caseTitle(CCTS_CASES.ACTIONS_ONCE_INTENT_DESUGARING, "(COMPILER-MEL-1) onceIntent lowers to Core intent guards"), () => {
     const result = adapter.compile(`
       domain Demo {
         state { count: number = 0 }
@@ -119,26 +115,19 @@ describe("CCTS Actions and Control Suite", () => {
       }
     `);
 
-    const flow = result.value?.actions["inc"]?.flow as
-      | { kind?: string; then?: CoreFlowNode }
-      | undefined;
-    const thenSeq = flow?.then && flow.then.kind === "seq"
-      ? flow.then
-      : null;
-    const firstStep = thenSeq?.steps[0];
+    const flow = result.value?.actions["inc"]?.flow as CoreFlowNode | undefined;
     const satisfied =
       result.success &&
-      flow?.kind === "if" &&
-      firstStep?.kind === "namespacePatch" &&
-      firstStep.namespace === "mel" &&
-      firstStep.op === "merge" &&
-      JSON.stringify(firstStep.path) === JSON.stringify(semanticPathToPatchPath("guards.intent"));
+      flow?.kind === "causalGuard" &&
+      typeof flow.guardId === "string" &&
+      flow.guardId.length > 0 &&
+      flow.body.kind === "seq";
 
     expectAllCompliance([
       evaluateRule(getRuleOrThrow("COMPILER-MEL-1"), satisfied, {
-        passMessage: "onceIntent lowers to a MEL namespace guard merge at guards.intent.",
-        failMessage: "onceIntent no longer lowers to the expected MEL namespace guard merge.",
-        evidence: [noteEvidence("Observed first step", firstStep)],
+        passMessage: "onceIntent lowers to a Core-owned generic intent guard.",
+        failMessage: "onceIntent no longer lowers to the expected Core intent guard.",
+        evidence: [noteEvidence("Observed flow", flow)],
       }),
     ]);
   });
