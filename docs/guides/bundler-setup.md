@@ -144,7 +144,7 @@ export default defineConfig({
 });
 ```
 
-`createCompilerCodegen()` can be called with no options. In that default mode it uses `createDomainPlugin()` and writes a canonical `<source>.mel.ts` facade. For example, compiling `src/domain/counter.mel` emits `src/domain/counter.mel.ts`.
+`createCompilerCodegen()` can be called with no options. In that default mode it uses `createDomainPlugin()` and writes a canonical `<source>.domain.ts` facade. For example, compiling `src/domain/counter.mel` emits `src/domain/counter.domain.ts`.
 
 You can still customize the pipeline:
 

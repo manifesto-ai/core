@@ -19,7 +19,7 @@ console.log(snapshot.system.lastError);
 ```typescript
 const result = await app.actions.increment.submit();
 
-if (result.ok) {
+if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.count);
 }
 ```

@@ -97,11 +97,12 @@ Current contract highlights:
 - `apply(schema, snapshot, patches)` applies domain patches rooted at `snapshot.state`.
 - Namespace transitions are separate from domain patches and are rooted at `snapshot.namespaces[namespace]`; Core validates structural safety only.
 - Core does not expose general `$namespace.*` expression reads and does not know Host or MEL namespace names/shapes.
-- Core canonical APIs do not expose `HostContext`, `CoreIntent.frame`, runtime providers, callbacks, or owner-specific context shapes.
+- Core canonical APIs do not expose Host-owned context types, intent frame fields, runtime providers, callbacks, or owner-specific context shapes.
 - Compiler `onceIntent` lowers to Core's generic `causalGuard` primitive.
 - `$runtime.*` reads built-in runtime facts from `intent` and `context.runtime`; `$context.*` reads schema-declared values from `context.external`.
 - `$runtime.*` and `$context.*` are illegal in state initializers, computed values, `available when`, and `dispatchable when`.
 - `$meta.*`, `$system.*`, and `$mel.sys` runtime-value lowering are retired from the current v5 contract.
+- SDK runtime view selection is separate from action triggering: initial context, `injectContext()`, `updateContext()`, and `with(view)` select external context and projection settings before action selection; `preview()` and `submit()` capture that selected view and do not accept SDK option bags.
 - `available` remains the coarse action-family gate.
 - `isIntentDispatchable(schema, snapshot, intent)` is the fine bound-intent legality query.
 - `FieldSpec` remains the compatibility and coarse-introspection seam.
@@ -144,7 +145,8 @@ Current contract highlights:
 - `ActionHandle.check(input)` returns first-failing admission state.
 - `ActionHandle.preview(input)` is the non-committing dry-run surface.
 - `ActionHandle.submit(input)` submits the candidate to the active runtime law boundary.
-- `preview(input, { context })` and `submit(input, { context })` accept direct-injected JSON user context that SDK maps to Core `Context.external`.
+- Execution view settings such as `context`, `report`, and `diagnostics` are selected through `createManifesto(..., { context })`, `injectContext()`, `updateContext()`, or `with(view)` before `preview()` or `submit()`.
+- `preview()` and `submit()` do not accept SDK option bags or inline context overrides.
 - `ActionHandle.bind(input)` creates a reusable bound candidate with nullable `intent()`.
 - `observe.state()` and `observe.event()` separate projected state observation from runtime telemetry.
 - `inspect.graph()`, `inspect.action()`, `inspect.availableActions()`, `inspect.schemaHash()`, and `inspect.canonicalSnapshot()` are the advanced/tooling reads.
@@ -233,7 +235,7 @@ Current contract highlights:
 - Codegen consumes `DomainSchema` and emits generated files; it does not run the runtime.
 - The canonical domain plugin emits `<domain>.domain.ts` facade types with `state`, `computed`, and `actions`.
 - Generated domain state models `snapshot.state`; generated facades MUST NOT reintroduce `snapshot.data`.
-- Generated facades MUST keep platform/runtime/tooling bookkeeping out of domain state by default; those fields belong under `snapshot.namespaces`.
+- Generated facades MUST keep platform/tooling bookkeeping and runtime expression facts out of domain state by default; owner bookkeeping belongs under `snapshot.namespaces`, while ADR-027 runtime facts come from `Context`.
 - `state.fieldTypes`, `action.inputType`, and `action.params` are the preferred current typing seams when present.
 - `state.fields` and `action.input` remain compatibility fallbacks.
 - SDK v5 facade types align with `ManifestoDomainShape`, `ActionHandle`, `ActionInput`, `ActionArgs`, `actions.*`, and collision-safe `action(name)`.

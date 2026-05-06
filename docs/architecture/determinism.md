@@ -5,7 +5,11 @@
 
 ---
 
-> **Current Contract Note:** This page describes the canonical Snapshot model at the Core/Host boundary. SDK applications usually read a projected Snapshot via `snapshot()`, while the full substrate remains canonical underneath. Accumulated `system.errors` is no longer part of the current Snapshot contract.
+> **Current Contract Note:** This page describes the canonical v5 Snapshot and
+> ADR-027 Context model at the Core/Host boundary. SDK applications usually
+> read a projected Snapshot via `snapshot()`, while the full substrate remains
+> canonical underneath. Accumulated `system.errors` is no longer part of the
+> current Snapshot contract.
 
 ## What Is Determinism?
 
@@ -48,14 +52,14 @@ This separation enables:
 
 | Guarantee | Enabled By Determinism |
 |-----------|----------------------|
-| **Testability** | No mocking needed; just provide snapshot and intent |
+| **Testability** | No mocking needed; just provide snapshot, intent, and context |
 | **Explainability** | Every step can be traced without IO interference |
 | **Portability** | Core can run anywhere (browser, server, edge, WASM) |
 | **Reproducibility** | Replay any computation by providing the same inputs |
 | **Time-travel debugging** | Step backward/forward through state without re-executing effects |
-| **Crash recovery** | Re-run computation from last snapshot—no lost context |
+| **Crash recovery** | Re-run computation from last snapshot plus the recorded or re-supplied context |
 
-These guarantees hold regardless of whether you run through the direct-dispatch SDK path or a Governance-decorated runtime with Lineage sealing. The runtime wrapper changes; the deterministic compute contract does not.
+These guarantees hold regardless of whether you run through the action-candidate SDK path or a Governance-decorated runtime with Lineage sealing. The runtime wrapper changes; the deterministic compute contract does not.
 
 ---
 
@@ -65,14 +69,15 @@ These guarantees hold regardless of whether you run through the direct-dispatch 
 
 The first pillar of determinism is eliminating all hidden state:
 
-> **At the Core/Host boundary, if it's not in Snapshot, it doesn't exist.**
+> **Snapshot carries Manifesto state; Context carries the captured external
+> environment for one computation. Hidden channels do not exist.**
 
 Traditional systems pass values in multiple ways:
 - Function return values
 - Callbacks
 - Events
 - Shared mutable state
-- Context objects
+- Live context objects
 - Continuation parameters
 
 This multiplicity creates:
@@ -85,15 +90,15 @@ This multiplicity creates:
 **Single communication medium** means:
 
 1. **Complete State**: the canonical Snapshot contains everything needed to understand current state
-2. **No Hidden State**: nothing exists outside the canonical substrate
-3. **Reproducibility**: same Snapshot + same Intent = same result
+2. **No Hidden State**: captured external environment is explicit `Context`, not an implicit channel
+3. **Reproducibility**: same Snapshot + same Intent + same Context = same result
 4. **Debuggability**: inspect Snapshot at any point to understand everything
 
 #### Canonical Snapshot Structure
 
 ```typescript
 type Snapshot = {
-  data: Record<string, unknown>;      // Domain state
+  state: Record<string, unknown>;     // Domain state
   computed: Record<string, unknown>;  // Derived values (recalculated, never stored)
   system: {
     status: 'idle' | 'computing' | 'pending' | 'error';
@@ -108,6 +113,10 @@ type Snapshot = {
     randomSeed: string;               // Host-provided deterministic seed
     schemaHash: string;               // Schema hash this snapshot conforms to
   };
+  namespaces: {
+    host?: Record<string, unknown>;   // Host-owned operational bookkeeping
+    [namespace: string]: unknown;
+  };
 };
 ```
 
@@ -116,6 +125,7 @@ type Snapshot = {
 - All state changes happen via Patches
 - Computed values are recalculated, never stored
 - There is no channel for value passing outside Snapshot
+- External runtime facts used by Core are supplied as explicit `Context`
 
 At the SDK boundary, `snapshot()` intentionally projects this canonical structure into a smaller application-facing read model.
 
@@ -298,7 +308,10 @@ When you use Manifesto, you get these guarantees:
 ```typescript
 // No mocks needed
 test('computes transition', () => {
-  const context = { now: 0, randomSeed: "seed" };
+  const context = {
+    runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+    external: {},
+  };
   const result = await core.compute(schema, snapshot, intent, context);
   expect(result.snapshot.state.count).toBe(1);
 });
@@ -316,7 +329,10 @@ Because computation is pure and traceable:
 
 ```typescript
 // Trace shows the complete computation
-const context = { now: 0, randomSeed: "seed" };
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 const result = await core.compute(schema, snapshot, intent, context);
 console.log(result.trace);
 // Every step, every input, every output
@@ -379,7 +395,7 @@ Determinism requires strict boundaries:
 
 | Direction | Allowed | Forbidden |
 |-----------|---------|-----------|
-| Host → Core | DomainSchema, Snapshot, Intent, HostContext | Side effects, async operations |
+| Host → Core | DomainSchema, Snapshot, Intent, Context | Side effects, async operations |
 | Core → Host | ComputeResult (snapshot, requirements, trace) | Direct IO, network calls |
 
 **Contract rules:**
@@ -454,17 +470,19 @@ For very deep Flows (100+ nodes) or high-frequency updates (1000+/sec):
 
 ### Q: How do you handle time-dependent logic?
 
-**A:** In the canonical Core/Host contract, time comes from `snapshot.meta`, not the environment.
+**A:** In the canonical ADR-027 contract, time comes from `context.runtime.time.timestamp`, not the ambient environment.
 
 ```typescript
 // Wrong: Non-deterministic
 const now = Date.now();
 
 // Right: Deterministic
-const now = snapshot.meta.timestamp;
+const now = context.runtime.time.timestamp;
 ```
 
-Host provides time through HostContext and writes the deterministic result into canonical snapshot metadata. Core reads it from Snapshot. At the SDK boundary, projected `snapshot()` intentionally hides this field; use `inspect.canonicalSnapshot()` when you need it.
+Host/SDK materializes the full `Context` before Core runs. MEL and expression
+surfaces read this through `$runtime.time.timestamp`; Core never calls
+`Date.now()`.
 
 ### Q: Can effects have side effects?
 
@@ -476,17 +494,19 @@ But Core's computation remains pure.
 
 ### Q: What about randomness?
 
-**A:** In the canonical Core/Host contract, randomness comes from `snapshot.meta`, not `Math.random()`.
+**A:** In the canonical ADR-027 contract, deterministic randomness comes from `context.runtime.random.seed`, not `Math.random()`.
 
 ```typescript
 // Wrong: Non-deterministic
 const id = Math.random().toString();
 
 // Right: Deterministic
-const id = snapshot.meta.randomSeed;
+const id = context.runtime.random.seed;
 ```
 
-Host provides randomness via HostContext and writes the deterministic seed into canonical snapshot metadata. Core uses it deterministically. Projected SDK snapshots do not expose this field by default.
+Host/SDK materializes the seed once per transition attempt. MEL and expression
+surfaces read deterministic UUIDs through `$runtime.random.uuid`; Core derives
+values from the captured seed and traceable allocation site.
 
 ---
 

@@ -65,6 +65,26 @@ const globalForbiddenPatterns = [
     pattern: /\bsnapshot\.data\b/g,
   },
   {
+    label: "retired HostContext boundary type",
+    pattern: /\bHostContext\b/g,
+  },
+  {
+    label: "retired three-input compute equation",
+    pattern: /\bcompute(?:Sync)?\(\s*schema\s*,\s*snapshot\s*,\s*intent\s*\)/g,
+  },
+  {
+    label: "retired $meta runtime namespace",
+    pattern: /\$meta\./g,
+  },
+  {
+    label: "retired $system runtime namespace",
+    pattern: /\$system\./g,
+  },
+  {
+    label: "retired $mel.sys runtime namespace",
+    pattern: /\$mel\.sys\b/g,
+  },
+  {
     label: "retired SDK root getSnapshot read",
     pattern: /\b(?:app|instance|lineage|governed)\.getSnapshot\(/g,
   },
@@ -112,6 +132,11 @@ const filePatternExclusions = new Map([
       "retired SDK root dispatchAsync call",
       "retired lineage root commitAsync call",
       "retired governance root proposeAsync call",
+      "retired HostContext boundary type",
+      "retired three-input compute equation",
+      "retired $meta runtime namespace",
+      "retired $system runtime namespace",
+      "retired $mel.sys runtime namespace",
     ]),
   ],
   [
@@ -124,6 +149,11 @@ const filePatternExclusions = new Map([
       "retired SDK root dispatchAsync call",
       "retired lineage root commitAsync call",
       "retired governance root proposeAsync call",
+      "retired HostContext boundary type",
+      "retired three-input compute equation",
+      "retired $meta runtime namespace",
+      "retired $system runtime namespace",
+      "retired $mel.sys runtime namespace",
     ]),
   ],
 ]);

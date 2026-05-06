@@ -92,7 +92,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 |--------|------------|
 | **Role** | Execute requirements, apply patches/system delta, drive compute to terminal state |
 | **Primary API** | `createHost()`, `dispatch()`, effect registration |
-| **Owns** | Mailbox/job model, effect execution, deterministic host context |
+| **Owns** | Mailbox/job model, effect execution, ADR-027 context materialization |
 | **Does NOT Know** | Proposal legitimacy, authority policy, branch/head history |
 
 ### SDK

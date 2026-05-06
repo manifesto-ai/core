@@ -17,6 +17,7 @@ Use this guide when you are building a tool that reads Manifesto runtime state, 
 | Current-snapshot dry-run | `actions.x.preview(...)` | [Runtime Instance](/api/runtime), [SDK API](/api/sdk) |
 | Arbitrary-snapshot read-only analysis | `@manifesto-ai/sdk/extensions` | [SDK API](/api/sdk) |
 | Sealed world inspection | `getWorldSnapshot(worldId)` | [Lineage API](/api/lineage) |
+| Replay input inspection | `computeEnvelope.intent + computeEnvelope.context` on Lineage attempts or Governance proposals | [Lineage API](/api/lineage), [Governance API](/api/governance) |
 | Visible runtime resume | `restore(worldId)` | [Lineage API](/api/lineage) |
 
 ## Action-Candidate Tooling Loop
@@ -40,13 +41,14 @@ if (preview.admitted) {
 
 `preview()` is the action-candidate dry-run path. Use `bind(...input)` when your tool wants to reuse the same candidate across checks and submit.
 
-The legality order is stable:
+The admission order is stable:
 
 1. availability
 2. input validation
 3. dispatchability
-4. admitted dry-run
-5. execution or proposal submission
+
+After admission, `preview()` performs a non-mutating dry-run and `submit()`
+enters the active runtime law boundary.
 
 Unavailable actions reject dry-run with `ACTION_UNAVAILABLE`. Available actions with invalid input reject with `INVALID_INPUT` before dispatchability. Available actions with valid input but a failing fine gate reject with `INTENT_NOT_DISPATCHABLE`.
 
@@ -96,6 +98,13 @@ if (sealed) {
 ```
 
 Use `getWorldSnapshot(worldId)` for read-only historical inspection. Use `restore(worldId)` only when the product is intentionally resuming the visible runtime from that world. Normal tools should not call provider mutation helpers such as visible-snapshot setters.
+
+For deterministic replay, pair the sealed base snapshot with the recorded
+`computeEnvelope.intent` and full `computeEnvelope.context`. The context is
+attempt/proposal metadata, not World identity: it includes both `runtime` and
+`external` partitions and does not enter `snapshotHash` or `worldId`.
+Application users normally never build this envelope manually; replay and audit
+tools read it from Lineage attempts or Governance proposals.
 
 ## Studio Boundaries
 

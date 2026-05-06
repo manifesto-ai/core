@@ -178,6 +178,9 @@ _Source: `packages/compiler/src/index.ts`_
 - `ComputedNode`
 - `ComputedSpec`
 - `ConditionalPatchOp`
+- `ContextFieldNode`
+- `ContextNode`
+- `ContextSpec`
 - `CoreExprNode`
 - `CoreFlowNode`
 - `Diagnostic`
@@ -447,6 +450,7 @@ _Source: `packages/core/src/index.ts`_
 - `buildDependencyGraph`
 - `CallFlow`
 - `canonicalEqual`
+- `CausalGuardFlow`
 - `CeilExpr`
 - `CoalesceExpr`
 - `compareUnicodeCodePoints`
@@ -457,6 +461,8 @@ _Source: `packages/core/src/index.ts`_
 - `ComputeStatus`
 - `computeSync`
 - `ConcatExpr`
+- `Context`
+- `ContextSpec`
 - `CoreErrorCode`
 - `createContext`
 - `createCore`
@@ -520,8 +526,6 @@ _Source: `packages/core/src/index.ts`_
 - `hashSchemaSync`
 - `HasKeyExpr`
 - `hasPath`
-- `HostContext`
-- `HostNamespace`
 - `IfExpr`
 - `IfFlow`
 - `IncludesExpr`
@@ -537,6 +541,7 @@ _Source: `packages/core/src/index.ts`_
 - `isOk`
 - `isSafePatchPath`
 - `joinPath`
+- `JsonValue`
 - `KeysExpr`
 - `LastExpr`
 - `lastSegment`
@@ -547,7 +552,6 @@ _Source: `packages/core/src/index.ts`_
 - `MapExpr`
 - `MaxArrayExpr`
 - `MaxExpr`
-- `MelNamespace`
 - `mergeAtPatchPath`
 - `mergeAtPath`
 - `MergeExpr`
@@ -557,7 +561,6 @@ _Source: `packages/core/src/index.ts`_
 - `ModExpr`
 - `MulExpr`
 - `NamespaceDelta`
-- `NamespacePatchFlow`
 - `NegExpr`
 - `NeqExpr`
 - `NotExpr`
@@ -629,6 +632,7 @@ _Source: `packages/core/src/index.ts`_
 - `unsetByPath`
 - `unsetPatch`
 - `validate`
+- `validateExternalContext`
 - `validateIntentInput`
 - `ValidationError`
 - `ValidationResult`
@@ -647,6 +651,7 @@ _Source: `packages/core/src/index.ts`_
 - `AppendExpr`
 - `AtExpr`
 - `CallFlow`
+- `CausalGuardFlow`
 - `CeilExpr`
 - `CoalesceExpr`
 - `ComputedFieldSpec`
@@ -654,6 +659,8 @@ _Source: `packages/core/src/index.ts`_
 - `ComputeResult`
 - `ComputeStatus`
 - `ConcatExpr`
+- `Context`
+- `ContextSpec`
 - `CoreErrorCode`
 - `DependencyGraph`
 - `DivExpr`
@@ -665,6 +672,7 @@ _Source: `packages/core/src/index.ts`_
 - `EqExpr`
 - `ErrorValue`
 - `EvalContext`
+- `EvalPhase`
 - `EveryExpr`
 - `ExplainResult`
 - `ExprKind`
@@ -691,14 +699,13 @@ _Source: `packages/core/src/index.ts`_
 - `GtExpr`
 - `HaltFlow`
 - `HasKeyExpr`
-- `HostContext`
-- `HostNamespace`
 - `IfExpr`
 - `IfFlow`
 - `IncludesExpr`
 - `IndexOfExpr`
 - `Intent`
 - `IsNullExpr`
+- `JsonValue`
 - `KeysExpr`
 - `LastExpr`
 - `LenExpr`
@@ -709,7 +716,6 @@ _Source: `packages/core/src/index.ts`_
 - `MapExpr`
 - `MaxArrayExpr`
 - `MaxExpr`
-- `MelNamespace`
 - `MergeExpr`
 - `MergePatch`
 - `MinArrayExpr`
@@ -717,7 +723,6 @@ _Source: `packages/core/src/index.ts`_
 - `ModExpr`
 - `MulExpr`
 - `NamespaceDelta`
-- `NamespacePatchFlow`
 - `NegExpr`
 - `NeqExpr`
 - `NotExpr`
@@ -990,6 +995,7 @@ _Source: `packages/host/src/index.ts`_
 - `FulfillEffectJob`
 - `HostContextProvider`
 - `HostContextProviderOptions`
+- `HostDispatchOptions`
 - `HostErrorCode`
 - `HostOptions`
 - `HostOwnedState`
@@ -1026,6 +1032,7 @@ _Source: `packages/lineage/src/index.ts`_
 - `BranchId`
 - `BranchInfo`
 - `BranchSwitchResult`
+- `ComputeEnvelope`
 - `LineageConfig`
 - `LineageContinuitySurface`
 - `LineageInstance`
@@ -1054,6 +1061,7 @@ _Source: `packages/lineage/src/provider.ts`_
 - `BranchId`
 - `BranchInfo`
 - `BranchSwitchResult`
+- `ComputeEnvelope`
 - `LineageDecoration`
 - `LineageRuntimeController`
 - `LineageService`
@@ -1125,6 +1133,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `CompileDiagnostic`
 - `ComposableManifesto`
 - `ComputedRef`
+- `ContextUpdater`
 - `CoreSnapshot`
 - `CreateIntentArgs`
 - `CreateManifestoOptions`
@@ -1133,12 +1142,15 @@ _Source: `packages/sdk/src/index.ts`_
 - `DispatchExecutionOutcome`
 - `DispatchProjectedDiff`
 - `DispatchReport`
+- `DomainExternalContext`
 - `DomainSchema`
 - `EffectContext`
 - `EffectHandler`
 - `ExecutionDiagnostics`
 - `ExecutionFailureInfo`
 - `ExecutionOutcome`
+- `ExecutionView`
+- `ExternalContext`
 - `FieldRef`
 - `GovernanceLaws`
 - `GovernanceSettlementResult`
@@ -1150,6 +1162,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `IntentAdmissionFailure`
 - `IntentExplanation`
 - `InvalidInputInfo`
+- `JsonValue`
 - `LineageComposableLaws`
 - `LineageLaws`
 - `LineageSubmissionResult`
@@ -1166,7 +1179,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `ManifestoLegalityRuntime`
 - `ManifestoRuntimeByLaws`
 - `Patch`
-- `PreviewOptions`
+- `PreviewDiagnosticsMode`
 - `PreviewResult`
 - `ProjectedDiff`
 - `ProjectedSnapshot`
@@ -1185,7 +1198,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `SimulationDiagnostics`
 - `Snapshot`
 - `SubmissionResult`
-- `SubmitOptions`
+- `SubmitReportMode`
 - `SubmitResultFor`
 - `TypedActionMetadata`
 - `TypedActionRef`

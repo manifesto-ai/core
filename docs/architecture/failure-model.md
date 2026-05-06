@@ -5,7 +5,7 @@
 
 ---
 
-> **Current Contract Note:** This page reflects the current Core v4.2.0 error model. `lastError` remains the sole current error surface; accumulated `system.errors` and `SystemDelta.appendErrors` are removed.
+> **Current Contract Note:** This page reflects the current Core v5 error model. `lastError` remains the sole current error surface; accumulated `system.errors` and `SystemDelta.appendErrors` are removed.
 
 ## The Core Principle
 
@@ -549,7 +549,10 @@ return [
 
 ```typescript
 try {
-  const context = { now: 0, randomSeed: "seed" };
+  const context = {
+    runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+    external: {},
+  };
   const result = await core.compute(schema, snapshot, intent, context);
   // ...
 } catch (error) {
@@ -561,7 +564,7 @@ try {
       code: 'SYSTEM_ERROR',
       message: error.message,
       source: { actionId: '', nodePath: '' },
-      timestamp: context.now
+      timestamp: context.runtime.time.timestamp
     },
     status: 'error'
   });
@@ -600,7 +603,7 @@ async function processIntentWithRetry(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
-  context: HostContext,
+  context: Context,
   maxRetries = 3
 ): Promise<Snapshot> {
   let current = snapshot;
@@ -620,7 +623,7 @@ async function processIntentWithRetry(
       await sleep(Math.pow(2, attempts) * 1000);  // Exponential backoff
       current = core.apply(schema, result, [
         { op: 'set', path: 'retryAttempt', value: attempts }
-      ], context);
+      ]);
       current = core.applySystemDelta(current, {
         lastError: null,
         status: 'idle'
@@ -714,7 +717,10 @@ async function batchProcess(items: unknown[], context: EffectContext): Promise<P
 ```typescript
 test('fails when title is empty', () => {
   const schema = buildSchema();
-  const context = { now: 0, randomSeed: "seed" };
+  const context = {
+    runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+    external: {},
+  };
   const snapshot = createSnapshot({}, schema.hash, context);
   const intent = {
     type: 'addTodo',
@@ -736,7 +742,10 @@ test('fails when title is empty', () => {
 ```typescript
 test('handles network failure gracefully', async () => {
   const schema = buildSchema();
-  const context = { now: 0, randomSeed: "seed" };
+  const context = {
+    runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+    external: {},
+  };
   let snapshot = createSnapshot({}, schema.hash, context);
 
   // Register failing effect handler

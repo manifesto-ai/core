@@ -25,7 +25,7 @@ domain Counter {
 ```typescript
 const result = await app.actions.add.submit(3);
 
-if (result.ok) {
+if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.count);
 }
 ```

@@ -505,7 +505,7 @@ Core SPEC's `StateSpec` / `FieldSpec` is intentionally simple: its concern is st
 | GEN-11 | MUST | For state facade output, plugins MUST prefer `state.fieldTypes` over `state.fields` when present. |
 | GEN-12 | MUST | `state.fields` MUST remain a compatibility fallback for schemas that do not carry `state.fieldTypes`. |
 | GEN-13 | MUST | When a state field's type cannot be precisely represented, plugins MUST degrade to `unknown` / `z.unknown()` and MUST emit a `Diagnostic` with level `"warn"`. |
-| GEN-14 | MUST | Codegen MUST treat domain state as `snapshot.state`; `$host`, `$mel`, `$system`, and other platform/runtime/tooling bookkeeping MUST NOT be generated as domain state facade fields unless explicitly requested for migration diagnostics. |
+| GEN-14 | MUST | Codegen MUST treat domain state as `snapshot.state`; legacy `$host` / `$mel` namespace fields, retired `$system` lexical runtime values, and other platform/runtime/tooling bookkeeping MUST NOT be generated as domain state facade fields unless explicitly requested for migration diagnostics. |
 
 ### 10.4 SDK v5 Domain Facade Output
 
@@ -584,7 +584,7 @@ field order from `inputType` or `input` is structural, not a public tuple order.
 | FAC-3 | MUST | Generated action function signatures MUST derive public parameter order from `action.params` when present and MUST resolve each parameter type by name from the object fields in `action.inputType` or compatibility `action.input`. |
 | FAC-4 | MUST | Generated action input aliases MUST use SDK `ActionInput<TDomain, Name>` or an exactly assignable equivalent. |
 | FAC-5 | MUST | Generated action argument aliases MUST use SDK `ActionArgs<TDomain, Name>` or an exactly assignable equivalent. |
-| FAC-6 | MUST NOT | Codegen MUST NOT infer SDK invocation options structurally. `PreviewOptions` and `SubmitOptions` are recognized only by the SDK via their `__kind` discriminants. |
+| FAC-6 | MUST NOT | Codegen MUST NOT infer SDK execution view settings structurally from action input. Context, diagnostics, and report settings belong to the SDK `with(view)` stage before action selection. |
 | FAC-7 | MUST NOT | If `action.params` is absent, Codegen MUST NOT invent positional call-site parameters from `action.inputType`, `action.input`, or object field ordering. |
 | FAC-12 | MUST | If `action.params` is absent and an action has an object-shaped `inputType` or `input`, the generated public signature MUST use one object input argument. |
 | FAC-13 | MUST | If `action.params` is absent and an action has no input carrier, the generated public signature MUST be zero-argument. |

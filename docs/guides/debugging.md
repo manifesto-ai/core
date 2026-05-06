@@ -51,7 +51,7 @@ const beforeCanonical = app.inspect.canonicalSnapshot();
 const result = await app.actions.fetchUser.submit("123");
 const afterCanonical = app.inspect.canonicalSnapshot();
 
-if (result.ok) {
+if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log("before", before.state);
   console.log("after", result.after.state);
 }
@@ -169,10 +169,12 @@ async function debugSubmit(run: () => ReturnType<typeof app.actions.fetchUser.su
   console.log("snapshot before", app.snapshot().state);
 
   const result = await run();
-  if (result.ok) {
+  if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
     console.log("snapshot after", result.after.state);
-  } else {
+  } else if (!result.ok) {
     console.error("submit blocked", result.admission);
+  } else {
+    console.warn("domain outcome", result.outcome);
   }
 }
 ```

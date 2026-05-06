@@ -174,6 +174,7 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-027 defines `snapshot` as schema-driven existence information and `context` as captured external environment; determinism is over the full four-input tuple.
 - ADR-027 keeps `context` owner-neutral. It supersedes `HostContext` and rejects the interim `CoreIntent.frame` plan as the canonical API.
 - ADR-027 limits user-defined context to schema-declared direct-injected JSON data under `context.external`; user-defined context generators/resolvers/providers remain out of scope.
+- ADR-027 keeps runtime view selection separate from action triggering. SDK context/report/diagnostics flow through `with(view)` or root context APIs before action selection, not through `preview()` or `submit()` option bags.
 - ADR-027 introduces `$runtime.*` as the single built-in Manifesto runtime expression contract over intent/context facts, retiring `$meta.*`, `$system.*`, and `$mel.sys` runtime-value lowering.
 - ADR-027 requires Lineage replay records to include the intent and exact context value used for the transition.
 - ADR-027 preserves `snapshot.namespaces` as owner bookkeeping only; Core MUST NOT know Host/MEL namespace shapes or use owner namespaces as semantic expression inputs.

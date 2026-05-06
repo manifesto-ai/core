@@ -144,7 +144,7 @@ The preferred app-facing path is `app.actions.someAction.submit(...args)` or `ap
 
 ### Mutating the snapshot object
 
-The snapshot is a read model. Dispatch a new intent instead.
+The snapshot is a read model. Submit a new action candidate instead.
 
 ---
 

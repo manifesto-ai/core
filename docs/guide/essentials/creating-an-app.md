@@ -42,7 +42,7 @@ Pass `{}` when the domain does not declare external effects.
 ```typescript
 const result = await app.actions.increment.submit();
 
-if (result.ok) {
+if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.count);
 }
 app.dispose();

@@ -86,10 +86,7 @@ export const todoTools = {
         return unavailable("addTodo");
       }
 
-      const result = await app.actions.addTodo.submit(
-        title,
-        { __kind: "SubmitOptions", report: "none" },
-      );
+      const result = await app.with({ report: "none" }).actions.addTodo.submit(title);
 
       return {
         status: result.ok ? "submitted" as const : "blocked" as const,
@@ -108,10 +105,7 @@ export const todoTools = {
         return unavailable("clearCompleted");
       }
 
-      const result = await app.actions.clearCompleted.submit({
-        __kind: "SubmitOptions",
-        report: "none",
-      });
+      const result = await app.with({ report: "none" }).actions.clearCompleted.submit();
 
       return {
         status: result.ok ? "submitted" as const : "blocked" as const,
@@ -136,10 +130,7 @@ If a tool needs first-party admission data, before/after snapshots, or projected
 diffs in-band, keep the default report detail:
 
 ```typescript
-const result = await app.actions.addTodo.submit(
-  title,
-  { __kind: "SubmitOptions", report: "full" },
-);
+const result = await app.with({ report: "full" }).actions.addTodo.submit(title);
 
 if (!result.ok) {
   return result;
@@ -280,6 +271,12 @@ tools use the same call shape and receive a `ProposalRef`; a reviewer calls
 `approve()` when policy requires it, then observes settlement through
 `pending.waitForSettlement()` or `app.waitForSettlement(ref)`.
 
+For audit or replay tooling around agent actions, do not invent a private
+runtime-value log. Lineage attempts and Governance proposals record the
+submitted `computeEnvelope.intent` plus the full ADR-027
+`computeEnvelope.context`. Use that recorded envelope with the stored sealed
+snapshot when a tool needs deterministic replay evidence.
+
 ---
 
 ## What Manifesto Adds To Agents
@@ -288,6 +285,7 @@ tools use the same call shape and receive a `ProposalRef`; a reviewer calls
 - Tools submit typed action candidates.
 - Tool results return fresh Snapshot context.
 - `withGovernance()` adds review without changing the MEL domain.
+- Lineage/Governance preserve replay inputs for audited agent writes.
 
 ---
 
