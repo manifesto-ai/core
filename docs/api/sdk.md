@@ -29,6 +29,10 @@ through `BoundAction.intent()`. It is not the primary app path.
 - `activate()`
 - activated base runtime:
   - `snapshot()`
+  - `context()`
+  - `injectContext(next)`
+  - `updateContext(updater)`
+  - `with(view)`
   - `actions.<name>`
   - `action(name)`
   - `observe.state(selector, listener)`
@@ -66,16 +70,10 @@ const app = createManifesto<CounterDomain>(domainSchema, {}).activate();
 
 const info = app.actions.increment.info();
 const admission = app.actions.increment.check();
-const preview = app.actions.increment.preview({
-  __kind: "PreviewOptions",
-  diagnostics: "summary",
-});
-const result = await app.actions.increment.submit({
-  __kind: "SubmitOptions",
-  report: "summary",
-});
+const preview = app.with({ diagnostics: "summary" }).actions.increment.preview();
+const result = await app.with({ report: "summary" }).actions.increment.submit();
 
-if (result.ok) {
+if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.count);
 }
 
@@ -161,13 +159,21 @@ if (!admission.ok) {
   console.log(admission.code, admission.blockers);
 }
 
-const preview = candidate.preview({ __kind: "PreviewOptions", diagnostics: "trace" });
+const preview = app
+  .with({ diagnostics: "trace" })
+  .actions.spend
+  .bind({ amount: 20 })
+  .preview();
 if (preview.admitted) {
   console.log(preview.after.state);
   console.log(preview.changes);
 }
 
-const result = await candidate.submit({ __kind: "SubmitOptions", report: "full" });
+const result = await app
+  .with({ report: "full" })
+  .actions.spend
+  .bind({ amount: 20 })
+  .submit();
 ```
 
 Preview is non-mutating. Submit revalidates at the write boundary. Base,

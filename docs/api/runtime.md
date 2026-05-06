@@ -27,7 +27,7 @@ const app = createManifesto(CounterSchema, {}).activate();
 
 const result = await app.actions.increment.submit();
 
-if (result.ok) {
+if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.count);
 }
 
@@ -36,7 +36,7 @@ console.log(app.inspect.availableActions());
 
 Treat `inspect.availableActions()` and `actions.<name>.available()` as current-snapshot reads only. They are not durable capability tokens. The active runtime still revalidates legality when it submits work.
 
-`actions.<name>.preview(...input)` is the admitted dry-run step. It returns the projected next snapshot, dry-run requirements, current action availability changes, sorted `changedPaths`, and may also expose optional inspection-only diagnostics.
+`actions.<name>.preview(...input)` is the non-mutating dry-run step after admission checks. It returns the projected next snapshot, dry-run requirements, current action availability changes, sorted `changedPaths`, and may also expose optional inspection-only diagnostics.
 
 ## Legality Ladder
 
@@ -44,8 +44,8 @@ The intended public decision order is:
 
 1. availability via `actions.<name>.available()`
 2. blocker reads via `actions.<name>.check(...input)`
-3. admitted dry-run via `actions.<name>.preview(...input)`
-4. execution via `actions.<name>.submit(...input)`
+3. dry-run via `actions.<name>.preview(...input)`
+4. law-aware ingress via `actions.<name>.submit(...input)`
 
 `check()` preserves first-failing-layer ordering. `preview()` is non-mutating and does not publish state. `submit()` revalidates at the runtime write boundary.
 

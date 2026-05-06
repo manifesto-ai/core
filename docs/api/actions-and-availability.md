@@ -16,9 +16,16 @@ Each handle supports:
 - `info()` for action metadata
 - `available()` for coarse current availability
 - `check(...input)` for first-failing-layer admission
-- `preview(...input, options?)` for a non-mutating admitted dry run
-- `submit(...input, options?)` for the runtime write path
+- `preview(...input)` for a non-mutating dry run after admission checks
+- `submit(...input)` for law-aware runtime ingress
 - `bind(...input)` for reusable candidates and advanced raw intent access
+
+Execution view settings such as `context`, `report`, and `diagnostics` are
+selected before action handle use:
+
+```typescript
+await app.with({ report: "summary" }).actions.increment.submit();
+```
 
 ## Coarse Availability
 
@@ -76,7 +83,6 @@ Legality order is stable:
 1. action availability
 2. input validation
 3. dispatchability
-4. admitted dry-run
 
 The intended public caller ladder is:
 

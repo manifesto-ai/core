@@ -23,7 +23,7 @@ results include projected `before` and `after` snapshots.
 ```typescript
 const result = await app.actions.toggleTodo.submit("todo-1");
 
-if (result.ok) {
+if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   render(result.after.state.todos);
 }
 ```

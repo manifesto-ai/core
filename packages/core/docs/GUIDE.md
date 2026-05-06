@@ -69,8 +69,11 @@ const schema: DomainSchema = {
   },
 };
 
-// 3. Provide host context (deterministic inputs)
-const context = { now: 0, randomSeed: "seed" };
+// 3. Provide owner-neutral ADR-027 context (deterministic inputs)
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 
 // 4. Create initial snapshot
 const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
@@ -92,7 +95,10 @@ console.log(snapshot.state.count);
 import { createCore, createSnapshot, createIntent } from "@manifesto-ai/core";
 
 const core = createCore();
-const context = { now: 0, randomSeed: "seed" };
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 
 // Create initial snapshot
 const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
@@ -119,7 +125,10 @@ import { createCore, createSnapshot } from "@manifesto-ai/core";
 import type { Patch } from "@manifesto-ai/core";
 
 const core = createCore();
-const context = { now: 0, randomSeed: "seed" };
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
 
 // Define patches
@@ -129,7 +138,7 @@ const patches: Patch[] = [
 ];
 
 // Apply patches
-const newSnapshot = core.apply(schema, snapshot, patches, context);
+const newSnapshot = core.apply(schema, snapshot, patches);
 
 console.log(newSnapshot.state.count); // → 10
 console.log(newSnapshot.state.name);  // → "Alice"
@@ -191,7 +200,10 @@ const schemaWithEffect: DomainSchema = {
   },
 };
 
-const context = { now: 0, randomSeed: "seed" };
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 const snapshot = createSnapshot({ user: null }, schemaWithEffect.hash, context);
 const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
 
@@ -295,7 +307,10 @@ const schema: DomainSchema = {
   },
 };
 
-const context = { now: 0, randomSeed: "seed" };
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 const snapshot = createSnapshot({ items: [] }, schema.hash, context);
 const explanation = core.explain(schema, snapshot, "total");
 
@@ -323,7 +338,10 @@ if (!result.valid) {
 
 ```typescript
 // Wrong: Expecting the API call to happen
-const context = { now: 0, randomSeed: "seed" };
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
 const result = await core.compute(schema, snapshot, intent, context);
 console.log(result.snapshot.state.user); // → undefined (effect not executed!)
@@ -360,7 +378,7 @@ snapshot.state.count = 5;
 // Right: Use patches
 const newSnapshot = core.apply(schema, snapshot, [
   { op: "set", path: [{ kind: "prop", name: "count" }], value: 5 },
-], context);
+]);
 ```
 
 ### Mistake 3: Using Async in Expressions
@@ -455,7 +473,10 @@ describe("Counter domain", () => {
   it("increments count", async () => {
     // Arrange
     const core = createCore();
-    const context = { now: 0, randomSeed: "seed" };
+    const context = {
+      runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+      external: {},
+    };
     const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
 
     // Act
@@ -474,7 +495,10 @@ describe("Counter domain", () => {
   it("handles effects correctly", async () => {
     // Arrange
     const core = createCore();
-    const context = { now: 0, randomSeed: "seed" };
+    const context = {
+      runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+      external: {},
+    };
     const snapshot = createSnapshot({ user: null }, schemaWithEffect.hash, context);
     const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
 
@@ -499,7 +523,7 @@ describe("Counter domain", () => {
 |-----|---------|---------|
 | `createCore()` | Create core instance | `const core = createCore()` |
 | `core.compute()` | Compute state transition | `await core.compute(schema, snapshot, intent, context)` |
-| `core.apply()` | Apply patches | `core.apply(schema, snapshot, patches, context)` |
+| `core.apply()` | Apply patches | `core.apply(schema, snapshot, patches)` |
 | `core.validate()` | Validate schema | `core.validate(schema)` |
 | `core.explain()` | Explain value | `core.explain(schema, snapshot, path)` |
 

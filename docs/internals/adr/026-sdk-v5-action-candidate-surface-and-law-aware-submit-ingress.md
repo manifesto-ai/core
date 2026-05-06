@@ -17,6 +17,7 @@
 >
 > **Related:**
 > - **ADR-025** (Snapshot Ontology Hard Cut — `state` / `namespaces` separation, the substrate layer of v5)
+> - **ADR-027** (Context and Runtime Namespace Semantics — `context` as the fourth compute input and SDK execution view)
 > - ADR-002 (`$mel` namespace, onceIntent, `withPlatformNamespaces`)
 > - ADR-006 (Publish Boundary / Channel Separation)
 > - ADR-014 (World decomposition)
@@ -30,6 +31,24 @@
 > **Non-Goals:** Core compute / apply semantics, Host effect execution, MEL syntax, `available when` / `dispatchable when` semantics, Governance authority policy, Snapshot ontology (covered by ADR-025).
 
 ---
+
+## ADR-027 Surface Update
+
+ADR-027 supersedes ADR-026's early inline preview/submit option-bag examples.
+The canonical action candidate ladder remains the same, but execution-local
+view settings are selected before action handle use:
+
+```ts
+app.with({ context, report: "full", diagnostics: "trace" })
+  .actions.addTodo
+  .bind({ title: "Ship v5" })
+  .submit();
+```
+
+`preview()` and `submit()` do not accept SDK option bags, `__kind`
+discriminants, or inline context overrides. Context belongs to the runtime
+execution view or root context APIs. Report and diagnostics settings are SDK
+projection controls on the same execution view; they are not Core inputs.
 
 ## 1. Context
 
@@ -421,13 +440,11 @@ export type ActionHandle<
   check(...args: ActionArgs<TDomain, Name>): Admission<Name>;
 
   /** Pure non-committing dry-run. */
-  preview(
-    ...args: [...ActionArgs<TDomain, Name>, PreviewOptions?]
-  ): PreviewResult<TDomain, Name>;
+  preview(...args: ActionArgs<TDomain, Name>): PreviewResult<TDomain, Name>;
 
   /** Submit this candidate to the active runtime law boundary. */
   submit(
-    ...args: [...ActionArgs<TDomain, Name>, SubmitOptions?]
+    ...args: ActionArgs<TDomain, Name>
   ): Promise<SubmitResultFor<TMode, TDomain, Name>>;
 
   /** Create a reusable bound candidate. */
@@ -459,8 +476,8 @@ export type BoundAction<
   readonly input: ActionInput<TDomain, Name>;
 
   check(): Admission<Name>;
-  preview(options?: PreviewOptions): PreviewResult<TDomain, Name>;
-  submit(options?: SubmitOptions): Promise<SubmitResultFor<TMode, TDomain, Name>>;
+  preview(): PreviewResult<TDomain, Name>;
+  submit(): Promise<SubmitResultFor<TMode, TDomain, Name>>;
 
   /**
    * Advanced/raw protocol access.

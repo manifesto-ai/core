@@ -60,7 +60,7 @@ const result = await candidate.submit();
 ```typescript
 const result = await app.actions.addTodo.submit("Write API docs");
 
-if (result.ok) {
+if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.todos);
 }
 ```
@@ -68,13 +68,10 @@ if (result.ok) {
 The action result lives in Snapshot. Do not expect a separate business return
 value from the action.
 
-Use submit options when tooling does not need the additive report payload:
+Use an execution view when tooling does not need the additive report payload:
 
 ```typescript
-const result = await app.actions.addTodo.submit(
-  "Write API docs",
-  { __kind: "SubmitOptions", report: "none" },
-);
+const result = await app.with({ report: "none" }).actions.addTodo.submit("Write API docs");
 ```
 
 ## Before Submit
@@ -86,7 +83,11 @@ const admission = candidate.check();
 if (!admission.ok) {
   console.log("not admitted", admission.blockers);
 } else {
-  const preview = candidate.preview({ __kind: "PreviewOptions", diagnostics: "summary" });
+  const preview = app
+    .with({ diagnostics: "summary" })
+    .actions.addTodo
+    .bind("")
+    .preview();
   console.log(preview.admitted ? preview.changes : preview.admission.code);
   await candidate.submit();
 }

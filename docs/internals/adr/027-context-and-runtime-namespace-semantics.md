@@ -164,7 +164,9 @@ The context value is:
 
 Host/SDK may provide default Manifesto-owned materialization for `context.runtime`. Core never imports, instantiates, calls, or names that provider.
 
-`context.external` is the only place for schema-declared user context. SDKs may expose the external partition as a convenient submit/preview option, but the Core context object always keeps Manifesto-owned runtime facts and user-supplied external facts in separate partitions:
+`context.external` is the only place for schema-declared user context. SDKs expose that external partition through runtime context APIs such as initial context, `injectContext()`, `updateContext()`, or an execution view created by `with({ context })`. Action-trigger APIs such as `preview()` and `submit()` read the already-selected runtime view at call-entry; they do not carry ad-hoc user context overrides.
+
+The Core context object always keeps Manifesto-owned runtime facts and user-supplied external facts in separate partitions:
 
 ```ts
 const coreContext = {
@@ -250,22 +252,72 @@ It may allow expressions such as:
 patch tenantId = $context.tenantId
 ```
 
-but `$context.*` reads only values supplied at the compute/preview/submit boundary. Manifesto v5 does not support user-defined context generators, resolvers, providers, lazy getters, callbacks, promises, or function-valued context fields.
+but `$context.*` reads only values supplied at the compute boundary by the current runtime view. Manifesto v5 does not support user-defined context generators, resolvers, providers, lazy getters, callbacks, promises, or function-valued context fields.
 
 `$context.*` maps to `context.external.*`. It never reads `context.runtime.*`; built-in runtime facts are exposed only through `$runtime.*`.
 
 Allowed:
 
 ```ts
-await app.actions.addTodo.submit(
-  { title: "Ship v5" },
-  {
+const app = createManifesto(schema, effects, {
+  context: {
+    tenantId: "acme",
+    locale: "ko-KR",
+  },
+}).activate();
+
+await app.actions.addTodo.submit({ title: "Ship v5" });
+
+app.injectContext({
+  tenantId: "acme",
+  locale: "en-US",
+});
+
+await app.actions.addTodo.submit({ title: "Ship v5 again" });
+
+const requestApp = app.with({
+  context: {
+    tenantId: "other",
+    locale: "ko-KR",
+  },
+});
+
+await requestApp.actions.addTodo.submit({ title: "Ship v5 for another tenant" });
+
+await app
+  .with({
     context: {
-      tenantId: "acme",
+      tenantId: "other",
       locale: "ko-KR",
     },
-  }
-);
+    report: "full",
+    diagnostics: "trace",
+  })
+  .actions.addTodo
+  .bind({ title: "Ship v5 with a report" })
+  .submit();
+```
+
+The canonical SDK order is:
+
+```ts
+app.with(view).actions.actionName.bind(input).preview();
+app.with(view).actions.actionName.bind(input).submit();
+app.with(view).actions.actionName.preview(input);
+app.with(view).actions.actionName.submit(input);
+```
+
+The `with(view)` descriptor may include context and projection controls:
+
+```ts
+app.with({
+  context: {
+    tenantId: "other",
+    locale: "ko-KR",
+  },
+  report: "full",
+  diagnostics: "trace",
+});
 ```
 
 Forbidden:
@@ -273,24 +325,34 @@ Forbidden:
 ```ts
 let count = 0;
 
+app.injectContext({
+  getId: () => `id-${count++}`,
+});
+
 await app.actions.addTodo.submit(
   { title: "Ship v5" },
-  {
-    context: {
-      getId: () => `id-${count++}`,
-    },
-  }
+  { context: { tenantId: "acme", locale: "ko-KR" } }
+);
+
+await app.actions.addTodo.submit(
+  { title: "Ship v5" },
+  { __kind: "SubmitOptions", report: "full" }
 );
 ```
 
-If user code needs to compute a context value, it must do so before entering Manifesto and pass only the resulting JSON value. Manifesto determinism starts at the materialized context boundary.
+The first forbidden case injects a function-valued context field. The second
+case mixes context selection into the action trigger. The third case uses the
+retired inline option-bag discriminant. If user code needs to compute a context
+value, it must do so before entering Manifesto and pass only the resulting JSON
+value through a context API. Manifesto determinism starts at the materialized
+context boundary.
 
 ### 3.6 Context value lifecycle is explicit and non-reactive
 
 Context is not a parallel mutable state slot. It is the external environment
 value that a runtime captures for a transition attempt.
 
-SDK-facing runtimes MAY expose three public routes for user external context:
+SDK-facing runtimes MAY expose four public routes for user external context:
 
 ```ts
 const app = createManifesto(schema, effects, {
@@ -299,12 +361,11 @@ const app = createManifesto(schema, effects, {
 
 app.injectContext({ tenantId: "acme", locale: "en-US" });
 
-await app.actions.addTodo.submit(
-  { title: "Ship v5" },
-  {
-    context: { tenantId: "other", locale: "ko-KR" },
-  }
-);
+app.updateContext((current) => ({ ...current, locale: "ja-JP" }));
+
+const requestApp = app.with({
+  context: { tenantId: "other", locale: "ko-KR" },
+});
 ```
 
 Those public values are the flat user external context partition. The runtime
@@ -328,22 +389,33 @@ the SDK boundary and must immediately materialize a JSON value. Async callbacks,
 promise returns, providers, getters, and function-valued context fields are
 rejected.
 
+`with(view)` creates an execution view. It does not create a new activated
+runtime, clone the Snapshot, bypass Lineage/Governance, or enter Core. It shares
+the same active runtime law boundary and state substrate, but it can carry an
+independent external context slot for transitions triggered through that view.
+This is the canonical way to express request-local context without writing
+context into `submit()` or `preview()` options.
+
+`with(view)` may also carry SDK projection settings such as `report` for
+`submit()` results and `diagnostics` for `preview()` results. Those settings are
+not Core inputs and do not affect semantic computation.
+
 Changing context does not create an intent, patch, effect, transition, lineage
 event, or automatic recomputation. It only changes the external context value
 that will be captured by the next transition attempt. If an environment change
 should affect the domain world, user code must submit an explicit action after
 injecting the new context.
 
-For `preview()` and `submit()`, context capture happens at call-entry. The
-runtime must clone, validate, freeze, and retain the materialized Core `Context`
-for that transition attempt before any awaited work can observe a later
-`injectContext()` call. Host/Core re-entry caused by effects reuses the same
-captured context. A transition must never span two different external context
-values.
+For `preview()` and `submit()`, context capture happens at call-entry from the
+runtime view on which the action is triggered. The runtime must clone, validate,
+freeze, and retain the materialized Core `Context` for that transition attempt
+before any awaited work can observe a later `injectContext()` call. Host/Core
+re-entry caused by effects reuses the same captured context. A transition must
+never span two different external context values.
 
-`PreviewOptions.context` and `SubmitOptions.context`, when supplied, are
-transition-local full overrides. They do not mutate the runtime's current
-external context and they are not merged with it.
+`PreviewOptions`, `SubmitOptions`, and `__kind` option bags are not part of the
+canonical v5 surface. Diagnostics/report settings belong to `with(view)`;
+context selection also belongs to `with(view)` or the runtime context APIs.
 
 ### 3.7 `$runtime` is not a user-defined effect alias channel
 
@@ -521,19 +593,22 @@ app.injectContext({
   locale: "en-US",
 });
 
-await app.actions.addTodo.submit(
-  { title: "Ship v5" },
-  {
-    context: {
-      tenantId: "acme",
-      locale: "ko-KR",
-    },
-  }
-);
+await app.actions.addTodo.submit({ title: "Ship v5" });
+
+const requestApp = app.with({
+  context: {
+    tenantId: "other",
+    locale: "ko-KR",
+  },
+});
+
+await requestApp.actions.addTodo.submit({ title: "Ship v5 for another tenant" });
 ```
 
-The SDK values above are flat user external context values. The submit option is
-a transition-local full override. The Core compute envelope receives:
+The SDK values above are flat user external context values. The root runtime's
+`injectContext()` value is captured by actions triggered through `app`. The
+`with({ context })` value is captured by actions triggered through `requestApp`
+and does not mutate `app.context()`. The Core compute envelope receives:
 
 ```ts
 const context = {
@@ -588,6 +663,7 @@ Server time is not `$runtime.time.*` because it requires external IO. Host execu
 - User-defined context must be passed as data; v5 intentionally does not provide context generator/resolver extension APIs.
 - Lineage records grow because replayable transition records must include the context used with the intent.
 - Context changes do not automatically trigger transitions; reactive behavior must be expressed by explicit actions.
+- Request-local context requires an execution view such as `with({ context })`, not ad-hoc context on action trigger options.
 
 The last point is intentional. Runtime assembly may capture external environment. Core may only compute from already-materialized data.
 
@@ -626,13 +702,25 @@ The last point is intentional. Runtime assembly may capture external environment
 7. Do not write fresh runtime values into hidden namespace storage for Core to read later.
 8. Do not expose user-defined context generator, resolver, provider, or lazy getter APIs in v5.
 9. Treat injected external context as a full replacement, not a partial merge.
-10. Capture preview/submit context at call-entry and reuse it for the whole transition attempt.
+10. Keep context selection separate from action triggering; do not expose user external context on `preview()` or `submit()` options.
+11. Provide `with(view)` for request-local context and execution projection settings when shared runtimes need concurrent external contexts.
+12. Capture preview/submit context at call-entry from the triggering runtime view and reuse it for the whole transition attempt.
 
 ### 6.4 Lineage and Governance
 
 Lineage and Governance do not gain compute semantics from this ADR.
 
-Lineage MUST record the submitted compute envelope needed for deterministic replay, including at minimum the intent and the exact context value used for the transition. Governance may inspect submitted compute envelopes for audit and legitimacy, but it must not reinterpret `$runtime.*`, execute effects, or compute state transitions.
+Lineage MUST record the submitted compute envelope needed for deterministic
+replay, including at minimum the intent and the exact full Core `Context` value
+used for the transition. This context includes both `runtime` and `external`
+partitions and remains replay metadata; it must not enter Snapshot hash or World
+identity.
+
+Governance proposals MUST carry or durably reference the proposal-time compute
+envelope. Approval and settlement must reuse that envelope instead of
+regenerating context at approval time. Governance may inspect submitted compute
+envelopes for audit and legitimacy, but it must not reinterpret `$runtime.*`,
+execute effects, or compute state transitions.
 
 ## 7. Acceptance Criteria
 
@@ -649,9 +737,10 @@ Lineage MUST record the submitted compute envelope needed for deterministic repl
 | ADR027-CTX-6 | User-defined context is stored under `context.external`; `$context.*` reads only `context.external.*`. |
 | ADR027-CTX-7 | Host re-entry for the same transition attempt reuses the same context. |
 | ADR027-CTX-8 | Injecting external context replaces the current external context for future transitions and does not trigger computation by itself. |
-| ADR027-CTX-9 | Preview/submit context overrides are transition-local full overrides and do not mutate runtime current context. |
-| ADR027-CTX-10 | Runtime context capture happens at preview/submit call-entry before awaited work can observe later context changes. |
+| ADR027-CTX-9 | `preview()` and `submit()` do not accept SDK option bags or user external context overrides in the canonical v5 surface. |
+| ADR027-CTX-10 | Runtime context capture happens at preview/submit call-entry from the triggering runtime view before awaited work can observe later context changes. |
 | ADR027-CTX-11 | Public external context values conform to schema-declared `context {}` shape; absent schema context means only empty external context is valid. |
+| ADR027-CTX-12 | `with({ context })` can provide request-local context without mutating the parent runtime context or creating a new activated runtime. |
 | ADR027-INTENT-1 | Intent does not carry canonical runtime frame/environment fields. |
 | ADR027-RUNTIME-1 | `$runtime.intent.*`, `$runtime.time.*`, and `$runtime.random.*` are the only built-in v5 runtime expression namespaces. |
 | ADR027-RUNTIME-2 | `$meta.*` and `$system.*` are rejected in v5 MEL. |
@@ -662,6 +751,9 @@ Lineage MUST record the submitted compute envelope needed for deterministic repl
 | ADR027-GUARD-1 | `onceIntent` source lowers to owner-neutral `causalGuard` Core IR. |
 | ADR027-EFFECT-1 | Domain-specific external data remains modeled as effects, not as user-defined `$runtime` or `$fetch` aliases. |
 | ADR027-LIN-1 | Lineage records the intent and exact context value used for each replayable transition record. |
+| ADR027-LIN-2 | Lineage stores replay context as attempt metadata and does not include it in Snapshot hash or World identity. |
+| ADR027-GOV-1 | Governance proposals carry or durably reference the proposal-time compute envelope. |
+| ADR027-GOV-2 | Governance approval and settlement reuse the proposal-time context instead of regenerating context. |
 
 ## 8. Implementation Order
 

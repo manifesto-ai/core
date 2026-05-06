@@ -1057,7 +1057,7 @@ type Requirement = {
   /** Position in the flow where effect was encountered */
   readonly flowPosition: FlowPosition;
   
-  /** Timestamp when requirement was created */
+  /** Context runtime timestamp captured for the transition attempt */
   readonly createdAt: number;
 };
 
@@ -1258,7 +1258,7 @@ type TraceNode = {
   /** Child trace nodes */
   readonly children: readonly TraceNode[];
   
-  /** Timestamp */
+  /** Context runtime timestamp captured for this compute call */
   readonly timestamp: number;
 };
 
@@ -1267,7 +1267,7 @@ type TraceNodeKind =
   | 'computed'    // Computed field evaluation
   | 'flow'        // Flow execution
   | 'patch'       // State mutation
-  | 'namespaceRead'  // Compiler-owned namespace read
+  | 'namespaceRead'  // Core-owned primitive bookkeeping read
   | 'namespaceDelta' // Namespace transition
   | 'effect'      // Effect declaration
   | 'branch'      // Conditional branch taken
@@ -1281,10 +1281,14 @@ domain-state trace events.
 
 | Rule ID | Description |
 |---------|-------------|
-| TRACE-NS-1 | Compiler-owned namespace reads MUST be traced with `kind: 'namespaceRead'`. |
+| TRACE-NS-1 | Core-owned primitive bookkeeping reads MUST be traced with `kind: 'namespaceRead'`. |
 | TRACE-NS-2 | Namespace transitions MUST be traced with `kind: 'namespaceDelta'`. |
 | TRACE-NS-3 | Namespace trace nodes MUST identify the owning namespace and the fixed-shape path read or written. |
 | TRACE-NS-4 | Domain `patch` trace nodes MUST NOT be reused to represent namespace transitions. |
+
+Trace timestamps and duration fields are deterministic trace metadata. They
+MUST be derived from explicit inputs such as `context.runtime.time.timestamp` or
+logical trace positions, never from ambient wall-clock measurement.
 
 ### 12.3 Trace Graph
 
@@ -1305,7 +1309,7 @@ type TraceGraph = {
   /** Snapshot version at end */
   readonly resultVersion: number;
   
-  /** Total computation time (ms) */
+  /** Deterministic logical duration; Core MUST NOT measure wall-clock time */
   readonly duration: number;
   
   /** Termination reason */
@@ -1447,7 +1451,7 @@ namespace names or MEL-owned storage shape.
 |---------|-------------|
 | V-001 | All paths in ComputedSpec.deps MUST exist |
 | V-002 | ComputedSpec dependency graph MUST be acyclic |
-| V-003 | User-authored `ExprNode.get` paths MUST resolve to allowed state, computed, input, system, meta, or lexical/runtime variables; owner-specific namespace reads are not valid Core expression semantics |
+| V-003 | User-authored `ExprNode.get` paths MUST resolve to allowed state, computed, input, or lexical/runtime variables; owner-specific namespace, system, and meta reads are not valid Core expression semantics |
 | V-004 | All `call` references in FlowSpec MUST exist |
 | V-005 | FlowSpec `call` graph MUST be acyclic |
 | V-006 | ActionSpec.available expression MUST return boolean |
@@ -1547,7 +1551,7 @@ Core and its dependent packages (Host, Compiler, App) must work in browsers for 
 
 The runtime boundary interface defines how callers interact with Core. Host and
 SDK may assemble context, but Core's canonical input type is owner-neutral
-`Context`, not `HostContext`.
+`Context`, not a host-owned context type.
 
 ### 16.2 Core API
 

@@ -49,11 +49,11 @@ SDK runtime / governed decorators -> HOST -> Core
   - Host-owned state moves to `snapshot.namespaces.host`
   - Snapshot field ownership invariants (INV-SNAP-1~7)
 
-### v2.0.1 New Features
+### v2.0.1 Historical Feature
 
 - **Context Determinism (CTX-1~5)**
-  - `HostContext` frozen at job start — same `now` value throughout job execution
-  - `randomSeed` derived from `intentId` for deterministic randomness
+  - pre-v5 host context was frozen at job start
+  - v5 materializes owner-neutral ADR-027 `Context` once per transition attempt
 
 - **Compiler/Translator Decoupling (FDR-H024)**
   - Host no longer depends on `@manifesto-ai/compiler`
@@ -167,27 +167,28 @@ Four job types for different operations:
 
 ---
 
-## Context Determinism (v2.0.1)
+## Context Determinism
 
-Host guarantees deterministic context per job:
+Host guarantees one materialized ADR-027 `Context` per transition attempt:
 
 ```typescript
-// Context is frozen at job start
-const frozenContext: HostContext = {
-  now: Date.now(),           // Captured ONCE
-  randomSeed: job.intentId,  // Deterministic from intentId
-  env: {},
+// Context is captured once before Core compute.
+const context: Context = {
+  runtime: {
+    time: { timestamp: runtime.now() },
+    random: { seed: intent.intentId },
+  },
+  external: {},
 };
 
-// All Core operations use the same frozen context
-Core.compute(schema, snapshot, intent, frozenContext);
-Core.apply(schema, snapshot, patches, frozenContext);
+// All Core re-entry for the same transition reuses the same context.
+Core.compute(schema, snapshot, intent, context);
 ```
 
 **Benefits:**
 - Same input -> same output (determinism preserved)
 - Trace replay produces identical results
-- `f(snapshot) = snapshot'` philosophy maintained
+- `compute(schema, snapshot, intent, context)` remains replayable
 
 ---
 
@@ -258,9 +259,11 @@ interface Runtime {
   randomSeed(): string;
 }
 
-// Context provider
+// Host-owned context materialization helper.
+// The HostContextProvider name is retained as a package compatibility type;
+// the canonical Core boundary type is owner-neutral Context.
 interface HostContextProvider {
-  createFrozenContext(intentId: string): HostContext;
+  createFrozenContext(intentId: string, external?: Record<string, JsonValue>): Context;
 }
 ```
 

@@ -10,8 +10,8 @@
 
 - Same input -> same output
 - No IO or side effects
-- Host-provided context only (`now`, `randomSeed`)
-- ADR-009 hard cut: structured patch paths + explicit system transition channel
+- Owner-neutral `Context` input for captured runtime/external facts
+- ADR-025/ADR-027 hard cut: structured patch paths, explicit namespace transition channel, explicit `Context`
 
 > **Current Contract Note:** This page describes the current Core v5 surface. Domain patches are rooted at `snapshot.state`; platform/runtime/tooling writes use the namespace transition channel under `snapshot.namespaces`. Accumulated `system.errors` and `SystemDelta.appendErrors` are no longer part of the current contract. `available` remains the coarse action gate; `isIntentDispatchable()` adds the fine bound-intent gate; and `state.fieldTypes` / `action.inputType` are now the normative runtime typing seam when present.
 
@@ -21,8 +21,8 @@
 
 Core computes transitions only.
 
-- Input: `schema + snapshot + intent + hostContext`
-- Output: `patches + systemDelta + trace + status`
+- Input: `schema + snapshot + intent + context`
+- Output: `patches + namespaceDelta + systemDelta + trace + status`
 - System fields are transitioned through `SystemDelta`, not patch paths
 
 ```mermaid
@@ -30,9 +30,10 @@ flowchart LR
   S["DomainSchema"] --> C["compute / computeSync"]
   SN["Snapshot"] --> C
   I["Intent"] --> C
-  HC["HostContext"] --> C
+  CTX["Context"] --> C
 
   C --> P["patches: Patch[]"]
+  C --> NS["namespaceDelta: NamespaceDelta[]"]
   C --> SD["systemDelta: SystemDelta"]
   C --> T["trace"]
   C --> ST["status"]
@@ -58,21 +59,25 @@ interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot,
     intent: Intent,
-    context: HostContext
+    context: Context
   ): Promise<ComputeResult>;
 
   computeSync(
     schema: DomainSchema,
     snapshot: Snapshot,
     intent: Intent,
-    context: HostContext
+    context: Context
   ): ComputeResult;
 
   apply(
     schema: DomainSchema,
     snapshot: Snapshot,
-    patches: readonly Patch[],
-    context: HostContext
+    patches: readonly Patch[]
+  ): Snapshot;
+
+  applyNamespaceDeltas(
+    snapshot: Snapshot,
+    deltas: readonly NamespaceDelta[]
   ): Snapshot;
 
   applySystemDelta(snapshot: Snapshot, delta: SystemDelta): Snapshot;
@@ -144,6 +149,7 @@ type SystemDelta = {
 ```typescript
 interface ComputeResult {
   patches: readonly Patch[];
+  namespaceDelta?: readonly NamespaceDelta[];
   systemDelta: SystemDelta;
   trace: TraceGraph;
   status: "complete" | "pending" | "halted" | "error";
@@ -158,6 +164,31 @@ interface ComputeResult {
 - Domain patch paths are rooted at `snapshot.state`.
 - Namespace transitions are rooted at `snapshot.namespaces[namespace]` and are not domain patches.
 - `system/input/computed/meta` are not patch targets.
+- Hosts apply transition channels in order: domain patches, namespace deltas, then system delta.
+
+## Direct Compute Fixtures
+
+Direct Core callers must provide an explicit ADR-027 `Context`:
+
+```typescript
+const context: Context = {
+  runtime: {
+    time: { timestamp: 1777564800000 },
+    random: { seed: "intent-1" },
+  },
+  external: {},
+};
+
+const result = await core.compute(schema, snapshot, intent, context);
+```
+
+Application code normally uses the SDK runtime instead of calling Core
+directly. SDK users provide only flat external context through
+`createManifesto(..., { context })`, `injectContext()`, `updateContext()`, or
+`with({ context })`; SDK/Host materializes `Context.runtime`.
+
+Additional Core API rules:
+
 - Use `applySystemDelta()` for all system transitions.
 - `patchPathToDisplayString()` is display-only and must not be parsed for execution.
 - `isActionAvailable()` and `getAvailableActions()` are read-only coarse availability queries over the current Snapshot.
@@ -173,7 +204,11 @@ const result = core.computeSync(schema, snapshot, intent, context);
 let next = snapshot;
 
 if (result.patches.length > 0) {
-  next = core.apply(schema, next, result.patches, context);
+  next = core.apply(schema, next, result.patches);
+}
+
+if (result.namespaceDelta?.length) {
+  next = core.applyNamespaceDeltas(next, result.namespaceDelta);
 }
 
 next = core.applySystemDelta(next, result.systemDelta);

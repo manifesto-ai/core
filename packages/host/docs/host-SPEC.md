@@ -1409,7 +1409,7 @@ const context = materializer.materialize(intentId, { locale: "ko-KR" });
 | INV-SNAP-1 | **Host MUST use Core's canonical Snapshot type** |
 | INV-SNAP-2 | **Host MUST NOT redefine Snapshot/SnapshotMeta/SystemState** |
 | INV-SNAP-3 | **Host MUST preserve all Core-owned fields when applying patches** |
-| INV-SNAP-4 | **Host MUST NOT write to Core-owned fields (status, lastError, errors, currentAction)** |
+| INV-SNAP-4 | **Host MUST NOT write to Core-owned fields (status, lastError, currentAction)** |
 | INV-SNAP-5 | **Host reads Core fields but MUST NOT assume field absence** |
 | INV-SNAP-6 | **Host-owned state MUST be stored in `snapshot.namespaces.host`** |
 | INV-SNAP-7 | **Host MUST NOT extend Core's SystemState with custom fields** |

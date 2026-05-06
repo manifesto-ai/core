@@ -98,10 +98,7 @@ needs the public action contract without maintaining a parallel registry.
 ## 4. Preview Outcomes
 
 ```typescript
-const preview = app.actions.increment.preview({
-  __kind: "PreviewOptions",
-  diagnostics: "summary",
-});
+const preview = app.with({ diagnostics: "summary" }).actions.increment.preview();
 
 if (preview.admitted) {
   console.log(preview.after);
@@ -118,15 +115,17 @@ API.
 
 ---
 
-## 5. Use Submit Options When Tooling Needs More Context
+## 5. Use Execution Views When Tooling Needs More Context
 
 ```typescript
-const result = await app.actions.increment.submit({
-  __kind: "SubmitOptions",
+const tenantApp = app.with({
+  context: { tenantId: "acme", locale: "ko-KR" },
   report: "full",
 });
 
-if (result.ok) {
+const result = await tenantApp.actions.increment.submit();
+
+if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state);
   console.log(result.report);
 }
@@ -136,9 +135,18 @@ if (!result.ok) {
 }
 ```
 
-`report: "none"` suppresses the additive report payload. `report: "summary"`
-and `report: "full"` let tooling keep first-party write context in band without
-building custom before/after wrappers.
+`context()` returns the current flat external context. `injectContext(next)`
+and `updateContext(updater)` full-replace it for future transitions without
+triggering computation by themselves. `with({ context })` creates a request-local
+execution view without mutating the source runtime.
+
+`with({ report: "none" })` suppresses the additive report payload.
+`with({ report: "summary" })` and `with({ report: "full" })` let tooling keep
+first-party write context in band without building custom before/after wrappers.
+
+SDK users never pass Core's nested `{ runtime, external }` context envelope.
+The runtime maps public context values to `Context.external` and materializes
+`Context.runtime` at preview/submit call-entry.
 
 For failure observation, keep the surfaces distinct:
 

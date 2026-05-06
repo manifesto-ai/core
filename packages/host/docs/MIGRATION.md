@@ -292,7 +292,7 @@ host.reset(restored);
 
 ### 4.1 Context Determinism
 
-v2.0.1+ guarantees that `HostContext` is frozen at job start:
+v5 materializes one ADR-027 `Context` per transition attempt:
 
 ```typescript
 // All operations in a job see the same timestamp
@@ -302,10 +302,10 @@ v2.0.1+ guarantees that `HostContext` is frozen at job start:
 const ctx1 = getContext();  // now = 1000
 const ctx2 = getContext();  // now = 1005 (different!)
 
-// After (v2.0.1+): Frozen at job start
-const frozenContext = createFrozenContext(intentId);
-// frozenContext.now is captured once
-// frozenContext.randomSeed = intentId (deterministic)
+// After (v5): Context is captured once at the transition boundary
+const computeContext = createFrozenContext(intentId);
+// computeContext.runtime.time.timestamp is captured once
+// computeContext.runtime.random.seed = intentId (deterministic)
 ```
 
 ### 4.2 Snapshot Ownership Alignment (v2.0.2)

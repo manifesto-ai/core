@@ -325,7 +325,8 @@ async function handleStartIntent(job) {
 // ✅ CORRECT: request effect, terminate job
 function handleStartIntent(job) {
   const snapshot = context.getCanonicalHead();
-  const computed = Core.compute(schema, snapshot, job.intent);
+  const computeContext = context.createTransitionContext(job.intent);
+  const computed = Core.compute(schema, snapshot, job.intent, computeContext);
 
   if (computed.pendingRequirements.length > 0) {
     requestEffectExecution(job.intentId, computed.pendingRequirements);
@@ -340,26 +341,26 @@ function handleStartIntent(job) {
 
 ### Why Context Determinism Matters
 
-v2.0.1 guarantees that `HostContext` is frozen at job start:
+Host materializes one ADR-027 `Context` at the transition boundary:
 
 ```typescript
 // ❌ v1.x PROBLEM: Different timestamps within same job
 function handleStartIntent(job) {
-  const ctx1 = getContext();  // now = 1000
+  const ctx1 = getContext();  // timestamp = 1000
   Core.compute(..., ctx1);
 
-  const ctx2 = getContext();  // now = 1005 (different!)
-  Core.apply(..., ctx2);      // Non-deterministic!
+  const ctx2 = getContext();  // timestamp = 1005 (different!)
+  Core.compute(..., ctx2);    // Non-deterministic for the same transition!
 }
 
-// ✅ v2.0.1: Context frozen at job start
+// ✅ v5: Context materialized once per transition attempt
 function handleStartIntent(job) {
-  const frozenContext = createFrozenContext(job.intentId);
-  // frozenContext.now is captured once
-  // frozenContext.randomSeed = job.intentId
+  const computeContext = createFrozenContext(job.intentId);
+  // computeContext.runtime.time.timestamp is captured once
+  // computeContext.runtime.random.seed = job.intentId
 
-  Core.compute(..., frozenContext);
-  Core.apply(..., frozenContext);  // Same context!
+  Core.compute(..., computeContext);
+  Core.compute(..., computeContext);  // Same context on re-entry!
 }
 ```
 
@@ -539,9 +540,9 @@ const host = new ManifestoHost(schema, {
 // { t: "runner:kick", key: "...", timestamp: ... }
 ```
 
-### Custom HostContextProvider
+### Custom Context Provider
 
-For advanced determinism control:
+For advanced Host-owned context materialization control:
 
 ```typescript
 import {
@@ -560,8 +561,12 @@ const contextProvider = createHostContextProvider(runtime, {
 });
 
 // Use contextProvider in custom execution flows
-const frozenContext = contextProvider.createFrozenContext("intent-1");
+const computeContext = contextProvider.createFrozenContext("intent-1");
 ```
+
+The `HostContextProvider` naming is retained as a Host package compatibility
+surface. The canonical Core boundary type is owner-neutral `Context`, and
+current Core calls receive that materialized `Context` directly.
 
 ### Environment Variables
 

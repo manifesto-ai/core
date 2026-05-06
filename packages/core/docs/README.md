@@ -6,14 +6,14 @@
 
 ## What is Core?
 
-Core is responsible for evaluating domain semantics. Given a schema, snapshot, intent, and Host context, it computes the next snapshot and any requirements—but never executes them.
+Core is responsible for evaluating domain semantics. Given a schema, snapshot, intent, and owner-neutral context, it computes the next snapshot and any requirements—but never executes them.
 
 In the Manifesto architecture:
 
 ```
 Host -> CORE -> ComputeResult
            |
-    Computes patches & effects
+    Computes patches & requirements
     (pure, no IO, deterministic)
 ```
 
@@ -38,7 +38,7 @@ Host -> CORE -> ComputeResult
 | Perform IO (network, filesystem) | Host |
 | Persist snapshots | Host |
 | Govern authority/proposals | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
-| Handle UI/event bindings | App |
+| Handle UI/event bindings | SDK |
 
 ---
 
@@ -56,7 +56,7 @@ pnpm add @manifesto-ai/core
 
 ```typescript
 import { createCore, createSnapshot, createIntent } from "@manifesto-ai/core";
-import type { DomainSchema } from "@manifesto-ai/core";
+import type { Context, DomainSchema } from "@manifesto-ai/core";
 
 // Create core instance
 const core = createCore();
@@ -96,8 +96,11 @@ const schema: DomainSchema = {
   },
 };
 
-// Create host context (deterministic inputs)
-const context = { now: 0, randomSeed: "seed" };
+// Create owner-neutral ADR-027 context (deterministic inputs)
+const context: Context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 
 // Create initial snapshot
 const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
@@ -127,20 +130,20 @@ function createCore(): ManifestoCore;
 // Core interface
 interface ManifestoCore {
   compute(schema, snapshot, intent, context): Promise<ComputeResult>;
-  apply(schema, snapshot, patches, context): Snapshot;
+  apply(schema, snapshot, patches): Snapshot;
   validate(schema): ValidationResult;
   explain(schema, snapshot, path): ExplainResult;
 }
 
 // Key types
-type DomainSchema = { id, version, hash, types, state, computed, actions, meta? };
-type Snapshot = { data, computed, system, input, meta };
+type DomainSchema = { id, version, hash, types, state, context?, computed, actions, meta? };
+type Snapshot = { state, computed, system, input, meta, namespaces };
 type Intent = { type, input?, intentId };
 type Patch = { op: "set" | "unset" | "merge", path, value? };
 type ComputeResult = { status, snapshot, requirements, trace };
 ```
 
-> See [SPEC.md](SPEC.md) for complete API reference.
+> See [core-SPEC.md](core-SPEC.md) for the current living specification.
 
 ---
 
@@ -172,7 +175,7 @@ SDK / custom runtime -> Host -> Core
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Used by | `@manifesto-ai/host` | Host calls compute() and apply() |
-| Schema from | App | App supplies DomainSchema |
+| Schema from | SDK | SDK supplies DomainSchema from MEL or direct schema input |
 
 ---
 
@@ -194,8 +197,8 @@ For typical usage, see [`@manifesto-ai/sdk`](../sdk/), [`@manifesto-ai/lineage`]
 | Document | Purpose |
 |----------|---------|
 | [GUIDE.md](GUIDE.md) | Step-by-step usage guide |
-| [SPEC.md](SPEC.md) | Complete specification |
-| [FDR.md](FDR.md) | Design rationale |
+| [core-SPEC.md](core-SPEC.md) | Current living specification |
+| [VERSION-INDEX.md](VERSION-INDEX.md) | Current and historical document map |
 
 ---
 

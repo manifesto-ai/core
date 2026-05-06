@@ -13,9 +13,11 @@
 > **Current Contract Status:** SDK v5 exposes an activation-first
 > `ManifestoApp` organized around the action-candidate ladder:
 > `snapshot() -> actions.* -> check() -> preview() -> submit()`. The canonical
-> root surface is `snapshot()`, `actions`, `action(name)`, `observe`, `inspect`,
-> and `dispose()`. Raw `Intent` construction is an advanced protocol escape
-> hatch reachable through `BoundAction.intent()`, not the primary app path.
+> root surface is `snapshot()`, `context()`, `injectContext()`,
+> `updateContext()`, `with(view)`, `actions`, `action(name)`, `observe`,
+> `inspect`, and `dispose()`. Raw `Intent` construction is an advanced protocol
+> escape hatch reachable through `BoundAction.intent()`, not the primary app
+> path.
 
 ## 1. Purpose
 
@@ -37,15 +39,13 @@ const app = createManifesto<TodoDomain>(schema, effects, {
 app.snapshot();
 app.context();
 app.injectContext({ locale: "en-US" });
+const requestApp = app.with({ context: { locale: "ko-KR" }, report: "full" });
 app.actions.addTodo.info();
 app.actions.addTodo.available();
 app.actions.addTodo.check({ title: "Ship v5" });
 app.actions.addTodo.preview({ title: "Ship v5" });
 await app.actions.addTodo.submit({ title: "Ship v5" });
-await app.actions.addTodo.submit(
-  { title: "Ship v5" },
-  { __kind: "SubmitOptions", context: { locale: "ko-KR" } },
-);
+await requestApp.actions.addTodo.submit({ title: "Ship v5" });
 ```
 
 The SDK does not present `@manifesto-ai/world` as part of its public story.
@@ -71,7 +71,7 @@ Normative rule prefixes:
 | `SDK-ADMISSION-*` | `check()` and first-failing-layer rules |
 | `SDK-PREVIEW-*` | `preview()` dry-run rules |
 | `SDK-SUBMIT-*` | law-aware `submit()` rules |
-| `SDK-CONTEXT-*` | ADR-027 context option and materialization rules |
+| `SDK-CONTEXT-*` | ADR-027 runtime context materialization rules |
 | `SDK-RESULT-*` | result envelope and outcome rules |
 | `SDK-SNAPSHOT-*` | projected/canonical snapshot visibility |
 | `SDK-OBSERVE-*` | state/event observation |
@@ -336,22 +336,9 @@ named object input such as `type ToggleTodoInput = { id: string }` and
 is `{ id }`, while `BoundAction.intent()?.input` is the Core-packed
 `{ input: { id } }`.
 
-### 5.8 Invocation Options, Diffs, and Reports
+### 5.8 Execution View, Diffs, and Reports
 
 ```typescript
-export type PreviewOptions<TContext extends ExternalContext = ExternalContext> = {
-  readonly __kind: "PreviewOptions";
-  readonly diagnostics?: "none" | "summary" | "trace";
-  readonly includeAvailableActions?: boolean;
-  readonly context?: TContext;
-};
-
-export type SubmitOptions<TContext extends ExternalContext = ExternalContext> = {
-  readonly __kind: "SubmitOptions";
-  readonly report?: "none" | "summary" | "full";
-  readonly context?: TContext;
-};
-
 export type JsonValue =
   | null
   | boolean
@@ -370,6 +357,15 @@ export type DomainExternalContext<TDomain extends ManifestoDomainShape> =
 export type ContextUpdater<TContext extends ExternalContext = ExternalContext> = (
   current: Readonly<TContext>,
 ) => TContext;
+
+export type PreviewDiagnosticsMode = "none" | "summary" | "trace";
+export type SubmitReportMode = "none" | "summary" | "full";
+
+export type ExecutionView<TContext extends ExternalContext = ExternalContext> = {
+  readonly context?: TContext;
+  readonly diagnostics?: PreviewDiagnosticsMode;
+  readonly report?: SubmitReportMode;
+};
 
 export type PathSegment = string | number;
 
@@ -393,16 +389,19 @@ export type BaseWriteReport = {
 };
 ```
 
-`PreviewOptions` and `SubmitOptions` use explicit `__kind` discriminants to keep
-SDK option bags distinguishable from domain action input objects.
+`ExecutionView` is the only canonical v5 route for per-transition SDK view
+settings. It is applied before an action is selected:
 
-`context`, when present in preview/submit options, is a transition-local full
-override for the user-supplied external context partition. SDK MUST pass it to
-Core as `Context.external` after materializing Manifesto-owned
-`Context.runtime`. SDK MUST reject functions, promises, providers, lazy getters,
-class instances, symbols, `undefined`, and other non-JSON values in this option.
-The generic `ExternalContext` fallback is used when codegen has not produced a
-schema-specific named context type.
+```typescript
+await app
+  .with({ context: { locale: "ko-KR" }, report: "full" })
+  .actions.addTodo
+  .submit({ title: "Ship v5" });
+```
+
+`context` is mapped to Core `Context.external`. `report` affects submit result
+projection. `diagnostics` affects preview diagnostic projection. `report` and
+`diagnostics` are not Core inputs.
 
 Runtime context values MUST conform to the schema's `context` contract when one
 is declared. If the schema omits `context`, the external context contract is the
@@ -538,6 +537,7 @@ export type BaseManifestoApp<
   updateContext(
     updater: ContextUpdater<DomainExternalContext<TDomain>>,
   ): DomainExternalContext<TDomain>;
+  with(view: ExecutionView<DomainExternalContext<TDomain>>): ManifestoApp<TDomain, TMode>;
 
   action<Name extends ActionName<TDomain>>(
     name: Name,
@@ -573,13 +573,14 @@ collision-safe accessor.
 | SDK-ROOT-1 | MUST | `ManifestoApp` MUST expose exactly the canonical root groups and root methods shown above plus mode-specific extensions. |
 | SDK-ROOT-2 | MUST | `snapshot()` MUST be the only root-level snapshot read in the canonical v5 public surface. |
 | SDK-ROOT-3 | MUST | `action(name)` MUST work for every declared action name, including names that collide with runtime or JavaScript reserved properties. |
-| SDK-ROOT-4 | MUST | User action names MUST NOT corrupt root members such as `then`, `constructor`, `bind`, `inspect`, `snapshot`, `context`, `injectContext`, `updateContext`, `dispose`, or `action`. |
+| SDK-ROOT-4 | MUST | User action names MUST NOT corrupt root members such as `then`, `constructor`, `bind`, `inspect`, `snapshot`, `context`, `injectContext`, `updateContext`, `with`, `dispose`, or `action`. |
 | SDK-ROOT-5 | MUST | Governance `waitForSettlement(ref)` MUST be type-level reachable only on governance-mode runtimes. |
 | SDK-ROOT-6 | MUST | The `ManifestoApp` governance extension conditional MUST use a non-distributive form equivalent to `[TMode] extends ["governance"]`. |
 | SDK-ROOT-7 | MUST NOT | The empty-surface branch MUST NOT use `Record<string, never>`. |
 | SDK-ROOT-8 | MUST | `context()` MUST return the current flat user external context, not Core `Context.runtime` or the nested Core context envelope. |
 | SDK-ROOT-9 | MUST | `injectContext(next)` MUST full-replace the current user external context for future transitions. |
 | SDK-ROOT-10 | MUST | `updateContext(updater)` MUST execute the updater synchronously once, validate the returned JSON value, full-replace the current user external context, and return the materialized replacement. |
+| SDK-ROOT-11 | MUST | `with(view)` MUST return an execution view for triggering transitions with the supplied context/report/diagnostics settings without mutating the source runtime view. |
 
 ## 8. Action Candidate Surface
 
@@ -606,12 +607,8 @@ export type ActionHandle<
   info(): ActionInfo<Name>;
   available(): boolean;
   check(...args: ActionArgs<TDomain, Name>): Admission<Name>;
-  preview(
-    ...args: [...ActionArgs<TDomain, Name>, PreviewOptions<DomainExternalContext<TDomain>>?]
-  ): PreviewResult<TDomain, Name>;
-  submit(
-    ...args: [...ActionArgs<TDomain, Name>, SubmitOptions<DomainExternalContext<TDomain>>?]
-  ): Promise<SubmitResultFor<TMode, TDomain, Name>>;
+  preview(...args: ActionArgs<TDomain, Name>): PreviewResult<TDomain, Name>;
+  submit(...args: ActionArgs<TDomain, Name>): Promise<SubmitResultFor<TMode, TDomain, Name>>;
   bind(...args: ActionArgs<TDomain, Name>): BoundAction<TDomain, Name, TMode>;
 };
 ```
@@ -628,8 +625,8 @@ export type BoundAction<
   readonly input: ActionInput<TDomain, Name>;
 
   check(): Admission<Name>;
-  preview(options?: PreviewOptions<DomainExternalContext<TDomain>>): PreviewResult<TDomain, Name>;
-  submit(options?: SubmitOptions<DomainExternalContext<TDomain>>): Promise<SubmitResultFor<TMode, TDomain, Name>>;
+  preview(): PreviewResult<TDomain, Name>;
+  submit(): Promise<SubmitResultFor<TMode, TDomain, Name>>;
 
   intent(): Intent | null;
 };
@@ -675,42 +672,41 @@ runtime state.
 | SDK-ACTION-5 | MUST NOT | `info()` MUST NOT read hidden execution state or act as an authority decision channel. |
 | SDK-ACTION-6 | MUST | `ActionInfo.annotations` MUST be derived only from resolved action annotations. |
 
-### 8.5 Option Argument Disambiguation
-
-`ActionHandle.preview()` and `ActionHandle.submit()` accept inline options only
-when the call has exactly one more argument than the action's public arity and
-the final argument carries the matching SDK option discriminant:
+### 8.5 Execution View Order
 
 ```typescript
-app.actions.addTodo.preview(
-  { title: "Ship v5" },
-  { __kind: "PreviewOptions", diagnostics: "summary", context: { locale: "ko-KR" } },
-);
+app.with({ diagnostics: "summary" }).actions.addTodo.preview({ title: "Ship v5" });
+await app.with({ report: "full" }).actions.addTodo.submit({ title: "Ship v5" });
 
-await app.actions.addTodo.submit(
-  { title: "Ship v5" },
-  { __kind: "SubmitOptions", report: "summary", context: { locale: "ko-KR" } },
-);
+const candidate = app
+  .with({ context: { locale: "ko-KR" }, report: "full" })
+  .actions.addTodo
+  .bind({ title: "Ship v5" });
+
+candidate.preview();
+await candidate.submit();
 ```
 
-If the final value is part of the action's declared public arity, it MUST be
-treated as domain input even if it structurally resembles an SDK option bag.
+Execution view settings are applied before action selection. `bind()` freezes
+the action payload after the view is selected. `preview()` and `submit()` are
+terminal verbs and do not accept SDK option bags.
 
-`BoundAction.preview(options?)` and `BoundAction.submit(options?)` do not have
-this ambiguity because the action input has already been bound.
-
-| Rule ID | Level | Description |
-|---------|-------|-------------|
-| SDK-ACTION-7 | MUST | Inline `PreviewOptions` MUST be recognized only as an extra final argument with `__kind: "PreviewOptions"`. |
-| SDK-ACTION-8 | MUST | Inline `SubmitOptions` MUST be recognized only as an extra final argument with `__kind: "SubmitOptions"`. |
-| SDK-ACTION-9 | MUST | Values inside the declared action arity MUST be treated as domain input, not SDK options. |
-
-### 8.6 ADR-027 Context Option Rules
+If a value is passed to `ActionHandle.preview()` or `ActionHandle.submit()`, it
+is always treated as domain action input according to the action's public arity.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| SDK-CONTEXT-1 | MUST | `PreviewOptions.context` and `SubmitOptions.context` MUST represent only user external context. |
-| SDK-CONTEXT-2 | MUST | SDK MUST map public context values to Core `Context.external`. |
+| SDK-ACTION-7 | MUST | `with(view)` MUST appear before action selection in the canonical v5 grammar. |
+| SDK-ACTION-8 | MUST NOT | `preview()` and `submit()` MUST NOT accept SDK option bags or `__kind` discriminants. |
+| SDK-ACTION-9 | MUST | Values passed to `preview()` and `submit()` MUST be treated as domain input, not SDK options. |
+| SDK-ACTION-10 | MUST | `bind(input)` MUST freeze the action payload after the execution view is selected. |
+
+### 8.6 ADR-027 Runtime Context Rules
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-CONTEXT-1 | MUST | SDK public context APIs MUST represent only user external context. |
+| SDK-CONTEXT-2 | MUST | SDK MUST map public context values to Core `Context.external` before calling Core. |
 | SDK-CONTEXT-3 | MUST | SDK/Host runtime assembly MUST materialize Core `Context.runtime` before calling Core. |
 | SDK-CONTEXT-4 | MUST NOT | SDK MUST NOT expose user-defined context generators, resolvers, providers, callbacks, promises, lazy getters, or function-valued context fields. |
 | SDK-CONTEXT-5 | MUST | SDK MUST reject non-JSON external context values at the SDK boundary. |
@@ -720,25 +716,32 @@ this ambiguity because the action input has already been bound.
 | SDK-CONTEXT-9 | MUST | `injectContext(next)` MUST full-replace the current user external context and MUST NOT trigger compute, effects, or observer events by itself. |
 | SDK-CONTEXT-10 | MUST | `updateContext(updater)` MUST execute the updater synchronously exactly once against the current external context and full-replace with its JSON result. |
 | SDK-CONTEXT-11 | MUST NOT | `updateContext(updater)` MUST NOT accept async updaters or Promise results. |
-| SDK-CONTEXT-12 | MUST | `PreviewOptions.context` and `SubmitOptions.context` MUST be transition-local full overrides, not partial merges. |
-| SDK-CONTEXT-13 | MUST | Preview/submit context capture MUST happen at call-entry, before awaited work can observe later `injectContext()` calls. |
-| SDK-CONTEXT-14 | MUST | A preview/submit override MUST NOT mutate the runtime current context returned by `context()`. |
-| SDK-CONTEXT-15 | MUST | Codegen SHOULD represent schema-declared context as a schema-specific named type and thread it through `createManifesto`, `context`, `injectContext`, `updateContext`, `preview`, and `submit`; generic usage MAY fall back to `ExternalContext`. |
-| SDK-CONTEXT-16 | MUST | Accepted context values MUST conform to `DomainSchema.context`; if no context is declared, only an empty external context is valid. |
-| SDK-CONTEXT-17 | MUST | SDK MUST clone and freeze accepted context values and MUST NOT retain caller-owned mutable object references. |
-| SDK-CONTEXT-18 | MUST | A top-level external key named `runtime`, if declared by schema, remains `$context.runtime`; it MUST NOT override or alias Manifesto-owned `$runtime`. |
+| SDK-CONTEXT-12 | MUST NOT | `preview()` and `submit()` MUST NOT contain or accept user external context in the canonical v5 surface. |
+| SDK-CONTEXT-13 | MUST | Preview/submit context capture MUST happen at call-entry from the runtime view on which the action is triggered, before awaited work can observe later context changes. |
+| SDK-CONTEXT-14 | MUST | `with({ context })` MUST create an execution view whose current external context is independent from the source runtime's current external context. |
+| SDK-CONTEXT-15 | MUST NOT | `with(view)` MUST NOT activate a new runtime, clone the Snapshot substrate, bypass Lineage/Governance, or enter Core by itself. |
+| SDK-CONTEXT-16 | MUST | Codegen SHOULD represent schema-declared context as a schema-specific named type and thread it through `createManifesto`, `context`, `injectContext`, `updateContext`, and `with`; generic usage MAY fall back to `ExternalContext`. |
+| SDK-CONTEXT-17 | MUST | Accepted context values MUST conform to `DomainSchema.context`; if no context is declared, only an empty external context is valid. |
+| SDK-CONTEXT-18 | MUST | SDK MUST clone and freeze accepted context values and MUST NOT retain caller-owned mutable object references. |
+| SDK-CONTEXT-19 | MUST | A top-level external key named `runtime`, if declared by schema, remains `$context.runtime`; it MUST NOT override or alias Manifesto-owned `$runtime`. |
 
 The runtime maintains one current external context value. `injectContext()`
 replaces that value for future transition attempts. `updateContext()` is only a
 synchronous convenience for deriving the next JSON value from the current one.
 If the schema declares no context, this current value is always the empty object.
 
+`with(view)` creates an execution view over the same active runtime substrate.
+It does not mutate the source runtime's `context()` value and does not create a
+new activated runtime. It exists for request-local or concurrent external
+contexts where `injectContext()` on a shared root would be race-prone, and for
+per-transition report/diagnostic projection settings.
+
 `preview()` and `submit()` each materialize their own full Core `Context` at
-call-entry unless a future explicit prepared-transition API says otherwise. If
-an options context is supplied, it fully replaces the current external context
-for that single transition attempt. Passing the same options context to preview
-and submit reuses the same external context data, but it does not by itself
-guarantee byte-identical `Context.runtime` values across the two calls.
+call-entry from the triggering runtime view unless a future explicit
+prepared-transition API says otherwise. Passing the same external context to
+`with({ context })` before preview and submit reuses the same external context
+data, but it does not by itself guarantee byte-identical `Context.runtime`
+values across the two calls.
 
 ## 9. Admission
 
@@ -830,7 +833,7 @@ export type PreviewResult<
 | SDK-PREVIEW-5 | MUST | `preview()` MUST preserve Core status: `complete`, `pending`, `halted`, or `error`. |
 | SDK-PREVIEW-6 | MUST | `admitted: true` MUST mean dry-run computation was admitted, not that the action would settle successfully. |
 | SDK-PREVIEW-7 | MUST | `admitted: false` MUST include the same first-failing admission layer as `check()`. |
-| SDK-PREVIEW-8 | MUST | `preview()` MUST call Core with an explicit ADR-027 `Context` built from materialized runtime facts plus either the current external context or a transition-local `PreviewOptions.context` override as `Context.external`. |
+| SDK-PREVIEW-8 | MUST | `preview()` MUST call Core with an explicit ADR-027 `Context` built from materialized runtime facts plus the current external context of the triggering runtime view as `Context.external`. |
 | SDK-PREVIEW-9 | MUST NOT | A `preview()` result MUST NOT be treated as a capability token or as byte-identical proof of a later `submit()` unless a future prepared-transition API provides that guarantee. |
 
 ## 11. Submit
@@ -1058,7 +1061,7 @@ payload size.
 
 Large-result optimization belongs to explicit additive surfaces:
 
-- callers MAY ask for smaller additive write reports through `SubmitOptions`
+- callers MAY ask for smaller additive write reports through `with({ report })`
 - Lineage and Governance MAY define report-specific compaction in their owning
   report types
 - future streaming or ref-based payload APIs MUST be additive and explicitly
@@ -1090,11 +1093,11 @@ terminal state produces the same result shape regardless of payload size.
 | SDK-SUBMIT-11 | MUST | In generic mode, callers MUST narrow `SubmissionResult` by `mode` before consuming mode-specific fields. |
 | SDK-SUBMIT-12 | MUST | Governance settlement observation MUST be named `waitForSettlement()`, not `settle()`. |
 | SDK-SUBMIT-13 | MUST | `ProposalRef` alone MUST be sufficient to re-observe governance settlement after process restart or agent handoff. |
-| SDK-SUBMIT-17 | MUST | `submit()` MUST call the active runtime with an explicit ADR-027 `Context` built from materialized runtime facts plus either the current external context or a transition-local `SubmitOptions.context` override as `Context.external`. |
+| SDK-SUBMIT-17 | MUST | `submit()` MUST call the active runtime with an explicit ADR-027 `Context` built from materialized runtime facts plus the current external context of the triggering runtime view as `Context.external`. |
 | SDK-SUBMIT-18 | MUST | For one submitted transition attempt, the runtime MUST reuse the same materialized `Context` across Host/Core re-entry. |
 | SDK-SUBMIT-19 | MUST | Submit reports or owning decorator records MUST attach or reference the materialized context when replay/accountability requires it. |
 | SDK-SUBMIT-20 | MUST | `submit()` MUST capture context at call-entry and MUST NOT be affected by later `injectContext()` or `updateContext()` calls while that transition is in flight. |
-| SDK-SUBMIT-21 | MUST | `SubmitOptions.context` MUST NOT mutate the runtime current external context. |
+| SDK-SUBMIT-21 | MUST NOT | `submit()` MUST NOT accept SDK option bags, including user external context overrides or report options. |
 
 ### 11.9 Operational Failure Before Settlement
 
@@ -1312,8 +1315,8 @@ debugging, restore-aware tooling, and seal-aware inspection. Normal application
 logic SHOULD use `snapshot()` unless it explicitly needs substrate data.
 
 `inspect.graph()` returns the projected schema graph. ADR-025 platform
-namespaces such as host, mel, system, and other runtime/tooling namespaces are
-not domain state and MUST NOT appear as state nodes in this graph.
+namespaces such as host, mel, and other runtime/tooling namespaces are not
+domain state and MUST NOT appear as state nodes in this graph.
 
 `inspect.availableActions()` returns current action contract information for
 the actions available against the current visible projected state. It is an
@@ -1486,13 +1489,14 @@ export class ManifestoError extends Error {
 An implementation satisfies this SPEC when:
 
 - `createManifesto()` returns a composable manifesto and `activate()` returns `ManifestoApp<TDomain, TMode>`.
-- The root exposes `snapshot`, `context`, `injectContext`, `updateContext`, `actions`, `action`, `observe`, `inspect`, and `dispose`.
+- The root exposes `snapshot`, `context`, `injectContext`, `updateContext`, `with`, `actions`, `action`, `observe`, `inspect`, and `dispose`.
 - `ActionHandle` exposes `info`, `available`, `check`, `preview`, `submit`, and `bind`.
 - `BoundAction.intent()` returns `Intent | null`.
 - `check()` returns the first failing admission layer.
 - `preview()` is non-mutating and preserves Core status.
-- `preview()` and `submit()` accept transition-local direct-injected JSON external context through options.
+- `preview()` and `submit()` do not accept SDK option bags; they capture context and projection settings from the triggering runtime view.
 - `injectContext()` and `updateContext()` full-replace the runtime's current external context without triggering computation.
+- `with()` provides request-local context and projection settings without mutating the source runtime context or creating a new activated runtime.
 - `submit()` returns mode-specific result types and re-checks legality at submit time.
 - `ExecutionOutcome` is the canonical `ok | stop | fail` domain-outcome union.
 - `result.ok` is documented and implemented as protocol envelope success, not domain success.
@@ -1503,7 +1507,7 @@ An implementation satisfies this SPEC when:
 - Extension kernel APIs remain under `@manifesto-ai/sdk/extensions`.
 - v3 root APIs are absent from the canonical v5 runtime root.
 - resolved action annotations are the only SDK-owned path for `@meta` into `ActionHandle.info()`.
-- inline `PreviewOptions` and `SubmitOptions` use explicit `__kind` discriminants and cannot be mistaken for action input.
+- `__kind` inline option discriminants are absent from the canonical v5 public surface.
 - `observe.event()` payloads use the normative `ManifestoEventPayloadMap` shapes and do not embed snapshots.
 
 ## 20. CTS and Hardening Requirements
@@ -1522,7 +1526,7 @@ The SDK v5 CTS suite MUST cover:
 - Action names colliding with `then`, `bind`, `constructor`, `inspect`, `snapshot`, `dispose`, or `action` remain accessible through `action(name)`.
 - `snapshot()` excludes canonical-only fields; `inspect.canonicalSnapshot()` includes the canonical substrate.
 - MEL source annotations populate `ActionHandle.info()`, and caller-provided `options.annotations` overrides same-action compiler annotations.
-- Inline option objects are recognized only as extra final arguments with matching `__kind` discriminants.
+- `with(view)` is the only canonical route for report/diagnostic/context view settings before `preview()` or `submit()`.
 - `observe.event()` payloads match `ManifestoEventPayloadMap` and contain no full snapshot payloads.
 - The v3 root API removal list is absent from canonical v5 runtime types.
 
