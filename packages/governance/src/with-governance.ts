@@ -10,6 +10,7 @@ import type {
   ExecutionOutcome,
   GovernanceSettlementResult,
   GovernanceLaws,
+  DomainExternalContext,
   ManifestoDomainShape,
   ProposalRef,
   TypedIntent,
@@ -224,6 +225,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
         executionKey: executingProposal.executionKey,
         publishOnCompleted: false,
         assumeEnqueued: true,
+        context: executingProposal.computeEnvelope.context,
       });
 
       const governanceCommit = await governanceService.finalize(
@@ -311,10 +313,16 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     const executingProposal = governanceService.beginExecution(prepared.proposal);
     await governanceStore.putProposal(executingProposal);
 
-    return finalizeApprovedExecution(executingProposal, toTypedIntent<T>(prepared.proposal));
+    return finalizeApprovedExecution(
+      executingProposal,
+      toTypedComputeIntent<T>(prepared.proposal),
+    );
   }
 
-  async function createSubmission(intent: TypedIntent<T>): Promise<Proposal> {
+  async function createSubmission(
+    intent: TypedIntent<T>,
+    externalContext: DomainExternalContext<T>,
+  ): Promise<Proposal> {
     await ensureReady();
 
     const enrichedIntent = kernel.ensureIntentId(intent);
@@ -339,21 +347,29 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     });
 
     const proposalId = createProposalId();
+    const computeIntent = {
+      type: intentInstance.body.type,
+      intentId: intentInstance.intentId,
+      ...(intentInstance.body.input !== undefined
+        ? { input: intentInstance.body.input }
+        : {}),
+    };
+    const proposalIntent = {
+      ...computeIntent,
+      ...(intentInstance.body.scopeProposal !== undefined
+        ? { scopeProposal: intentInstance.body.scopeProposal }
+        : {}),
+    };
     const proposal = governanceService.createProposal({
       proposalId,
       baseWorld: branch.head,
       branchId: branch.id,
       actorId: binding.actorId,
       authorityId: binding.authorityId,
-      intent: {
-        type: intentInstance.body.type,
-        intentId: intentInstance.intentId,
-        ...(intentInstance.body.input !== undefined
-          ? { input: intentInstance.body.input }
-          : {}),
-        ...(intentInstance.body.scopeProposal !== undefined
-          ? { scopeProposal: intentInstance.body.scopeProposal }
-          : {}),
+      intent: proposalIntent,
+      computeEnvelope: {
+        intent: computeIntent,
+        context: kernel.createComputeContext(computeIntent as TypedIntent<T>, externalContext),
       },
       executionKey: defaultExecutionKeyPolicy({
         proposalId,
@@ -726,11 +742,13 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
   return Object.freeze(runtime);
 }
 
-function toTypedIntent<T extends ManifestoDomainShape>(proposal: Proposal): TypedIntent<T> {
+function toTypedComputeIntent<T extends ManifestoDomainShape>(proposal: Proposal): TypedIntent<T> {
   return {
-    type: proposal.intent.type,
-    intentId: proposal.intent.intentId,
-    ...(proposal.intent.input !== undefined ? { input: proposal.intent.input } : {}),
+    type: proposal.computeEnvelope.intent.type,
+    intentId: proposal.computeEnvelope.intent.intentId,
+    ...(proposal.computeEnvelope.intent.input !== undefined
+      ? { input: proposal.computeEnvelope.intent.input }
+      : {}),
   } as TypedIntent<T>;
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Snapshot } from "@manifesto-ai/core";
 import {
   createInMemoryLineageStore,
+  type ComputeEnvelope,
 } from "@manifesto-ai/lineage";
 import { createLineageService } from "@manifesto-ai/lineage/provider";
 import type { ProposalStatus } from "../../../index.js";
@@ -13,6 +14,22 @@ import {
 } from "../gcts-assertions.js";
 import { caseTitle, GCTS_CASES } from "../gcts-coverage.js";
 import { getRuleOrThrow } from "../gcts-rules.js";
+
+function createTestComputeEnvelope(
+  type = "demo.intent",
+  intentId = "intent-1",
+): ComputeEnvelope {
+  return {
+    intent: { type, intentId },
+    context: {
+      runtime: {
+        time: { timestamp: 1 },
+        random: { seed: intentId },
+      },
+      external: {},
+    },
+  };
+}
 
 function createSnapshot(
   data: Record<string, unknown>,
@@ -143,6 +160,7 @@ describe("GCTS Lifecycle Suite", () => {
         actorId: "actor-1",
         authorityId: "auth-1",
         intent: { type: "demo.one", intentId: "intent-1" },
+        computeEnvelope: createTestComputeEnvelope("demo.one", "intent-1"),
         executionKey: "key-1",
         submittedAt: 10,
         epoch: (await lineage.service.getActiveBranch()).epoch,
@@ -160,6 +178,7 @@ describe("GCTS Lifecycle Suite", () => {
         actorId: "actor-2",
         authorityId: "auth-2",
         intent: { type: "demo.two", intentId: "intent-2" },
+        computeEnvelope: createTestComputeEnvelope("demo.two", "intent-2"),
         executionKey: "key-2",
         submittedAt: 12,
         epoch: (await lineage.service.getActiveBranch()).epoch,
@@ -181,6 +200,7 @@ describe("GCTS Lifecycle Suite", () => {
         actorId: "actor-3",
         authorityId: "auth-3",
         intent: { type: "demo.three", intentId: "intent-3" },
+        computeEnvelope: createTestComputeEnvelope("demo.three", "intent-3"),
         executionKey: "key-3",
         submittedAt: 14,
         epoch: (await lineage.service.getActiveBranch()).epoch,
@@ -191,6 +211,7 @@ describe("GCTS Lifecycle Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: lineage.genesis.worldId,
         branchId: lineage.genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("demo.three", "intent-3"),
         terminalSnapshot: createSnapshot({ count: 2 }),
         createdAt: 15,
       });
@@ -257,6 +278,7 @@ describe("GCTS Lifecycle Suite", () => {
         actorId: "actor-9",
         authorityId: "auth-9",
         intent: { type: "demo.finalize", intentId: "intent-9" },
+        computeEnvelope: createTestComputeEnvelope("demo.finalize", "intent-9"),
         executionKey: "key-9",
         submittedAt: 20,
         epoch: (await lineage.service.getActiveBranch()).epoch,
@@ -282,6 +304,7 @@ describe("GCTS Lifecycle Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: lineage.genesis.worldId,
         branchId: lineage.genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("demo.finalize", "intent-9"),
         terminalSnapshot: createSnapshot({ count: 10 }),
         createdAt: 22,
         proposalRef: executingProposal.proposalId,
@@ -323,6 +346,7 @@ describe("GCTS Lifecycle Suite", () => {
         actorId: "actor-10",
         authorityId: "auth-10",
         intent: { type: "demo.crosscheck", intentId: "intent-10" },
+        computeEnvelope: createTestComputeEnvelope("demo.crosscheck", "intent-10"),
         executionKey: "key-10",
         submittedAt: 30,
         epoch: (await lineage.service.getActiveBranch()).epoch,
@@ -344,6 +368,7 @@ describe("GCTS Lifecycle Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: lineage.genesis.worldId,
         branchId: lineage.genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("demo.crosscheck", "intent-10"),
         terminalSnapshot: createSnapshot({ count: 11 }),
         createdAt: 32,
         proposalRef: executingProposal.proposalId,
@@ -392,6 +417,7 @@ describe("GCTS Lifecycle Suite", () => {
         actorId: "actor-11",
         authorityId: "auth-11",
         intent: { type: "demo.provenance", intentId: "intent-11" },
+        computeEnvelope: createTestComputeEnvelope("demo.provenance", "intent-11"),
         executionKey: "key-11",
         submittedAt: 40,
         epoch: (await lineage.service.getActiveBranch()).epoch,
@@ -413,6 +439,7 @@ describe("GCTS Lifecycle Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: lineage.genesis.worldId,
         branchId: lineage.genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("demo.provenance", "intent-11"),
         terminalSnapshot: createSnapshot({ count: 12 }),
         createdAt: 42,
         proposalRef: executingProposal.proposalId,

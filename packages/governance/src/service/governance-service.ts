@@ -54,6 +54,10 @@ export class DefaultGovernanceService implements GovernanceService {
   ) {}
 
   createProposal(input: CreateProposalInput): Proposal {
+    if (input.computeEnvelope == null) {
+      throw new Error("GOV-REPLAY-1 violation: proposal requires a compute envelope");
+    }
+
     return freeze({
       proposalId: input.proposalId ?? createProposalId(),
       baseWorld: input.baseWorld,
@@ -61,6 +65,7 @@ export class DefaultGovernanceService implements GovernanceService {
       actorId: input.actorId,
       authorityId: input.authorityId,
       intent: freeze({ ...input.intent }),
+      computeEnvelope: structuredClone(input.computeEnvelope),
       status: "submitted" as const,
       executionKey: input.executionKey,
       submittedAt: input.submittedAt,

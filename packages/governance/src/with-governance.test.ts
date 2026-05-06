@@ -32,7 +32,10 @@ import {
   type Proposal,
 } from "./index.js";
 
-const lineageSealCalls = vi.hoisted(() => [] as Array<{ executionKey?: string }>);
+const lineageSealCalls = vi.hoisted(() => [] as Array<{
+  executionKey?: string;
+  context?: unknown;
+}>);
 
 vi.mock("@manifesto-ai/lineage/provider", async () => {
   const actual = await vi.importActual<typeof import("@manifesto-ai/lineage/provider")>(
@@ -52,6 +55,7 @@ vi.mock("@manifesto-ai/lineage/provider", async () => {
         ) {
           lineageSealCalls.push({
             executionKey: sealArgs[1]?.executionKey,
+            context: sealArgs[1]?.context,
           });
           return controller.sealIntent(...sealArgs);
         },
@@ -74,6 +78,12 @@ type CounterDomain = {
   };
   computed: {
     doubled: number;
+  };
+};
+
+type ContextCounterDomain = CounterDomain & {
+  context: {
+    tenantId: string;
   };
 };
 
@@ -173,6 +183,26 @@ function createCounterSchema(): DomainSchema {
   });
 }
 
+function createContextCounterSchema(): DomainSchema {
+  const {
+    hash: _hash,
+    ...base
+  } = createCounterSchema();
+  void _hash;
+  return withHash({
+    ...base,
+    id: "manifesto:governance-v3-context-counter",
+    context: {
+      fields: {
+        tenantId: { type: "string", required: true },
+      },
+      fieldTypes: {
+        tenantId: { kind: "primitive", type: "string" },
+      },
+    },
+  });
+}
+
 function createDispatchabilitySchema(): DomainSchema {
   return withHash({
     id: "manifesto:governance-v3-dispatchability",
@@ -263,7 +293,7 @@ function createDeferred() {
   return { promise, resolve };
 }
 
-async function getStoredProposal<T extends CounterDomain | DispatchabilityDomain>(
+async function getStoredProposal<T extends CounterDomain | ContextCounterDomain | DispatchabilityDomain>(
   governed: GovernanceInstance<T>,
   proposalId: string,
 ): Promise<Proposal> {
@@ -422,6 +452,59 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     expect(rejected.status).toBe("rejected");
     expect(governed.snapshot().state.count).toBe(1);
+  });
+
+  it("settles governed proposals with the proposal-time context envelope", async () => {
+    lineageSealCalls.length = 0;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<ContextCounterDomain>(
+          createContextCounterSchema(),
+          {},
+          { context: { tenantId: "submit-tenant" } },
+        ),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createHitlBinding()],
+        execution: {
+          projectionId: "proj:context-envelope",
+          deriveActor: () => ({
+            actorId: "actor:human",
+            kind: "human",
+          }),
+          deriveSource: () => ({
+            kind: "api",
+            eventId: "evt:context-envelope",
+          }),
+        },
+      },
+    ).activate();
+
+    const pendingResult = await governed.actions.increment.submit();
+    if (!pendingResult.ok) {
+      throw new Error(pendingResult.admission.message);
+    }
+    const pending = await getStoredProposal(governed, pendingResult.proposal);
+
+    expect(pending.status).toBe("evaluating");
+    expect(pending.computeEnvelope.context.external).toEqual({
+      tenantId: "submit-tenant",
+    });
+
+    governed.injectContext({ tenantId: "approval-tenant" });
+    const approved = await governed.approve(pending.proposalId);
+
+    expect(approved.status).toBe("completed");
+    expect(lineageSealCalls).toHaveLength(1);
+    expect(lineageSealCalls[0]?.context).toEqual(pending.computeEnvelope.context);
+    expect((lineageSealCalls[0]?.context as {
+      readonly external?: unknown;
+    }).external).toEqual({
+      tenantId: "submit-tenant",
+    });
   });
 
   it("settles completed proposals through waitForProposal()", async () => {

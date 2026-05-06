@@ -19,14 +19,15 @@ import {
   type BoundAction,
   type CanonicalSnapshot,
   type DispatchBlocker,
+  type ExecutionView,
   type GovernanceSettlementResult,
   type GovernanceSubmissionResult,
   type ManifestoDomainShape,
-  type PreviewOptions,
+  type PreviewDiagnosticsMode,
   type PreviewResult,
   type ProjectedSnapshot,
   type ProposalRef,
-  type SubmitOptions,
+  type SubmitReportMode,
   type TypedActionMetadata,
   type TypedActionRef,
   type TypedIntent,
@@ -61,15 +62,19 @@ type Candidate<
   readonly inputError: ManifestoError | null;
 };
 
-type ParsedActionArgs = {
-  readonly args: readonly unknown[];
-  readonly options?: PreviewOptions | SubmitOptions;
+type RuntimeExecutionView<T extends ManifestoDomainShape> = {
+  readonly context?: ReturnType<GovernanceRuntimeKernel<T>["getExternalContext"]>;
+  readonly diagnostics?: PreviewDiagnosticsMode;
+  readonly report?: SubmitReportMode;
 };
 
 export type GovernanceRuntimeServices<T extends ManifestoDomainShape> = {
   readonly lineage: LineageRuntimeController<T>;
   readonly ensureReady: () => Promise<void>;
-  readonly createSubmission: (intent: TypedIntent<T>) => Promise<Proposal>;
+  readonly createSubmission: (
+    intent: TypedIntent<T>,
+    externalContext: ReturnType<GovernanceRuntimeKernel<T>["captureExternalContext"]>,
+  ) => Promise<Proposal>;
   readonly settleSubmission: (proposalId: ProposalId) => Promise<void>;
   readonly waitForSettlement: <Name extends ActionName<T>>(
     proposalId: ProposalRef,
@@ -90,7 +95,10 @@ export type GovernanceRuntimeServices<T extends ManifestoDomainShape> = {
 export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
   kernel: GovernanceRuntimeKernel<T>,
   services: GovernanceRuntimeServices<T>,
+  view: RuntimeExecutionView<T> = {},
+  isView = false,
 ): GovernanceInstance<T> {
+  let runtimeView = freezeRuntimeView(view);
   const actionInfoByName = new Map<ActionName<T>, ActionInfo<ActionName<T>>>();
   const actionHandleByName = new Map<ActionName<T>, ActionHandle<T, ActionName<T>, "governance">>();
 
@@ -174,6 +182,36 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       },
     }),
     snapshot: kernel.getSnapshot,
+    context: getViewExternalContext,
+    injectContext(context) {
+      if (isView) {
+        runtimeView = freezeRuntimeView({
+          ...runtimeView,
+          context: kernel.captureExternalContext(context),
+        });
+        return;
+      }
+      kernel.replaceExternalContext(context);
+    },
+    updateContext(updater) {
+      if (!isView) {
+        return kernel.updateExternalContext(updater);
+      }
+      const next = updater(getViewExternalContext());
+      runtimeView = freezeRuntimeView({
+        ...runtimeView,
+        context: kernel.captureExternalContext(next),
+      });
+      return runtimeView.context ?? kernel.getExternalContext();
+    },
+    with(nextView) {
+      return createGovernanceRuntimeInstance(
+        kernel,
+        services,
+        mergeRuntimeView(nextView),
+        true,
+      );
+    },
     action,
     dispose: kernel.dispose,
     waitForSettlement(ref: ProposalRef) {
@@ -210,15 +248,13 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
         const candidate = createCandidate(name, args);
         return checkCandidate(candidate);
       },
-      preview: (...argsWithOptions: [...ActionArgs<T, Name>, PreviewOptions?]) => {
-        const parsed = splitOptions(argsWithOptions, "PreviewOptions", getPublicArity(name));
-        const candidate = createCandidate(name, parsed.args as ActionArgs<T, Name>);
-        return previewCandidate(candidate, parsed.options as PreviewOptions | undefined);
+      preview: (...args: ActionArgs<T, Name>) => {
+        const candidate = createCandidate(name, args);
+        return previewCandidate(candidate);
       },
-      submit: (...argsWithOptions: [...ActionArgs<T, Name>, SubmitOptions?]) => {
-        const parsed = splitOptions(argsWithOptions, "SubmitOptions", getPublicArity(name));
-        const candidate = createCandidate(name, parsed.args as ActionArgs<T, Name>);
-        return submitCandidate(candidate, parsed.options as SubmitOptions | undefined);
+      submit: (...args: ActionArgs<T, Name>) => {
+        const candidate = createCandidate(name, args);
+        return submitCandidate(candidate);
       },
       bind: (...args: ActionArgs<T, Name>) => createBoundAction(name, args),
     });
@@ -233,8 +269,8 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       action: name,
       input: candidate.input,
       check: () => checkCandidate(candidate),
-      preview: (options?: PreviewOptions) => previewCandidate(candidate, options),
-      submit: (options?: SubmitOptions) => submitCandidate(candidate, options),
+      preview: () => previewCandidate(candidate),
+      submit: () => submitCandidate(candidate),
       intent: () => candidate.intent as Intent | null,
     });
   }
@@ -289,8 +325,8 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
 
   function previewCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
-    options?: PreviewOptions,
   ): PreviewResult<T, Name> {
+    const externalContext = captureViewExternalContext();
     const beforeCanonical = kernel.getCanonicalSnapshot();
     const admission = admitCandidate(candidate, beforeCanonical);
     if (!admission.admission.ok || admission.intent === null) {
@@ -301,7 +337,9 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     }
 
     const intent = admission.intent;
-    const simulated = kernel.simulateSync(beforeCanonical, intent);
+    const simulated = kernel.simulateSync(beforeCanonical, intent, {
+      externalContext,
+    });
     const outcome = kernel.deriveExecutionOutcome(beforeCanonical, simulated.snapshot);
 
     return Object.freeze({
@@ -313,16 +351,15 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       requirements: simulated.requirements,
       newAvailableActions: kernel.getAvailableActionsFor(simulated.snapshot)
         .map((name) => getActionInfo(name as ActionName<T>)),
-      ...previewDiagnostics(simulated.diagnostics, options),
+      ...previewDiagnostics(simulated.diagnostics, runtimeView.diagnostics),
       error: simulated.snapshot.system.lastError,
     }) as PreviewResult<T, Name>;
   }
 
   async function submitCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
-    options?: SubmitOptions,
   ): Promise<GovernanceSubmissionResult<T, Name>> {
-    void options;
+    const externalContext = captureViewExternalContext();
     if (kernel.isDisposed()) {
       throw new DisposedError();
     }
@@ -357,7 +394,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
 
       let proposal: Proposal;
       try {
-        proposal = await services.createSubmission(admittedIntent);
+        proposal = await services.createSubmission(admittedIntent, externalContext);
       } catch (error) {
         const failure = toError(error);
         const failedSnapshot = kernel.getCanonicalSnapshot();
@@ -383,6 +420,27 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
           candidate.actionName,
         ),
       }) as GovernanceSubmissionResult<T, Name>;
+    });
+  }
+
+  function getViewExternalContext(): ReturnType<GovernanceRuntimeKernel<T>["getExternalContext"]> {
+    return runtimeView.context ?? kernel.getExternalContext();
+  }
+
+  function captureViewExternalContext(): ReturnType<GovernanceRuntimeKernel<T>["getExternalContext"]> {
+    return runtimeView.context ?? kernel.captureExternalContext();
+  }
+
+  function mergeRuntimeView(
+    nextView: ExecutionView<ReturnType<GovernanceRuntimeKernel<T>["getExternalContext"]>>,
+  ): RuntimeExecutionView<T> {
+    return freezeRuntimeView({
+      ...runtimeView,
+      ...(nextView.context !== undefined
+        ? { context: kernel.captureExternalContext(nextView.context) }
+        : {}),
+      ...(nextView.diagnostics !== undefined ? { diagnostics: nextView.diagnostics } : {}),
+      ...(nextView.report !== undefined ? { report: nextView.report } : {}),
     });
   }
 
@@ -521,11 +579,6 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     return info as ActionInfo<Name>;
   }
 
-  function getPublicArity<Name extends ActionName<T>>(name: Name): number {
-    const metadata = kernel.getActionMetadata(name);
-    return metadata.publicArity;
-  }
-
   function emitSubmissionAdmitted<Name extends ActionName<T>>(
     actionName: Name,
     intent: TypedIntent<T>,
@@ -611,46 +664,25 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
   }
 }
 
-function splitOptions(
-  args: readonly unknown[],
-  kind: PreviewOptions["__kind"] | SubmitOptions["__kind"],
-  arity: number,
-): ParsedActionArgs {
-  if (args.length === arity + 1 && isOption(args[args.length - 1], kind)) {
-    return Object.freeze({
-      args: Object.freeze(args.slice(0, -1)),
-      options: args[args.length - 1] as PreviewOptions | SubmitOptions,
-    });
-  }
-
-  return Object.freeze({
-    args: Object.freeze([...args]),
-  });
-}
-
-function isOption(
-  value: unknown,
-  kind: PreviewOptions["__kind"] | SubmitOptions["__kind"],
-): boolean {
-  return typeof value === "object"
-    && value !== null
-    && "__kind" in value
-    && (value as { readonly __kind?: unknown }).__kind === kind;
-}
-
 function previewDiagnostics(
   diagnostics: { readonly trace?: unknown } | undefined,
-  options: PreviewOptions | undefined,
+  mode: PreviewDiagnosticsMode | undefined,
 ) {
-  if (!diagnostics || options?.diagnostics === "none") {
+  if (!diagnostics || mode === "none") {
     return {};
   }
 
-  if (options?.diagnostics === "summary") {
+  if (mode === "summary") {
     return { diagnostics: {} };
   }
 
   return { diagnostics: { trace: diagnostics.trace } };
+}
+
+function freezeRuntimeView<T extends ManifestoDomainShape>(
+  view: RuntimeExecutionView<T>,
+): RuntimeExecutionView<T> {
+  return Object.freeze({ ...view });
 }
 
 function toActionInfo<

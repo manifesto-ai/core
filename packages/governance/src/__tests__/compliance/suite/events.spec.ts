@@ -8,6 +8,7 @@ import {
 } from "../../../provider.js";
 import {
   createInMemoryLineageStore,
+  type ComputeEnvelope,
 } from "@manifesto-ai/lineage";
 import { createLineageService } from "@manifesto-ai/lineage/provider";
 import { createGovernanceComplianceAdapter } from "../gcts-adapter.js";
@@ -18,6 +19,22 @@ import {
 } from "../gcts-assertions.js";
 import { caseTitle, GCTS_CASES } from "../gcts-coverage.js";
 import { getRuleOrThrow } from "../gcts-rules.js";
+
+function createTestComputeEnvelope(
+  type = "demo.intent",
+  intentId = "intent-1",
+): ComputeEnvelope {
+  return {
+    intent: { type, intentId },
+    context: {
+      runtime: {
+        time: { timestamp: 1 },
+        random: { seed: intentId },
+      },
+      external: {},
+    },
+  };
+}
 
 function createSnapshot(
   data: Record<string, unknown>,
@@ -119,6 +136,7 @@ describe("GCTS Events Suite", () => {
         actorId: "actor-20",
         authorityId: "auth-20",
         intent: { type: "demo.events.success", intentId: "intent-20" },
+        computeEnvelope: createTestComputeEnvelope("demo.events.success", "intent-20"),
         executionKey: "key-20",
         submittedAt: 20,
         epoch: (await successCtx.lineageService.getActiveBranch()).epoch,
@@ -139,6 +157,7 @@ describe("GCTS Events Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: successCtx.genesis.worldId,
         branchId: successCtx.genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("demo.events.success", "intent-20"),
         terminalSnapshot: createSnapshot({ count: 2 }),
         createdAt: 22,
         proposalRef: successExecuting.proposalId,
@@ -163,6 +182,7 @@ describe("GCTS Events Suite", () => {
         actorId: "actor-21",
         authorityId: "auth-21",
         intent: { type: "demo.events.failed", intentId: "intent-21" },
+        computeEnvelope: createTestComputeEnvelope("demo.events.failed", "intent-21"),
         executionKey: "key-21",
         submittedAt: 30,
         epoch: (await failedCtx.lineageService.getActiveBranch()).epoch,
@@ -183,6 +203,7 @@ describe("GCTS Events Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: failedCtx.genesis.worldId,
         branchId: failedCtx.genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("demo.events.failed", "intent-21"),
         terminalSnapshot: createSnapshot(
           { count: 99 },
           {
@@ -317,6 +338,7 @@ describe("GCTS Events Suite", () => {
         actorId: "actor-30",
         authorityId: "auth-30",
         intent: { type: "demo.events.tip", intentId: "intent-30" },
+        computeEnvelope: createTestComputeEnvelope("demo.events.tip", "intent-30"),
         executionKey: "key-30",
         submittedAt: 70,
         epoch: (await ctx.lineageService.getActiveBranch()).epoch,
@@ -334,6 +356,7 @@ describe("GCTS Events Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: ctx.genesis.worldId,
         branchId: ctx.genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("demo.events.tip", "intent-30"),
         terminalSnapshot: createSnapshot(
           { count: 98 },
           {
@@ -363,6 +386,7 @@ describe("GCTS Events Suite", () => {
         actorId: "actor-31",
         authorityId: "auth-31",
         intent: { type: "demo.events.recover", intentId: "intent-31" },
+        computeEnvelope: createTestComputeEnvelope("demo.events.recover", "intent-31"),
         executionKey: "key-31",
         submittedAt: 73,
         epoch: branch.epoch,
@@ -383,6 +407,7 @@ describe("GCTS Events Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: successExecuting.baseWorld,
         branchId: successExecuting.branchId,
+        computeEnvelope: createTestComputeEnvelope("demo.events.recover", "intent-31"),
         terminalSnapshot: createSnapshot({ count: 3 }),
         createdAt: 75,
         proposalRef: successExecuting.proposalId,
@@ -436,6 +461,7 @@ describe("GCTS Events Suite", () => {
         actorId: "actor-22",
         authorityId: "auth-22",
         intent: { type: "demo.events.payload", intentId: "intent-22" },
+        computeEnvelope: createTestComputeEnvelope("demo.events.payload", "intent-22"),
         executionKey: "key-22",
         submittedAt: 40,
         epoch: (await ctx.lineageService.getActiveBranch()).epoch,
@@ -456,6 +482,7 @@ describe("GCTS Events Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: ctx.genesis.worldId,
         branchId: ctx.genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("demo.events.payload", "intent-22"),
         terminalSnapshot: createSnapshot(
           { count: 100 },
           {
