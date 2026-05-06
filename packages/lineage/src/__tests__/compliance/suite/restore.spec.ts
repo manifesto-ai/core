@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { caseTitle, LCTS_CASES } from "../lcts-coverage.js";
 import { evaluateRule, expectAllCompliance, noteEvidence } from "../lcts-assertions.js";
 import { getRuleOrThrow } from "../lcts-rules.js";
-import { createBootstrappedLineage, createTestSnapshot } from "../helpers.js";
+import {
+  createBootstrappedLineage,
+  createTestComputeEnvelope,
+  createTestSnapshot,
+} from "../helpers.js";
 
 describe("LCTS Restore Suite", () => {
   it(
@@ -16,6 +20,7 @@ describe("LCTS Restore Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.failed", "intent-failed"),
         terminalSnapshot: createTestSnapshot(
           { count: 2 },
           {

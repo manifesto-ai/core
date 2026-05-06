@@ -1,5 +1,21 @@
-import type { Snapshot } from "../../index.js";
+import type { ComputeEnvelope, Snapshot } from "../../index.js";
 import { createLineageComplianceAdapter } from "./lcts-adapter.js";
+
+export function createTestComputeEnvelope(
+  type = "test.intent",
+  intentId = "intent-1",
+): ComputeEnvelope {
+  return {
+    intent: { type, intentId },
+    context: {
+      runtime: {
+        time: { timestamp: 1 },
+        random: { seed: intentId },
+      },
+      external: {},
+    },
+  };
+}
 
 export function createTestSnapshot(
   state: Record<string, unknown>,

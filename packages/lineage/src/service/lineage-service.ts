@@ -76,6 +76,11 @@ export class DefaultLineageService implements LineageService {
   }
 
   async prepareSealNext(input: SealNextInput) {
+    assertLineage(
+      input.computeEnvelope != null,
+      "LIN-REPLAY-1 violation: next seal requires a compute envelope"
+    );
+
     const branchHead = await this.store.getBranchHead(input.branchId);
     assertLineage(branchHead != null, `LIN-BRANCH-SEAL-2 violation: unknown branch ${input.branchId}`);
     assertLineage(

@@ -1,4 +1,5 @@
 import { assertLineage } from "./invariants.js";
+import { cloneValue } from "./internal/clone.js";
 import {
   computeBranchId,
   computeEdgeId,
@@ -114,6 +115,7 @@ export function createSealNextAttempt(
     createdAt: input.createdAt,
     traceRef: input.traceRef,
     patchDelta: input.patchDelta,
+    computeEnvelope: cloneValue(input.computeEnvelope),
     reused: false,
   };
 }

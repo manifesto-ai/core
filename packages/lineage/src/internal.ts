@@ -66,6 +66,8 @@ export type SealIntentOptions = {
   readonly proposalRef?: string;
   readonly decisionRef?: string;
   readonly executionKey?: HostDispatchOptions["key"];
+  readonly externalContext?: HostDispatchOptions["externalContext"];
+  readonly context?: HostDispatchOptions["context"];
   readonly publishOnCompleted?: boolean;
   readonly assumeEnqueued?: boolean;
   readonly rejectPendingBeforeSeal?: boolean;
@@ -88,6 +90,8 @@ type LineageControllerKernel<T extends ManifestoDomainShape> = Pick<
   | "rejectInvalidInput"
   | "rejectNotDispatchable"
   | "executeHost"
+  | "createComputeContext"
+  | "captureExternalContext"
   | "enqueue"
 >;
 
@@ -279,13 +283,19 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         return kernel.rejectNotDispatchable(enrichedIntent);
       }
 
+      const transitionContext = options?.context ?? kernel.createComputeContext(
+        enrichedIntent,
+        options?.externalContext,
+      );
+
       let result: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>;
       try {
         result = await kernel.executeHost(
           enrichedIntent,
-          options?.executionKey !== undefined
-            ? { key: options.executionKey }
-            : undefined,
+          {
+            ...(options?.executionKey !== undefined ? { key: options.executionKey } : {}),
+            context: transitionContext,
+          },
         );
       } catch (error) {
         kernel.restoreVisibleSnapshot();
@@ -325,6 +335,14 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
           schemaHash: kernel.schema.hash,
           baseWorldId: currentCompletedWorldId,
           branchId: currentBranchId,
+          computeEnvelope: {
+            intent: {
+              type: enrichedIntent.type,
+              intentId: enrichedIntent.intentId,
+              ...(enrichedIntent.input !== undefined ? { input: enrichedIntent.input } : {}),
+            },
+            context: result.context ?? transitionContext,
+          },
           terminalSnapshot: result.snapshot,
           createdAt: result.snapshot.meta.timestamp,
           ...(options?.proposalRef ? { proposalRef: options.proposalRef } : {}),

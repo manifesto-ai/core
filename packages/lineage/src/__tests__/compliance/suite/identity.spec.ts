@@ -3,7 +3,11 @@ import { createLineageComplianceAdapter } from "../lcts-adapter.js";
 import { caseTitle, LCTS_CASES } from "../lcts-coverage.js";
 import { evaluateRule, expectAllCompliance, noteEvidence } from "../lcts-assertions.js";
 import { getRuleOrThrow } from "../lcts-rules.js";
-import { createBootstrappedLineage, createTestSnapshot } from "../helpers.js";
+import {
+  createBootstrappedLineage,
+  createTestComputeEnvelope,
+  createTestSnapshot,
+} from "../helpers.js";
 
 describe("LCTS Identity Suite", () => {
   const adapter = createLineageComplianceAdapter();
@@ -248,6 +252,7 @@ describe("LCTS Identity Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.firstFailure", "intent-first-failure"),
         terminalSnapshot: failingSnapshot,
         createdAt: 2,
       });
@@ -257,6 +262,7 @@ describe("LCTS Identity Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.secondFailure", "intent-second-failure"),
         terminalSnapshot: failingSnapshot,
         createdAt: 3,
       });

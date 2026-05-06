@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  apply,
+  applyNamespaceDeltas,
+  applySystemDelta,
+  computeSync,
   hashSchemaSync,
   semanticPathToPatchPath,
   type DomainSchema,
@@ -405,6 +409,36 @@ function activateCyclicComputedLineage(
   };
 }
 
+function withHostIntentSlot(
+  snapshot: CoreSnapshot,
+  intent: { readonly type: string; readonly intentId: string; readonly input?: unknown },
+): CoreSnapshot {
+  const host = snapshot.namespaces.host;
+  const hostRecord = typeof host === "object" && host !== null && !Array.isArray(host)
+    ? host as Record<string, unknown>
+    : {};
+  const intentSlots = typeof hostRecord.intentSlots === "object"
+    && hostRecord.intentSlots !== null
+    && !Array.isArray(hostRecord.intentSlots)
+    ? hostRecord.intentSlots as Record<string, unknown>
+    : {};
+  const intentSlot = intent.input === undefined
+    ? { type: intent.type }
+    : { type: intent.type, input: intent.input };
+
+  return applyNamespaceDeltas(snapshot, [{
+    namespace: "host",
+    patches: [{
+      op: "set",
+      path: [{ kind: "prop", name: "intentSlots" }],
+      value: {
+        ...intentSlots,
+        [intent.intentId]: intentSlot,
+      },
+    }],
+  }]);
+}
+
 describe("@manifesto-ai/lineage v5 submit CTS", () => {
   it("exposes the v5 action-candidate write surface and removes v3 root write verbs", () => {
     const { app } = activateCounterLineage();
@@ -462,6 +496,68 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
       worldId: result.world?.worldId,
       outcome: { kind: "ok" },
     }));
+
+    app.dispose();
+  });
+
+  it("stores a replayable intent and full context envelope on the sealed attempt", async () => {
+    const schema = createCounterSchema();
+    const service = createLineageService(createInMemoryLineageStore());
+    const app = withLineage(
+      createManifesto<CounterDomain>(schema, {}),
+      { service },
+    ).activate() as unknown as V5CounterLineageRuntime;
+    const result = await app.actions.add.submit(2);
+    const worldId = result.world?.worldId;
+    if (!worldId) {
+      throw new Error("expected sealed world");
+    }
+    const [attempt] = await service.getAttempts(worldId);
+    const terminalSnapshot = await service.getSnapshot(worldId);
+    if (!attempt?.computeEnvelope || !terminalSnapshot) {
+      throw new Error("expected stored compute envelope and terminal snapshot");
+    }
+    if (!attempt.baseWorldId) {
+      throw new Error("expected next seal base world");
+    }
+    const baseSnapshot = await service.getSnapshot(attempt.baseWorldId);
+    if (!baseSnapshot) {
+      throw new Error("expected lineage base snapshot");
+    }
+
+    expect(attempt.computeEnvelope.intent).toEqual({
+      type: "add",
+      intentId: expect.any(String),
+      input: { amount: 2 },
+    });
+    expect(attempt.computeEnvelope.context).toEqual({
+      runtime: {
+        time: { timestamp: expect.any(Number) },
+        random: { seed: attempt.computeEnvelope.intent.intentId },
+      },
+      external: {},
+    });
+
+    const baseline = withHostIntentSlot(
+      baseSnapshot,
+      attempt.computeEnvelope.intent,
+    );
+    const replay = computeSync(
+      schema,
+      baseline,
+      attempt.computeEnvelope.intent,
+      attempt.computeEnvelope.context,
+    );
+    const replayed = applySystemDelta(
+      applyNamespaceDeltas(
+        apply(schema, baseline, replay.patches),
+        replay.namespaceDelta ?? [],
+      ),
+      replay.systemDelta,
+    );
+
+    expect(replayed.state).toEqual(terminalSnapshot.state);
+    expect(replayed.system.status).toBe(terminalSnapshot.system.status);
 
     app.dispose();
   });

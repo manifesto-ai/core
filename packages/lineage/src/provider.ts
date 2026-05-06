@@ -3,6 +3,7 @@ export type {
   BranchId,
   BranchInfo,
   BranchSwitchResult,
+  ComputeEnvelope,
   LineageService,
   LineageStore,
   PersistedPatchDeltaV2,

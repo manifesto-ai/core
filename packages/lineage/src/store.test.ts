@@ -2,6 +2,23 @@ import { describe, expect, it } from "vitest";
 import type { Snapshot } from "@manifesto-ai/core";
 import { createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
 import { createLineageService } from "./service/lineage-service.js";
+import type { ComputeEnvelope } from "./types.js";
+
+function createTestComputeEnvelope(
+  type = "test.intent",
+  intentId = "intent-1",
+): ComputeEnvelope {
+  return {
+    intent: { type, intentId },
+    context: {
+      runtime: {
+        time: { timestamp: 1 },
+        random: { seed: intentId },
+      },
+      external: {},
+    },
+  };
+}
 
 function createTestSnapshot(
   state: Record<string, unknown>,
@@ -47,6 +64,7 @@ describe("@manifesto-ai/lineage in-memory store", () => {
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: genesis.branchId,
+      computeEnvelope: createTestComputeEnvelope(),
       terminalSnapshot: createTestSnapshot({ count: 2 }),
       createdAt: 2,
       patchDelta: {
@@ -88,6 +106,7 @@ describe("@manifesto-ai/lineage in-memory store", () => {
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: genesis.branchId,
+      computeEnvelope: createTestComputeEnvelope("test.stale", "intent-stale"),
       terminalSnapshot: createTestSnapshot({ count: 2 }),
       createdAt: 2,
     });
@@ -95,6 +114,7 @@ describe("@manifesto-ai/lineage in-memory store", () => {
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: genesis.branchId,
+      computeEnvelope: createTestComputeEnvelope("test.winner", "intent-winner"),
       terminalSnapshot: createTestSnapshot({ count: 3 }),
       createdAt: 3,
     });

@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { caseTitle, LCTS_CASES } from "../lcts-coverage.js";
 import { evaluateRule, expectAllCompliance, noteEvidence } from "../lcts-assertions.js";
 import { getRuleOrThrow } from "../lcts-rules.js";
-import { createBootstrappedLineage, createTestSnapshot } from "../helpers.js";
+import {
+  createBootstrappedLineage,
+  createTestComputeEnvelope,
+  createTestSnapshot,
+} from "../helpers.js";
 
 describe("LCTS Attempts Suite", () => {
   it(
@@ -16,6 +20,7 @@ describe("LCTS Attempts Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.next", "intent-next"),
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
@@ -67,6 +72,7 @@ describe("LCTS Attempts Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: mainBranch.head,
         branchId: mainBranch.id,
+        computeEnvelope: createTestComputeEnvelope("test.first", "intent-first"),
         terminalSnapshot: firstSnapshot,
         createdAt: 2,
         patchDelta: { _patchFormat: 2, patches: [] },
@@ -96,6 +102,7 @@ describe("LCTS Attempts Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: mainBranch.head,
         branchId: forkBranchId,
+        computeEnvelope: createTestComputeEnvelope("test.reused", "intent-reused"),
         terminalSnapshot: reusedSnapshot,
         createdAt: 3,
         patchDelta: { _patchFormat: 2, patches: [{ op: "set", path: "state.count", value: 2 }] },

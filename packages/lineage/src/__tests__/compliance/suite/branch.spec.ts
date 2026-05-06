@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { caseTitle, LCTS_CASES } from "../lcts-coverage.js";
 import { evaluateRule, expectAllCompliance, noteEvidence } from "../lcts-assertions.js";
 import { getRuleOrThrow } from "../lcts-rules.js";
-import { createBootstrappedLineage, createTestSnapshot, snapshotStoreState } from "../helpers.js";
+import {
+  createBootstrappedLineage,
+  createTestComputeEnvelope,
+  createTestSnapshot,
+  snapshotStoreState,
+} from "../helpers.js";
 
 describe("LCTS Branch Suite", () => {
   it(
@@ -18,6 +23,7 @@ describe("LCTS Branch Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope(),
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
@@ -25,6 +31,7 @@ describe("LCTS Branch Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope(),
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
@@ -54,6 +61,7 @@ describe("LCTS Branch Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.stale", "intent-stale"),
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
@@ -61,6 +69,7 @@ describe("LCTS Branch Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.winner", "intent-winner"),
         terminalSnapshot: createTestSnapshot({ count: 3 }),
         createdAt: 3,
       });
@@ -96,6 +105,7 @@ describe("LCTS Branch Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.success", "intent-success"),
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
@@ -106,6 +116,7 @@ describe("LCTS Branch Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: success.worldId,
         branchId: success.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.failed", "intent-failed"),
         terminalSnapshot: createTestSnapshot(
           { count: 3 },
           {
@@ -161,6 +172,7 @@ describe("LCTS Branch Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.main", "intent-main"),
         terminalSnapshot: createTestSnapshot({ count: 2 }),
         createdAt: 2,
       });
@@ -172,6 +184,7 @@ describe("LCTS Branch Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: forkBranchId,
+        computeEnvelope: createTestComputeEnvelope("test.fork", "intent-fork"),
         terminalSnapshot: createTestSnapshot({ count: 4 }),
         createdAt: 5,
       });

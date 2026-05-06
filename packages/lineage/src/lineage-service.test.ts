@@ -4,6 +4,23 @@ import type { InMemoryLineageStore } from "./store/in-memory-lineage-store.js";
 import { createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
 import { createLineageService } from "./service/lineage-service.js";
 import { createWorldRecord } from "./records.js";
+import type { ComputeEnvelope } from "./types.js";
+
+function createTestComputeEnvelope(
+  type = "test.intent",
+  intentId = "intent-1",
+): ComputeEnvelope {
+  return {
+    intent: { type, intentId },
+    context: {
+      runtime: {
+        time: { timestamp: 1 },
+        random: { seed: intentId },
+      },
+      external: {},
+    },
+  };
+}
 
 function createTestSnapshot(
   state: Record<string, unknown>,
@@ -105,6 +122,7 @@ describe("@manifesto-ai/lineage service", () => {
       schemaHash: "schema-hash",
       baseWorldId: preparedGenesis.worldId,
       branchId: preparedGenesis.branchId,
+      computeEnvelope: createTestComputeEnvelope("test.firstFailure", "intent-first-failure"),
       terminalSnapshot: failingSnapshot,
       createdAt: 11,
     });
@@ -114,6 +132,7 @@ describe("@manifesto-ai/lineage service", () => {
       schemaHash: "schema-hash",
       baseWorldId: preparedGenesis.worldId,
       branchId: preparedGenesis.branchId,
+      computeEnvelope: createTestComputeEnvelope("test.secondFailure", "intent-second-failure"),
       terminalSnapshot: failingSnapshot,
       createdAt: 12,
     });
@@ -136,6 +155,7 @@ describe("@manifesto-ai/lineage service", () => {
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: genesis.branchId,
+      computeEnvelope: createTestComputeEnvelope("test.success", "intent-success"),
       terminalSnapshot: createTestSnapshot({ count: 2 }),
       createdAt: 2,
       patchDelta: {
@@ -159,6 +179,7 @@ describe("@manifesto-ai/lineage service", () => {
       schemaHash: "schema-hash",
       baseWorldId: success.worldId,
       branchId: success.branchId,
+      computeEnvelope: createTestComputeEnvelope("test.failed", "intent-failed"),
       terminalSnapshot: createTestSnapshot(
         { count: 3 },
         {
@@ -203,6 +224,7 @@ describe("@manifesto-ai/lineage service", () => {
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: genesis.branchId,
+      computeEnvelope: createTestComputeEnvelope("test.canonical", "intent-canonical"),
       terminalSnapshot: createTestSnapshot(
         { count: 2 },
         {
@@ -234,6 +256,7 @@ describe("@manifesto-ai/lineage service", () => {
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: newBranchId,
+      computeEnvelope: createTestComputeEnvelope("test.reused", "intent-reused"),
       terminalSnapshot: createTestSnapshot(
         { count: 2 },
         {
@@ -299,6 +322,7 @@ describe("@manifesto-ai/lineage service", () => {
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: genesis.branchId,
+      computeEnvelope: createTestComputeEnvelope("test.linear", "intent-linear"),
       terminalSnapshot: createTestSnapshot({ count: 2 }),
       createdAt: 2,
     });
@@ -312,6 +336,7 @@ describe("@manifesto-ai/lineage service", () => {
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: forkBranchId,
+      computeEnvelope: createTestComputeEnvelope("test.fork", "intent-fork"),
       terminalSnapshot: createTestSnapshot({ count: 3 }),
       createdAt: 3,
     });
@@ -343,6 +368,7 @@ describe("@manifesto-ai/lineage service", () => {
       schemaHash: "schema-hash",
       baseWorldId: genesis.worldId,
       branchId: genesis.branchId,
+      computeEnvelope: createTestComputeEnvelope("test.prepared", "intent-prepared"),
       terminalSnapshot: createTestSnapshot({ count: 2 }),
       createdAt: 2,
     });

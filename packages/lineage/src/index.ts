@@ -3,6 +3,7 @@ export type {
   BranchId,
   BranchInfo,
   BranchSwitchResult,
+  ComputeEnvelope,
   World,
   WorldHead,
   WorldId,
