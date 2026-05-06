@@ -40,7 +40,7 @@ export function handleStartIntent(
   // Get fresh snapshot (JOB-4)
   let snapshot = ctx.getSnapshot();
 
-  // Reset and freeze context for this job (CTX-1~5)
+  // Read the transition-attempt context (CTX-1~5)
   ctx.resetFrozenContext();
   const frozenContext = ctx.getFrozenContext();
 

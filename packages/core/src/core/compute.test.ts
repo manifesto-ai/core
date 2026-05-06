@@ -140,7 +140,7 @@ const computeWithContext = (
   schema: DomainSchema,
   snapshot: ReturnType<typeof createSnapshot>,
   intent: ReturnType<typeof createIntent>
-) => compute(schema, snapshot, intent);
+) => compute(schema, snapshot, intent, HOST_CONTEXT);
 
 describe("compute", () => {
   describe("Basic Intent Processing", () => {

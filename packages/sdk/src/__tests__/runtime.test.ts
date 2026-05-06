@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import {
+  hashSchemaSync,
+  semanticPathToPatchPath,
+  type DomainSchema,
+} from "@manifesto-ai/core";
 
 import {
   DisposedError,
+  ManifestoError,
   createManifesto,
 } from "../index.js";
 import { getExtensionKernel } from "../extensions.js";
@@ -11,7 +17,341 @@ import {
   type CounterDomain,
 } from "./helpers/schema.js";
 
+const pp = semanticPathToPatchPath;
+
+type ContextDomain = {
+  actions: {
+    stamp: () => void;
+    loadWithContext: () => void;
+  };
+  state: {
+    tenantId: string;
+    locale: string;
+    runtimeValue: string;
+    beforeLocale: string;
+    afterLocale: string;
+    status: string;
+  };
+  computed: {};
+  context: {
+    tenantId: string;
+    locale: string;
+    runtime: string;
+  };
+};
+
+function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
+  return {
+    ...schema,
+    hash: hashSchemaSync(schema),
+  };
+}
+
+function createContextSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:sdk-context-runtime",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        tenantId: { type: "string", required: false, default: "" },
+        locale: { type: "string", required: false, default: "" },
+        runtimeValue: { type: "string", required: false, default: "" },
+        beforeLocale: { type: "string", required: false, default: "" },
+        afterLocale: { type: "string", required: false, default: "" },
+        status: { type: "string", required: false, default: "idle" },
+      },
+    },
+    context: {
+      fields: {
+        tenantId: { type: "string", required: true },
+        locale: { type: "string", required: true },
+        runtime: { type: "string", required: true },
+      },
+      fieldTypes: {
+        tenantId: { kind: "primitive", type: "string" },
+        locale: { kind: "primitive", type: "string" },
+        runtime: { kind: "primitive", type: "string" },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      stamp: {
+        flow: {
+          kind: "seq",
+          steps: [
+            {
+              kind: "patch",
+              op: "set",
+              path: pp("tenantId"),
+              value: { kind: "get", path: "$context.tenantId" },
+            },
+            {
+              kind: "patch",
+              op: "set",
+              path: pp("locale"),
+              value: { kind: "get", path: "$context.locale" },
+            },
+            {
+              kind: "patch",
+              op: "set",
+              path: pp("runtimeValue"),
+              value: { kind: "get", path: "$context.runtime" },
+            },
+          ],
+        },
+      },
+      loadWithContext: {
+        flow: {
+          kind: "seq",
+          steps: [
+            {
+              kind: "causalGuard",
+              guardId: "capture-before",
+              body: {
+                kind: "patch",
+                op: "set",
+                path: pp("beforeLocale"),
+                value: { kind: "get", path: "$context.locale" },
+              },
+            },
+            {
+              kind: "causalGuard",
+              guardId: "request-load",
+              body: {
+                kind: "effect",
+                type: "api.load",
+                params: {},
+              },
+            },
+            {
+              kind: "patch",
+              op: "set",
+              path: pp("afterLocale"),
+              value: { kind: "get", path: "$context.locale" },
+            },
+            {
+              kind: "patch",
+              op: "set",
+              path: pp("status"),
+              value: { kind: "lit", value: "loaded" },
+            },
+          ],
+        },
+      },
+    },
+  });
+}
+
+const initialContext = {
+  tenantId: "acme",
+  locale: "ko-KR",
+  runtime: "external-runtime",
+} as const;
+
 describe("activated v5 base runtime", () => {
+  it("uses initial context for preview and submit while exposing a frozen flat context", async () => {
+    const app = createManifesto<ContextDomain>(createContextSchema(), {}, {
+      context: initialContext,
+    }).activate();
+
+    expect(app.context()).toEqual(initialContext);
+    expect(Object.isFrozen(app.context())).toBe(true);
+    expect(() => {
+      (app.context() as { locale: string }).locale = "en-US";
+    }).toThrow(TypeError);
+
+    const preview = app.actions.stamp.preview();
+    expect(preview.admitted && preview.after.state).toMatchObject({
+      tenantId: "acme",
+      locale: "ko-KR",
+      runtimeValue: "external-runtime",
+    });
+    expect(app.snapshot().state.locale).toBe("");
+
+    const result = await app.actions.stamp.submit();
+    expect(result.ok && result.after.state).toMatchObject({
+      tenantId: "acme",
+      locale: "ko-KR",
+      runtimeValue: "external-runtime",
+    });
+  });
+
+  it("full-replaces context through injectContext and updateContext without publishing runtime events", async () => {
+    const app = createManifesto<ContextDomain>(createContextSchema(), {}, {
+      context: initialContext,
+    }).activate();
+    const stateListener = vi.fn();
+    const eventListener = vi.fn();
+
+    app.observe.state((snapshot) => snapshot.state.locale, stateListener);
+    app.observe.event("submission:submitted", eventListener);
+
+    app.injectContext({
+      tenantId: "acme",
+      locale: "en-US",
+      runtime: "external-runtime",
+    });
+    expect(app.context().locale).toBe("en-US");
+    expect(stateListener).not.toHaveBeenCalled();
+    expect(eventListener).not.toHaveBeenCalled();
+
+    const updated = app.updateContext((current) => ({
+      ...current,
+      locale: "ja-JP",
+    }));
+    expect(updated.locale).toBe("ja-JP");
+    expect(app.context().locale).toBe("ja-JP");
+    expect(stateListener).not.toHaveBeenCalled();
+    expect(eventListener).not.toHaveBeenCalled();
+
+    const result = await app.actions.stamp.submit();
+    expect(result.ok && result.after.state.locale).toBe("ja-JP");
+  });
+
+  it("applies execution view context only to transitions triggered through that view", async () => {
+    const app = createManifesto<ContextDomain>(createContextSchema(), {}, {
+      context: initialContext,
+    }).activate();
+
+    const requestApp = app.with({
+      context: {
+        tenantId: "other",
+        locale: "en-US",
+        runtime: "override-runtime",
+      },
+    });
+
+    const preview = requestApp.actions.stamp.preview();
+    expect(preview.admitted && preview.after.state).toMatchObject({
+      tenantId: "other",
+      locale: "en-US",
+      runtimeValue: "override-runtime",
+    });
+    expect(app.context()).toEqual(initialContext);
+    expect(requestApp.context()).toEqual({
+      tenantId: "other",
+      locale: "en-US",
+      runtime: "override-runtime",
+    });
+
+    const submitApp = app.with({
+      context: {
+        tenantId: "other",
+        locale: "fr-FR",
+        runtime: "submit-runtime",
+      },
+    });
+    const result = await submitApp.actions.stamp.submit();
+    expect(result.ok && result.after.state).toMatchObject({
+      tenantId: "other",
+      locale: "fr-FR",
+      runtimeValue: "submit-runtime",
+    });
+    expect(app.context()).toEqual(initialContext);
+  });
+
+  it("keeps in-flight submit and host re-entry pinned to the call-entry context", async () => {
+    let resolveEffect: (() => void) | null = null;
+    const effectStarted = new Promise<void>((resolve) => {
+      resolveEffect = resolve;
+    });
+
+    const app = createManifesto<ContextDomain>(
+      createContextSchema(),
+      {
+        "api.load": async () => {
+          await effectStarted;
+          return [];
+        },
+      },
+      { context: initialContext },
+    ).activate();
+
+    const submitted = app.actions.loadWithContext.submit();
+    app.injectContext({
+      tenantId: "acme",
+      locale: "en-US",
+      runtime: "external-runtime",
+    });
+    resolveEffect?.();
+
+    const result = await submitted;
+    expect(result.ok && result.after.state.beforeLocale).toBe("ko-KR");
+    expect(result.ok && result.after.state.afterLocale).toBe("ko-KR");
+    expect(app.context().locale).toBe("en-US");
+  });
+
+  it("rejects invalid context values before runtime execution", () => {
+    const schema = createContextSchema();
+
+    expect(() => createManifesto<ContextDomain>(schema, {}, {
+      context: { tenantId: "acme", locale: "ko-KR" },
+    }).activate()).toThrow(ManifestoError);
+
+    expect(() => createManifesto<ContextDomain>(schema, {}, {
+      context: {
+        ...initialContext,
+        extra: "nope",
+      },
+    }).activate()).toThrow(/Unknown context field/);
+
+    expect(() => createManifesto<ContextDomain>(schema, {}, {
+      context: {
+        ...initialContext,
+        locale: 123,
+      },
+    }).activate()).toThrow(/Expected string/);
+
+    expect(() => createManifesto<ContextDomain>(schema, {}, {
+      context: {
+        ...initialContext,
+        getId: () => "id",
+      } as never,
+    }).activate()).toThrow(/functions/);
+
+    expect(() => createManifesto<ContextDomain>(schema, {}, {
+      context: {
+        ...initialContext,
+        pending: Promise.resolve("x"),
+      } as never,
+    }).activate()).toThrow(/plain JSON objects/);
+
+    expect(() => createManifesto<ContextDomain>(schema, {}, {
+      context: new Date() as never,
+    }).activate()).toThrow(/plain JSON object/);
+
+    const withGetter = {
+      ...initialContext,
+    } as { tenantId: string; locale: string; runtime: string };
+    Object.defineProperty(withGetter, "locale", {
+      enumerable: true,
+      get: () => "ko-KR",
+    });
+    expect(() => createManifesto<ContextDomain>(schema, {}, {
+      context: withGetter,
+    }).activate()).toThrow(/getters/);
+
+    const circular: Record<string, unknown> = { ...initialContext };
+    circular.self = circular;
+    expect(() => createManifesto<ContextDomain>(schema, {}, {
+      context: circular as never,
+    }).activate()).toThrow(/cycles/);
+  });
+
+  it("rejects async updateContext results and non-empty context for schemas without context", () => {
+    const app = createManifesto<ContextDomain>(createContextSchema(), {}, {
+      context: initialContext,
+    }).activate();
+
+    expect(() => app.updateContext((() =>
+      Promise.resolve(initialContext)) as never)).toThrow(/synchronous/);
+
+    expect(() => createManifesto<CounterDomain>(createCounterSchema(), {}, {
+      context: { tenantId: "acme" },
+    }).activate()).toThrow(/does not declare/);
+  });
+
   it("submits through action handles and publishes the terminal projected snapshot", async () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
     const listener = vi.fn();

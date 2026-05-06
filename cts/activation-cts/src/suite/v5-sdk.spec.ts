@@ -29,14 +29,20 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
       expect(Object.keys(app).sort()).toEqual([
         "action",
         "actions",
+        "context",
         "dispose",
+        "injectContext",
         "inspect",
         "observe",
         "snapshot",
+        "updateContext",
+        "with",
       ]);
       expect("dispatchAsync" in app).toBe(false);
       expect("createIntent" in app).toBe(false);
       expect("getSnapshot" in app).toBe(false);
+      expect(app.context()).toEqual({});
+      expect(Object.isFrozen(app.context())).toBe(true);
       expect(app.snapshot()).not.toHaveProperty("data");
       expect(app.snapshot()).not.toHaveProperty("namespaces");
       expect(Object.keys(app.snapshot().meta)).toEqual(["schemaHash"]);
@@ -67,12 +73,20 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
         constructor: 3,
         inspect: 4,
         snapshot: 5,
-        dispose: 6,
-        action: 7,
+        context: 6,
+        injectContext: 7,
+        updateContext: 8,
+        with: 9,
+        dispose: 10,
+        action: 11,
       }) as Array<[keyof CollisionDomain["actions"], number]>) {
         await app.action(name).submit();
         expect(app.snapshot().state.count).toBe(value);
         expect(typeof app.snapshot).toBe("function");
+        expect(typeof app.context).toBe("function");
+        expect(typeof app.injectContext).toBe("function");
+        expect(typeof app.updateContext).toBe("function");
+        expect(typeof app.with).toBe("function");
         expect(typeof app.dispose).toBe("function");
       }
     },

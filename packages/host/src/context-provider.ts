@@ -1,16 +1,16 @@
 /**
- * Context Provider for Host v2.0.1
+ * ADR-027 Context Provider for Host
  *
- * Provides frozen Context per job to ensure determinism.
+ * Provides materialized Context values for transition attempts.
  *
- * @see host-SPEC-v2.0.1.md §11 Context Determinism
+ * @see host-SPEC.md §10 Context Determinism
  *
  * Key requirements:
- * - CTX-1: Context MUST be frozen at the start of each job
- * - CTX-2: All operations within a single job MUST use the same frozen context
- * - CTX-3: `now` value MUST NOT change during job execution
- * - CTX-4: `randomSeed` MUST be deterministically derived from intentId
- * - CTX-5: Context MUST be captured ONCE per job, not per operation
+ * - CTX-1: Context MUST be materialized once per transition attempt
+ * - CTX-2: All compute re-entry in one attempt MUST use the same context
+ * - CTX-3: `runtime.time.timestamp` MUST NOT change during the attempt
+ * - CTX-4: `runtime.random.seed` MUST be deterministically derived from intentId
+ * - CTX-5: Context MUST be captured once per transition attempt, not per operation
  */
 
 import type { Context, JsonValue } from "@manifesto-ai/core";
@@ -38,22 +38,28 @@ export interface HostContextProviderOptions {
  */
 export interface HostContextProvider {
   /**
-   * Create a frozen context for a job.
+   * Create a materialized context for a transition attempt.
    *
-   * MUST be called once at job start. The returned context is frozen
-   * and should be reused for all operations within the job.
+   * MUST be called once per transition attempt. The returned context is frozen
+   * and should be reused for all compute re-entry within the attempt.
    *
    * @param intentId - The intent ID for deterministic randomSeed derivation
    * @returns Frozen Context
    */
-  createFrozenContext(intentId: string): Context;
+  createFrozenContext(
+    intentId: string,
+    external?: Record<string, JsonValue>
+  ): Context;
 
   /**
    * Create an initial context for snapshot creation (before intents)
    *
    * @param randomSeed - Optional seed (defaults to "initial")
    */
-  createInitialContext(randomSeed?: string): Context;
+  createInitialContext(
+    randomSeed?: string,
+    external?: Record<string, JsonValue>
+  ): Context;
 
   /**
    * Get environment variables
@@ -76,37 +82,42 @@ export class DefaultHostContextProvider implements HostContextProvider {
   }
 
   /**
-   * Create a frozen context for a job
+   * Create a materialized context for a transition attempt
    *
    * @see SPEC §11.3 Frozen Context Pattern
    */
-  createFrozenContext(intentId: string): Context {
+  createFrozenContext(
+    intentId: string,
+    external?: Record<string, JsonValue>
+  ): Context {
     // CTX-3: Call now() exactly once and freeze the value
     const now = this.nowProvider();
 
     // CTX-4: randomSeed is deterministically derived from intentId
     const randomSeed = intentId;
 
-    // CTX-1: Freeze the context object
     return Object.freeze({
-      runtime: {
-        time: { timestamp: now },
-        random: { seed: randomSeed },
-      },
-      external: this.envProvider() ?? {},
+      runtime: Object.freeze({
+        time: Object.freeze({ timestamp: now }),
+        random: Object.freeze({ seed: randomSeed }),
+      }),
+      external: cloneExternalContext(external ?? this.envProvider() ?? {}),
     });
   }
 
   /**
    * Create initial context for snapshot creation
    */
-  createInitialContext(randomSeed: string = "initial"): Context {
+  createInitialContext(
+    randomSeed: string = "initial",
+    external?: Record<string, JsonValue>
+  ): Context {
     return Object.freeze({
-      runtime: {
-        time: { timestamp: this.nowProvider() },
-        random: { seed: randomSeed },
-      },
-      external: this.envProvider() ?? {},
+      runtime: Object.freeze({
+        time: Object.freeze({ timestamp: this.nowProvider() }),
+        random: Object.freeze({ seed: randomSeed }),
+      }),
+      external: cloneExternalContext(external ?? this.envProvider() ?? {}),
     });
   }
 
@@ -114,8 +125,58 @@ export class DefaultHostContextProvider implements HostContextProvider {
    * Get environment variables
    */
   getEnv(): Record<string, JsonValue> | undefined {
-    return this.envProvider();
+    const env = this.envProvider();
+    return env ? cloneExternalContext(env) : undefined;
   }
+}
+
+function cloneExternalContext(
+  external: Record<string, JsonValue>
+): Record<string, JsonValue> {
+  return cloneJsonObject(external, new WeakSet());
+}
+
+function cloneJsonValue(value: JsonValue, seen: WeakSet<object>): JsonValue {
+  if (Array.isArray(value)) {
+    if (seen.has(value)) {
+      throw new TypeError("Context external value must not contain cycles");
+    }
+    seen.add(value);
+    const cloned = Object.freeze(value.map((item) => cloneJsonValue(item, seen)));
+    seen.delete(value);
+    return cloned;
+  }
+
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    return cloneJsonObject(value as { readonly [key: string]: JsonValue }, seen);
+  }
+
+  if (typeof value === "number" && !Number.isFinite(value)) {
+    throw new TypeError("Context external numbers must be finite");
+  }
+  return value;
+}
+
+function cloneJsonObject(
+  value: { readonly [key: string]: JsonValue },
+  seen: WeakSet<object>,
+): Record<string, JsonValue> {
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError("Context external objects must be plain JSON objects");
+  }
+
+  if (seen.has(value)) {
+    throw new TypeError("Context external value must not contain cycles");
+  }
+  seen.add(value);
+  const cloned = Object.freeze(
+    Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [key, cloneJsonValue(child, seen)]),
+    ),
+  ) as Record<string, JsonValue>;
+  seen.delete(value);
+  return cloned;
 }
 
 /**

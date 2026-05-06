@@ -26,12 +26,13 @@ import type {
   DispatchExecutionOutcome,
   ExecutionDiagnostics,
   ExecutionOutcome,
+  ExecutionView,
   ManifestoApp,
   ManifestoDomainShape,
-  PreviewOptions,
+  PreviewDiagnosticsMode,
   PreviewResult,
   ProjectedSnapshot,
-  SubmitOptions,
+  SubmitReportMode,
   TypedActionMetadata,
   TypedActionRef,
   TypedIntent,
@@ -63,14 +64,18 @@ type Candidate<
   readonly inputError: ManifestoError | null;
 };
 
-type ParsedActionArgs = {
-  readonly args: readonly unknown[];
-  readonly options?: PreviewOptions | SubmitOptions;
+type RuntimeExecutionView<T extends ManifestoDomainShape> = {
+  readonly context?: ReturnType<RuntimeKernel<T>["getExternalContext"]>;
+  readonly diagnostics?: PreviewDiagnosticsMode;
+  readonly report?: SubmitReportMode;
 };
 
 export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
   kernel: RuntimeKernel<T>,
+  view: RuntimeExecutionView<T> = {},
+  isView = false,
 ): ManifestoApp<T, BaseMode> {
+  let runtimeView = freezeRuntimeView(view);
   const extensionKernel = kernel[EXTENSION_KERNEL];
   const publication = createRuntimePublication({
     setVisibleSnapshot: kernel.setVisibleSnapshot,
@@ -161,6 +166,31 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       },
     }),
     snapshot: kernel.getSnapshot,
+    context: getViewExternalContext,
+    injectContext(context) {
+      if (isView) {
+        runtimeView = freezeRuntimeView({
+          ...runtimeView,
+          context: kernel.captureExternalContext(context),
+        });
+        return;
+      }
+      kernel.replaceExternalContext(context);
+    },
+    updateContext(updater) {
+      if (!isView) {
+        return kernel.updateExternalContext(updater);
+      }
+      const next = updater(getViewExternalContext());
+      runtimeView = freezeRuntimeView({
+        ...runtimeView,
+        context: kernel.captureExternalContext(next),
+      });
+      return runtimeView.context ?? kernel.getExternalContext();
+    },
+    with(nextView) {
+      return createBaseRuntimeInstance(kernel, mergeRuntimeView(nextView), true);
+    },
     action,
     dispose: kernel.dispose,
   } satisfies ManifestoApp<T, BaseMode>;
@@ -177,15 +207,13 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
         const candidate = createCandidate(name, args);
         return checkCandidate(candidate);
       },
-      preview: (...argsWithOptions: [...ActionArgs<T, Name>, PreviewOptions?]) => {
-        const parsed = splitOptions(argsWithOptions, "PreviewOptions", getPublicArity(name));
-        const candidate = createCandidate(name, parsed.args as ActionArgs<T, Name>);
-        return previewCandidate(candidate, parsed.options as PreviewOptions | undefined);
+      preview: (...args: ActionArgs<T, Name>) => {
+        const candidate = createCandidate(name, args);
+        return previewCandidate(candidate);
       },
-      submit: (...argsWithOptions: [...ActionArgs<T, Name>, SubmitOptions?]) => {
-        const parsed = splitOptions(argsWithOptions, "SubmitOptions", getPublicArity(name));
-        const candidate = createCandidate(name, parsed.args as ActionArgs<T, Name>);
-        return submitCandidate(candidate, parsed.options as SubmitOptions | undefined);
+      submit: (...args: ActionArgs<T, Name>) => {
+        const candidate = createCandidate(name, args);
+        return submitCandidate(candidate);
       },
       bind: (...args: ActionArgs<T, Name>) => createBoundAction(name, args),
     });
@@ -200,8 +228,8 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       action: name,
       input: candidate.input,
       check: () => checkCandidate(candidate),
-      preview: (options?: PreviewOptions) => previewCandidate(candidate, options),
-      submit: (options?: SubmitOptions) => submitCandidate(candidate, options),
+      preview: () => previewCandidate(candidate),
+      submit: () => submitCandidate(candidate),
       intent: () => candidate.intent as Intent | null,
     });
   }
@@ -259,8 +287,8 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
 
   function previewCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
-    options?: PreviewOptions,
   ): PreviewResult<T, Name> {
+    const externalContext = captureViewExternalContext();
     const beforeCanonical = kernel.getCanonicalSnapshot();
     const before = extensionKernel.projectSnapshot(beforeCanonical);
     const admission = admitCandidate(candidate, beforeCanonical);
@@ -272,7 +300,9 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     }
 
     const intent = admission.intent;
-    const simulated = kernel.simulateSync(beforeCanonical, intent);
+    const simulated = kernel.simulateSync(beforeCanonical, intent, {
+      externalContext,
+    });
     const after = extensionKernel.projectSnapshot(simulated.snapshot);
 
     return Object.freeze({
@@ -284,15 +314,15 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       requirements: simulated.requirements,
       newAvailableActions: kernel.getAvailableActionsFor(simulated.snapshot)
         .map((name) => getActionInfo(name as ActionName<T>)),
-      ...previewDiagnostics(simulated.diagnostics, options),
+      ...previewDiagnostics(simulated.diagnostics, runtimeView.diagnostics),
       error: simulated.snapshot.system.lastError,
     }) as PreviewResult<T, Name>;
   }
 
   async function submitCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
-    options?: SubmitOptions,
   ): Promise<BaseSubmissionResult<T, Name>> {
+    const externalContext = captureViewExternalContext();
     if (kernel.isDisposed()) {
       throw new DisposedError();
     }
@@ -324,6 +354,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
         extensionKernel,
         publication,
         admittedIntent,
+        externalContext,
       );
 
       if (attempt.kind === "rejected") {
@@ -385,7 +416,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
 
       emitSubmissionSettled(candidate.actionName, attempt.intent, outcome, afterCanonical);
       const report = attempt.kind === "completed"
-        ? createBaseWriteReport(options, attempt.diagnostics, dispatchOutcome)
+        ? createBaseWriteReport(runtimeView.report, attempt.diagnostics, dispatchOutcome)
         : undefined;
 
       return Object.freeze({
@@ -398,6 +429,27 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
         outcome,
         ...(report !== undefined ? { report } : {}),
       }) as BaseSubmissionResult<T, Name>;
+    });
+  }
+
+  function getViewExternalContext(): ReturnType<RuntimeKernel<T>["getExternalContext"]> {
+    return runtimeView.context ?? kernel.getExternalContext();
+  }
+
+  function captureViewExternalContext(): ReturnType<RuntimeKernel<T>["getExternalContext"]> {
+    return runtimeView.context ?? kernel.captureExternalContext();
+  }
+
+  function mergeRuntimeView(
+    nextView: ExecutionView<ReturnType<RuntimeKernel<T>["getExternalContext"]>>,
+  ): RuntimeExecutionView<T> {
+    return freezeRuntimeView({
+      ...runtimeView,
+      ...(nextView.context !== undefined
+        ? { context: kernel.captureExternalContext(nextView.context) }
+        : {}),
+      ...(nextView.diagnostics !== undefined ? { diagnostics: nextView.diagnostics } : {}),
+      ...(nextView.report !== undefined ? { report: nextView.report } : {}),
     });
   }
 
@@ -536,11 +588,6 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     return info as ActionInfo<Name>;
   }
 
-  function getPublicArity<Name extends ActionName<T>>(name: Name): number {
-    const metadata = kernel.getActionMetadata(name);
-    return metadata.publicArity;
-  }
-
   function emitSubmissionAdmitted<Name extends ActionName<T>>(
     actionName: Name,
     intent: TypedIntent<T>,
@@ -613,42 +660,15 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
   }
 }
 
-function splitOptions(
-  args: readonly unknown[],
-  kind: PreviewOptions["__kind"] | SubmitOptions["__kind"],
-  arity: number,
-): ParsedActionArgs {
-  if (args.length === arity + 1 && isOption(args[args.length - 1], kind)) {
-    return Object.freeze({
-      args: Object.freeze(args.slice(0, -1)),
-      options: args[args.length - 1] as PreviewOptions | SubmitOptions,
-    });
-  }
-
-  return Object.freeze({
-    args: Object.freeze([...args]),
-  });
-}
-
-function isOption(
-  value: unknown,
-  kind: PreviewOptions["__kind"] | SubmitOptions["__kind"],
-): boolean {
-  return typeof value === "object"
-    && value !== null
-    && "__kind" in value
-    && (value as { readonly __kind?: unknown }).__kind === kind;
-}
-
 function previewDiagnostics(
   diagnostics: { readonly trace?: unknown } | undefined,
-  options: PreviewOptions | undefined,
+  mode: PreviewDiagnosticsMode | undefined,
 ) {
-  if (!diagnostics || options?.diagnostics === "none") {
+  if (!diagnostics || mode === "none") {
     return {};
   }
 
-  if (options?.diagnostics === "summary") {
+  if (mode === "summary") {
     return { diagnostics: {} };
   }
 
@@ -656,15 +676,15 @@ function previewDiagnostics(
 }
 
 function createBaseWriteReport<T extends ManifestoDomainShape>(
-  options: SubmitOptions | undefined,
+  mode: SubmitReportMode | undefined,
   diagnostics: ExecutionDiagnostics,
   outcome: DispatchExecutionOutcome<T>,
 ): BaseWriteReport | undefined {
-  if (options?.report === "none") {
+  if (mode === "none") {
     return undefined;
   }
 
-  if (options?.report === "full") {
+  if (mode === "full") {
     return Object.freeze({
       diagnostics,
       outcome,
@@ -674,6 +694,12 @@ function createBaseWriteReport<T extends ManifestoDomainShape>(
   }
 
   return Object.freeze({ diagnostics });
+}
+
+function freezeRuntimeView<T extends ManifestoDomainShape>(
+  view: RuntimeExecutionView<T>,
+): RuntimeExecutionView<T> {
+  return Object.freeze({ ...view });
 }
 
 function toActionInfo<

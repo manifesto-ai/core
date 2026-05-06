@@ -28,6 +28,10 @@ type CollisionDomain = {
     constructor: () => void;
     inspect: () => void;
     snapshot: () => void;
+    context: () => void;
+    injectContext: () => void;
+    updateContext: () => void;
+    with: () => void;
     dispose: () => void;
     action: () => void;
   };
@@ -117,8 +121,12 @@ function createCollisionSchema(): DomainSchema {
     constructor: 3,
     inspect: 4,
     snapshot: 5,
-    dispose: 6,
-    action: 7,
+    context: 6,
+    injectContext: 7,
+    updateContext: 8,
+    with: 9,
+    dispose: 10,
+    action: 11,
   } as const;
 
   return withHash({
@@ -339,16 +347,20 @@ function expectProjectedSnapshotBoundary(snapshot: unknown): void {
 }
 
 describe("SDK v5 action-candidate contract", () => {
-  it("exposes only the v5 root surface: snapshot, actions, action, observe, inspect, and dispose", () => {
+  it("exposes only the v5 root surface including ADR-027 context lifecycle methods", () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
     expect(Object.keys(app).sort()).toEqual([
       "action",
       "actions",
+      "context",
       "dispose",
+      "injectContext",
       "inspect",
       "observe",
       "snapshot",
+      "updateContext",
+      "with",
     ]);
     expect(app.snapshot().state.count).toBe(0);
     expect(app.inspect.canonicalSnapshot().state.count).toBe(0);
@@ -531,10 +543,14 @@ describe("SDK v5 action-candidate contract", () => {
     const runtimeMembers = {
       action: app.action,
       actions: app.actions,
+      context: app.context,
       dispose: app.dispose,
+      injectContext: app.injectContext,
       inspect: app.inspect,
       observe: app.observe,
       snapshot: app.snapshot,
+      updateContext: app.updateContext,
+      with: app.with,
     };
 
     for (const [name, value] of Object.entries({
@@ -543,18 +559,26 @@ describe("SDK v5 action-candidate contract", () => {
       constructor: 3,
       inspect: 4,
       snapshot: 5,
-      dispose: 6,
-      action: 7,
+      context: 6,
+      injectContext: 7,
+      updateContext: 8,
+      with: 9,
+      dispose: 10,
+      action: 11,
     }) as Array<[keyof CollisionDomain["actions"], number]>) {
       expect(app.actions).toHaveProperty(name);
       await app.action(name).submit();
       expect(app.snapshot().state.count).toBe(value);
       expect(app.action).toBe(runtimeMembers.action);
       expect(app.actions).toBe(runtimeMembers.actions);
+      expect(app.context).toBe(runtimeMembers.context);
       expect(app.dispose).toBe(runtimeMembers.dispose);
+      expect(app.injectContext).toBe(runtimeMembers.injectContext);
       expect(app.inspect).toBe(runtimeMembers.inspect);
       expect(app.observe).toBe(runtimeMembers.observe);
       expect(app.snapshot).toBe(runtimeMembers.snapshot);
+      expect(app.updateContext).toBe(runtimeMembers.updateContext);
+      expect(app.with).toBe(runtimeMembers.with);
     }
   });
 
@@ -596,40 +620,36 @@ describe("SDK v5 action-candidate contract", () => {
     });
   });
 
-  it("recognizes PreviewOptions and SubmitOptions only as extra final discriminated arguments", async () => {
+  it("treats option-shaped values as domain input when declared by action arity", async () => {
     const app = createManifesto<OptionDomain>(createOptionSchema(), {}).activate();
     const optionLike = { __kind: "PreviewOptions" as const, diagnostics: "domain" };
 
     const preview = app.actions.setOption.preview(optionLike);
     expect(preview.admitted && preview.after.state.value).toEqual(optionLike);
 
-    const submitted = await app.actions.setOption.submit(
-      optionLike,
-      { __kind: "SubmitOptions", report: "summary" },
-    );
+    const submitted = await app.actions.setOption.submit(optionLike);
     expect(submitted.ok && submitted.after.state.value).toEqual(optionLike);
   });
 
-  it("parses inline options for object-only multi-field actions as final options", async () => {
+  it("uses execution views for preview diagnostics and submit reports", async () => {
     const app = createManifesto<ObjectOnlyOptionsDomain>(
       createObjectOnlyOptionsSchema(),
       {},
     ).activate();
 
-    const preview = app.actions.configure.preview(
-      { retries: 3, label: "fast" },
-      { __kind: "PreviewOptions", diagnostics: "none" },
-    );
+    const preview = app.with({ diagnostics: "none" }).actions.configure.preview({
+      retries: 3,
+      label: "fast",
+    });
     expect(preview.admitted && preview.after.state).toMatchObject({
       retries: 3,
       label: "fast",
     });
     expect(preview.admitted && "diagnostics" in preview).toBe(false);
 
-    const submitted = await app.actions.configure.submit(
-      { retries: 5 },
-      { __kind: "SubmitOptions", report: "none" },
-    );
+    const submitted = await app.with({ report: "none" }).actions.configure.submit({
+      retries: 5,
+    });
     expect(submitted.ok && submitted.after.state).toMatchObject({
       retries: 5,
       label: null,
@@ -640,26 +660,17 @@ describe("SDK v5 action-candidate contract", () => {
   it("honors preview and submit option detail suppression", async () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
-    const preview = app.actions.increment.preview({
-      __kind: "PreviewOptions",
-      diagnostics: "none",
-    });
+    const preview = app.with({ diagnostics: "none" }).actions.increment.preview();
     expect(preview.admitted && "diagnostics" in preview).toBe(false);
 
-    const submitted = await app.actions.increment.submit({
-      __kind: "SubmitOptions",
-      report: "none",
-    });
+    const submitted = await app.with({ report: "none" }).actions.increment.submit();
     expect(submitted.ok && "report" in submitted).toBe(false);
   });
 
   it("returns distinct full submit reports when requested", async () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
-    const submitted = await app.actions.increment.submit({
-      __kind: "SubmitOptions",
-      report: "full",
-    });
+    const submitted = await app.with({ report: "full" }).actions.increment.submit();
 
     expect(submitted.ok && submitted.report).toMatchObject({
       requirements: [],

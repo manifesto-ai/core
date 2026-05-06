@@ -80,6 +80,7 @@ export class ExecutionContextImpl implements ExecutionContext {
     this.mailbox = options.mailbox;
     this.runtime = options.runtime;
     this.snapshot = options.initialSnapshot;
+    this.frozenContext = options.transitionContext ?? null;
     this.contextProvider = options.contextProvider;
     this.currentIntentId = options.currentIntentId ?? null;
     this.onTrace = options.onTrace;
@@ -108,7 +109,7 @@ export class ExecutionContextImpl implements ExecutionContext {
    */
   setCurrentIntentId(intentId: string): void {
     this.currentIntentId = intentId;
-    // Reset frozen context so next getFrozenContext creates a new one
+    // A new intent starts a new transition attempt.
     this.frozenContext = null;
   }
 
@@ -162,7 +163,7 @@ export class ExecutionContextImpl implements ExecutionContext {
   }
 
   /**
-   * Get the frozen Context for the current job
+   * Get the materialized Context for the current transition attempt
    *
    * @see SPEC §11.3 CTX-1~5
    */
@@ -176,10 +177,14 @@ export class ExecutionContextImpl implements ExecutionContext {
   }
 
   /**
-   * Reset frozen context (call at job start)
+   * Preserve the transition-attempt context across job re-entry.
+   *
+   * Older Host code called this at every job boundary. ADR-027 defines the
+   * materialization scope as the full transition attempt, so this is now a
+   * compatibility hook; `setCurrentIntentId()` starts the next attempt.
    */
   resetFrozenContext(): void {
-    this.frozenContext = null;
+    return;
   }
 
   /**

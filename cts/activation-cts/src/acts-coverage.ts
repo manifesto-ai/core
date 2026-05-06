@@ -167,7 +167,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE,
     "base",
-    "SDK v5 activated runtime exposes the action-candidate root and per-action handle grammar without v3 root verbs.",
+    "SDK v5 activated runtime exposes the action-candidate and ADR-027 context root grammar without v3 root verbs.",
   ),
   complianceCase(
     ACTS_CASES.V5_ADMISSION_AND_PREVIEW,

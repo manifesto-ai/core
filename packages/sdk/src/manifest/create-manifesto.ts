@@ -10,6 +10,7 @@ import type {
   BaseComposableLaws,
   ComposableManifesto,
   CreateManifestoOptions,
+  DomainExternalContext,
   EffectHandler,
   ManifestoDomainShape,
 } from "../types.js";
@@ -39,7 +40,7 @@ import type {
 export function createManifesto<T extends ManifestoDomainShape>(
   schemaInput: DomainSchema | string,
   effects: Record<string, EffectHandler>,
-  options?: CreateManifestoOptions,
+  options?: CreateManifestoOptions<DomainExternalContext<T>>,
 ): ComposableManifesto<T, BaseComposableLaws> {
   if (RESERVED_EFFECT_TYPE in effects) {
     throw new ReservedEffectError(RESERVED_EFFECT_TYPE);
@@ -70,6 +71,7 @@ export function createManifesto<T extends ManifestoDomainShape>(
           ),
           createIntent: buildCreateIntent<T>(),
           actionAnnotations: resolved.actionAnnotations,
+          initialContext: options?.context,
         }),
       );
     },
@@ -93,6 +95,7 @@ export function createManifesto<T extends ManifestoDomainShape>(
       ),
       createIntent: buildCreateIntent<T>(),
       actionAnnotations: resolved.actionAnnotations,
+      initialContext: options?.context,
     });
   });
 }

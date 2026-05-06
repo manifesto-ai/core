@@ -24,6 +24,7 @@ import {
   type TraceGraph,
   type Patch,
   type JsonValue,
+  type Context,
 } from "@manifesto-ai/core";
 import { EffectHandlerRegistry, createEffectRegistry } from "./effects/registry.js";
 import { EffectExecutor, createEffectExecutor } from "./effects/executor.js";
@@ -65,6 +66,11 @@ export interface HostResult {
    * Error if status is "error"
    */
   error?: HostError;
+
+  /**
+   * Materialized ADR-027 Context used by this transition attempt.
+   */
+  context?: Context;
 }
 
 /**
@@ -102,6 +108,26 @@ export interface HostOptions {
    * Use injectEffectResult() to fulfill effects manually.
    */
   disableAutoEffect?: boolean;
+}
+
+export interface HostDispatchOptions {
+  /**
+   * Optional execution key override for mailbox serialization.
+   */
+  key?: ExecutionKey;
+
+  /**
+   * Direct-injected ADR-027 external context for this transition attempt.
+   */
+  externalContext?: Record<string, JsonValue>;
+
+  /**
+   * Fully materialized ADR-027 Context for this transition attempt.
+   *
+   * This is an internal replay/settlement seam. User-facing SDK APIs expose
+   * only flat external context.
+   */
+  context?: Context;
 }
 
 const DEFAULT_MAX_ITERATIONS = 100;
@@ -264,7 +290,7 @@ export class ManifestoHost {
    */
   async dispatch(
     intent: Intent,
-    options?: { key?: ExecutionKey }
+    options?: HostDispatchOptions
   ): Promise<HostResult> {
     if (!this.currentSnapshot) {
       const initialContext = this.contextProvider.createInitialContext();
@@ -296,10 +322,20 @@ export class ManifestoHost {
 
     // Use explicit execution key when provided, otherwise fallback to intentId
     const key: ExecutionKey = options?.key ?? intent.intentId;
+    const transitionContext = options?.context ?? this.contextProvider.createFrozenContext(
+      intent.intentId,
+      options?.externalContext,
+    );
 
     // Create mailbox and execution context
     const mailbox = this.mailboxManager.getOrCreate(key);
-    const ctx = this.createExecutionContext(key, mailbox, this.currentSnapshot, intent.intentId);
+    const ctx = this.createExecutionContext(
+      key,
+      mailbox,
+      this.currentSnapshot,
+      intent.intentId,
+      transitionContext,
+    );
     this.executionContexts.set(key, ctx);
 
     // Enqueue StartIntent job
@@ -349,6 +385,7 @@ export class ManifestoHost {
         status: "error",
         snapshot: finalSnapshot,
         traces,
+        context: transitionContext,
         error: fatalError,
       };
     }
@@ -358,6 +395,7 @@ export class ManifestoHost {
         status: "error",
         snapshot: finalSnapshot,
         traces,
+        context: transitionContext,
         error: createHostError(
           "LOOP_MAX_ITERATIONS",
           `Host loop exceeded maximum iterations (${this.maxIterations})`,
@@ -371,6 +409,7 @@ export class ManifestoHost {
         status: "error",
         snapshot: finalSnapshot,
         traces,
+        context: transitionContext,
         error: createHostError(
           "EFFECT_EXECUTION_FAILED",
           finalSnapshot.system.lastError?.message ?? "Unknown error",
@@ -385,6 +424,7 @@ export class ManifestoHost {
         status: "error",
         snapshot: finalSnapshot,
         traces,
+        context: transitionContext,
         error: createHostError(
           "EFFECT_EXECUTION_FAILED",
           hostLastError.message,
@@ -399,6 +439,7 @@ export class ManifestoHost {
       status,
       snapshot: finalSnapshot,
       traces,
+      context: transitionContext,
     };
   }
 
@@ -409,7 +450,8 @@ export class ManifestoHost {
     key: ExecutionKey,
     mailbox: ExecutionMailbox,
     snapshot: Snapshot,
-    intentId: string
+    intentId: string,
+    transitionContext?: Context,
   ): ExecutionContextImpl {
     return createExecutionContext({
       key,
@@ -418,6 +460,7 @@ export class ManifestoHost {
       mailbox,
       runtime: this.runtime,
       initialSnapshot: snapshot,
+      ...(transitionContext !== undefined ? { transitionContext } : {}),
       contextProvider: this.contextProvider,
       currentIntentId: intentId,
       onTrace: (event) => {

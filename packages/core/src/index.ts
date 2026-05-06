@@ -13,13 +13,14 @@ import type { Snapshot } from "./schema/snapshot.js";
 import type { Intent, Patch } from "./schema/patch.js";
 import type { SemanticPath } from "./schema/common.js";
 import type { ComputeResult, ValidationResult, ExplainResult, NamespaceDelta, SystemDelta } from "./schema/result.js";
-import type { Context } from "./schema/context.js";
+import type { Context, JsonValue } from "./schema/context.js";
 
 import { compute, computeSync, validateIntentInput } from "./core/compute.js";
 import { apply, applyNamespaceDeltas } from "./core/apply.js";
 import { applySystemDelta } from "./core/system-delta.js";
 import { validate } from "./core/validate.js";
 import { explain } from "./core/explain.js";
+import { validateExternalContext } from "./core/context-validation.js";
 import {
   getAvailableActions,
   isActionAvailable,
@@ -115,6 +116,14 @@ export interface ManifestoCore {
     snapshot: Snapshot,
     intent: Intent
   ): boolean;
+
+  /**
+   * Validate a materialized ADR-027 external context value against the schema.
+   */
+  validateExternalContext(
+    schema: DomainSchema,
+    external: Record<string, JsonValue>
+  ): ValidationResult;
 }
 
 /**
@@ -132,6 +141,7 @@ export function createCore(): ManifestoCore {
     isActionAvailable,
     getAvailableActions,
     isIntentDispatchable,
+    validateExternalContext,
   };
 }
 
@@ -161,6 +171,7 @@ export {
   applyNamespaceDeltas,
   applySystemDelta,
   validate,
+  validateExternalContext,
   explain,
   isActionAvailable,
   getAvailableActions,

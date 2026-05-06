@@ -115,16 +115,16 @@ export interface ExecutionContext {
   setSnapshot(snapshot: Snapshot): void;
 
   /**
-   * Get the frozen Context for the current job.
+   * Get the materialized Context for the current transition attempt.
    *
-   * Context is frozen at job start and reused throughout the job.
+   * Context is frozen at attempt start and reused through compute re-entry.
    *
    * @see SPEC §11.3 CTX-1~5
    */
   getFrozenContext(): Context;
 
   /**
-   * Reset frozen context (call at job start)
+   * Compatibility hook retained for older job handlers.
    */
   resetFrozenContext(): void;
 
@@ -219,6 +219,7 @@ export interface ExecutionContextOptions {
   mailbox: ExecutionMailbox;
   runtime: Runtime;
   initialSnapshot: Snapshot;
+  transitionContext?: Context;
   onTrace?: (event: TraceEvent) => void;
   onEffectRequest?: (
     key: ExecutionKey,

@@ -3,6 +3,7 @@ import type {
   ExecutionDiagnostics,
   ExecutionFailureInfo,
   DispatchExecutionOutcome,
+  DomainExternalContext,
   IntentAdmission,
   ManifestoDomainShape,
   Snapshot,
@@ -71,6 +72,7 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
     "publishCompletedHostResult" | "publishFailedHostResult"
   >,
   intent: TypedIntent<T>,
+  externalContext: DomainExternalContext<T>,
 ): Promise<BaseDispatchAttemptResult<T>> {
   const beforeCanonicalSnapshot = kernel.getCanonicalSnapshot();
   const beforeSnapshot = extensionKernel.projectSnapshot(beforeCanonicalSnapshot);
@@ -106,7 +108,9 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
 
   let result;
   try {
-    result = await kernel.executeHost(legality.intent);
+    result = await kernel.executeHost(legality.intent, {
+      externalContext,
+    });
   } catch (error) {
     const failure = toError(error);
     return {

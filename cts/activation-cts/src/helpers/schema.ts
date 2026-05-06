@@ -54,6 +54,10 @@ export type CollisionDomain = ManifestoDomainShape & {
     constructor: () => void;
     inspect: () => void;
     snapshot: () => void;
+    context: () => void;
+    injectContext: () => void;
+    updateContext: () => void;
+    with: () => void;
     dispose: () => void;
     action: () => void;
   };
@@ -224,8 +228,12 @@ export function createCollisionSchema(): DomainSchema {
     constructor: 3,
     inspect: 4,
     snapshot: 5,
-    dispose: 6,
-    action: 7,
+    context: 6,
+    injectContext: 7,
+    updateContext: 8,
+    with: 9,
+    dispose: 10,
+    action: 11,
   } as const;
 
   return withHash({

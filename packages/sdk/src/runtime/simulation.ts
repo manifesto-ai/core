@@ -129,6 +129,7 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
   const simulateSync: RuntimeSimulateSync<T> = (
     snapshot,
     intent,
+    options,
   ): RuntimeSimulationResult<T> => {
     const legality = evaluateIntentLegalityFor(snapshot, intent);
     if (legality.kind === "unavailable") {
@@ -142,7 +143,10 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
     }
     const enrichedIntent = legality.intent;
 
-    const context = hostContextProvider.createFrozenContext(enrichedIntent.intentId);
+    const context = hostContextProvider.createFrozenContext(
+      enrichedIntent.intentId,
+      options?.externalContext,
+    );
     const baseline = withHostIntentSlot(
       structuredClone(snapshot as CoreSnapshot),
       enrichedIntent,

@@ -10,7 +10,13 @@
  */
 
 // Host
-export { ManifestoHost, createHost, type HostOptions, type HostResult } from "./host.js";
+export {
+  ManifestoHost,
+  createHost,
+  type HostDispatchOptions,
+  type HostOptions,
+  type HostResult,
+} from "./host.js";
 
 // v2.0.2 Execution Model
 export type {

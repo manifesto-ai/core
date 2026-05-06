@@ -1,6 +1,8 @@
 import {
   type ComputeStatus,
+  type Context,
   type DomainSchema,
+  type JsonValue,
   type Patch,
   type Requirement,
   type Snapshot as CoreSnapshot,
@@ -21,8 +23,11 @@ import type {
   BaseLaws,
   CanonicalSnapshot,
   ComposableManifesto,
+  ContextUpdater,
   DispatchExecutionOutcome,
   DispatchBlocker,
+  DomainExternalContext,
+  ExternalContext,
   ExecutionDiagnostics,
   ExecutionFailureInfo,
   IntentAdmission,
@@ -117,6 +122,7 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly simulateSync: (
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
+    options?: { readonly externalContext?: DomainExternalContext<T> },
   ) => SimulateResult<T>;
   readonly simulate: TypedSimulate<T>;
   readonly simulateIntent: TypedSimulateIntent<T>;
@@ -139,6 +145,20 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
     intent: TypedIntent<T>,
     options?: HostDispatchOptions,
   ) => Promise<HostResult>;
+  readonly createComputeContext: (
+    intent: TypedIntent<T>,
+    externalContext?: ExternalContext,
+  ) => Context;
+  readonly getExternalContext: () => DomainExternalContext<T>;
+  readonly replaceExternalContext: (
+    next: DomainExternalContext<T>,
+  ) => DomainExternalContext<T>;
+  readonly updateExternalContext: (
+    updater: ContextUpdater<DomainExternalContext<T>>,
+  ) => DomainExternalContext<T>;
+  readonly captureExternalContext: (
+    override?: ExternalContext,
+  ) => DomainExternalContext<T>;
   readonly validateIntentInputFor: (
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
@@ -189,6 +209,10 @@ type RuntimePublicReadFacet<T extends ManifestoDomainShape> = Pick<
   | "simulateSync"
   | "simulate"
   | "simulateIntent"
+  | "getExternalContext"
+  | "replaceExternalContext"
+  | "updateExternalContext"
+  | "captureExternalContext"
 >;
 
 type RuntimeLifecycleFacet<T extends ManifestoDomainShape> = Pick<
@@ -198,7 +222,7 @@ type RuntimeLifecycleFacet<T extends ManifestoDomainShape> = Pick<
 
 type RuntimeExecutionFacet<T extends ManifestoDomainShape> = Pick<
   RuntimeKernel<T>,
-  "ensureIntentId" | "executeHost"
+  "ensureIntentId" | "executeHost" | "createComputeContext" | "captureExternalContext"
 >;
 
 type RuntimeSealAdmissionFacet<T extends ManifestoDomainShape> = Pick<
@@ -300,6 +324,7 @@ export type RuntimeKernelOptions<T extends ManifestoDomainShape> = {
   readonly hostContextProvider: HostContextProvider;
   readonly MEL: TypedMEL<T>;
   readonly createIntent: TypedCreateIntent<T>;
+  readonly initialContext?: Record<string, JsonValue>;
 };
 
 export function attachRuntimeKernelFactory<

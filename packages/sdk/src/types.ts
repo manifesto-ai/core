@@ -4,10 +4,13 @@ import type {
   ErrorValue,
   ExprNode,
   Intent,
+  JsonValue,
   Patch,
   Requirement,
   TraceGraph,
 } from "@manifesto-ai/core";
+
+export type { JsonValue } from "@manifesto-ai/core";
 import type {
   SchemaGraph as CompilerSchemaGraph,
   SchemaGraphEdge,
@@ -30,6 +33,7 @@ export type ManifestoDomainShape = {
   readonly actions: Record<string, ActionFn>;
   readonly state: Record<string, unknown>;
   readonly computed: Record<string, unknown>;
+  readonly context?: ExternalContext;
 };
 
 export type BaseLaws = { readonly __baseLaws: true };
@@ -108,20 +112,31 @@ export type ActionInput<
 export type ProjectedSnapshot<T extends ManifestoDomainShape> =
   Snapshot<T["state"]>;
 
-export type PreviewOptions = {
-  readonly __kind: "PreviewOptions";
-  readonly diagnostics?: "none" | "summary" | "trace";
-};
+export type ExternalContext = Readonly<Record<string, JsonValue>>;
 
-export type SubmitOptions = {
-  readonly __kind: "SubmitOptions";
-  readonly report?: "none" | "summary" | "full";
+export type DomainExternalContext<T extends ManifestoDomainShape> =
+  T extends { readonly context: infer TContext extends ExternalContext }
+    ? Readonly<TContext>
+    : ExternalContext;
+
+export type ContextUpdater<TContext extends ExternalContext = ExternalContext> = (
+  current: Readonly<TContext>,
+) => TContext;
+
+export type PreviewDiagnosticsMode = "none" | "summary" | "trace";
+export type SubmitReportMode = "none" | "summary" | "full";
+
+export type ExecutionView<TContext extends ExternalContext = ExternalContext> = {
+  readonly context?: TContext;
+  readonly diagnostics?: PreviewDiagnosticsMode;
+  readonly report?: SubmitReportMode;
 };
 
 export type ActionAnnotation = Readonly<Record<string, unknown>>;
 
-export type CreateManifestoOptions = {
+export type CreateManifestoOptions<TContext extends ExternalContext = ExternalContext> = {
   readonly annotations?: Readonly<Record<string, ActionAnnotation>>;
+  readonly context?: TContext;
 };
 
 export type ActionParameterInfo = {
@@ -333,12 +348,8 @@ export type ActionHandle<
   info(): ActionInfo<K>;
   available(): boolean;
   check(...args: ActionArgs<T, K>): Admission<K>;
-  preview(
-    ...args: [...ActionArgs<T, K>, PreviewOptions?]
-  ): PreviewResult<T, K>;
-  submit(
-    ...args: [...ActionArgs<T, K>, SubmitOptions?]
-  ): Promise<SubmitResultFor<TMode, T, K>>;
+  preview(...args: ActionArgs<T, K>): PreviewResult<T, K>;
+  submit(...args: ActionArgs<T, K>): Promise<SubmitResultFor<TMode, T, K>>;
   bind(...args: ActionArgs<T, K>): BoundAction<T, K, TMode>;
 };
 
@@ -350,8 +361,8 @@ export type BoundAction<
   readonly action: K;
   readonly input: ActionInput<T, K>;
   check(): Admission<K>;
-  preview(options?: PreviewOptions): PreviewResult<T, K>;
-  submit(options?: SubmitOptions): Promise<SubmitResultFor<TMode, T, K>>;
+  preview(): PreviewResult<T, K>;
+  submit(): Promise<SubmitResultFor<TMode, T, K>>;
   intent(): Intent | null;
 };
 
@@ -733,6 +744,12 @@ export type BaseManifestoApp<
   readonly observe: ObserveSurface<T>;
   readonly inspect: InspectSurface<T>;
   snapshot(): ProjectedSnapshot<T>;
+  context(): DomainExternalContext<T>;
+  injectContext(context: DomainExternalContext<T>): void;
+  updateContext(
+    updater: ContextUpdater<DomainExternalContext<T>>,
+  ): DomainExternalContext<T>;
+  with(view: ExecutionView<DomainExternalContext<T>>): ManifestoApp<T, TMode>;
   action<Name extends ActionName<T>>(name: Name): ActionHandle<T, Name, TMode>;
   dispose(): void;
 };

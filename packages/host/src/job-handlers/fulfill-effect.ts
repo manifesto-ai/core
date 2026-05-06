@@ -50,7 +50,7 @@ export function handleFulfillEffect(
     jobId: job.id,
   });
 
-  // Reset and freeze context for this job (CTX-1~5)
+  // Read the transition-attempt context (CTX-1~5)
   ctx.resetFrozenContext();
   const frozenContext = ctx.getFrozenContext();
 

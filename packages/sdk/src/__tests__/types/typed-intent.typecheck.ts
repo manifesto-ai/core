@@ -20,9 +20,9 @@ const boundIncrement: BoundAction<CounterDomain, "increment", "base"> =
 const rawIntent: Intent | null = boundIncrement.intent();
 const admission: Admission<"increment"> = boundIncrement.check();
 const preview: PreviewResult<CounterDomain, "increment"> =
-  boundIncrement.preview({ __kind: "PreviewOptions", diagnostics: "summary" });
+  app.with({ diagnostics: "summary" }).actions.increment.bind().preview();
 const submitted: Promise<BaseSubmissionResult<CounterDomain, "increment">> =
-  boundIncrement.submit({ __kind: "SubmitOptions", report: "summary" });
+  app.with({ report: "summary" }).actions.increment.bind().submit();
 
 const add = app.actions.add;
 const boundAdd = add.bind(3);

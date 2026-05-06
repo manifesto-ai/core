@@ -10,6 +10,7 @@ import type { HostResult } from "@manifesto-ai/host";
 import type {
   DispatchBlocker,
   CanonicalSnapshot,
+  DomainExternalContext,
   DispatchExecutionOutcome,
   ExecutionDiagnostics,
   ExecutionFailureInfo,
@@ -102,6 +103,7 @@ export type RuntimeSimulateSync<
 > = (
   snapshot: CanonicalSnapshot<T["state"]>,
   intent: TypedIntent<T>,
+  options?: { readonly externalContext?: DomainExternalContext<T> },
 ) => RuntimeSimulationResult<T>;
 
 export interface RuntimeAdmission<T extends ManifestoDomainShape> {
