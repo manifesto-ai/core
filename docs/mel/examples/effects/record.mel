@@ -38,7 +38,7 @@ domain EffectsRecord {
   // Extract all keys from a Record
   action getTaskIds() {
     once(gettingKeys) {
-      patch gettingKeys = $meta.intentId
+      patch gettingKeys = $runtime.intent.id
       effect record.keys({
         source: tasks,
         into: taskIds
@@ -48,7 +48,7 @@ domain EffectsRecord {
 
   action getUserIds() {
     once(gettingKeys) {
-      patch gettingKeys = $meta.intentId
+      patch gettingKeys = $runtime.intent.id
       effect record.keys({
         source: users,
         into: userIds
@@ -60,7 +60,7 @@ domain EffectsRecord {
   // Extract all values from a Record
   action getTaskList() {
     once(gettingValues) {
-      patch gettingValues = $meta.intentId
+      patch gettingValues = $runtime.intent.id
       effect record.values({
         source: tasks,
         into: taskList
@@ -70,7 +70,7 @@ domain EffectsRecord {
 
   action getUserList() {
     once(gettingValues) {
-      patch gettingValues = $meta.intentId
+      patch gettingValues = $runtime.intent.id
       effect record.values({
         source: users,
         into: userList
@@ -82,7 +82,7 @@ domain EffectsRecord {
   // Extract key-value pairs
   action getTaskEntries() {
     once(gettingEntries) {
-      patch gettingEntries = $meta.intentId
+      patch gettingEntries = $runtime.intent.id
       effect record.entries({
         source: tasks,
         into: taskEntries
@@ -94,7 +94,7 @@ domain EffectsRecord {
   action processActiveTasks() {
     // Step 1: Get all task values
     once(gettingValues) {
-      patch gettingValues = $meta.intentId
+      patch gettingValues = $runtime.intent.id
       effect record.values({
         source: tasks,
         into: taskList
@@ -103,7 +103,7 @@ domain EffectsRecord {
 
     // Step 2: Filter active tasks
     once(gettingKeys) when isNotNull(taskList) {
-      patch gettingKeys = $meta.intentId
+      patch gettingKeys = $runtime.intent.id
       effect array.filter({
         source: taskList,
         where: eq($item.active, true),

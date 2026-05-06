@@ -66,8 +66,8 @@ domain ActionAvailable {
     )
   ) {
     once(submitting) {
-      patch submitting = $meta.intentId
-      patch submittedAt = $system.timestamp
+      patch submitting = $runtime.intent.id
+      patch submittedAt = $runtime.time.timestamp
       patch status = "done"
     }
   }

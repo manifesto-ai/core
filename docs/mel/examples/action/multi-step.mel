@@ -46,14 +46,14 @@ domain ActionMultiStep {
   action processData() {
     // Step 1: Fetch data
     once(step1) {
-      patch step1 = $meta.intentId
+      patch step1 = $runtime.intent.id
       patch status = "loading"
       effect api.fetch({ url: "/items", into: rawItems })
     }
 
     // Step 2: Filter (waits for step 1)
     once(step2) when isNotNull(rawItems) {
-      patch step2 = $meta.intentId
+      patch step2 = $runtime.intent.id
       patch status = "processing"
       effect array.filter({
         source: rawItems,
@@ -64,7 +64,7 @@ domain ActionMultiStep {
 
     // Step 3: Sort (waits for step 2)
     once(step3) when isNotNull(filteredItems) {
-      patch step3 = $meta.intentId
+      patch step3 = $runtime.intent.id
       effect array.sort({
         source: filteredItems,
         by: $item.createdAt,
@@ -83,7 +83,7 @@ domain ActionMultiStep {
   action transformData() {
     // Flatten nested arrays
     once(step1) when isNotNull(rawItems) {
-      patch step1 = $meta.intentId
+      patch step1 = $runtime.intent.id
       effect array.flatMap({
         source: rawItems,
         select: $item.children,
@@ -93,7 +93,7 @@ domain ActionMultiStep {
 
     // Map to summary objects
     once(step2) when isNotNull(childItems) {
-      patch step2 = $meta.intentId
+      patch step2 = $runtime.intent.id
       effect array.map({
         source: childItems,
         select: {
@@ -126,7 +126,7 @@ domain ActionMultiStep {
 // Multi-Step Pattern:
 //
 //   once(stepN) when <previous step ready> {
-//     patch stepN = $meta.intentId   // MUST be first
+//     patch stepN = $runtime.intent.id   // MUST be first
 //     effect ...
 //   }
 //

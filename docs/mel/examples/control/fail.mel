@@ -116,7 +116,7 @@ domain ControlFail {
       neq(trim(email), ""),
       and(gte(strlen(password), 8), gte(age, 18))
     ) {
-      patch registering = $meta.intentId
+      patch registering = $runtime.intent.id
       patch status = "done"
     }
   }

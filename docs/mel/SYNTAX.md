@@ -166,8 +166,8 @@ state {
 
 // ❌ COMPILE ERROR: System value in initializer
 state {
-  id: string = $system.uuid          // Error: Must be deterministic
-  createdAt: number = $system.timestamp // Error: Must be deterministic
+  id: string = $runtime.random.uuid          // Error: Must be deterministic
+  createdAt: number = $runtime.time.timestamp // Error: Must be deterministic
 }
 ```
 
@@ -242,7 +242,7 @@ Object expression functions operate on objects and return new values — they do
 ```mel
 // Spread-first composition (later contributors win)
 computed withDefaults = { theme: "light", lang: "en", ...config }
-computed fullProfile = { ...baseProfile, ...userOverrides, lastSeen: $meta.timestamp }
+computed fullProfile = { ...baseProfile, ...userOverrides, lastSeen: lastSeenAt }
 
 // Decompose objects
 computed taskIds = keys(tasks)
@@ -386,8 +386,8 @@ computed lower = name.toLowerCase()      // Error: No method calls
 computed trimmed = trim(email)
 computed lower = lower(name)
 
-// ❌ COMPILE ERROR: System values in computed
-computed now = $system.timestamp          // Error: System values are IO
+// ❌ COMPILE ERROR: Runtime context in computed
+computed now = $runtime.time.timestamp          // Error: Runtime context is transition-bound
 ```
 
 ---
@@ -456,7 +456,7 @@ action decrement() available when count > 0 {
 
 action submit() available when email != null && submittedAt == null {
   once(submitIntent) {
-    patch submitIntent = $meta.intentId
+    patch submitIntent = $runtime.intent.id
     effect api.submit({ data: formData, into: result })
   }
 }
@@ -521,23 +521,24 @@ patch draft = {
 
 > **`patch merge` vs `merge()` expression vs `patch = { ...spread }`:** `patch path merge expr` is a flow-level state operation that shallow-merges into state at `path`. `merge(a, b)` is a pure expression function that returns a new merged object. `patch path = { ...spread }` is still a set patch whose value is the lowered `merge(...)`. See [Object Functions](#object-functions) above.
 
-### System Values
+### Runtime Values
 
-System values are IO and only allowed inside action bodies.
+Runtime values come from ADR-027 `Context` and are only allowed inside action
+bodies.
 
 ```mel
 action create() {
   when true {
-    patch id = $system.uuid
-    patch createdAt = $system.timestamp
+    patch id = $runtime.random.uuid
+    patch createdAt = $runtime.time.timestamp
   }
 }
 ```
 
 **Forbidden:**
 ```mel
-computed now = $system.timestamp   // System values not allowed in computed
-state { id: string = $system.uuid } // Not allowed in state defaults
+computed now = $runtime.time.timestamp   // Runtime values not allowed in computed
+state { id: string = $runtime.random.uuid } // Not allowed in state defaults
 ```
 
 ### Forbidden Action Examples
@@ -596,7 +597,7 @@ Guards execute their body only when the condition is true. Re-entry safe.
 action submit() {
   // Only runs when not already submitted
   when eq(submittedAt, null) {
-    patch submittedAt = $system.timestamp
+    patch submittedAt = $runtime.time.timestamp
     effect api.submit({ data: form, into: result })
   }
 }
@@ -623,7 +624,7 @@ when neq(count, 0) { ... }
 ```mel
 action increment() {
   once(lastIntent) {
-    patch lastIntent = $meta.intentId    // MUST be first!
+    patch lastIntent = $runtime.intent.id    // MUST be first!
     patch count = add(count, 1)
   }
 }
@@ -632,10 +633,10 @@ action increment() {
 **With additional condition:**
 
 ```mel
-action addTask(title: string) {
+action addTask(id: string, title: string) {
   once(addingTask) when neq(trim(title), "") {
-    patch addingTask = $meta.intentId
-    patch tasks[$system.uuid] = { id: $system.uuid, title: title, done: false }
+    patch addingTask = $runtime.intent.id
+    patch tasks[id] = { id: id, title: title, done: false }
   }
 }
 ```
@@ -645,12 +646,12 @@ action addTask(title: string) {
 ```mel
 action processData() {
   once(step1) {
-    patch step1 = $meta.intentId
+    patch step1 = $runtime.intent.id
     effect array.map({ source: items, select: $item.value, into: mapped })
   }
 
   once(step2) when isNotNull(mapped) {
-    patch step2 = $meta.intentId
+    patch step2 = $runtime.intent.id
     effect array.filter({ source: mapped, where: gt($item, 0), into: filtered })
   }
 }
@@ -658,7 +659,7 @@ action processData() {
 
 ### onceIntent (Per-Intent Idempotency, No Guard Fields)
 
-`onceIntent` is a **contextual keyword** that provides per-intent idempotency without requiring a guard field in domain state. The guard state is stored in the platform `$mel` namespace.
+`onceIntent` is a **contextual keyword** that provides per-intent idempotency without requiring a guard field in domain state. In the current v5 compiler contract, it lowers to Core's owner-neutral `causalGuard` primitive and does not emit user-visible `$mel` namespace reads or writes.
 
 ```mel
 action increment() {
@@ -671,9 +672,9 @@ action increment() {
 **With additional condition:**
 
 ```mel
-action addTask(title: string) {
+action addTask(id: string, title: string) {
   onceIntent when trim(title) != "" {
-    patch tasks[$system.uuid] = { id: $system.uuid, title: title, done: false }
+    patch tasks[id] = { id: id, title: title, done: false }
   }
 }
 ```
@@ -705,8 +706,8 @@ action createUser(email: string) {
 
   // Success path
   once(creating) when eq(at(users, email), null) {
-    patch creating = $meta.intentId
-    patch users[email] = { email: email, createdAt: $system.timestamp }
+    patch creating = $runtime.intent.id
+    patch users[email] = { email: email, createdAt: $runtime.time.timestamp }
   }
 }
 ```
@@ -820,13 +821,13 @@ effect record.entries({ source: tasks, into: taskEntries })
 ```mel
 action loadTasks() {
   once(loading) {
-    patch loading = $meta.intentId
+    patch loading = $runtime.intent.id
     patch status = "loading"
     effect api.fetch({ url: "/tasks", into: tasks })
   }
 
   once(filtering) when isNotNull(tasks) {
-    patch filtering = $meta.intentId
+    patch filtering = $runtime.intent.id
     effect array.filter({
       source: tasks,
       where: eq($item.completed, false),
@@ -858,12 +859,12 @@ effect array.map({
 // ✅ CORRECT: Sequential composition
 action process() {
   once(step1) {
-    patch step1 = $meta.intentId
+    patch step1 = $runtime.intent.id
     effect array.flatMap({ source: teams, select: $item.members, into: allMembers })
   }
 
   once(step2) when isNotNull(allMembers) {
-    patch step2 = $meta.intentId
+    patch step2 = $runtime.intent.id
     effect array.filter({ source: allMembers, where: $item.active, into: activeMembers })
   }
 }

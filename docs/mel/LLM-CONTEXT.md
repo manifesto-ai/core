@@ -45,7 +45,7 @@ MEL (Manifesto Expression Language) is a **declarative domain language** for def
 2. All `effect` must be inside `when`, `once`, or `onceIntent`
 3. All `fail` must be inside `when`, `once`, or `onceIntent`
 4. All `stop` must be inside `when`, `once`, or `onceIntent`
-5. `once(marker)` must have `patch marker = $meta.intentId` as FIRST statement
+5. `once(marker)` must have `patch marker = $runtime.intent.id` as FIRST statement
 6. Prefer `onceIntent` for per-intent idempotency when no explicit guard field is needed
 
 ### Type Rules
@@ -173,8 +173,8 @@ computed taskPairs = entries(tasks)                         // Key-value pairs
 // ❌ effect in computed
 computed filtered = effect array.filter(...)
 
-// ❌ $system in computed
-computed now = $system.timestamp
+// ❌ runtime context in computed
+computed now = $runtime.time.timestamp
 
 // ❌ Nested aggregation
 computed total = sum(filter(prices))
@@ -248,7 +248,7 @@ Per-intent idempotency. Marker patch MUST be first.
 ```mel
 action submit() {
   once(submitIntent) {
-    patch submitIntent = $meta.intentId    // MUST be first
+    patch submitIntent = $runtime.intent.id    // MUST be first
     patch status = "loading"
     effect api.submit({ data: form, into: result })
   }
@@ -256,7 +256,7 @@ action submit() {
 
 // With condition
 once(step2) when isNotNull(step1Result) {
-  patch step2 = $meta.intentId
+  patch step2 = $runtime.intent.id
   effect process({ data: step1Result, into: step2Result })
 }
 ```
@@ -338,11 +338,11 @@ effect array.map({
 
 // ✅ Correct - sequential
 once(step1) {
-  patch step1 = $meta.intentId
+  patch step1 = $runtime.intent.id
   effect array.flatMap({ source: items, select: $item.children, into: allChildren })
 }
 once(step2) when isNotNull(allChildren) {
-  patch step2 = $meta.intentId
+  patch step2 = $runtime.intent.id
   effect array.filter({ source: allChildren, where: $item.active, into: activeChildren })
 }
 ```
@@ -485,13 +485,13 @@ stop "skipped_no_action_needed"
 ```mel
 action loadData() {
   once(loading) {
-    patch loading = $meta.intentId
+    patch loading = $runtime.intent.id
     patch status = "loading"
     effect api.fetch({ url: "/items", into: rawItems })
   }
 
   once(filtering) when isNotNull(rawItems) {
-    patch filtering = $meta.intentId
+    patch filtering = $runtime.intent.id
     effect array.filter({
       source: rawItems,
       where: eq($item.active, true),
@@ -519,21 +519,22 @@ effect array.map({
 })
 ```
 
-### System Values
+### Runtime Values
 
-System values are IO and only allowed inside action bodies.
+Runtime values come from ADR-027 `Context` and are only allowed inside action
+bodies.
 
 ```mel
 // Allowed in actions (compiler inserts system.get effects)
-patch id = $system.uuid
-patch createdAt = $system.timestamp
-patch random = $system.random
+patch id = $runtime.random.uuid
+patch createdAt = $runtime.time.timestamp
+patch random = $runtime.random.seed
 ```
 
 **Forbidden:**
 ```mel
-computed now = $system.timestamp   // System values not allowed in computed
-state { id: string = $system.uuid } // Not allowed in state defaults
+computed now = $runtime.time.timestamp   // Runtime values not allowed in computed
+state { id: string = $runtime.random.uuid } // Not allowed in state defaults
 ```
 
 ### CRUD with Validation
@@ -545,9 +546,9 @@ action create(title: string) {
   }
 
   once(creating) when neq(trim(title), "") {
-    patch creating = $meta.intentId
-    patch items[$system.uuid] = {
-      id: $system.uuid,
+    patch creating = $runtime.intent.id
+    patch items[$runtime.random.uuid] = {
+      id: $runtime.random.uuid,
       title: trim(title),
       done: false
     }
@@ -574,7 +575,7 @@ action toggle(id: string) {
   }
 
   once(toggling) when isNotNull(at(items, id)) {
-    patch toggling = $meta.intentId
+    patch toggling = $runtime.intent.id
     patch items[id].done = not(at(items, id).done)
   }
 }
@@ -597,7 +598,7 @@ When generating MEL:
 9. [ ] Using `eq(len(arr), 0)` not `eq(arr, [])`?
 10. [ ] Using `isNotNull()` not truthy check?
 11. [ ] Record keys/values via `record.*` effects (not `keys()` / `values()`)?
-12. [ ] $system.* only in action bodies (never in computed/state init)?
+12. [ ] `$runtime.*` / `$context.*` only in action bodies (never in computed/state init)?
 
 ---
 

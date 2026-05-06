@@ -1,6 +1,6 @@
 # Compiler SPEC Compilance Test Suite (CCTS)
 
-> **Purpose:** Define the compliance harness for `@manifesto-ai/compiler` against the current MEL compiler contract in SPEC-v1.3.0.
+> **Purpose:** Define the compliance harness for `@manifesto-ai/compiler` against the current MEL compiler v5.0.0 contract in `SPEC-v1.2.0.md`.
 > **Audience:** Compiler maintainers and contributors extending MEL semantics.
 > **Status:** Operational
 

@@ -29,14 +29,14 @@ domain ControlOnce {
   // Runs once per intent, prevents duplicate execution
   action increment() {
     once(lastIncrement) {
-      patch lastIncrement = $meta.intentId    // MUST be first!
+      patch lastIncrement = $runtime.intent.id    // MUST be first!
       patch count = add(count, 1)
     }
   }
 
   action decrement() {
     once(lastDecrement) {
-      patch lastDecrement = $meta.intentId
+      patch lastDecrement = $runtime.intent.id
       patch count = sub(count, 1)
     }
   }
@@ -45,7 +45,7 @@ domain ControlOnce {
   // Combines idempotency with additional condition
   action incrementIfPositive() {
     once(lastIncrement) when gt(count, 0) {
-      patch lastIncrement = $meta.intentId
+      patch lastIncrement = $runtime.intent.id
       patch count = add(count, 1)
     }
   }
@@ -54,7 +54,7 @@ domain ControlOnce {
   // Effect runs only once per intent
   action fetchData() {
     once(step1) {
-      patch step1 = $meta.intentId
+      patch step1 = $runtime.intent.id
       effect api.fetch({ url: "/items", into: items })
     }
   }
@@ -63,13 +63,13 @@ domain ControlOnce {
   action processItems() {
     // Step 1: Fetch
     once(step1) {
-      patch step1 = $meta.intentId
+      patch step1 = $runtime.intent.id
       effect api.fetch({ url: "/items", into: items })
     }
 
     // Step 2: Filter (waits for items)
     once(step2) when isNotNull(items) {
-      patch step2 = $meta.intentId
+      patch step2 = $runtime.intent.id
       effect array.filter({
         source: items,
         where: eq($item.active, true),
@@ -79,7 +79,7 @@ domain ControlOnce {
 
     // Step 3: Complete (waits for processed)
     once(step3) when isNotNull(processed) {
-      patch step3 = $meta.intentId
+      patch step3 = $runtime.intent.id
       patch count = len(processed)
     }
   }
@@ -89,7 +89,7 @@ domain ControlOnce {
   action submitOnce() {
     // This action can only ever run once (not per-intent)
     when isNull(step1) {
-      patch step1 = $meta.intentId
+      patch step1 = $runtime.intent.id
       effect api.submit({ data: items, into: processed })
     }
   }
@@ -114,7 +114,7 @@ domain ControlOnce {
 //
 //   once(marker) { body }
 //   ->
-//   when neq(marker, $meta.intentId) { body }
+//   when neq(marker, $runtime.intent.id) { body }
 //
 // Intent A (first call):
 //   marker = null, intentId = "A"

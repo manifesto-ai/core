@@ -34,7 +34,7 @@ domain EffectsApi {
   // --- GET request ---
   action fetchUsers() {
     once(fetchingUsers) {
-      patch fetchingUsers = $meta.intentId
+      patch fetchingUsers = $runtime.intent.id
       patch status = "loading"
       effect api.fetch({
         url: "/users",
@@ -51,7 +51,7 @@ domain EffectsApi {
   // --- GET with path parameter ---
   action fetchUser(id: string) {
     once(fetchingUser) {
-      patch fetchingUser = $meta.intentId
+      patch fetchingUser = $runtime.intent.id
       patch status = "loading"
       effect api.fetch({
         url: concat("/users/", id),
@@ -68,7 +68,7 @@ domain EffectsApi {
   // --- GET with query parameters ---
   action fetchPosts(userId: string, limit: number) {
     once(fetchingPosts) {
-      patch fetchingPosts = $meta.intentId
+      patch fetchingPosts = $runtime.intent.id
       patch status = "loading"
       effect api.fetch({
         url: concat("/posts?userId=", userId, "&limit=", limit),
@@ -93,14 +93,14 @@ domain EffectsApi {
     }
 
     once(creating) when and(neq(trim(name), ""), neq(trim(email), "")) {
-      patch creating = $meta.intentId
+      patch creating = $runtime.intent.id
       patch status = "loading"
       effect api.post({
         url: "/users",
         body: {
           name: trim(name),
           email: trim(email),
-          createdAt: $system.timestamp
+          createdAt: $runtime.time.timestamp
         },
         into: createResult
       })
@@ -114,13 +114,13 @@ domain EffectsApi {
   // --- PUT request ---
   action updateUser(id: string, name: string) {
     once(updating) {
-      patch updating = $meta.intentId
+      patch updating = $runtime.intent.id
       patch status = "loading"
       effect api.put({
         url: concat("/users/", id),
         body: {
           name: trim(name),
-          updatedAt: $system.timestamp
+          updatedAt: $runtime.time.timestamp
         },
         into: updateResult
       })
@@ -134,7 +134,7 @@ domain EffectsApi {
   // --- DELETE request ---
   action deleteUser(id: string) {
     once(deleting) {
-      patch deleting = $meta.intentId
+      patch deleting = $runtime.intent.id
       patch status = "loading"
       effect api.remove({
         url: concat("/users/", id),

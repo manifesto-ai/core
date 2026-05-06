@@ -233,7 +233,7 @@ computed filtered = effect array.filter({ source: items, where: $item.active, in
 // ✅ FIXED: Move to action
 action filterItems() {
   once(filtering) {
-    patch filtering = $meta.intentId
+    patch filtering = $runtime.intent.id
     effect array.filter({
       source: items,
       where: eq($item.active, true),
@@ -274,7 +274,7 @@ effect array.map({
 action loadTeamData() {
   // Step 1: Flatten all members
   once(step1) {
-    patch step1 = $meta.intentId
+    patch step1 = $runtime.intent.id
     effect array.flatMap({
       source: teams,
       select: $item.members,
@@ -284,7 +284,7 @@ action loadTeamData() {
 
   // Step 2: Filter active members
   once(step2) when isNotNull(allMembers) {
-    patch step2 = $meta.intentId
+    patch step2 = $runtime.intent.id
     effect array.filter({
       source: allMembers,
       where: eq($item.active, true),
@@ -313,7 +313,7 @@ action fetchData() {
 // ✅ FIXED: Add guard
 action fetchData() {
   once(fetching) {
-    patch fetching = $meta.intentId
+    patch fetching = $runtime.intent.id
     effect api.fetch({ url: "/data", into: result })
   }
 }
@@ -356,7 +356,7 @@ action increment() {
 }
 ```
 
-**Error:** `SemanticError: once() block must have 'patch lastIntent = $meta.intentId' as first statement.`
+**Error:** `SemanticError: once() block must have 'patch lastIntent = $runtime.intent.id' as first statement.`
 
 **Rule violated:** `once(marker)` requires marker patch as first statement.
 
@@ -364,7 +364,7 @@ action increment() {
 // ✅ FIXED: Add marker patch first
 action increment() {
   once(lastIntent) {
-    patch lastIntent = $meta.intentId    // MUST be first
+    patch lastIntent = $runtime.intent.id    // MUST be first
     patch count = add(count, 1)
   }
 }
@@ -378,7 +378,7 @@ action increment() {
 // ❌ BROKEN
 action increment() {
   once(lastIntent) {
-    patch differentMarker = $meta.intentId   // Wrong marker!
+    patch differentMarker = $runtime.intent.id   // Wrong marker!
     patch count = add(count, 1)
   }
 }
@@ -392,7 +392,7 @@ action increment() {
 // ✅ FIXED: Patch the correct marker
 action increment() {
   once(lastIntent) {
-    patch lastIntent = $meta.intentId    // Same as once() parameter
+    patch lastIntent = $runtime.intent.id    // Same as once() parameter
     patch count = add(count, 1)
   }
 }
@@ -468,7 +468,7 @@ when eq(len(items), 0) { ... }           // Check length
 
 action loadTaskIds() {
   once(loadingKeys) {
-    patch loadingKeys = $meta.intentId
+    patch loadingKeys = $runtime.intent.id
     effect record.keys({ source: tasks, into: taskIds })
   }
 }
@@ -636,12 +636,12 @@ state {
 ```mel
 // ❌ BROKEN
 state {
-  id: string = $system.uuid
-  createdAt: number = $system.timestamp
+  id: string = $runtime.random.uuid
+  createdAt: number = $runtime.time.timestamp
 }
 ```
 
-**Error:** `SemanticError: System values cannot be used in state initializers. State defaults must be pure, deterministic values.`
+**Error:** `SemanticError: Runtime values cannot be used in state initializers. State defaults must be pure, deterministic values.`
 
 **Rule violated:** State initializers must be deterministic.
 
@@ -654,9 +654,9 @@ state {
 
 action initialize() {
   once(init) {
-    patch init = $meta.intentId
-    patch id = $system.uuid
-    patch createdAt = $system.timestamp
+    patch init = $runtime.intent.id
+    patch id = $runtime.random.uuid
+    patch createdAt = $runtime.time.timestamp
   }
 }
 ```
@@ -858,22 +858,22 @@ computed now = Date.now()
 // ✅ FIXED: Use MEL builtins or effects
 action loadKeys() {
   once(loading) {
-    patch loading = $meta.intentId
+    patch loading = $runtime.intent.id
     effect record.keys({ source: user, into: userKeys })
   }
 }
 
-// For time, use $system.timestamp (provided by Host)
+// For time, use $runtime.time.timestamp (captured in Context)
 action timestamp() {
   when true {
-    patch createdAt = $system.timestamp
+    patch createdAt = $runtime.time.timestamp
   }
 }
 
-// Random is only allowed via $system.random inside actions
+// Random seed access is only allowed via $runtime.random.seed inside actions
 action seed() {
   when true {
-    patch seed = $system.random
+    patch seed = $runtime.random.seed
   }
 }
 ```
@@ -949,7 +949,7 @@ action processAll() {
 // ✅ FIXED: Use effect for iteration
 action processAll() {
   once(processing) {
-    patch processing = $meta.intentId
+    patch processing = $runtime.intent.id
     effect array.map({
       source: items,
       select: { processed: true, value: $item },

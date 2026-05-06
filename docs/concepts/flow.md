@@ -28,7 +28,7 @@ type FlowNode =
 - **Data, not code**: Flows are JSON-serializable structures.
 - **Always terminate**: No unbounded loops or recursion.
 - **Re-entry safe**: Must work correctly when run multiple times.
-- **Pure**: Same Snapshot + Flow always produces same result.
+- **Pure**: Same Snapshot + Intent + Context + Flow always produces same result.
 
 ## Example
 
@@ -77,21 +77,15 @@ MEL compiles to JSON Flow structures that Core interprets:
     },
     {
       "kind": "if",
-      "cond": { "kind": "isNull", "arg": { "kind": "get", "path": "$mel.guards.intent.addTodo_0" } },
+      "cond": { "kind": "causalGuard", "key": "addTodo_0" },
       "then": {
         "kind": "seq",
         "steps": [
           {
             "kind": "patch",
-            "op": "merge",
-            "path": "$mel.guards.intent",
-            "value": { "addTodo_0": { "kind": "meta", "field": "intentId" } }
-          },
-          {
-            "kind": "patch",
             "op": "set",
-            "path": "data.todos",
-            "value": { "kind": "append", "arr": { "kind": "get", "path": "data.todos" }, "item": "..." }
+            "path": "todos",
+            "value": { "kind": "append", "arr": { "kind": "get", "path": "todos" }, "item": "..." }
           },
           {
             "kind": "effect",
@@ -196,7 +190,7 @@ action load() {
 ```
 Intent arrives
       ↓
-Core.compute(schema, snapshot, intent)
+Core.compute(schema, snapshot, intent, context)
       ↓
 Flow evaluation begins
       ↓

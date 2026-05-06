@@ -21,7 +21,7 @@ MEL source -> Compiler -> DomainSchema -> Core
 | Parse MEL | Tokenize and parse MEL into an AST |
 | Validate | Scope, typing, and semantic checks aligned to the current compiler contract |
 | Generate IR | Produce DomainSchema for Core |
-| Lower system values | Optional lowering of $system.* into explicit effects |
+| Lower runtime/context expressions | Lower ADR-027 `$runtime.*` and `$context.*` references into Core expressions |
 
 ---
 

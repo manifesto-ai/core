@@ -44,7 +44,7 @@ domain EffectsArray {
   // Keep elements where condition is true
   action filterActive() {
     once(filtering) when gt(len(items), 0) {
-      patch filtering = $meta.intentId
+      patch filtering = $runtime.intent.id
       effect array.filter({
         source: items,
         where: eq($item.active, true),
@@ -56,7 +56,7 @@ domain EffectsArray {
   // Filter with complex condition
   action filterHighPriority() {
     once(filtering) when gt(len(items), 0) {
-      patch filtering = $meta.intentId
+      patch filtering = $runtime.intent.id
       effect array.filter({
         source: items,
         where: and(
@@ -72,7 +72,7 @@ domain EffectsArray {
   // Transform each element
   action mapToSummary() {
     once(mapping) when gt(len(items), 0) {
-      patch mapping = $meta.intentId
+      patch mapping = $runtime.intent.id
       effect array.map({
         source: items,
         select: {
@@ -88,7 +88,7 @@ domain EffectsArray {
   // Map to single value
   action extractNames() {
     once(mapping) when gt(len(users), 0) {
-      patch mapping = $meta.intentId
+      patch mapping = $runtime.intent.id
       effect array.map({
         source: users,
         select: $item.name,
@@ -101,7 +101,7 @@ domain EffectsArray {
   // Order elements
   action sortByDate() {
     once(sorting) when gt(len(items), 0) {
-      patch sorting = $meta.intentId
+      patch sorting = $runtime.intent.id
       effect array.sort({
         source: items,
         by: $item.createdAt,
@@ -114,7 +114,7 @@ domain EffectsArray {
   // Sort ascending
   action sortByName() {
     once(sorting) when gt(len(items), 0) {
-      patch sorting = $meta.intentId
+      patch sorting = $runtime.intent.id
       effect array.sort({
         source: items,
         by: $item.name,
@@ -127,7 +127,7 @@ domain EffectsArray {
   // Sort by numeric field
   action sortByPriority() {
     once(sorting) when gt(len(items), 0) {
-      patch sorting = $meta.intentId
+      patch sorting = $runtime.intent.id
       effect array.sort({
         source: items,
         by: $item.priority,
@@ -141,7 +141,7 @@ domain EffectsArray {
   // Flatten nested arrays
   action flattenMembers() {
     once(flattening) when gt(len(teams), 0) {
-      patch flattening = $meta.intentId
+      patch flattening = $runtime.intent.id
       effect array.flatMap({
         source: teams,
         select: $item.members,
@@ -153,7 +153,7 @@ domain EffectsArray {
   // FlatMap with transform
   action flattenAndTransform() {
     once(flattening) when gt(len(teams), 0) {
-      patch flattening = $meta.intentId
+      patch flattening = $runtime.intent.id
       effect array.flatMap({
         source: teams,
         select: $item.tasks,
@@ -166,7 +166,7 @@ domain EffectsArray {
   // Split into pass/fail groups
   action partitionByStatus() {
     once(partitioning) when gt(len(items), 0) {
-      patch partitioning = $meta.intentId
+      patch partitioning = $runtime.intent.id
       effect array.partition({
         source: items,
         where: eq($item.active, true),
@@ -179,7 +179,7 @@ domain EffectsArray {
   // --- Pipeline: Filter then Sort ---
   action filterAndSort() {
     once(filtering) when gt(len(items), 0) {
-      patch filtering = $meta.intentId
+      patch filtering = $runtime.intent.id
       effect array.filter({
         source: items,
         where: eq($item.active, true),
@@ -188,7 +188,7 @@ domain EffectsArray {
     }
 
     once(sorting) when isNotNull(filtered) {
-      patch sorting = $meta.intentId
+      patch sorting = $runtime.intent.id
       effect array.sort({
         source: filtered,
         by: $item.createdAt,
