@@ -64,7 +64,7 @@ timing is observed through `waitForSettlement()`.
 ```typescript
 const settlement = await pending.waitForSettlement();
 
-if (settlement.ok && settlement.status === "settled") {
+if (settlement.ok && settlement.status === "settled" && settlement.outcome.kind === "ok") {
   console.log(settlement.after.state.count);
   console.log(settlement.world.worldId);
 }

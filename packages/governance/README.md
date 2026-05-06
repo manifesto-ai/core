@@ -42,14 +42,14 @@ const settlement = pending.ok
 - `withGovernance()` and the activated `GovernanceInstance`
 - proposal lifecycle and authority evaluation
 - pending human/tribunal resolution through `approve()` / `reject()`
-- additive proposal-settlement observation through `waitForProposal()`
+- additive proposal-settlement observation through `waitForSettlement()`
 - governance decision records and post-commit governance events
 - lineage-preserving query access such as `getWorldSnapshot()`, `getLatestHead()`, and `getBranches()`
 - low-level governance stores, services, authority handlers, and intent-instance helpers via `@manifesto-ai/governance/provider`
 
 ## What Changes After Governance Activation
 
-- direct `dispatchAsync`, `commitAsync`, and `proposeAsync` no longer exist
+- direct root write verbs from earlier runtimes no longer exist
 - the canonical state-change path becomes `actions.x.submit() -> approve()/reject() -> waitForSettlement()`
 - `waitForSettlement()` is an observation helper, not a state-change verb
 - lineage must be composed before governance activation

@@ -111,9 +111,11 @@ type GovernanceSubmittedCandidate<
   readonly context?: ExternalContext;
 };
 
-type SubmittedComputeEnvelope = {
-  readonly intent: Intent;
-  readonly context: Context;
+type ComputeEnvelope = import("@manifesto-ai/lineage").ComputeEnvelope;
+
+type ProposalRecord = {
+  readonly computeEnvelope: ComputeEnvelope;
+  // other proposal fields...
 };
 
 type JsonValue =
@@ -125,14 +127,14 @@ type JsonValue =
   | { readonly [key: string]: JsonValue };
 
 type ExternalContext = Readonly<Record<string, JsonValue>>;
-type Intent = import("@manifesto-ai/core").Intent;
-type Context = import("@manifesto-ai/core").Context;
 ```
 
 The current implementation may derive actor/source from the internal `Intent`
 protocol. The v5 public contract describes the action candidate boundary and
-the optional user external context supplied through SDK `submit()` options. The
-internal protocol remains an implementation detail.
+the optional user external context selected by the triggering SDK runtime view
+such as `app.with({ context })`. `preview()` and `submit()` do not accept
+ad-hoc context option bags in the canonical v5 surface. The internal protocol
+remains an implementation detail.
 
 ### 3.3 Activated Runtime
 
@@ -418,8 +420,9 @@ type GovernanceSettlementReport =
 Governance-mode `submit()` means:
 
 1. Run SDK admission for the bound action candidate.
-2. Materialize the ADR-027 compute context and create a durable governance
-   proposal carrying or referencing the submitted compute envelope.
+2. Materialize the ADR-027 compute context at proposal creation and create a
+   durable governance proposal carrying or referencing the submitted compute
+   envelope.
 3. Return a pending governance result carrying `ProposalRef`.
 4. Evaluate authority and execute settlement through governance-controlled
    lifecycle processing.
@@ -440,6 +443,7 @@ Governance-mode `submit()` means:
 | GOV-V5-SUBMIT-10 | MUST | Governance `submit()` MUST initially resolve with `status: "pending"` even when authority can auto-approve. |
 | GOV-V5-SUBMIT-11 | MUST | A proposal created by `submit()` MUST carry or durably reference the exact `intent + context` compute envelope submitted at proposal creation time. |
 | GOV-V5-SUBMIT-12 | MUST NOT | Governance MUST NOT regenerate ADR-027 context at approval or settlement time for an existing proposal. |
+| GOV-V5-SUBMIT-13 | MUST | The proposal compute envelope MUST use the full Core `Context`, including `runtime` and `external`, not only user external context. |
 
 ### 6.1 Authority and Control
 
@@ -467,6 +471,7 @@ does not use governance-owned direct execution.
 | GOV-V5-EXEC-4 | MUST NOT | Failed terminal governed execution MUST NOT publish the failed snapshot as the visible runtime snapshot. |
 | GOV-V5-EXEC-5 | MUST | Governance events MUST be emitted only after the corresponding proposal, decision, seal, or settlement record is durable. |
 | GOV-V5-EXEC-6 | MUST | Governed execution MUST use the proposal's submitted compute envelope and pass its exact context to the SDK/Host/Core runtime path. |
+| GOV-V5-EXEC-7 | MUST | Approval-time `injectContext()` or `updateContext()` changes MUST NOT affect execution of an already-created proposal. |
 
 ---
 

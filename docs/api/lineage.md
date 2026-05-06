@@ -16,6 +16,7 @@ Use this package when you want:
 - head, branch, world, and restore APIs on the activated runtime
 - `getWorldSnapshot(worldId)` for stored sealed canonical snapshot inspection by world id
 - `getLineage()` for DAG inspection
+- recorded `computeEnvelope.intent + computeEnvelope.context` metadata for replay/audit tooling
 - direct access to `@manifesto-ai/lineage/provider` for low-level persistence and tooling
 
 ## Canonical Runtime Surface
@@ -81,6 +82,11 @@ On a lineage runtime:
 ## Lineage-Backed Inspection
 
 Use `getWorldSnapshot(worldId)` when a tool needs to inspect a stored world without changing the live visible runtime. Pair that stored canonical snapshot with `@manifesto-ai/sdk/extensions` for projection, explanation, and read-only simulation.
+
+Replay tooling should also read the seal attempt's `computeEnvelope`. The
+envelope stores the exact submitted `intent` and full Core `Context` used for
+the transition. It is replay/accountability metadata and does not participate
+in world identity hashes.
 
 Use `restore(worldId)` only when the product is intentionally resuming the visible runtime from that world.
 

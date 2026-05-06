@@ -82,6 +82,13 @@ not fabricate `world`, `before`, `after`, or `outcome`.
 
 For `settlement_failed`, no world or outcome is fabricated.
 
+## Replay And Audit
+
+Governance proposals carry or durably reference the submitted compute envelope:
+the exact `intent` and full Core `Context` captured at proposal creation time.
+Approval and settlement reuse that proposal-time context; they do not regenerate
+context from the then-current runtime view.
+
 ## Control Surface
 
 Governance runtimes expose governance-owned control methods:

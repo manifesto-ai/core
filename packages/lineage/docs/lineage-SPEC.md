@@ -349,19 +349,25 @@ for a transition MUST be stored with the seal attempt metadata described in
 | LIN-V5-HASH-7 | MUST | Stored canonical snapshots MAY retain `namespaces`, but hash input construction MUST exclude them. |
 | LIN-V5-HASH-8 | MUST NOT | ADR-027 `Context` MUST NOT enter `snapshotHash` or `worldId`. |
 
-### 6.1 ADR-027 Replay Envelope
+### 6.1 ADR-027 Compute Envelope
 
 Lineage stores deterministic replay inputs on seal attempt metadata, not on
 `WorldRecord` identity.
 
 ```typescript
-type ReplayEnvelope = {
+type ComputeEnvelope = {
   readonly intent: Intent;
   readonly context: Context;
 };
 
-type SealAttemptMetadata = {
-  readonly replay: ReplayEnvelope;
+type SealNextInput = {
+  readonly computeEnvelope: ComputeEnvelope;
+  // other seal input fields...
+};
+
+type SealAttempt = {
+  readonly computeEnvelope?: ComputeEnvelope;
+  // other attempt fields...
 };
 
 type Intent = import("@manifesto-ai/core").Intent;
@@ -370,13 +376,15 @@ type Context = import("@manifesto-ai/core").Context;
 
 Rules:
 
-- The replay envelope MUST contain the exact `Intent` and exact materialized
+- Every next seal MUST receive a `computeEnvelope`; genesis attempts have no
+  submitted transition and MAY omit it.
+- The compute envelope MUST contain the exact `Intent` and exact materialized
   `Context` used for the transition attempt.
-- The envelope MUST be JSON-serializable with no providers, callbacks, promises,
-  lazy getters, or function-valued fields.
+- The envelope MUST be JSON-serializable with no providers, callbacks,
+  promises, lazy getters, or function-valued fields.
 - Replay of a sealed transition reconstructs
   `schema + base snapshot + intent + context` from stored lineage data and the
-  seal attempt metadata.
+  seal attempt metadata exposed by existing attempt lookup APIs.
 - `WorldRecord` remains the sealed world identity/read model and MUST NOT be
   overloaded with context semantics.
 - Lineage MUST NOT interpret `$runtime.*` or `$context.*`; it records the

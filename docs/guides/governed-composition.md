@@ -48,7 +48,7 @@ const governed = withGovernance(
 1. Activate the decorated runtime.
 2. Submit a typed action candidate with `governed.actions.<name>.submit(...)`.
 3. Observe the returned pending proposal.
-4. Let Governance auto-approve or return a pending proposal.
+4. Observe the pending proposal, then wait for auto-approved or human-resolved settlement.
 5. Read sealed history through Lineage queries such as `getLatestHead()` and `restore()`.
 
 Use `getWorldSnapshot(worldId)` when you need the stored sealed canonical snapshot substrate for a committed world. Use `restore(worldId)` when you need the normalized runtime resume path.

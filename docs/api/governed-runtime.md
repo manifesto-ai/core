@@ -37,7 +37,7 @@ const pending = await app.actions.addTodo.submit("Review this");
 if (pending.ok) {
   const settlement = await pending.waitForSettlement();
 
-  if (settlement.ok && settlement.status === "settled") {
+  if (settlement.ok && settlement.status === "settled" && settlement.outcome.kind === "ok") {
     console.log(settlement.after.state);
   }
 }
@@ -59,7 +59,7 @@ When a caller stores or transfers the proposal handle, use runtime re-attachment
 const ref = pending.proposal;
 const settlement = await app.waitForSettlement(ref);
 
-if (settlement.ok && settlement.status === "settled") {
+if (settlement.ok && settlement.status === "settled" && settlement.outcome.kind === "ok") {
   console.log(settlement.report?.changes);
 }
 ```

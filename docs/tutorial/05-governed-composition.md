@@ -58,7 +58,7 @@ The typed candidate still comes from the runtime. Governance adds proposal seman
 const pending = await candidate.submit();
 ```
 
-Auto-approved policies can settle quickly. Pending policies return a `ProposalRef` and wait for human approval.
+Successful governance submit always returns a pending `ProposalRef`. Auto-approved policies may settle quickly, and human-gated policies wait for approval through `waitForSettlement()`.
 
 ## 4. Keep UI Code Out Of The Assembly Path
 

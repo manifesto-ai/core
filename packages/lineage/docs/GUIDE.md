@@ -36,12 +36,10 @@ If seal commit fails, the Promise rejects and the new snapshot does not become v
 ## 3. Use The Additive Report Companion When Tooling Needs More Context
 
 ```ts
-const result = await lineage.actions.increment.submit(
-  { __kind: "SubmitOptions", report: "full" },
-);
+const result = await lineage.with({ report: "full" }).actions.increment.submit();
 ```
 
-Submit report options keep the same seal/publication law and package additive result detail as data.
+Execution view report settings keep the same seal/publication law and package additive result detail as data.
 
 - successful lineage submissions include `outcome`, `world`, `before`, and `after`
 - rejected submissions include the first failing admission layer
@@ -95,6 +93,10 @@ Switching branches also restores that branch head into the visible runtime state
 ## 7. Low-Level Lineage Still Exists
 
 Use `@manifesto-ai/lineage/provider` when you need `LineageService`, `LineageStore`, prepared commits, or persistence tooling without the activated runtime wrapper.
+
+Low-level replay/audit tools read the recorded `computeEnvelope` from seal
+attempt metadata. Normal application code does not pass this envelope manually;
+the lineage runtime captures it from the submitted intent and ADR-027 context.
 
 ## 8. Related Docs
 
