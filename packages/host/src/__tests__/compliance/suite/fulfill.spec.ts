@@ -191,7 +191,7 @@ describe("HCTS Fulfillment Tests", () => {
 
       const trace = adapter.getTrace(executionKey);
       const namespaceApplyIndex = trace.findIndex(
-        (event) => event.t === "core:apply" && event.source === "effect-namespace"
+        (event) => event.t === "core:applyNamespaceDeltas" && event.source === "effect-namespace"
       );
       const clearIndex = trace.findIndex(
         (event) => event.t === "requirement:clear" && event.requirementId === requirement.id

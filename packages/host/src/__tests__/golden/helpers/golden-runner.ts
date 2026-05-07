@@ -300,6 +300,12 @@ export function normalizeTrace(trace: TraceEvent[]): NormalizedTraceEvent[] {
         normalized.source = event.source;
         break;
 
+      case "core:applyNamespaceDeltas":
+        normalized.namespaceCount = event.namespaceCount;
+        normalized.patchCount = event.patchCount;
+        normalized.source = event.source;
+        break;
+
       case "effect:dispatch":
         normalized.requirementIdPattern = normalizeId(event.requirementId);
         normalized.effectType = event.effectType;

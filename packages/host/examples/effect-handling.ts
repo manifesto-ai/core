@@ -91,7 +91,7 @@ async function main() {
 
   // Success handler - returns patches
   // IMPORTANT: Effect handlers must NEVER throw, always return Patch[]
-  // Note: Patch paths don't include "data." prefix - they're relative to data root
+  // Note: Patch paths don't include "state." prefix - they're relative to state root
   const apiGetHandler: EffectHandler = async (_type, params) => {
     // Simulate API call
     const userId = params.userId as string;
@@ -133,8 +133,8 @@ async function main() {
   if (result1.error) {
     console.log("Error:", result1.error.code, result1.error.message);
   }
-  console.log("Response data:", result1.snapshot.data.response);
-  console.log("Loading:", result1.snapshot.data.loading);
+  console.log("Response state:", result1.snapshot.state.response);
+  console.log("Loading:", result1.snapshot.state.loading);
 
   // 4. Dispatch fetchUser action (not found case)
   console.log("\nDispatching fetchUser action (userId: 999 - not found)...");
@@ -148,7 +148,7 @@ async function main() {
   if (result2.error) {
     console.log("Error:", result2.error.code, result2.error.message);
   }
-  console.log("Response data:", result2.snapshot.data.response);
+  console.log("Response state:", result2.snapshot.state.response);
 
   // 5. Demonstrate timer delay effect
   console.log("\nDispatching delayedAction (100ms delay)...");
@@ -163,7 +163,7 @@ async function main() {
   if (result3.error) {
     console.log("Error:", result3.error.code, result3.error.message);
   }
-  console.log("Result value:", result3.snapshot.data.result);
+  console.log("Result value:", result3.snapshot.state.result);
   console.log(`Elapsed time: ~${elapsed}ms`);
 
   // 6. Demonstrate effect handler management

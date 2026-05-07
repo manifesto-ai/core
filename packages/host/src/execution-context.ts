@@ -224,8 +224,9 @@ export class ExecutionContextImpl implements ExecutionContext {
     this.snapshot = newSnapshot;
 
     this.trace({
-      t: "core:apply",
+      t: "core:applyNamespaceDeltas",
       key: this.key,
+      namespaceCount: deltas.length,
       patchCount: deltas.reduce((count, delta) => count + delta.patches.length, 0),
       source,
     });

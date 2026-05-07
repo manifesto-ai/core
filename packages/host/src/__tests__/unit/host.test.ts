@@ -306,6 +306,17 @@ describe("ManifestoHost", () => {
       const snapshot = await host.getSnapshot();
       expect(snapshot?.state).toEqual({ count: 100 });
     });
+
+    it("should reject reserved state namespace keys on reset", async () => {
+      const host = createHost(schema, { initialData: { count: 100 } });
+      const snapshot = createTestSnapshot({ count: 0, $host: { stale: true } }, schema.hash, DEFAULT_HOST_CONTEXT);
+
+      expect(() => {
+        host.reset(snapshot);
+      }).toThrowError();
+
+      expect((await host.getSnapshot())?.state).toEqual({ count: 100 });
+    });
   });
 
   describe("Schema validation", () => {

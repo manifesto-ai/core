@@ -101,7 +101,7 @@ export class DefaultHostContextProvider implements HostContextProvider {
         time: Object.freeze({ timestamp: now }),
         random: Object.freeze({ seed: randomSeed }),
       }),
-      external: cloneExternalContext(external ?? this.envProvider() ?? {}),
+      external: cloneExternalContext(external ?? {}),
     });
   }
 
@@ -117,7 +117,7 @@ export class DefaultHostContextProvider implements HostContextProvider {
         time: Object.freeze({ timestamp: this.nowProvider() }),
         random: Object.freeze({ seed: randomSeed }),
       }),
-      external: cloneExternalContext(external ?? this.envProvider() ?? {}),
+      external: cloneExternalContext(external ?? {}),
     });
   }
 
@@ -137,23 +137,49 @@ function cloneExternalContext(
 }
 
 function cloneJsonValue(value: JsonValue, seen: WeakSet<object>): JsonValue {
+  switch (typeof value) {
+    case "string":
+    case "boolean":
+      return value;
+    case "number":
+      if (!Number.isFinite(value)) {
+        throw new TypeError("Context external numbers must be finite");
+      }
+      return value;
+    case "undefined":
+      throw new TypeError("Context external values must not contain undefined");
+    case "function":
+      throw new TypeError("Context external values must not contain functions");
+    case "symbol":
+      throw new TypeError("Context external values must not contain symbols");
+    case "bigint":
+      throw new TypeError("Context external values must not contain bigint values");
+    case "object":
+      break;
+  }
+
   if (Array.isArray(value)) {
     if (seen.has(value)) {
       throw new TypeError("Context external value must not contain cycles");
     }
+    rejectAccessors(value);
+    rejectSymbolKeys(value);
     seen.add(value);
-    const cloned = Object.freeze(value.map((item) => cloneJsonValue(item, seen)));
+    const cloned: JsonValue[] = [];
+    for (let index = 0; index < value.length; index += 1) {
+      if (!Object.prototype.hasOwnProperty.call(value, index)) {
+        throw new TypeError("Context external arrays must not contain holes");
+      }
+      cloned.push(cloneJsonValue(value[index] as JsonValue, seen));
+    }
     seen.delete(value);
-    return cloned;
+    return Object.freeze(cloned);
   }
 
   if (value !== null && typeof value === "object" && !Array.isArray(value)) {
     return cloneJsonObject(value as { readonly [key: string]: JsonValue }, seen);
   }
 
-  if (typeof value === "number" && !Number.isFinite(value)) {
-    throw new TypeError("Context external numbers must be finite");
-  }
   return value;
 }
 
@@ -169,6 +195,8 @@ function cloneJsonObject(
   if (seen.has(value)) {
     throw new TypeError("Context external value must not contain cycles");
   }
+  rejectAccessors(value);
+  rejectSymbolKeys(value);
   seen.add(value);
   const cloned = Object.freeze(
     Object.fromEntries(
@@ -177,6 +205,20 @@ function cloneJsonObject(
   ) as Record<string, JsonValue>;
   seen.delete(value);
   return cloned;
+}
+
+function rejectAccessors(value: object): void {
+  for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value))) {
+    if (descriptor.get || descriptor.set) {
+      throw new TypeError("Context external values must not contain getters or setters");
+    }
+  }
+}
+
+function rejectSymbolKeys(value: object): void {
+  if (Object.getOwnPropertySymbols(value).length > 0) {
+    throw new TypeError("Context external values must not contain symbol keys");
+  }
 }
 
 /**

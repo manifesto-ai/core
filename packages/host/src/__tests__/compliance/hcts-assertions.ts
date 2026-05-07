@@ -180,7 +180,7 @@ export function assertApplyBeforeDispatch(
   const keyEvents = trace.filter((e) => e.key === key);
   const violations: TraceEvent[] = [];
 
-  // Find sequences of compute -> apply -> applySystemDelta -> dispatch
+  // Find sequences of compute -> apply -> optional namespace deltas -> applySystemDelta -> dispatch
   let lastCompute: TraceEvent | null = null;
   let applySeenAfterCompute = false;
   let systemDeltaSeenAfterCompute = false;
@@ -525,6 +525,8 @@ export function formatTimeline(trace: TraceEvent[]): string {
           return `[${key}] COMPUTE: ${e.intentId} iter=${e.iteration}`;
         case "core:apply":
           return `[${key}] APPLY: ${e.patchCount} patches (${e.source})`;
+        case "core:applyNamespaceDeltas":
+          return `[${key}] APPLY_NAMESPACE_DELTAS: ${e.namespaceCount} namespaces, ${e.patchCount} patches (${e.source})`;
         case "core:applySystemDelta":
           return `[${key}] APPLY_SYSTEM_DELTA: (${e.source})`;
         case "effect:dispatch":

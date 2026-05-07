@@ -94,6 +94,30 @@ function createContextReentrySchema(): DomainSchema {
   });
 }
 
+function createNoContextSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:host-no-context",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: false, default: 0 },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      increment: {
+        flow: {
+          kind: "patch",
+          op: "set",
+          path: pp("count"),
+          value: { kind: "lit", value: 1 },
+        },
+      },
+    },
+  });
+}
+
 describe("ADR-027 Host context materialization", () => {
   it("reuses one materialized context across effect re-entry for a dispatch attempt", async () => {
     let now = 1000;
@@ -128,5 +152,67 @@ describe("ADR-027 Host context materialization", () => {
       firstLocale: "ko-KR",
       secondLocale: "ko-KR",
     });
+  });
+
+  it("returns an error snapshot when external context violates schema.context", async () => {
+    const schema = createContextReentrySchema();
+    const host = createHost(schema, {
+      initialData: {},
+    });
+
+    const result = await host.dispatch(
+      {
+        type: "capture",
+        intentId: "intent-context-invalid",
+      },
+      {
+        externalContext: { locale: 42 },
+      },
+    );
+
+    expect(result.status).toBe("error");
+    expect(result.snapshot.system.lastError).toMatchObject({
+      code: "INVALID_CONTEXT",
+    });
+  });
+
+  it("does not leak HostOptions.env into action external context", async () => {
+    const host = createHost(createNoContextSchema(), {
+      initialData: {},
+      env: { locale: "ko-KR" },
+    });
+
+    const result = await host.dispatch({
+      type: "increment",
+      intentId: "intent-context-env-is-not-external",
+    });
+
+    expect(result.status).toBe("complete");
+    expect(result.snapshot.state).toMatchObject({ count: 1 });
+    expect(result.context?.external).toEqual({});
+    expect(result.snapshot.system.lastError).toBeNull();
+  });
+
+  it("returns a HostResult error when external context is not JSON-clonable", async () => {
+    const host = createHost(createContextReentrySchema(), {
+      initialData: {},
+    });
+
+    const result = await host.dispatch(
+      {
+        type: "capture",
+        intentId: "intent-context-unclonable",
+      },
+      {
+        externalContext: { locale: undefined as never },
+      },
+    );
+    const hostNamespace = result.snapshot.namespaces.host as {
+      readonly lastError?: { readonly code?: string };
+    };
+
+    expect(result.status).toBe("error");
+    expect(result.error?.code).toBe("INVALID_STATE");
+    expect(hostNamespace.lastError?.code).toBe("INVALID_CONTEXT");
   });
 });

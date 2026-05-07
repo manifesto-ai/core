@@ -139,6 +139,15 @@ type PendingEffect = {
   promise: Promise<void>;
 };
 
+function getReservedStateKeys(state: unknown): string[] {
+  if (state === null || typeof state !== "object" || Array.isArray(state)) {
+    return [];
+  }
+
+  return Object.keys(state as Record<string, unknown>)
+    .filter((key) => key.startsWith("$"));
+}
+
 /**
  * ManifestoHost class v2.0.2
  *
@@ -206,6 +215,13 @@ export class ManifestoHost {
       });
     }
 
+    const reservedStateKeys = getReservedStateKeys(parsed.data.state);
+    if (reservedStateKeys.length > 0) {
+      throw createHostError("INVALID_STATE", "Host.reset() canonical Snapshot state contains reserved keys", {
+        keys: reservedStateKeys,
+      });
+    }
+
     return this.cloneSnapshot(parsed.data);
   }
 
@@ -239,6 +255,13 @@ export class ManifestoHost {
    * Initialize snapshot with data
    */
   private initializeSnapshot(initialData: unknown): void {
+    const reservedStateKeys = getReservedStateKeys(initialData);
+    if (reservedStateKeys.length > 0) {
+      throw createHostError("INVALID_STATE", "Host initialData contains reserved state keys", {
+        keys: reservedStateKeys,
+      });
+    }
+
     const initialContext = this.contextProvider.createInitialContext();
     const snapshot = createSnapshot(initialData, this.schema.hash, initialContext);
     // Evaluate computed values on initial snapshot
@@ -322,10 +345,47 @@ export class ManifestoHost {
 
     // Use explicit execution key when provided, otherwise fallback to intentId
     const key: ExecutionKey = options?.key ?? intent.intentId;
-    const transitionContext = options?.context ?? this.contextProvider.createFrozenContext(
-      intent.intentId,
-      options?.externalContext,
-    );
+    let transitionContext: Context;
+    try {
+      transitionContext = options?.context ?? this.contextProvider.createFrozenContext(
+        intent.intentId,
+        options?.externalContext,
+      );
+    } catch (error) {
+      const hostError = createHostError(
+        "INVALID_STATE",
+        error instanceof Error
+          ? error.message
+          : "Invalid external context",
+        { intentId: intent.intentId },
+      );
+      const errorValue = {
+        code: "INVALID_CONTEXT",
+        message: hostError.message,
+        source: {
+          actionId: intent.type,
+          nodePath: "host.dispatch.context",
+        },
+        timestamp: this.currentSnapshot.meta.timestamp,
+        context: { intentId: intent.intentId },
+      };
+      const snapshot = this.core.applyNamespaceDeltas(this.currentSnapshot, [{
+        namespace: "host",
+        patches: [{
+          op: "set",
+          path: [{ kind: "prop", name: "lastError" }],
+          value: errorValue,
+        }],
+      }]);
+      this.currentSnapshot = snapshot;
+
+      return {
+        status: "error",
+        snapshot,
+        traces: [],
+        error: hostError,
+      };
+    }
 
     // Create mailbox and execution context
     const mailbox = this.mailboxManager.getOrCreate(key);

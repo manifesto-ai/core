@@ -70,18 +70,18 @@ async function main() {
 
   // 5. Compare results
   console.log("\nHost 1 result:");
-  console.log("  count:", result1.snapshot.data.count);
+  console.log("  count:", result1.snapshot.state.count);
   console.log("  timestamp:", result1.snapshot.meta.timestamp);
   console.log("  randomSeed:", result1.snapshot.meta.randomSeed);
 
   console.log("\nHost 2 result:");
-  console.log("  count:", result2.snapshot.data.count);
+  console.log("  count:", result2.snapshot.state.count);
   console.log("  timestamp:", result2.snapshot.meta.timestamp);
   console.log("  randomSeed:", result2.snapshot.meta.randomSeed);
 
   // 6. Verify determinism
   const areEqual =
-    result1.snapshot.data.count === result2.snapshot.data.count &&
+    result1.snapshot.state.count === result2.snapshot.state.count &&
     result1.snapshot.meta.timestamp === result2.snapshot.meta.timestamp &&
     result1.snapshot.meta.randomSeed === result2.snapshot.meta.randomSeed;
 
@@ -131,7 +131,7 @@ async function main() {
   // 9. Summary
   console.log("\n=== Summary ===");
   console.log("v2.0.1 Context Determinism guarantees:");
-  console.log("  1. HostContext is frozen at job start");
+  console.log("  1. Context is frozen at job start");
   console.log("  2. All operations in a job use the same frozen context");
   console.log("  3. now() value is captured once, never changes during job");
   console.log("  4. randomSeed is derived from intentId (deterministic)");
