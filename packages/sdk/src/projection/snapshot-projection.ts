@@ -22,64 +22,11 @@ export type SnapshotProjectionPlan = {
   visibleComputedKeys: readonly string[];
 };
 
-const COLLECTION_CONTEXT_ROOTS = new Set(["$item", "$index", "$array"]);
-
 export function buildSnapshotProjectionPlan(
   schema: DomainSchema,
 ): SnapshotProjectionPlan {
-  const computedFields = schema.computed.fields;
-  const memo = new Map<string, boolean>();
-
-  function isVisibleComputed(
-    name: string,
-    visiting: Set<string>,
-  ): boolean {
-    const cached = memo.get(name);
-    if (cached !== undefined) {
-      return cached;
-    }
-
-    if (visiting.has(name)) {
-      return false;
-    }
-
-    visiting.add(name);
-
-    const field = computedFields[name];
-    if (!field) {
-      visiting.delete(name);
-      memo.set(name, true);
-      return true;
-    }
-
-    for (const path of collectExprGetPaths(field.expr)) {
-      if (isPlatformDependency(path)) {
-        visiting.delete(name);
-        memo.set(name, false);
-        return false;
-      }
-
-      const computedDependency = resolveComputedDependency(path, computedFields);
-      if (
-        computedDependency !== null
-        && !isVisibleComputed(computedDependency, visiting)
-      ) {
-        visiting.delete(name);
-        memo.set(name, false);
-        return false;
-      }
-    }
-
-    visiting.delete(name);
-    memo.set(name, true);
-    return true;
-  }
-
-  const visibleComputedKeys = Object.keys(computedFields)
-    .filter((name) => isVisibleComputed(name, new Set()));
-
   return {
-    visibleComputedKeys,
+    visibleComputedKeys: Object.keys(schema.computed.fields),
   };
 }
 
@@ -119,22 +66,7 @@ export function projectedSnapshotsEqual<T>(
 }
 
 function projectState<T>(state: unknown): T {
-  if (state === null || state === undefined) {
-    return state as T;
-  }
-
-  if (Array.isArray(state) || typeof state !== "object") {
-    return structuredClone(state) as T;
-  }
-
-  const projected: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(state as Record<string, unknown>)) {
-    if (!key.startsWith("$")) {
-      projected[key] = value;
-    }
-  }
-
-  return structuredClone(projected) as T;
+  return structuredClone(state) as T;
 }
 
 function projectComputed(
@@ -150,94 +82,6 @@ function projectComputed(
   }
 
   return structuredClone(projected);
-}
-
-function resolveComputedDependency(
-  dep: string,
-  computedFields: DomainSchema["computed"]["fields"],
-): string | null {
-  if (Object.prototype.hasOwnProperty.call(computedFields, dep)) {
-    return dep;
-  }
-
-  if (!dep.startsWith("computed.")) {
-    return null;
-  }
-
-  const candidate = dep.slice("computed.".length);
-  return Object.prototype.hasOwnProperty.call(computedFields, candidate)
-    ? candidate
-    : null;
-}
-
-function normalizeSemanticPath(path: string): string {
-  if (path.startsWith("/")) {
-    return path.slice(1).replace(/\//g, ".");
-  }
-
-  return path;
-}
-
-function isPlatformDependency(dep: string): boolean {
-  const normalized = normalizeSemanticPath(dep);
-  if (normalized.startsWith("namespaces.")) {
-    return true;
-  }
-
-  const withoutDataRoot = normalized.startsWith("data.")
-    ? normalized.slice("data.".length)
-    : normalized.startsWith("state.")
-      ? normalized.slice("state.".length)
-    : normalized;
-  const match = /^([^.[\]]+)/.exec(withoutDataRoot);
-  const root = match?.[1] ?? "";
-  if (!root.startsWith("$")) {
-    return false;
-  }
-
-  return !COLLECTION_CONTEXT_ROOTS.has(root);
-}
-
-function collectExprGetPaths(expr: unknown): string[] {
-  const paths: string[] = [];
-  const seen = new WeakSet<object>();
-
-  const visit = (node: unknown): void => {
-    if (node === null || node === undefined) {
-      return;
-    }
-
-    if (Array.isArray(node)) {
-      node.forEach(visit);
-      return;
-    }
-
-    if (typeof node !== "object") {
-      return;
-    }
-
-    const objectNode = node as Record<string, unknown>;
-    if (seen.has(objectNode)) {
-      return;
-    }
-    seen.add(objectNode);
-
-    if (objectNode.kind === "lit") {
-      return;
-    }
-
-    if (objectNode.kind === "get" && typeof objectNode.path === "string") {
-      paths.push(objectNode.path);
-      return;
-    }
-
-    for (const value of Object.values(objectNode)) {
-      visit(value);
-    }
-  };
-
-  visit(expr);
-  return paths;
 }
 
 function cycleSafeEqual(left: unknown, right: unknown): boolean {

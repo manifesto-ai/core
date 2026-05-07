@@ -18,7 +18,7 @@ const canonicalSchemaHash: string = app.inspect.canonicalSnapshot().meta.schemaH
 const actionName: string = app.actions.increment.info().name;
 const preview: PreviewResult<CounterDomain, string> =
   app.actions.increment.preview();
-const changedPaths: readonly string[] = preview.admitted ? preview.changes : [];
+const changedPaths: readonly { readonly path: readonly (string | number)[]; readonly kind: "set" | "unset" | "changed" }[] = preview.admitted ? preview.changes : [];
 const reportPromise: Promise<BaseSubmissionResult<CounterDomain, string>> =
   app.actions.increment.submit();
 const unsubscribeState = app.observe.state(

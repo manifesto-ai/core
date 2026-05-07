@@ -89,6 +89,7 @@ declare const generic: SubmissionResult<CounterDomain, "add">;
 declare const baseFor: SubmitResultFor<"base", CounterDomain, "add">;
 declare const lineageFor: SubmitResultFor<"lineage", CounterDomain, "add">;
 declare const governanceFor: SubmitResultFor<"governance", CounterDomain, "add">;
+declare const unionModeFor: SubmitResultFor<"base" | "governance", CounterDomain, "add">;
 declare const governedApp: ManifestoApp<CounterDomain, "governance">;
 
 void admission;
@@ -107,6 +108,12 @@ void generic;
 void baseFor.mode;
 void lineageFor.mode;
 void governanceFor.mode;
+if (unionModeFor.mode === "lineage") {
+  const unionLineage: LineageSubmissionResult<CounterDomain, "add"> = unionModeFor;
+  if (unionLineage.ok) {
+    void unionLineage.world;
+  }
+}
 void governedApp.waitForSettlement("proposal-1");
 const currentContext = contextApp.context();
 const typedLocale: string = currentContext.locale;

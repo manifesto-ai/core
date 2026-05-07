@@ -182,7 +182,12 @@ export type Admission<Name extends string = string> =
   | AdmissionOk<Name>
   | AdmissionFailure<Name>;
 
-export type ChangedPath = string;
+export type PathSegment = string | number;
+
+export type ChangedPath = {
+  readonly path: readonly PathSegment[];
+  readonly kind: "set" | "unset" | "changed";
+};
 
 export type PreviewDiagnostics = {
   readonly trace?: TraceGraph;
@@ -215,10 +220,62 @@ export type ExecutionOutcome =
   | { readonly kind: "stop"; readonly reason: string; readonly detail?: ExecutionDetail }
   | { readonly kind: "fail"; readonly error: ErrorValue; readonly detail?: ExecutionDetail };
 
-export type BaseWriteReport = Readonly<Record<string, unknown>>;
-export type LineageWriteReport = Readonly<Record<string, unknown>>;
-export type GovernanceSettlementReport = Readonly<Record<string, unknown>>;
-export type WorldRecord = Readonly<Record<string, unknown>>;
+export type BaseWriteReport = {
+  readonly mode: "base";
+  readonly action: string;
+  readonly changes: readonly ChangedPath[];
+  readonly requirements: readonly Requirement[];
+  readonly outcome: ExecutionOutcome;
+};
+export type WorldRecord = {
+  readonly worldId: string;
+  readonly schemaHash: string;
+  readonly snapshotHash: string;
+  readonly parentWorldId: string | null;
+  readonly terminalStatus: "completed" | "failed";
+};
+export type LineageWriteReport = {
+  readonly mode: "lineage";
+  readonly action: string;
+  readonly worldId: string;
+  readonly branchId: string;
+  readonly headAdvanced: boolean;
+  readonly published: boolean;
+  readonly outcome: ExecutionOutcome;
+  readonly sealedSnapshotHash: string;
+  readonly changes: readonly ChangedPath[];
+  readonly requirements: readonly Requirement[];
+  readonly diagnostics?: ExecutionDiagnostics;
+};
+export type GovernanceSettlementReport =
+  | {
+      readonly mode: "governance";
+      readonly status: "settled";
+      readonly action: string;
+      readonly proposal: ProposalRef;
+      readonly baseWorldId: string;
+      readonly worldId: string;
+      readonly sealedSnapshotHash: string;
+      readonly published: boolean;
+      readonly outcome: ExecutionOutcome;
+      readonly changes: readonly ChangedPath[];
+      readonly requirements: readonly Requirement[];
+    }
+  | {
+      readonly mode: "governance";
+      readonly status: "rejected" | "superseded" | "expired" | "cancelled";
+      readonly action: string;
+      readonly proposal: ProposalRef;
+      readonly decision?: DecisionRecord;
+    }
+  | {
+      readonly mode: "governance";
+      readonly status: "settlement_failed";
+      readonly action: string;
+      readonly proposal?: ProposalRef;
+      readonly stage: "authority" | "runtime" | "settlement" | "persistence" | "observation";
+      readonly error: ErrorValue;
+    };
 export type ProposalRef = string;
 export type DecisionRecord = Readonly<Record<string, unknown>>;
 
@@ -332,11 +389,11 @@ export type SubmitResultFor<
   T extends ManifestoDomainShape,
   K extends ActionName<T>,
 > =
-  TMode extends "base"
+  [TMode] extends ["base"]
     ? BaseSubmissionResult<T, K>
-    : TMode extends "lineage"
+    : [TMode] extends ["lineage"]
       ? LineageSubmissionResult<T, K>
-      : TMode extends "governance"
+      : [TMode] extends ["governance"]
         ? GovernanceSubmissionResult<T, K>
         : SubmissionResult<T, K>;
 
@@ -429,7 +486,7 @@ export type SimulateResult<
   T extends ManifestoDomainShape = ManifestoDomainShape,
 > = {
   readonly snapshot: Snapshot<T["state"]>;
-  readonly changedPaths: readonly string[];
+  readonly changedPaths: readonly ChangedPath[];
   readonly newAvailableActions: readonly (keyof T["actions"])[];
   readonly requirements: readonly Requirement[];
   readonly status: ComputeStatus;
@@ -486,7 +543,7 @@ export type DispatchProjectedDiff<
 > = {
   readonly beforeSnapshot: Snapshot<T["state"]>;
   readonly afterSnapshot: Snapshot<T["state"]>;
-  readonly changedPaths: readonly string[];
+  readonly changedPaths: readonly ChangedPath[];
   readonly availability: AvailableActionDelta<T>;
 };
 
@@ -589,7 +646,7 @@ export type IntentExplanation<
       readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
       readonly snapshot: Snapshot<T["state"]>;
       readonly newAvailableActions: readonly (keyof T["actions"])[];
-      readonly changedPaths: readonly string[];
+      readonly changedPaths: readonly ChangedPath[];
     };
 
 export type TypedSimulate<T extends ManifestoDomainShape> = <

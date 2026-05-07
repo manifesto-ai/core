@@ -3,6 +3,7 @@ import {
   applyNamespaceDeltas,
   applySystemDelta,
   computeSync,
+  type Context,
   type DomainSchema,
   type Snapshot as CoreSnapshot,
   type TraceGraph,
@@ -143,7 +144,7 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
     }
     const enrichedIntent = legality.intent;
 
-    const context = hostContextProvider.createFrozenContext(
+    const context: Context = options?.context ?? hostContextProvider.createFrozenContext(
       enrichedIntent.intentId,
       options?.externalContext,
     );
@@ -166,7 +167,7 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
       patches: cloneAndDeepFreeze(result.patches),
       systemDelta: cloneAndDeepFreeze(result.systemDelta),
       status: result.status,
-      requirements: cloneAndDeepFreeze(result.systemDelta.addRequirements),
+      requirements: cloneAndDeepFreeze(result.systemDelta.addRequirements ?? []),
       diagnostics: Object.freeze({
         trace: cloneAndDeepFreeze(
           createStableSimulationTrace(result.trace, snapshot.meta.timestamp),

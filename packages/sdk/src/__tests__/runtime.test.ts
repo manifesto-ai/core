@@ -40,6 +40,18 @@ type ContextDomain = {
   };
 };
 
+type NamespaceDomain = {
+  actions: {};
+  state: {
+    namespaces: {
+      visible: boolean;
+    };
+  };
+  computed: {
+    visibleValue: boolean;
+  };
+};
+
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
@@ -140,6 +152,35 @@ function createContextSchema(): DomainSchema {
         },
       },
     },
+  });
+}
+
+function createNamespaceDomainSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:sdk-domain-namespaces",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        namespaces: {
+          type: "object",
+          required: true,
+          default: { visible: true },
+          fields: {
+            visible: { type: "boolean", required: true },
+          },
+        },
+      },
+    },
+    computed: {
+      fields: {
+        visibleValue: {
+          expr: { kind: "get", path: "namespaces.visible" },
+          deps: ["namespaces.visible"],
+        },
+      },
+    },
+    actions: {},
   });
 }
 
@@ -376,6 +417,15 @@ describe("activated v5 base runtime", () => {
     expect(canonical.state).not.toHaveProperty("$host");
     expect(canonical.state).not.toHaveProperty("$mel");
     expect(canonical.namespaces).toBeDefined();
+  });
+
+  it("keeps computed fields that depend on domain state.namespaces paths visible", () => {
+    const app = createManifesto<NamespaceDomain>(
+      createNamespaceDomainSchema(),
+      {},
+    ).activate();
+
+    expect(app.snapshot().computed.visibleValue).toBe(true);
   });
 
   it("previews without publishing state and preserves pending status", () => {

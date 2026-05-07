@@ -55,9 +55,12 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
       "ACTS-BASE-10",
       "ACTS-BASE-11",
     ],
-    "SDK SPEC v3 §5/§7/§7.2",
+    "SDK SPEC v5 §7/§8/§9/§10/§11",
     "MUST",
     "base",
+    {
+      notes: "Legacy ACTS-BASE IDs now track the v5 action-candidate root surface, not retired v3 runtime verbs.",
+    },
   ),
   ...inventoryMany(
     [

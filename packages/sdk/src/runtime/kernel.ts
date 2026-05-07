@@ -190,12 +190,15 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
           Array.isArray(rawParams) ? [...rawParams] : getActionParamNames(action),
         );
         const publicArity = rawParams === null ? 1 : params.length;
+        const requiredArity = action.input?.required === false ? 0 : publicArity;
 
         return [name, Object.freeze({
           name,
           params,
           publicArity,
+          requiredArity,
           input: action.input,
+          ...(action.inputType !== undefined ? { inputType: action.inputType } : {}),
           description: action.description,
           ...(actionAnnotations[name] !== undefined
             ? { annotations: actionAnnotations[name] }
@@ -385,9 +388,13 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     snapshot,
     intent,
     options,
-  ) => simulation.simulateSync(snapshot, intent, {
-    externalContext: options?.externalContext ?? captureExternalContext(),
-  });
+  ) => {
+    const context = options?.context ?? createComputeContext(
+      intent,
+      options?.externalContext ?? captureExternalContext(),
+    );
+    return simulation.simulateSync(snapshot, intent, { context });
+  };
   function projectCurrentSimulationResult(
     simulated: ReturnType<RuntimeKernel<T>["simulateSync"]>,
   ): ProjectedSimulateResult<T> {
@@ -406,9 +413,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   const simulateIntent = ((
     intent,
   ) => projectCurrentSimulationResult(
-    simulateSync(getCanonicalSnapshot(), intent, {
-      externalContext: captureExternalContext(),
-    }),
+    simulateSync(getCanonicalSnapshot(), intent),
   )) as TypedSimulateIntent<T>;
 
   const simulate = ((

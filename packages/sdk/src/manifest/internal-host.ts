@@ -10,7 +10,6 @@ import {
   extractDefaults,
   type DomainSchema,
   type Patch,
-  type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
 
 import type {
@@ -21,14 +20,8 @@ import {
   projectEffectContextSnapshot,
   type SnapshotProjectionPlan,
 } from "../projection/snapshot-projection.js";
-import {
-  executeSystemGet,
-} from "./system-get.js";
 import type {
   InternalHostBundle,
-} from "./shared.js";
-import {
-  RESERVED_EFFECT_TYPE,
 } from "./shared.js";
 
 export function createInternalHost(
@@ -42,15 +35,6 @@ export function createInternalHost(
     runtime,
   });
   const contextProvider: HostContextProvider = createHostContextProvider(runtime);
-
-  host.registerEffect(RESERVED_EFFECT_TYPE, async (
-    _type: string,
-    params: Record<string, unknown>,
-    ctx: HostEffectContext,
-  ): Promise<Patch[]> => {
-    const { patches } = executeSystemGet(params, ctx.snapshot as CoreSnapshot);
-    return patches;
-  });
 
   for (const [effectType, appHandler] of Object.entries(effects)) {
     const hostHandler: HostEffectHandler = async (

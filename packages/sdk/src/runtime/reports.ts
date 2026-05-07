@@ -5,6 +5,7 @@ import type {
   AvailableActionDelta,
   CanonicalSnapshot,
   DispatchExecutionOutcome,
+  ChangedPath,
   ManifestoDomainShape,
   Snapshot,
 } from "../types.js";
@@ -110,22 +111,37 @@ export function createRuntimeReportHelpers<T extends ManifestoDomainShape>({
 export function diffProjectedPaths<T>(
   left: Snapshot<T>,
   right: Snapshot<T>,
-): readonly string[] {
-  const paths = new Set<string>();
+): readonly ChangedPath[] {
+  const paths = new Map<string, ChangedPath>();
   const seen = new WeakMap<object, WeakSet<object>>();
 
-  const visit = (a: unknown, b: unknown, path: string): void => {
+  const addPath = (
+    path: readonly (string | number)[],
+    kind: ChangedPath["kind"],
+  ): void => {
+    const rendered = renderPath(path);
+    paths.set(rendered, Object.freeze({
+      path: Object.freeze([...path]),
+      kind,
+    }));
+  };
+
+  const visit = (
+    a: unknown,
+    b: unknown,
+    path: readonly (string | number)[],
+  ): void => {
     if (Object.is(a, b)) {
       return;
     }
 
     if (a === null || b === null) {
-      paths.add(path);
+      addPath(path, "changed");
       return;
     }
 
     if (typeof a !== "object" || typeof b !== "object") {
-      paths.add(path);
+      addPath(path, "changed");
       return;
     }
 
@@ -143,7 +159,7 @@ export function diffProjectedPaths<T>(
 
     if (Array.isArray(a) || Array.isArray(b)) {
       if (!Array.isArray(a) || !Array.isArray(b)) {
-        paths.add(path);
+        addPath(path, "changed");
         return;
       }
 
@@ -151,9 +167,9 @@ export function diffProjectedPaths<T>(
       for (let index = 0; index < limit; index += 1) {
         const leftHas = Object.prototype.hasOwnProperty.call(a, index);
         const rightHas = Object.prototype.hasOwnProperty.call(b, index);
-        const childPath = `${path}[${index}]`;
+        const childPath = [...path, index];
         if (leftHas !== rightHas) {
-          paths.add(childPath);
+          addPath(childPath, leftHas ? "unset" : "set");
           continue;
         }
         if (!leftHas && !rightHas) {
@@ -165,7 +181,7 @@ export function diffProjectedPaths<T>(
     }
 
     if (!isPlainDiffableObject(a) || !isPlainDiffableObject(b)) {
-      paths.add(path);
+      addPath(path, "changed");
       return;
     }
 
@@ -176,9 +192,9 @@ export function diffProjectedPaths<T>(
     for (const key of [...keys].sort()) {
       const leftHas = Object.prototype.hasOwnProperty.call(a, key);
       const rightHas = Object.prototype.hasOwnProperty.call(b, key);
-      const childPath = `${path}.${key}`;
+      const childPath = [...path, key];
       if (leftHas !== rightHas) {
-        paths.add(childPath);
+        addPath(childPath, leftHas ? "unset" : "set");
         continue;
       }
       visit(
@@ -189,16 +205,24 @@ export function diffProjectedPaths<T>(
     }
   };
 
-  visit(left.state, right.state, "state");
-  visit(left.computed, right.computed, "computed");
-  visit(left.system, right.system, "system");
-  visit(left.meta, right.meta, "meta");
+  visit(left.state, right.state, ["state"]);
+  visit(left.computed, right.computed, ["computed"]);
+  visit(left.system, right.system, ["system"]);
+  visit(left.meta, right.meta, ["meta"]);
 
-  return Object.freeze([...paths].sort());
+  return Object.freeze(
+    [...paths.entries()]
+      .sort(([leftPath], [rightPath]) => leftPath.localeCompare(rightPath))
+      .map(([, value]) => value),
+  );
 }
 
 function isPlainDiffableObject(value: unknown): value is Record<string, unknown> {
   return Object.prototype.toString.call(value) === "[object Object]";
+}
+
+function renderPath(path: readonly (string | number)[]): string {
+  return path.map((segment) => typeof segment === "number" ? `[${segment}]` : segment).join(".");
 }
 
 function toError(error: unknown): Error {

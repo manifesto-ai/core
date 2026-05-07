@@ -46,6 +46,9 @@ import {
   runBaseDispatchAttempt,
 } from "./base-dispatch.js";
 import {
+  cloneAndFreezeActionPayload,
+} from "./action-payload.js";
+import {
   createRuntimePublication,
 } from "./publication.js";
 import {
@@ -230,7 +233,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       check: () => checkCandidate(candidate),
       preview: () => previewCandidate(candidate),
       submit: () => submitCandidate(candidate),
-      intent: () => candidate.intent as Intent | null,
+      intent: () => candidate.inputError ? null : candidate.intent as Intent | null,
     });
   }
 
@@ -241,12 +244,17 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     const actionRef = kernel.MEL.actions[name] as TypedActionRef<T, Name>;
     const publicInput = toPublicInput(name, args);
     try {
-      const intent = kernel.createIntent(actionRef, ...args);
+      const stableInput = cloneAndFreezeActionPayload(publicInput);
+      const intent = cloneAndFreezeActionPayload(kernel.createIntent(actionRef, ...args));
+      const inputError = kernel.validateIntentInputFor(
+        kernel.getCanonicalSnapshot(),
+        intent,
+      );
       return Object.freeze({
         actionName: name,
-        input: publicInput,
+        input: stableInput,
         intent,
-        inputError: null,
+        inputError,
       });
     } catch (error) {
       if (!(error instanceof ManifestoError)) {
@@ -255,7 +263,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
 
       return Object.freeze({
         actionName: name,
-        input: publicInput,
+        input: cloneAndFreezeActionPayload(publicInput),
         intent: null,
         inputError: error,
       });
@@ -288,7 +296,6 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
   function previewCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
   ): PreviewResult<T, Name> {
-    const externalContext = captureViewExternalContext();
     const beforeCanonical = kernel.getCanonicalSnapshot();
     const before = extensionKernel.projectSnapshot(beforeCanonical);
     const admission = admitCandidate(candidate, beforeCanonical);
@@ -300,8 +307,9 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     }
 
     const intent = admission.intent;
+    const context = kernel.createComputeContext(intent, captureViewExternalContext());
     const simulated = kernel.simulateSync(beforeCanonical, intent, {
-      externalContext,
+      context,
     });
     const after = extensionKernel.projectSnapshot(simulated.snapshot);
 
@@ -322,10 +330,12 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
   async function submitCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
   ): Promise<BaseSubmissionResult<T, Name>> {
-    const externalContext = captureViewExternalContext();
     if (kernel.isDisposed()) {
       throw new DisposedError();
     }
+    const context = candidate.intent
+      ? kernel.createComputeContext(candidate.intent, captureViewExternalContext())
+      : null;
 
     return kernel.enqueue(async () => {
       if (kernel.isDisposed()) {
@@ -354,7 +364,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
         extensionKernel,
         publication,
         admittedIntent,
-        externalContext,
+        context ?? kernel.createComputeContext(admittedIntent, captureViewExternalContext()),
       );
 
       if (attempt.kind === "rejected") {
@@ -415,9 +425,12 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       }
 
       emitSubmissionSettled(candidate.actionName, attempt.intent, outcome, afterCanonical);
-      const report = attempt.kind === "completed"
-        ? createBaseWriteReport(runtimeView.report, attempt.diagnostics, dispatchOutcome)
-        : undefined;
+      const report = createBaseWriteReport(
+        runtimeView.report,
+        candidate.actionName,
+        dispatchOutcome,
+        outcome,
+      );
 
       return Object.freeze({
         ok: true,
@@ -677,23 +690,21 @@ function previewDiagnostics(
 
 function createBaseWriteReport<T extends ManifestoDomainShape>(
   mode: SubmitReportMode | undefined,
-  diagnostics: ExecutionDiagnostics,
+  action: ActionName<T>,
   outcome: DispatchExecutionOutcome<T>,
+  executionOutcome: ExecutionOutcome,
 ): BaseWriteReport | undefined {
   if (mode === "none") {
     return undefined;
   }
 
-  if (mode === "full") {
-    return Object.freeze({
-      diagnostics,
-      outcome,
-      changes: outcome.projected.changedPaths,
-      requirements: outcome.canonical.pendingRequirements,
-    });
-  }
-
-  return Object.freeze({ diagnostics });
+  return Object.freeze({
+    mode: "base",
+    action: String(action),
+    changes: outcome.projected.changedPaths,
+    requirements: outcome.canonical.pendingRequirements,
+    outcome: executionOutcome,
+  });
 }
 
 function freezeRuntimeView<T extends ManifestoDomainShape>(

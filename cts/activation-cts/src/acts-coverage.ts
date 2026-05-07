@@ -62,7 +62,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.BASE_ACTIVATION_CHAIN,
     "base",
-    "Base activation chain creates typed intents and executes dispatchAsync successfully.",
+    "Base activation chain exposes action handles and executes actions.<name>.submit() successfully.",
   ),
   complianceCase(
     ACTS_CASES.BASE_DEQUEUE_AVAILABILITY,
@@ -77,7 +77,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.BASE_INTROSPECTION_SURFACE,
     "base",
-    "Activated base runtime exposes getSchemaGraph(), simulateIntent(), and simulate() as read-only introspection verbs.",
+    "Activated base runtime exposes inspect and preview as the v5 read-only introspection path.",
   ),
   complianceCase(
     ACTS_CASES.BASE_SCHEMA_GRAPH_LOOKUP,
@@ -87,22 +87,22 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.BASE_SIMULATE_NON_COMMITTING,
     "base",
-    "simulateIntent() and simulate() are non-committing and return projected snapshot, changedPaths, requirements, new availability, and optional diagnostics.trace.",
+    "preview() is non-committing and returns projected snapshots, structured changes, requirements, new availability, and optional diagnostics.trace.",
   ),
   complianceCase(
     ACTS_CASES.BASE_SIMULATE_HALTED,
     "base",
-    "simulateIntent() and simulate() preserve Core halted status without publishing runtime state.",
+    "preview() preserves Core halted status without publishing runtime state.",
   ),
   complianceCase(
     ACTS_CASES.BASE_REPORT_SURFACE,
     "base",
-    "Activated base runtime exposes dispatchAsyncWithReport() as an additive companion and returns completed report bundles without changing dispatchAsync().",
+    "Activated base runtime exposes v5 submit reports through execution views and returns completed report bundles.",
   ),
   complianceCase(
     ACTS_CASES.BASE_REPORT_REJECTION,
     "base",
-    "dispatchAsyncWithReport() preserves dequeue-time legality ordering and returns rejected report unions for blocked intents.",
+    "submit() preserves admission ordering and returns rejected result unions for blocked action candidates.",
   ),
   complianceCase(
     ACTS_CASES.LINEAGE_COMPOSABLE_SURFACE,

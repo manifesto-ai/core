@@ -122,7 +122,10 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly simulateSync: (
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
-    options?: { readonly externalContext?: DomainExternalContext<T> },
+    options?: {
+      readonly externalContext?: DomainExternalContext<T>;
+      readonly context?: Context;
+    },
   ) => SimulateResult<T>;
   readonly simulate: TypedSimulate<T>;
   readonly simulateIntent: TypedSimulateIntent<T>;

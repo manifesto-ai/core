@@ -1,4 +1,5 @@
 import type {
+  Context,
   ComputeStatus,
   Patch,
   Requirement,
@@ -103,7 +104,10 @@ export type RuntimeSimulateSync<
 > = (
   snapshot: CanonicalSnapshot<T["state"]>,
   intent: TypedIntent<T>,
-  options?: { readonly externalContext?: DomainExternalContext<T> },
+  options?: {
+    readonly externalContext?: DomainExternalContext<T>;
+    readonly context?: Context;
+  },
 ) => RuntimeSimulationResult<T>;
 
 export interface RuntimeAdmission<T extends ManifestoDomainShape> {

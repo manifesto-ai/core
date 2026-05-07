@@ -4,7 +4,7 @@ import type { CounterDomain } from "../helpers/schema.ts";
 declare const report: DispatchReport<CounterDomain>;
 
 if (report.kind === "completed") {
-  const changedPaths: readonly string[] = report.outcome.projected.changedPaths;
+  const changedPaths: readonly { readonly path: readonly (string | number)[]; readonly kind: "set" | "unset" | "changed" }[] = report.outcome.projected.changedPaths;
   const status: typeof report.outcome.canonical.status = report.outcome.canonical.status;
   const locked: readonly (keyof CounterDomain["actions"])[] =
     report.outcome.projected.availability.locked;

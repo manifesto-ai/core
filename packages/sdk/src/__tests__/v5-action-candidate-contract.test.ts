@@ -448,6 +448,7 @@ describe("SDK v5 action-candidate contract", () => {
       layer: "input",
       code: "INVALID_INPUT",
     });
+    expect(fresh.actions.incrementGuarded.bind("not-number" as unknown as number).intent()).toBeNull();
     expect(fresh.actions.incrementGuarded.check(0)).toMatchObject({
       ok: false,
       layer: "dispatchability",
@@ -514,7 +515,7 @@ describe("SDK v5 action-candidate contract", () => {
     });
     expect(stopped.ok && stopped.after.state.count).toBe(1);
 
-    const failed = await app.actions.fail.submit();
+    const failed = await app.with({ report: "full" }).actions.fail.submit();
     expect(failed).toMatchObject({
       ok: true,
       mode: "base",
@@ -526,6 +527,18 @@ describe("SDK v5 action-candidate contract", () => {
         },
       },
     });
+    expect(failed.ok && failed.report).toMatchObject({
+      mode: "base",
+      action: "fail",
+      outcome: {
+        kind: "fail",
+        error: {
+          message: "repair required",
+        },
+      },
+    });
+    expect(failed.ok && Array.isArray(failed.report?.changes)).toBe(true);
+    expect(failed.ok && Array.isArray(failed.report?.requirements)).toBe(true);
   });
 
   it("keeps full projected before and after snapshots in settled submit results regardless of payload size", async () => {
@@ -620,6 +633,21 @@ describe("SDK v5 action-candidate contract", () => {
     });
   });
 
+  it("captures object-valued bound input immutably at bind time", () => {
+    const app = createManifesto<ObjectInputDomain>(objectInputMelSource, {}).activate();
+    const original = { id: "todo-2" };
+
+    const bound = app.actions.toggleTodo.bind(original);
+    original.id = "todo-mutated";
+
+    expect(bound.input).toEqual({ id: "todo-2" });
+    expect(Object.isFrozen(bound.input)).toBe(true);
+    expect(bound.intent()).toMatchObject({
+      type: "toggleTodo",
+      input: { input: { id: "todo-2" } },
+    });
+  });
+
   it("treats option-shaped values as domain input when declared by action arity", async () => {
     const app = createManifesto<OptionDomain>(createOptionSchema(), {}).activate();
     const optionLike = { __kind: "PreviewOptions" as const, diagnostics: "domain" };
@@ -673,16 +701,44 @@ describe("SDK v5 action-candidate contract", () => {
     const submitted = await app.with({ report: "full" }).actions.increment.submit();
 
     expect(submitted.ok && submitted.report).toMatchObject({
+      mode: "base",
+      action: "increment",
       requirements: [],
       outcome: {
-        canonical: {
-          status: "idle",
-        },
+        kind: "ok",
       },
     });
     expect(submitted.ok && submitted.report?.changes).toEqual(
-      expect.arrayContaining(["state.count", "computed.doubled"]),
+      expect.arrayContaining([
+        { path: ["state", "count"], kind: "changed" },
+        { path: ["computed", "doubled"], kind: "changed" },
+      ]),
     );
+  });
+
+  it("passes a call-entry materialized context into base submit execution", async () => {
+    const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    let receivedContext: unknown;
+    const materializedContext = Object.freeze({
+      runtime: Object.freeze({
+        time: Object.freeze({ timestamp: 1000 }),
+        random: Object.freeze({ seed: "call-entry-seed" }),
+      }),
+      external: Object.freeze({}),
+    });
+    const app = createBaseRuntimeInstance({
+      ...kernel,
+      createComputeContext: vi.fn(() => materializedContext),
+      executeHost: async (intent, options) => {
+        receivedContext = options?.context;
+        return kernel.executeHost(intent, options);
+      },
+    });
+
+    await app.actions.increment.submit();
+
+    expect(receivedContext).toBe(materializedContext);
   });
 
   it("rejects operational submit failure before terminal result with SubmissionFailedError", async () => {

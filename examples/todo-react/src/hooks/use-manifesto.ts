@@ -62,6 +62,13 @@ export function useManifesto(): UseManifestoResult {
     if (!result.ok) {
       throw new Error(result.admission.message);
     }
+    if (result.outcome.kind !== "ok") {
+      throw new Error(
+        result.outcome.kind === "fail"
+          ? result.outcome.error.message
+          : result.outcome.reason,
+      );
+    }
 
     return toTodoSnapshot(result.after);
   };
@@ -70,10 +77,7 @@ export function useManifesto(): UseManifestoResult {
     submitOrReject((app) => app.actions.addTodo.submit(title));
 
   const toggleTodo = (id: string) =>
-    submitOrReject((app) => app.actions.toggleTodo.submit(id, {
-      __kind: "SubmitOptions",
-      report: "summary"
-    }));
+    submitOrReject((app) => app.with({ report: "summary" }).actions.toggleTodo.submit(id));
 
   const removeTodo = (id: string) =>
     submitOrReject((app) => app.actions.removeTodo.submit(id));

@@ -18,7 +18,7 @@ domain TodoApp {
   action addTodo(title: string) {
     onceIntent when neq(trim(title), "") {
       patch todos = append(todos, {
-        id: $system.uuid,
+        id: $runtime.random.uuid,
         title: trim(title),
         completed: false
       })
