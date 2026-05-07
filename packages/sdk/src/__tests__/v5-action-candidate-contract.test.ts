@@ -685,6 +685,40 @@ describe("SDK v5 action-candidate contract", () => {
     expect(submitted.ok && "report" in submitted).toBe(false);
   });
 
+  it("treats non-structured-clone inputs as input admission failures", async () => {
+    const app = createManifesto<ObjectOnlyOptionsDomain>(
+      createObjectOnlyOptionsSchema(),
+      {},
+    ).activate();
+    const invalid = {
+      retries: 1,
+      callback: () => undefined,
+    } as unknown as { retries: number; label?: string };
+
+    expect(app.actions.configure.check(invalid)).toMatchObject({
+      ok: false,
+      layer: "input",
+      code: "INVALID_INPUT",
+    });
+    expect(app.actions.configure.preview(invalid)).toMatchObject({
+      admitted: false,
+      admission: {
+        layer: "input",
+        code: "INVALID_INPUT",
+      },
+    });
+    await expect(app.actions.configure.submit(invalid)).resolves.toMatchObject({
+      ok: false,
+      mode: "base",
+      action: "configure",
+      admission: {
+        layer: "input",
+        code: "INVALID_INPUT",
+      },
+    });
+    expect(app.actions.configure.bind(invalid).intent()).toBeNull();
+  });
+
   it("honors preview and submit option detail suppression", async () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 

@@ -389,11 +389,11 @@ export type SubmitResultFor<
   T extends ManifestoDomainShape,
   K extends ActionName<T>,
 > =
-  [TMode] extends ["base"]
+  TMode extends "base"
     ? BaseSubmissionResult<T, K>
-    : [TMode] extends ["lineage"]
+    : TMode extends "lineage"
       ? LineageSubmissionResult<T, K>
-      : [TMode] extends ["governance"]
+      : TMode extends "governance"
         ? GovernanceSubmissionResult<T, K>
         : SubmissionResult<T, K>;
 

@@ -114,8 +114,33 @@ type V5SubmitResult = {
 };
 
 type V5ActionHandle = {
+  readonly check: (...args: readonly unknown[]) => {
+    readonly ok: boolean;
+    readonly layer?: string;
+    readonly code?: string;
+  };
+  readonly preview: (...args: readonly unknown[]) => {
+    readonly admitted: boolean;
+    readonly admission?: {
+      readonly layer: string;
+      readonly code: string;
+    };
+  };
   readonly submit: (...args: readonly unknown[]) => Promise<V5SubmitResult>;
   readonly bind: (...args: readonly unknown[]) => {
+    readonly input: unknown;
+    readonly check: () => {
+      readonly ok: boolean;
+      readonly layer?: string;
+      readonly code?: string;
+    };
+    readonly preview: () => {
+      readonly admitted: boolean;
+      readonly admission?: {
+        readonly layer: string;
+        readonly code: string;
+      };
+    };
     readonly submit: () => Promise<V5SubmitResult>;
     readonly intent: () => unknown;
   };
@@ -533,6 +558,39 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
       ok: true,
       after: { state: { selectedId: "before" } },
     });
+
+    app.dispose();
+  });
+
+  it("treats non-structured-clone lineage inputs as input admission failures", async () => {
+    const app = activateObjectInputLineage();
+    const invalid = {
+      id: "bad",
+      callback: () => undefined,
+    };
+
+    expect(app.actions.choose.check(invalid)).toMatchObject({
+      ok: false,
+      layer: "input",
+      code: "INVALID_INPUT",
+    });
+    expect(app.actions.choose.preview(invalid)).toMatchObject({
+      admitted: false,
+      admission: {
+        layer: "input",
+        code: "INVALID_INPUT",
+      },
+    });
+    await expect(app.actions.choose.submit(invalid)).resolves.toMatchObject({
+      ok: false,
+      mode: "lineage",
+      action: "choose",
+      admission: {
+        layer: "input",
+        code: "INVALID_INPUT",
+      },
+    });
+    expect(app.actions.choose.bind(invalid).intent()).toBeNull();
 
     app.dispose();
   });

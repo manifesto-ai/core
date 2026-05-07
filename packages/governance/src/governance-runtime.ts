@@ -44,6 +44,7 @@ import type {
 
 import {
   cloneAndFreezeActionPayload,
+  tryCloneAndFreezeActionPayload,
 } from "./action-payload.js";
 import type { GovernanceInstance } from "./runtime-types.js";
 import type {
@@ -84,6 +85,7 @@ export type GovernanceRuntimeServices<T extends ManifestoDomainShape> = {
   readonly waitForSettlement: <Name extends ActionName<T>>(
     proposalId: ProposalRef,
     actionName?: Name,
+    reportMode?: SubmitReportMode,
   ) => Promise<GovernanceSettlementResult<T, Name>>;
   readonly approve: (
     proposalId: ProposalId,
@@ -220,7 +222,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     action,
     dispose: kernel.dispose,
     waitForSettlement(ref: ProposalRef) {
-      return services.waitForSettlement(ref);
+      return services.waitForSettlement(ref, undefined, runtimeView.report);
     },
     restore: services.lineage.restore,
     getWorld: services.lineage.getWorld,
@@ -286,8 +288,17 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
   ): Candidate<T, Name> {
     const actionRef = kernel.MEL.actions[name] as TypedActionRef<T, Name>;
     const publicInput = toPublicInput(args);
+    const stableInput = tryCloneAndFreezeActionPayload(publicInput);
+    if (!stableInput.ok) {
+      return Object.freeze({
+        actionName: name,
+        input: undefined as ActionInput<T, Name>,
+        intent: null,
+        inputError: stableInput.error,
+      });
+    }
+
     try {
-      const stableInput = cloneAndFreezeActionPayload(publicInput);
       const intent = cloneAndFreezeActionPayload(kernel.createIntent(actionRef, ...args));
       const inputError = kernel.validateIntentInputFor(
         kernel.getCanonicalSnapshot(),
@@ -295,7 +306,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       );
       return Object.freeze({
         actionName: name,
-        input: stableInput,
+        input: stableInput.value,
         intent,
         inputError,
       });
@@ -306,7 +317,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
 
       return Object.freeze({
         actionName: name,
-        input: cloneAndFreezeActionPayload(publicInput),
+        input: stableInput.value,
         intent: null,
         inputError: error,
       });
@@ -450,6 +461,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
         const settlement = await services.waitForSettlement(
           proposalRef,
           candidate.actionName,
+          "summary",
         );
         if (settlement.status === "settled") {
           emitSubmissionSettled(
@@ -500,6 +512,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
         waitForSettlement: () => services.waitForSettlement(
           proposalRef,
           candidate.actionName,
+          runtimeView.report,
         ),
       }) as GovernanceSubmissionResult<T, Name>;
     });

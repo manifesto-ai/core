@@ -511,6 +511,58 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     });
   });
 
+  it("treats non-structured-clone governed inputs as input admission failures", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<ObjectInputDomain>(createObjectInputSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:object-input-invalid",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:object-input-invalid",
+          }),
+        },
+      },
+    ).activate();
+    const invalid = {
+      id: "bad",
+      callback: () => undefined,
+    };
+
+    expect(governed.actions.choose.check(invalid)).toMatchObject({
+      ok: false,
+      layer: "input",
+      code: "INVALID_INPUT",
+    });
+    expect(governed.actions.choose.preview(invalid)).toMatchObject({
+      admitted: false,
+      admission: {
+        layer: "input",
+        code: "INVALID_INPUT",
+      },
+    });
+    await expect(governed.actions.choose.submit(invalid)).resolves.toMatchObject({
+      ok: false,
+      mode: "governance",
+      action: "choose",
+      admission: {
+        layer: "input",
+        code: "INVALID_INPUT",
+      },
+    });
+    expect(governed.actions.choose.bind(invalid).intent()).toBeNull();
+    await expect(governed.getProposals()).resolves.toHaveLength(0);
+  });
+
   it("returns pending before auto-approved settlement finishes", async () => {
     const deferred = createDeferred();
     const evaluator = createAuthorityEvaluator();
@@ -564,6 +616,109 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       status: "settled",
     });
     expect(governed.snapshot().state.count).toBe(1);
+  });
+
+  it("honors report none for governed settlement observers", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:quiet-settlement",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:quiet-settlement",
+          }),
+        },
+      },
+    ).activate();
+    const quiet = governed.with({ report: "none" });
+
+    const pending = await quiet.actions.increment.submit();
+    if (!pending.ok) {
+      throw new Error("expected pending governance submission");
+    }
+    const settlement = await pending.waitForSettlement();
+    expect(settlement).toMatchObject({
+      ok: true,
+      status: "settled",
+    });
+    expect("report" in settlement).toBe(false);
+
+    const observed = await quiet.waitForSettlement(pending.proposal);
+    expect(observed).toMatchObject({
+      ok: true,
+      status: "settled",
+    });
+    expect("report" in observed).toBe(false);
+  });
+
+  it("resumes observed evaluating proposals after activation restart", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+    const lineageStore = createInMemoryLineageStore();
+    const first = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: lineageStore },
+      ),
+      {
+        governanceStore,
+        bindings: [createHitlBinding()],
+        execution: {
+          projectionId: "proj:restart-before-settlement",
+          deriveActor: () => ({
+            actorId: "actor:human",
+            kind: "human",
+          }),
+          deriveSource: () => ({
+            kind: "ui",
+            eventId: "evt:restart-before-settlement",
+          }),
+        },
+      },
+    ).activate();
+    const pending = await submitIncrement(first);
+    await expect(getStoredProposal(first, pending.proposal)).resolves.toMatchObject({
+      status: "evaluating",
+    });
+    first.dispose();
+
+    const restarted = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: lineageStore },
+      ),
+      {
+        governanceStore,
+        bindings: [createAutoBindingForHuman()],
+        execution: {
+          projectionId: "proj:restart-before-settlement",
+          deriveActor: () => ({
+            actorId: "actor:human",
+            kind: "human",
+          }),
+          deriveSource: () => ({
+            kind: "ui",
+            eventId: "evt:restart-before-settlement-resumed",
+          }),
+        },
+      },
+    ).activate();
+
+    await expect(restarted.waitForSettlement(pending.proposal)).resolves.toMatchObject({
+      ok: true,
+      status: "settled",
+      after: { state: { count: 1 } },
+    });
+    expect(restarted.snapshot().state.count).toBe(1);
   });
 
   it("returns evaluating proposals for HITL and resolves them through approve/reject", async () => {

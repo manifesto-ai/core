@@ -16,6 +16,7 @@ import type { ExecutionContext } from "../types/execution.js";
 import type { StartIntentJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";
 import { getHostState } from "../types/host-state.js";
+import { applyComputeResult } from "./compute-interlock.js";
 
 /**
  * Handle StartIntent job
@@ -95,13 +96,13 @@ export function handleStartIntent(
   });
 
   // Interlock order: apply(patches) -> applyNamespaceDeltas(namespaceDelta) -> applySystemDelta(systemDelta) -> dispatch
-  ctx.applyPatches(result.patches, "compute");
-  ctx.applyNamespaceDeltas(result.namespaceDelta ?? [], "compute");
-  ctx.applySystemDelta(result.systemDelta, "compute");
+  const applied = applyComputeResult(ctx, result);
 
   // Check terminal states
   if (
-    result.status === "complete"
+    applied.interlockError
+    || applied.snapshot.system.status === "error"
+    || result.status === "complete"
     || result.status === "error"
     || result.status === "halted"
   ) {

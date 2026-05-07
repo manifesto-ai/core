@@ -186,6 +186,92 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       expect(hostState?.lastError?.message).toContain("Invalid namespace merge target");
       expect(resultSnapshot.system.pendingRequirements).toHaveLength(0);
     });
+
+    it("should preserve compute namespace failures and not dispatch effects", async () => {
+      const traces: Array<{ readonly t: string }> = [];
+      const effectSchema = createTestSchema({
+        actions: {
+          guardedEffect: {
+            flow: {
+              kind: "causalGuard",
+              guardId: "host-namespace-corrupt-guard",
+              body: {
+                kind: "effect",
+                type: "shouldNotRun",
+                params: {},
+              },
+            },
+          },
+        },
+      });
+      const host = createHost(effectSchema, {
+        disableAutoEffect: true,
+        initialData: {},
+        onTrace: (event) => {
+          traces.push(event);
+        },
+      });
+      const key = "test-key";
+      const intent = createTestIntent("guardedEffect");
+      const snapshot = {
+        ...host.getSnapshot()!,
+        namespaces: {
+          core: {
+            causalGuards: "corrupt",
+          },
+        },
+      };
+      host.seedSnapshot(key, snapshot);
+
+      host.submitIntent(key, intent);
+      await host.drain(key);
+
+      const resultSnapshot = host.getContextSnapshot(key)!;
+      expect(resultSnapshot.system.status).toBe("error");
+      expect(resultSnapshot.system.lastError).toMatchObject({
+        code: "TYPE_MISMATCH",
+      });
+      expect(resultSnapshot.system.lastError?.message).toContain("Invalid namespace merge target");
+      expect(resultSnapshot.system.pendingRequirements).toHaveLength(0);
+      expect(traces.some((event) => event.t === "effect:dispatch")).toBe(false);
+    });
+
+    it("should report repeated effect failures with distinct attempt context", async () => {
+      const effectSchema = createTestSchema({
+        actions: {
+          failingEffect: {
+            flow: {
+              kind: "causalGuard",
+              guardId: "host-repeated-failure",
+              body: {
+                kind: "effect",
+                type: "failing",
+                params: {},
+              },
+            },
+          },
+        },
+      });
+      const runtime = {
+        now: () => 0,
+        microtask: (fn: () => void) => queueMicrotask(fn),
+        yield: () => Promise.resolve(),
+      };
+      const host = createHost(effectSchema, { initialData: {}, runtime });
+      host.registerEffect("failing", async () => {
+        throw new Error("same failure");
+      });
+
+      const first = await host.dispatch(createTestIntent("failingEffect"));
+      const second = await host.dispatch(createTestIntent("failingEffect"));
+
+      expect(first.status).toBe("error");
+      expect(second.status).toBe("error");
+      expect(second.error?.message).toBe("same failure");
+      expect(getHostState(second.snapshot)?.lastError?.context).toMatchObject({
+        effectType: "failing",
+      });
+    });
   });
 
   describe("snapshot data integrity", () => {

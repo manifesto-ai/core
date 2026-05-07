@@ -108,11 +108,9 @@ void generic;
 void baseFor.mode;
 void lineageFor.mode;
 void governanceFor.mode;
+// @ts-expect-error SubmitResultFor<"base" | "governance"> excludes lineage results.
 if (unionModeFor.mode === "lineage") {
-  const unionLineage: LineageSubmissionResult<CounterDomain, "add"> = unionModeFor;
-  if (unionLineage.ok) {
-    void unionLineage.world;
-  }
+  void unionModeFor;
 }
 void governedApp.waitForSettlement("proposal-1");
 const currentContext = contextApp.context();

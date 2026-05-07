@@ -13,6 +13,7 @@ import type {
   GovernanceLaws,
   ManifestoDomainShape,
   ProposalRef,
+  SubmitReportMode,
   TypedIntent,
   WorldRecord,
 } from "@manifesto-ai/sdk";
@@ -135,6 +136,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
 
   let bindingsReady: Promise<void> | null = null;
   const proposalSubmissionBindings = new Map<ProposalId, ActorAuthorityBinding>();
+  const activeSettlementTasks = new Set<ProposalId>();
 
   async function ensureBindings(): Promise<void> {
     if (bindingsReady) {
@@ -392,6 +394,19 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
   }
 
   async function settleSubmission(proposalId: ProposalId): Promise<void> {
+    if (activeSettlementTasks.has(proposalId)) {
+      return;
+    }
+
+    activeSettlementTasks.add(proposalId);
+    try {
+      await settleSubmissionOnce(proposalId);
+    } finally {
+      activeSettlementTasks.delete(proposalId);
+    }
+  }
+
+  async function settleSubmissionOnce(proposalId: ProposalId): Promise<void> {
     if (kernel.isDisposed()) {
       throw new DisposedError();
     }
@@ -416,6 +431,50 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
       await applyAuthorityDecision(evaluatingProposal, response);
     } catch {
       await compensateSettlementFailure(proposalId, evaluatingProposal);
+    }
+  }
+
+  async function resumeObservedSettlement(proposal: Proposal): Promise<void> {
+    if (proposal.status === "evaluating") {
+      await settleSubmission(proposal.proposalId);
+      return;
+    }
+
+    if (proposal.status !== "approved" && proposal.status !== "executing") {
+      return;
+    }
+
+    if (activeSettlementTasks.has(proposal.proposalId)) {
+      return;
+    }
+
+    activeSettlementTasks.add(proposal.proposalId);
+    try {
+      if (proposal.status === "approved") {
+        const executingProposal = governanceService.beginExecution(proposal);
+        await governanceStore.putProposal(executingProposal);
+        try {
+          await finalizeApprovedExecution(
+            executingProposal,
+            toTypedComputeIntent<T>(proposal),
+          );
+        } catch {
+          await compensateSettlementFailure(proposal.proposalId, executingProposal);
+        }
+        return;
+      }
+
+      const executingProposal = proposal as Proposal & { readonly status: "executing" };
+      try {
+        await finalizeApprovedExecution(
+          executingProposal,
+          toTypedComputeIntent<T>(executingProposal),
+        );
+      } catch {
+        await compensateSettlementFailure(executingProposal.proposalId, executingProposal);
+      }
+    } finally {
+      activeSettlementTasks.delete(proposal.proposalId);
     }
   }
 
@@ -568,7 +627,9 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
   async function waitForSettlement<Name extends ActionName<T>>(
     proposalRef: ProposalRef,
     actionName?: Name,
+    reportMode?: SubmitReportMode,
   ): Promise<GovernanceSettlementResult<T, Name>> {
+    const resumeAttempts = new Set<ProposalId>();
     while (true) {
       if (kernel.isDisposed()) {
         throw new DisposedError();
@@ -586,11 +647,12 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
         return toSettledResult(
           proposal as Proposal & { readonly status: "completed"; readonly resultWorld: string },
           actionName,
+          reportMode,
         );
       }
 
       if (proposal.status === "failed") {
-        return toFailedSettlementResult(proposal, actionName);
+        return toFailedSettlementResult(proposal, actionName, reportMode);
       }
 
       if (proposal.status === "rejected" || proposal.status === "superseded") {
@@ -607,6 +669,16 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
         }) as GovernanceSettlementResult<T, Name>;
       }
 
+      if (!resumeAttempts.has(proposal.proposalId)) {
+        resumeAttempts.add(proposal.proposalId);
+        await kernel.enqueue(async () => {
+          const latest = await governanceStore.getProposal(proposal.proposalId);
+          if (latest) {
+            await resumeObservedSettlement(latest);
+          }
+        });
+      }
+
       await sleep(10);
     }
   }
@@ -614,6 +686,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
   async function toSettledResult<Name extends ActionName<T>>(
     proposal: Proposal & { readonly status: "completed"; readonly resultWorld: string },
     actionName?: Name,
+    reportMode?: SubmitReportMode,
   ): Promise<GovernanceSettlementResult<T, Name>> {
     const action = resolveSettlementAction(proposal, actionName);
     const before = await lineage.getWorldSnapshot(proposal.baseWorld);
@@ -653,25 +726,30 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
       before: dispatchOutcome.projected.beforeSnapshot,
       after: dispatchOutcome.projected.afterSnapshot,
       outcome,
-      report: Object.freeze({
-        mode: "governance",
-        status: "settled",
-        action,
-        proposal: proposal.proposalId,
-        baseWorldId: proposal.baseWorld,
-        worldId: proposal.resultWorld,
-        sealedSnapshotHash: world.snapshotHash,
-        published: true,
-        outcome,
-        changes: dispatchOutcome.projected.changedPaths,
-        requirements: dispatchOutcome.canonical.pendingRequirements,
-      }),
+      ...(reportMode === "none"
+        ? {}
+        : {
+            report: Object.freeze({
+              mode: "governance",
+              status: "settled",
+              action,
+              proposal: proposal.proposalId,
+              baseWorldId: proposal.baseWorld,
+              worldId: proposal.resultWorld,
+              sealedSnapshotHash: world.snapshotHash,
+              published: true,
+              outcome,
+              changes: dispatchOutcome.projected.changedPaths,
+              requirements: dispatchOutcome.canonical.pendingRequirements,
+            }),
+          }),
     }) as GovernanceSettlementResult<T, Name>;
   }
 
   async function toFailedSettlementResult<Name extends ActionName<T>>(
     proposal: Proposal,
     actionName?: Name,
+    reportMode?: SubmitReportMode,
   ): Promise<GovernanceSettlementResult<T, Name>> {
     const action = resolveSettlementAction(proposal, actionName);
     const error = await loadSettlementError(proposal);
@@ -682,14 +760,18 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
       action,
       proposal: proposal.proposalId,
       error,
-      report: Object.freeze({
-        mode: "governance",
-        status: "settlement_failed",
-        action,
-        proposal: proposal.proposalId,
-        stage: "settlement",
-        error,
-      }),
+      ...(reportMode === "none"
+        ? {}
+        : {
+            report: Object.freeze({
+              mode: "governance",
+              status: "settlement_failed",
+              action,
+              proposal: proposal.proposalId,
+              stage: "settlement",
+              error,
+            }),
+          }),
     }) as GovernanceSettlementResult<T, Name>;
   }
 

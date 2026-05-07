@@ -47,6 +47,7 @@ import {
 } from "./base-dispatch.js";
 import {
   cloneAndFreezeActionPayload,
+  tryCloneAndFreezeActionPayload,
 } from "./action-payload.js";
 import {
   createRuntimePublication,
@@ -243,8 +244,17 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
   ): Candidate<T, Name> {
     const actionRef = kernel.MEL.actions[name] as TypedActionRef<T, Name>;
     const publicInput = toPublicInput(name, args);
+    const stableInput = tryCloneAndFreezeActionPayload(publicInput);
+    if (!stableInput.ok) {
+      return Object.freeze({
+        actionName: name,
+        input: undefined as ActionInput<T, Name>,
+        intent: null,
+        inputError: stableInput.error,
+      });
+    }
+
     try {
-      const stableInput = cloneAndFreezeActionPayload(publicInput);
       const intent = cloneAndFreezeActionPayload(kernel.createIntent(actionRef, ...args));
       const inputError = kernel.validateIntentInputFor(
         kernel.getCanonicalSnapshot(),
@@ -252,7 +262,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       );
       return Object.freeze({
         actionName: name,
-        input: stableInput,
+        input: stableInput.value,
         intent,
         inputError,
       });
@@ -263,7 +273,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
 
       return Object.freeze({
         actionName: name,
-        input: cloneAndFreezeActionPayload(publicInput),
+        input: stableInput.value,
         intent: null,
         inputError: error,
       });

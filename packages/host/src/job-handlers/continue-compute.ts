@@ -10,6 +10,7 @@ import type { Intent } from "@manifesto-ai/core";
 import type { ExecutionContext } from "../types/execution.js";
 import type { ContinueComputeJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";
+import { applyComputeResult } from "./compute-interlock.js";
 
 /**
  * Handle ContinueCompute job
@@ -77,13 +78,13 @@ export function handleContinueCompute(
   });
 
   // Interlock order: apply(patches) -> applyNamespaceDeltas(namespaceDelta) -> applySystemDelta(systemDelta) -> dispatch
-  ctx.applyPatches(result.patches, "compute");
-  ctx.applyNamespaceDeltas(result.namespaceDelta ?? [], "compute");
-  ctx.applySystemDelta(result.systemDelta, "compute");
+  const applied = applyComputeResult(ctx, result);
 
   // Check terminal states
   if (
-    result.status === "complete"
+    applied.interlockError
+    || applied.snapshot.system.status === "error"
+    || result.status === "complete"
     || result.status === "error"
     || result.status === "halted"
   ) {

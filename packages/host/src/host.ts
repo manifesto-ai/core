@@ -16,6 +16,7 @@ import {
   evaluateComputed,
   isOk,
   Snapshot as SnapshotSchema,
+  toJcs,
   type ManifestoCore,
   type DomainSchema,
   type Snapshot,
@@ -897,11 +898,7 @@ function isSameErrorValue(left: Snapshot["system"]["lastError"], right: Snapshot
   if (left === null || right === null) {
     return false;
   }
-  return left.code === right.code
-    && left.message === right.message
-    && left.timestamp === right.timestamp
-    && left.source.actionId === right.source.actionId
-    && left.source.nodePath === right.source.nodePath;
+  return toJcs(left) === toJcs(right);
 }
 
 /**

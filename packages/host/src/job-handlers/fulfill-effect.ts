@@ -20,7 +20,7 @@
  * - ERR-FE-5: Error patch recording is best-effort; failure MUST NOT block continue
  */
 
-import type { Patch, Requirement, Snapshot } from "@manifesto-ai/core";
+import { toJcs, type Patch, type Requirement, type Snapshot } from "@manifesto-ai/core";
 import type { ExecutionContext } from "../types/execution.js";
 import type { FulfillEffectJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";
@@ -273,9 +273,5 @@ function isSameErrorValue(left: Snapshot["system"]["lastError"], right: Snapshot
   if (left === null || right === null) {
     return false;
   }
-  return left.code === right.code
-    && left.message === right.message
-    && left.timestamp === right.timestamp
-    && left.source.actionId === right.source.actionId
-    && left.source.nodePath === right.source.nodePath;
+  return toJcs(left) === toJcs(right);
 }
