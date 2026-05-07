@@ -3,96 +3,50 @@ import {
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
 
-export type CanonicalPlatformNamespaces = {
-  $host?: Record<string, unknown>;
-  $mel?: Record<string, unknown>;
-  [k: `$${string}`]: unknown;
-};
+export type CanonicalNamespaces = CoreSnapshot["namespaces"];
 
-export type Snapshot<T = unknown> = {
-  data: T;
-  computed: Record<string, unknown>;
+export type Snapshot<
+  TState = unknown,
+  TComputed = Record<string, unknown>,
+> = {
+  state: TState;
+  computed: TComputed;
   system: Pick<CoreSnapshot["system"], "status" | "lastError">;
   meta: Pick<CoreSnapshot["meta"], "schemaHash">;
 };
 
-export type CanonicalSnapshot<T = unknown> =
-  Omit<CoreSnapshot, "data"> & {
-    data: T & CanonicalPlatformNamespaces;
+export type CanonicalSnapshot<
+  TState = unknown,
+  TComputed = Record<string, unknown>,
+> =
+  Omit<CoreSnapshot, "state" | "computed"> & {
+    state: TState;
+    computed: TComputed;
+    namespaces: CanonicalNamespaces;
   };
 
 export type SnapshotProjectionPlan = {
   visibleComputedKeys: readonly string[];
 };
 
-const COLLECTION_CONTEXT_ROOTS = new Set(["$item", "$index", "$array"]);
-
 export function buildSnapshotProjectionPlan(
   schema: DomainSchema,
 ): SnapshotProjectionPlan {
-  const computedFields = schema.computed.fields;
-  const memo = new Map<string, boolean>();
-
-  function isVisibleComputed(
-    name: string,
-    visiting: Set<string>,
-  ): boolean {
-    const cached = memo.get(name);
-    if (cached !== undefined) {
-      return cached;
-    }
-
-    if (visiting.has(name)) {
-      return false;
-    }
-
-    visiting.add(name);
-
-    const field = computedFields[name];
-    if (!field) {
-      visiting.delete(name);
-      memo.set(name, true);
-      return true;
-    }
-
-    for (const path of collectExprGetPaths(field.expr)) {
-      if (isPlatformDependency(path)) {
-        visiting.delete(name);
-        memo.set(name, false);
-        return false;
-      }
-
-      const computedDependency = resolveComputedDependency(path, computedFields);
-      if (
-        computedDependency !== null
-        && !isVisibleComputed(computedDependency, visiting)
-      ) {
-        visiting.delete(name);
-        memo.set(name, false);
-        return false;
-      }
-    }
-
-    visiting.delete(name);
-    memo.set(name, true);
-    return true;
-  }
-
-  const visibleComputedKeys = Object.keys(computedFields)
-    .filter((name) => isVisibleComputed(name, new Set()));
-
   return {
-    visibleComputedKeys,
+    visibleComputedKeys: Object.keys(schema.computed.fields),
   };
 }
 
-export function projectCanonicalSnapshot<T = unknown>(
+export function projectCanonicalSnapshot<
+  TState = unknown,
+  TComputed = Record<string, unknown>,
+>(
   snapshot: CoreSnapshot,
   plan: SnapshotProjectionPlan,
-): Snapshot<T> {
+): Snapshot<TState, TComputed> {
   return {
-    data: projectData<T>(snapshot.data),
-    computed: projectComputed(snapshot.computed, plan),
+    state: projectState<TState>(snapshot.state),
+    computed: projectComputed<TComputed>(snapshot.computed, plan),
     system: {
       status: snapshot.system.status,
       lastError: snapshot.system.lastError,
@@ -103,47 +57,38 @@ export function projectCanonicalSnapshot<T = unknown>(
   };
 }
 
-export function projectEffectContextSnapshot<T = unknown>(
+export function projectEffectContextSnapshot<
+  TState = unknown,
+  TComputed = Record<string, unknown>,
+>(
   snapshot: CoreSnapshot,
   plan: SnapshotProjectionPlan,
-): Snapshot<T> {
-  return projectCanonicalSnapshot<T>(snapshot, plan);
+): Snapshot<TState, TComputed> {
+  return projectCanonicalSnapshot<TState, TComputed>(snapshot, plan);
 }
 
 export function cloneAndDeepFreeze<T>(value: T): T {
   return deepFreeze(structuredClone(value));
 }
 
-export function projectedSnapshotsEqual<T>(
-  left: Snapshot<T>,
-  right: Snapshot<T>,
+export function projectedSnapshotsEqual<
+  TState,
+  TComputed = Record<string, unknown>,
+>(
+  left: Snapshot<TState, TComputed>,
+  right: Snapshot<TState, TComputed>,
 ): boolean {
   return cycleSafeEqual(left, right);
 }
 
-function projectData<T>(data: unknown): T {
-  if (data === null || data === undefined) {
-    return data as T;
-  }
-
-  if (Array.isArray(data) || typeof data !== "object") {
-    return structuredClone(data) as T;
-  }
-
-  const projected: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-    if (!key.startsWith("$")) {
-      projected[key] = value;
-    }
-  }
-
-  return structuredClone(projected) as T;
+function projectState<T>(state: unknown): T {
+  return structuredClone(state) as T;
 }
 
-function projectComputed(
+function projectComputed<TComputed>(
   computed: CoreSnapshot["computed"],
   plan: SnapshotProjectionPlan,
-): Snapshot["computed"] {
+): TComputed {
   const projected: Record<string, unknown> = {};
 
   for (const key of plan.visibleComputedKeys) {
@@ -152,89 +97,7 @@ function projectComputed(
     }
   }
 
-  return structuredClone(projected);
-}
-
-function resolveComputedDependency(
-  dep: string,
-  computedFields: DomainSchema["computed"]["fields"],
-): string | null {
-  if (Object.prototype.hasOwnProperty.call(computedFields, dep)) {
-    return dep;
-  }
-
-  if (!dep.startsWith("computed.")) {
-    return null;
-  }
-
-  const candidate = dep.slice("computed.".length);
-  return Object.prototype.hasOwnProperty.call(computedFields, candidate)
-    ? candidate
-    : null;
-}
-
-function normalizeSemanticPath(path: string): string {
-  if (path.startsWith("/")) {
-    return path.slice(1).replace(/\//g, ".");
-  }
-
-  return path;
-}
-
-function isPlatformDependency(dep: string): boolean {
-  const normalized = normalizeSemanticPath(dep);
-  const withoutDataRoot = normalized.startsWith("data.")
-    ? normalized.slice("data.".length)
-    : normalized;
-  const match = /^([^.[\]]+)/.exec(withoutDataRoot);
-  const root = match?.[1] ?? "";
-  if (!root.startsWith("$")) {
-    return false;
-  }
-
-  return !COLLECTION_CONTEXT_ROOTS.has(root);
-}
-
-function collectExprGetPaths(expr: unknown): string[] {
-  const paths: string[] = [];
-  const seen = new WeakSet<object>();
-
-  const visit = (node: unknown): void => {
-    if (node === null || node === undefined) {
-      return;
-    }
-
-    if (Array.isArray(node)) {
-      node.forEach(visit);
-      return;
-    }
-
-    if (typeof node !== "object") {
-      return;
-    }
-
-    const objectNode = node as Record<string, unknown>;
-    if (seen.has(objectNode)) {
-      return;
-    }
-    seen.add(objectNode);
-
-    if (objectNode.kind === "lit") {
-      return;
-    }
-
-    if (objectNode.kind === "get" && typeof objectNode.path === "string") {
-      paths.push(objectNode.path);
-      return;
-    }
-
-    for (const value of Object.values(objectNode)) {
-      visit(value);
-    }
-  };
-
-  visit(expr);
-  return paths;
+  return structuredClone(projected) as TComputed;
 }
 
 function cycleSafeEqual(left: unknown, right: unknown): boolean {

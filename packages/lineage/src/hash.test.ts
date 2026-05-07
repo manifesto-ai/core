@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
 import type { Snapshot } from "@manifesto-ai/core";
 import {
+  computeHash,
   computeSnapshotHash,
   computeWorldId,
+  createSnapshotHashInput,
   deriveTerminalStatus,
 } from "./hash.js";
 
 function createTestSnapshot(
-  data: Record<string, unknown>,
+  state: Record<string, unknown>,
   overrides?: Partial<Snapshot>
 ): Snapshot {
   return {
-    data,
+    state,
     computed: {},
     system: {
       status: "idle",
@@ -26,23 +28,27 @@ function createTestSnapshot(
       randomSeed: "seed",
       schemaHash: "schema-hash",
     },
+    namespaces: {
+      host: {},
+      mel: { guards: { intent: {} } },
+    },
     ...overrides,
   };
 }
 
 describe("@manifesto-ai/lineage hash", () => {
   it("keeps snapshot hash stable across platform/meta-only changes", () => {
-    const base = createTestSnapshot({
-      count: 1,
-      $host: { internal: true },
-      $mel: { guard: true },
-    });
-    const changed = createTestSnapshot(
+    const base = createTestSnapshot(
+      { count: 1 },
       {
-        count: 1,
-        $host: { internal: false },
-        $mel: { guard: false },
-      },
+        namespaces: {
+          host: { internal: true },
+          mel: { guards: { intent: { guard: "true" } } },
+        },
+      }
+    );
+    const changed = createTestSnapshot(
+      { count: 1 },
       {
         computed: { derived: 1 },
         input: { transient: true },
@@ -51,6 +57,10 @@ describe("@manifesto-ai/lineage hash", () => {
           timestamp: 10,
           randomSeed: "other",
           schemaHash: "other-schema",
+        },
+        namespaces: {
+          host: { internal: false },
+          mel: { guards: { intent: { guard: "false" } } },
         },
       }
     );
@@ -63,6 +73,35 @@ describe("@manifesto-ai/lineage hash", () => {
     const right = createTestSnapshot({ count: 2 });
 
     expect(computeSnapshotHash(left)).not.toBe(computeSnapshotHash(right));
+  });
+
+  it("treats dollar-prefixed state keys as semantic state", () => {
+    const left = createTestSnapshot({ count: 1 });
+    const right = createTestSnapshot({ count: 1, $host: { legacy: true } });
+
+    expect(computeSnapshotHash(left)).not.toBe(computeSnapshotHash(right));
+  });
+
+  it("keeps migrated legacy namespace relocation continuous with domain-only hash input", () => {
+    const migrated = createTestSnapshot(
+      { count: 1, nested: { ok: true } },
+      {
+        namespaces: {
+          host: { legacy: true },
+          mel: { guards: { intent: { guard: "true" } } },
+        },
+      }
+    );
+    const expected = computeHash({
+      state: { count: 1, nested: { ok: true } },
+      system: {
+        terminalStatus: "completed",
+        currentError: null,
+        pendingDigest: "empty",
+      },
+    });
+
+    expect(computeSnapshotHash(migrated)).toBe(expected);
   });
 
   it("derives terminal status from pending requirements and lastError", () => {
@@ -98,6 +137,38 @@ describe("@manifesto-ai/lineage hash", () => {
         currentAction: null,
       },
     }))).toBe("failed");
+  });
+
+  it("treats host namespace lastError as current terminal error without hashing unrelated host state", () => {
+    const hostError = {
+      code: "EFFECT_EXECUTION_FAILED",
+      message: "boom",
+      source: { actionId: "intent-1", nodePath: "host.fulfill" },
+      timestamp: 123,
+    };
+    const hostFailed = createTestSnapshot({}, {
+      namespaces: {
+        host: { internal: true, lastError: hostError },
+        mel: { guards: { intent: {} } },
+      },
+    });
+    const hostChanged = createTestSnapshot({}, {
+      namespaces: {
+        host: { internal: false, changed: true },
+        mel: { guards: { intent: {} } },
+      },
+    });
+
+    expect(deriveTerminalStatus(hostFailed)).toBe("failed");
+    expect(createSnapshotHashInput(hostFailed).system).toMatchObject({
+      terminalStatus: "failed",
+      currentError: {
+        code: "EFFECT_EXECUTION_FAILED",
+        source: { actionId: "intent-1", nodePath: "host.fulfill" },
+      },
+    });
+    expect(computeSnapshotHash(hostChanged)).toBe(computeSnapshotHash(createTestSnapshot({})));
+    expect(computeSnapshotHash(hostFailed)).not.toBe(computeSnapshotHash(hostChanged));
   });
 
   it("computes deterministic world ids", () => {

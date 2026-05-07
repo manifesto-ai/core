@@ -12,14 +12,15 @@ import type { DomainSchema } from "./schema/domain.js";
 import type { Snapshot } from "./schema/snapshot.js";
 import type { Intent, Patch } from "./schema/patch.js";
 import type { SemanticPath } from "./schema/common.js";
-import type { ComputeResult, ValidationResult, ExplainResult, SystemDelta } from "./schema/result.js";
-import type { HostContext } from "./schema/host-context.js";
+import type { ComputeResult, ValidationResult, ExplainResult, NamespaceDelta, SystemDelta } from "./schema/result.js";
+import type { Context, JsonValue } from "./schema/context.js";
 
 import { compute, computeSync, validateIntentInput } from "./core/compute.js";
-import { apply } from "./core/apply.js";
+import { apply, applyNamespaceDeltas } from "./core/apply.js";
 import { applySystemDelta } from "./core/system-delta.js";
 import { validate } from "./core/validate.js";
 import { explain } from "./core/explain.js";
+import { validateExternalContext } from "./core/context-validation.js";
 import {
   getAvailableActions,
   isActionAvailable,
@@ -40,7 +41,7 @@ export interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot,
     intent: Intent,
-    context: HostContext
+    context: Context
   ): Promise<ComputeResult>;
 
   /**
@@ -50,7 +51,7 @@ export interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot,
     intent: Intent,
-    context: HostContext
+    context: Context
   ): ComputeResult;
 
   /**
@@ -60,8 +61,15 @@ export interface ManifestoCore {
   apply(
     schema: DomainSchema,
     snapshot: Snapshot,
-    patches: readonly Patch[],
-    context: HostContext
+    patches: readonly Patch[]
+  ): Snapshot;
+
+  /**
+   * Apply namespace transitions to a snapshot.
+   */
+  applyNamespaceDeltas(
+    snapshot: Snapshot,
+    deltas: readonly NamespaceDelta[]
   ): Snapshot;
 
   /**
@@ -108,6 +116,14 @@ export interface ManifestoCore {
     snapshot: Snapshot,
     intent: Intent
   ): boolean;
+
+  /**
+   * Validate a materialized ADR-027 external context value against the schema.
+   */
+  validateExternalContext(
+    schema: DomainSchema,
+    external: Record<string, JsonValue>
+  ): ValidationResult;
 }
 
 /**
@@ -118,12 +134,14 @@ export function createCore(): ManifestoCore {
     compute,
     computeSync,
     apply,
+    applyNamespaceDeltas,
     applySystemDelta,
     validate,
     explain,
     isActionAvailable,
     getAvailableActions,
     isIntentDispatchable,
+    validateExternalContext,
   };
 }
 
@@ -150,8 +168,10 @@ export {
   computeSync,
   validateIntentInput,
   apply,
+  applyNamespaceDeltas,
   applySystemDelta,
   validate,
+  validateExternalContext,
   explain,
   isActionAvailable,
   getAvailableActions,

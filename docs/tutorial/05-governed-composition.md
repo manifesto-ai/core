@@ -47,21 +47,18 @@ This file should live outside React components and outside request handlers that
 ## 2. Create A Reviewable Request
 
 ```typescript
-const intent = governed.createIntent(
-  governed.MEL.actions.addTodo,
-  "Document the governed path",
-);
+const candidate = governed.action.addTodo.bind("Document the governed path");
 ```
 
-The typed intent still comes from the runtime. Governance adds proposal semantics only when you submit it.
+The typed candidate still comes from the runtime. Governance adds proposal semantics when you submit it.
 
 ## 3. Submit The Proposal
 
 ```typescript
-const proposal = await governed.proposeAsync(intent);
+const pending = await candidate.submit();
 ```
 
-Auto-approved policies can advance straight into execution. Pending policies stop here and wait for human approval.
+Successful governance submit always returns a pending `ProposalRef`. Auto-approved policies may settle quickly, and human-gated policies wait for approval through `waitForSettlement()`.
 
 ## 4. Keep UI Code Out Of The Assembly Path
 

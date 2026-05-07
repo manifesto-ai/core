@@ -56,8 +56,8 @@ function explainWithTrace(
     };
   }
 
-  // Default: it's a data path
-  const value = getByPath(snapshot.data, path);
+  // Default: it's a state path
+  const value = getByPath(snapshot.state, path);
   return {
     value,
     trace: createTraceNode(trace, "expr", path, { path }, value, []),

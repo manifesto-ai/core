@@ -5,7 +5,7 @@ import type {
   CanonicalSnapshot,
   ManifestoDomainShape,
   ManifestoEvent,
-  ManifestoEventMap,
+  ManifestoEventPayloadMap,
   Selector,
   Snapshot,
   Unsubscribe,
@@ -18,8 +18,8 @@ import type {
   RuntimeStateStore,
 } from "./facets.js";
 
-interface Subscriber<TState, R> {
-  readonly selector: Selector<TState, R>;
+interface Subscriber<TState, TComputed, R> {
+  readonly selector: Selector<TState, R, TComputed>;
   readonly listener: (value: R) => void;
   lastValue: R | undefined;
   initialized: boolean;
@@ -30,7 +30,7 @@ type RuntimeStateStoreOptions<T extends ManifestoDomainShape> = {
   readonly initialCanonicalSnapshot: CoreSnapshot;
   readonly projectSnapshotFromCanonical: (
     snapshot: CoreSnapshot,
-  ) => Snapshot<T["state"]>;
+  ) => Snapshot<T["state"], T["computed"]>;
 };
 
 export function createRuntimeStateStore<T extends ManifestoDomainShape>({
@@ -48,14 +48,14 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
   let dispatchQueue: Promise<void> = Promise.resolve();
   let disposed = false;
 
-  const subscribers = new Set<Subscriber<T["state"], unknown>>();
+  const subscribers = new Set<Subscriber<T["state"], T["computed"], unknown>>();
   const eventListeners = new Map<
     ManifestoEvent,
-    Set<(payload: ManifestoEventMap<T>[ManifestoEvent]) => void>
+    Set<(payload: ManifestoEventPayloadMap[ManifestoEvent]) => void>
   >();
 
   function subscribe<R>(
-    selector: Selector<T["state"], R>,
+    selector: Selector<T["state"], R, T["computed"]>,
     listener: (value: R) => void,
   ): Unsubscribe {
     if (disposed) {
@@ -73,22 +73,22 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
       initialized = false;
     }
 
-    const subscriber: Subscriber<T["state"], R> = {
+    const subscriber: Subscriber<T["state"], T["computed"], R> = {
       selector,
       listener,
       lastValue,
       initialized,
     };
 
-    subscribers.add(subscriber as Subscriber<T["state"], unknown>);
+    subscribers.add(subscriber as Subscriber<T["state"], T["computed"], unknown>);
     return () => {
-      subscribers.delete(subscriber as Subscriber<T["state"], unknown>);
+      subscribers.delete(subscriber as Subscriber<T["state"], T["computed"], unknown>);
     };
   }
 
   function on<K extends ManifestoEvent>(
     event: K,
-    handler: (payload: ManifestoEventMap<T>[K]) => void,
+    handler: (payload: ManifestoEventPayloadMap[K]) => void,
   ): Unsubscribe {
     if (disposed) {
       return () => {};
@@ -99,17 +99,17 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
       listeners = new Set();
       eventListeners.set(
         event,
-        listeners as Set<(payload: ManifestoEventMap<T>[ManifestoEvent]) => void>,
+        listeners as Set<(payload: ManifestoEventPayloadMap[ManifestoEvent]) => void>,
       );
     }
 
-    listeners.add(handler as (payload: ManifestoEventMap<T>[ManifestoEvent]) => void);
+    listeners.add(handler as (payload: ManifestoEventPayloadMap[ManifestoEvent]) => void);
     return () => {
-      listeners?.delete(handler as (payload: ManifestoEventMap<T>[ManifestoEvent]) => void);
+      listeners?.delete(handler as (payload: ManifestoEventPayloadMap[ManifestoEvent]) => void);
     };
   }
 
-  function getSnapshot(): Snapshot<T["state"]> {
+  function getSnapshot(): Snapshot<T["state"], T["computed"]> {
     return visibleProjectedSnapshot;
   }
 
@@ -124,7 +124,7 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
   function setVisibleSnapshot(
     snapshot: CoreSnapshot,
     options?: { readonly notify?: boolean },
-  ): Snapshot<T["state"]> {
+  ): Snapshot<T["state"], T["computed"]> {
     visibleCanonicalSnapshot = structuredClone(snapshot);
     host.reset(structuredClone(visibleCanonicalSnapshot));
     visibleCanonicalReadSnapshot = cloneAndDeepFreeze(
@@ -155,7 +155,7 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
 
   function emitEvent<K extends ManifestoEvent>(
     event: K,
-    payload: ManifestoEventMap<T>[K],
+    payload: ManifestoEventPayloadMap[K],
   ): void {
     const listeners = eventListeners.get(event);
     if (!listeners) {
@@ -194,7 +194,7 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
     return disposed;
   }
 
-  function notifySubscribers(snapshot: Snapshot<T["state"]>): void {
+  function notifySubscribers(snapshot: Snapshot<T["state"], T["computed"]>): void {
     for (const subscriber of subscribers) {
       let selected: unknown;
       try {

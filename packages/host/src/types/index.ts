@@ -31,4 +31,4 @@ export type { TraceEvent } from "./trace.js";
 
 // Host-owned state namespace (v2.0.2)
 export type { HostOwnedState, IntentSlot } from "./host-state.js";
-export { getHostState, getIntentSlot } from "./host-state.js";
+export { getHostState, getIntentSlot, getLegacyDataRootHostState } from "./host-state.js";

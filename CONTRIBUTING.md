@@ -120,10 +120,11 @@ Releases are automated using [Release Please](https://github.com/googleapis/rele
 
 Respect the layered architecture:
 
-- **Core** (pure computation) → MUST NOT import Host, World
-- **Host** (execution) → MUST NOT import World governance
-- **World** (governance) → MUST NOT import Host or Core internals
-- **Runtime/SDK** (composition/public API) → MUST NOT import Core/Host/World internals outside package contracts
+- **Core** (pure computation) → MUST NOT import Host, SDK runtime internals, Lineage, or Governance
+- **Host** (execution) → MUST NOT import Governance or Lineage internals
+- **Lineage** (continuity) → MUST NOT execute effects or evaluate authority
+- **Governance** (legitimacy) → MUST NOT execute effects, apply patches, or seal lineage implicitly
+- **Runtime/SDK** (composition/public API) → MUST NOT import package internals outside public/provider contracts
 
 See [CLAUDE.md Section 3](./CLAUDE.md#3-package-boundary-rules) for complete details.
 
@@ -137,8 +138,8 @@ All code contributions MUST comply with the Manifesto Constitution (`CLAUDE.md`)
 
 1. **Determinism** — Same input MUST produce same output, always
 2. **Snapshot as Sole Medium** — All state communication through Snapshot only
-3. **Separation of Concerns** — Core computes, Host executes, World governs
-4. **Immutability** — Snapshots and Worlds MUST NOT mutate after creation
+3. **Separation of Concerns** — Core computes, Host executes, Lineage records continuity, Governance authorizes legitimacy
+4. **Immutability** — Snapshots and Lineage Worlds MUST NOT mutate after creation
 5. **Type Safety** — Zero string paths in user-facing APIs
 
 ### State Mutation Rules
@@ -161,7 +162,7 @@ Avoid these common violations (see [CLAUDE.md Section 10](./CLAUDE.md#10-anti-pa
 
 | Anti-Pattern | Why It's Wrong | Correct Approach |
 |--------------|----------------|------------------|
-| Direct state mutation (`snapshot.data.x = 5`) | Violates immutability | Use `apply()` with patches |
+| Direct state mutation (`snapshot.state.x = 5`) | Violates immutability | Use `apply()` with patches |
 | String paths in Builder API | No type safety | Use `FieldRef` (e.g., `state.todos[0].title`) |
 | Re-entry unsafe Flows | Executes multiple times | Use state guards (`onceNull`, `onceTrue`) |
 | Returning values from effects | Violates Snapshot-only rule | Write to Snapshot via patches |

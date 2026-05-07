@@ -70,7 +70,7 @@ export type TokenKind =
   | "STRING"
   | "IDENTIFIER"
   // System identifiers (reserved)
-  | "SYSTEM_IDENT" // $system.*, $meta.*, $input.*
+  | "SYSTEM_IDENT" // $runtime.*, $context.*, $input.*, retired $system/$meta
   | "ITEM" // $item
   // v0.3.2: ACC removed - reduce pattern deprecated
   // Special

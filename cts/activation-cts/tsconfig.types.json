@@ -4,14 +4,24 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@manifesto-ai/sdk": ["../../packages/sdk/dist/index.d.ts"],
-      "@manifesto-ai/sdk/extensions": ["../../packages/sdk/dist/extensions.d.ts"],
-      "@manifesto-ai/sdk/provider": ["../../packages/sdk/dist/provider.d.ts"],
-      "@manifesto-ai/lineage": ["../../packages/lineage/dist/index.d.ts"],
-      "@manifesto-ai/lineage/provider": ["../../packages/lineage/dist/provider.d.ts"],
-      "@manifesto-ai/governance": ["../../packages/governance/dist/index.d.ts"],
-      "@manifesto-ai/governance/provider": ["../../packages/governance/dist/provider.d.ts"]
+      "@manifesto-ai/sdk": ["../../packages/sdk/src/index.ts"],
+      "@manifesto-ai/sdk/extensions": ["../../packages/sdk/src/extensions.ts"],
+      "@manifesto-ai/sdk/provider": ["../../packages/sdk/src/provider.ts"],
+      "@manifesto-ai/lineage": ["../../packages/lineage/src/index.ts"],
+      "@manifesto-ai/lineage/provider": ["../../packages/lineage/src/provider.ts"],
+      "@manifesto-ai/governance": ["../../packages/governance/src/index.ts"],
+      "@manifesto-ai/governance/provider": ["../../packages/governance/src/provider.ts"]
     }
   },
-  "include": ["src/types/**/*.ts", "src/helpers/**/*.ts"]
+  "include": [
+    "src/types/**/*.ts",
+    "src/helpers/**/*.ts",
+    "../../packages/sdk/src/**/*.ts",
+    "../../packages/lineage/src/**/*.ts",
+    "../../packages/governance/src/**/*.ts"
+  ],
+  "exclude": [
+    "../../packages/**/src/__tests__/**",
+    "../../packages/**/*.test.ts"
+  ]
 }

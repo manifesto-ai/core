@@ -1,6 +1,7 @@
 import type { ErrorValue, Requirement, Snapshot } from "@manifesto-ai/core";
 import { sha256Sync, toJcs } from "@manifesto-ai/core";
 import { assertLineage } from "./invariants.js";
+import { readSnapshotCurrentError } from "./snapshot-errors.js";
 import type {
   CurrentErrorSignature,
   SnapshotHashInput,
@@ -8,40 +9,15 @@ import type {
   WorldId,
 } from "./types.js";
 
-const PLATFORM_NAMESPACE_PREFIX = "$";
-
 export function computeHash(value: unknown): string {
   return sha256Sync(toJcs(value));
-}
-
-export function isPlatformNamespace(key: string): boolean {
-  return key.startsWith(PLATFORM_NAMESPACE_PREFIX);
-}
-
-export function stripPlatformNamespaces(data: Record<string, unknown> | null | undefined): Record<string, unknown> {
-  if (data == null) {
-    return {};
-  }
-
-  const keys = Object.keys(data);
-  if (!keys.some(isPlatformNamespace)) {
-    return data;
-  }
-
-  const stripped: Record<string, unknown> = {};
-  for (const key of keys) {
-    if (!isPlatformNamespace(key)) {
-      stripped[key] = data[key];
-    }
-  }
-  return stripped;
 }
 
 export function deriveTerminalStatus(snapshot: Snapshot): TerminalStatus {
   if (snapshot.system.pendingRequirements.length > 0) {
     return "failed";
   }
-  if (snapshot.system.lastError != null) {
+  if (readSnapshotCurrentError(snapshot) != null) {
     return "failed";
   }
   return "completed";
@@ -109,13 +85,14 @@ export function computePendingDigest(pendingRequirements: readonly Requirement[]
 }
 
 export function createSnapshotHashInput(snapshot: Snapshot): SnapshotHashInput {
+  const currentError = readSnapshotCurrentError(snapshot);
   return {
-    data: stripPlatformNamespaces(snapshot.data as Record<string, unknown>),
+    state: snapshot.state as Record<string, unknown>,
     system: {
       terminalStatus: deriveTerminalStatus(snapshot),
-      currentError: snapshot.system.lastError == null
+      currentError: currentError == null
         ? null
-        : toCurrentErrorSignature(snapshot.system.lastError),
+        : toCurrentErrorSignature(currentError),
       pendingDigest: computePendingDigest(snapshot.system.pendingRequirements),
     },
   };

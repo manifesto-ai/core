@@ -422,7 +422,7 @@ describe("validate", () => {
             flow: {
               kind: "patch",
               op: "set", path: pp("dummy"),
-              value: { kind: "get", path: "meta.intentId" },
+              value: { kind: "get", path: "$runtime.intent.id" },
             },
           },
         },
@@ -457,6 +457,38 @@ describe("validate", () => {
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.code === "V-003")).toBe(true);
       expect(result.errors.some((e) => e.message.includes("input.missing"))).toBe(true);
+    });
+
+    it("should reject retired snapshot meta and system roots in action expressions", () => {
+      const schema = createValidSchema({
+        actions: {
+          update: {
+            flow: {
+              kind: "seq",
+              steps: [
+                {
+                  kind: "patch",
+                  op: "set",
+                  path: pp("dummy"),
+                  value: { kind: "get", path: "meta.timestamp" },
+                },
+                {
+                  kind: "patch",
+                  op: "set",
+                  path: pp("dummy"),
+                  value: { kind: "get", path: "system.status" },
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const result = validate(schema);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.code === "V-003" && e.message.includes("meta.timestamp"))).toBe(true);
+      expect(result.errors.some((e) => e.code === "V-003" && e.message.includes("system.status"))).toBe(true);
     });
 
     it("should reject unknown input paths in dispatchable expressions", () => {
@@ -1104,6 +1136,7 @@ describe("V-009: default type validation", () => {
   it("should fail when state.fieldTypes contains unresolved refs", () => {
     const schema = createValidSchema({
       state: {
+        fields: {},
         fieldTypes: {
           count: { kind: "ref", name: "MissingType" },
         },
@@ -1259,6 +1292,7 @@ describe("V-009: default type validation", () => {
   it("should fail when typing seams declare record keys that are not strings", () => {
     const schema = createValidSchema({
       state: {
+        fields: {},
         fieldTypes: {
           count: {
             kind: "record",

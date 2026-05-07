@@ -25,13 +25,13 @@ If you are still trying to get the first app running, go back to [Quick Start](/
 ## The Fundamental Equation
 
 ```
-compute(schema, snapshot, intent, context) -> (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) -> ComputeResult
 ```
 
 - **Pure**: Same inputs always produce same outputs
 - **Total**: Always returns a result
 - **Traceable**: Every step is recorded
-- **Complete at the canonical boundary**: the canonical snapshot substrate is the whole truth; SDK `getSnapshot()` is the projected default read model
+- **Complete at the canonical boundary**: the canonical snapshot substrate is the whole truth; SDK `snapshot()` is the projected default read model
 
 ## See Also
 

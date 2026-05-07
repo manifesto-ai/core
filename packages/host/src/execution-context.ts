@@ -11,12 +11,14 @@
 
 import type {
   DomainSchema,
-  HostContext,
+  Context,
   Intent,
   ManifestoCore,
+  NamespaceDelta,
   Patch,
   SystemDelta,
   Snapshot,
+  TraceGraph,
 } from "@manifesto-ai/core";
 import type {
   ExecutionContext,
@@ -51,8 +53,9 @@ export class ExecutionContextImpl implements ExecutionContext {
   readonly runtime: Runtime;
 
   private snapshot: Snapshot;
-  private frozenContext: HostContext | null = null;
+  private frozenContext: Context | null = null;
   private currentIntentId: string | null = null;
+  private readonly coreTraces: TraceGraph[] = [];
 
   private readonly contextProvider: HostContextProvider;
   private readonly onTrace?: (event: TraceEvent) => void;
@@ -77,6 +80,7 @@ export class ExecutionContextImpl implements ExecutionContext {
     this.mailbox = options.mailbox;
     this.runtime = options.runtime;
     this.snapshot = options.initialSnapshot;
+    this.frozenContext = options.transitionContext ?? null;
     this.contextProvider = options.contextProvider;
     this.currentIntentId = options.currentIntentId ?? null;
     this.onTrace = options.onTrace;
@@ -105,7 +109,7 @@ export class ExecutionContextImpl implements ExecutionContext {
    */
   setCurrentIntentId(intentId: string): void {
     this.currentIntentId = intentId;
-    // Reset frozen context so next getFrozenContext creates a new one
+    // A new intent starts a new transition attempt.
     this.frozenContext = null;
   }
 
@@ -119,48 +123,51 @@ export class ExecutionContextImpl implements ExecutionContext {
   /**
    * Store an intent slot (v2.0.2 HOST-NS-1)
    *
-   * Intent slots are stored in data.$host to keep Host-owned state in Snapshot.
+   * Intent slots are stored in namespaces.host to keep Host-owned state in Snapshot.
    */
   setIntentSlot(intentId: string, slot: IntentSlot): void {
-    const hostState = getHostState(this.snapshot.data);
+    const hostState = getHostState(this.snapshot);
     const intentSlots = hostState?.intentSlots ?? {};
     const nextSlots = {
       ...intentSlots,
       [intentId]: slot,
     };
-    const patches: Patch[] = [
-      {
-        op: "merge",
-        path: [{ kind: "prop", name: "$host" }],
-        value: { intentSlots: nextSlots },
-      },
-    ];
 
-    this.applyPatches(patches, "host-intent-slot");
+    this.applyNamespaceDeltas(
+      [{
+        namespace: "host",
+        patches: [{
+          op: "set",
+          path: [{ kind: "prop", name: "intentSlots" }],
+          value: nextSlots,
+        }],
+      }],
+      "host-intent-slot",
+    );
   }
 
   /**
    * Get an intent slot by ID (v2.0.2 HOST-NS-1)
    */
   getIntentSlot(intentId: string): IntentSlot | undefined {
-    return getIntentSlot(this.snapshot.data, intentId);
+    return getIntentSlot(this.snapshot, intentId);
   }
 
   /**
    * Get all intent slots
    */
   getAllIntentSlots(): ReadonlyMap<string, IntentSlot> {
-    const hostState = getHostState(this.snapshot.data);
+    const hostState = getHostState(this.snapshot);
     const intentSlots = hostState?.intentSlots ?? {};
     return new Map(Object.entries(intentSlots));
   }
 
   /**
-   * Get the frozen HostContext for the current job
+   * Get the materialized Context for the current transition attempt
    *
    * @see SPEC §11.3 CTX-1~5
    */
-  getFrozenContext(): HostContext {
+  getFrozenContext(): Context {
     // CTX-5: Context captured ONCE per job
     if (!this.frozenContext) {
       const intentId = this.currentIntentId ?? "unknown";
@@ -170,23 +177,48 @@ export class ExecutionContextImpl implements ExecutionContext {
   }
 
   /**
-   * Reset frozen context (call at job start)
+   * Preserve the transition-attempt context across job re-entry.
+   *
+   * Older Host code called this at every job boundary. ADR-027 defines the
+   * materialization scope as the full transition attempt, so this is now a
+   * compatibility hook; `setCurrentIntentId()` starts the next attempt.
    */
   resetFrozenContext(): void {
-    this.frozenContext = null;
+    return;
+  }
+
+  private stampTransitionMeta(snapshot: Snapshot): Snapshot {
+    const frozenContext = this.getFrozenContext();
+    const timestamp = frozenContext.runtime.time.timestamp;
+    const randomSeed = frozenContext.runtime.random.seed;
+
+    if (
+      snapshot.meta.timestamp === timestamp
+      && snapshot.meta.randomSeed === randomSeed
+    ) {
+      return snapshot;
+    }
+
+    return {
+      ...snapshot,
+      meta: {
+        ...snapshot.meta,
+        timestamp,
+        randomSeed,
+      },
+    };
   }
 
   /**
    * Apply patches to the current snapshot
    */
   applyPatches(patches: Patch[], source: string): Snapshot {
-    const frozenContext = this.getFrozenContext();
-    const newSnapshot = this.core.apply(
+    const appliedSnapshot = this.core.apply(
       this.schema,
       this.snapshot,
-      patches,
-      frozenContext
+      patches
     );
+    const newSnapshot = this.stampTransitionMeta(appliedSnapshot);
     this.snapshot = newSnapshot;
 
     // Emit core:apply trace
@@ -201,10 +233,39 @@ export class ExecutionContextImpl implements ExecutionContext {
   }
 
   /**
+   * Apply namespace deltas to the current snapshot
+   */
+  applyNamespaceDeltas(deltas: readonly NamespaceDelta[], source: string): Snapshot {
+    if (deltas.length === 0) {
+      return this.snapshot;
+    }
+
+    const appliedSnapshot = this.core.applyNamespaceDeltas(
+      this.snapshot,
+      deltas
+    );
+    const newSnapshot = this.stampTransitionMeta(appliedSnapshot);
+    this.snapshot = newSnapshot;
+
+    this.trace({
+      t: "core:applyNamespaceDeltas",
+      key: this.key,
+      namespaceCount: deltas.length,
+      patchCount: deltas.reduce((count, delta) => count + delta.patches.length, 0),
+      source,
+    });
+
+    return newSnapshot;
+  }
+
+  /**
    * Apply a system delta to the current snapshot
    */
   applySystemDelta(delta: SystemDelta, source: string): Snapshot {
-    const newSnapshot = this.core.applySystemDelta(this.snapshot, delta);
+    const appliedSnapshot = this.core.applySystemDelta(this.snapshot, delta);
+    const newSnapshot = appliedSnapshot === this.snapshot
+      ? appliedSnapshot
+      : this.stampTransitionMeta(appliedSnapshot);
     this.snapshot = newSnapshot;
 
     this.trace({
@@ -221,6 +282,20 @@ export class ExecutionContextImpl implements ExecutionContext {
    */
   trace(event: TraceEvent): void {
     this.onTrace?.(event);
+  }
+
+  /**
+   * Record a Core TraceGraph for the current execution.
+   */
+  recordCoreTrace(trace: TraceGraph): void {
+    this.coreTraces.push(trace);
+  }
+
+  /**
+   * Read all Core TraceGraphs recorded for the current execution.
+   */
+  getCoreTraces(): readonly TraceGraph[] {
+    return this.coreTraces;
   }
 
   /**

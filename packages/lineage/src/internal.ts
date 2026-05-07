@@ -63,11 +63,16 @@ export type InternalLineageComposableManifesto<
 };
 
 export type SealIntentOptions = {
+  readonly branchId?: BranchId;
+  readonly baseWorldId?: WorldId;
   readonly proposalRef?: string;
   readonly decisionRef?: string;
   readonly executionKey?: HostDispatchOptions["key"];
+  readonly externalContext?: HostDispatchOptions["externalContext"];
+  readonly context?: HostDispatchOptions["context"];
   readonly publishOnCompleted?: boolean;
   readonly assumeEnqueued?: boolean;
+  readonly rejectPendingBeforeSeal?: boolean;
 };
 
 type LineageControllerKernel<T extends ManifestoDomainShape> = Pick<
@@ -75,6 +80,7 @@ type LineageControllerKernel<T extends ManifestoDomainShape> = Pick<
   | "schema"
   | "getVisibleCoreSnapshot"
   | "setVisibleSnapshot"
+  | "rehydrateSnapshot"
   | "restoreVisibleSnapshot"
   | "isDisposed"
   | "ensureIntentId"
@@ -86,6 +92,8 @@ type LineageControllerKernel<T extends ManifestoDomainShape> = Pick<
   | "rejectInvalidInput"
   | "rejectNotDispatchable"
   | "executeHost"
+  | "createComputeContext"
+  | "captureExternalContext"
   | "enqueue"
 >;
 
@@ -225,7 +233,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
     currentBranchId = branch.id;
     currentCompletedWorldId = branch.head;
     const restored = await service.restore(branch.head);
-    kernel.setVisibleSnapshot(restored, { notify: false });
+    kernel.setVisibleSnapshot(kernel.rehydrateSnapshot(restored), { notify: false });
   }
 
   async function bindInitialBranch(branchId?: string): Promise<BranchInfo> {
@@ -266,38 +274,144 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
 
       await ensureReady();
 
-      if (!kernel.isActionAvailable(enrichedIntent.type as keyof T["actions"])) {
-        return kernel.rejectUnavailable(enrichedIntent);
-      }
-      const invalidInput = kernel.validateIntentInputFor(kernel.getCanonicalSnapshot(), enrichedIntent);
-      if (invalidInput) {
-        return kernel.rejectInvalidInput(enrichedIntent, invalidInput.message);
-      }
-      if (!kernel.isIntentDispatchableFor(kernel.getCanonicalSnapshot(), enrichedIntent)) {
-        return kernel.rejectNotDispatchable(enrichedIntent);
-      }
-
-      let result: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>;
-      try {
-        result = await kernel.executeHost(
-          enrichedIntent,
-          options?.executionKey !== undefined
-            ? { key: options.executionKey }
-            : undefined,
+      const scopedSealTarget =
+        options?.branchId !== undefined || options?.baseWorldId !== undefined;
+      if (
+        (options?.branchId === undefined) !==
+        (options?.baseWorldId === undefined)
+      ) {
+        throw createLineageSealRuntimeFailure<T>(
+          new ManifestoError(
+            "LINEAGE_SCOPED_SEAL_TARGET_INCOMPLETE",
+            "Scoped lineage sealing requires both branchId and baseWorldId",
+          ),
+          "seal",
         );
-      } catch (error) {
-        kernel.restoreVisibleSnapshot();
-        throw createLineageSealRuntimeFailure<T>(error, "host");
       }
 
       if (!currentBranchId || !currentCompletedWorldId) {
-        kernel.restoreVisibleSnapshot();
         throw createLineageSealRuntimeFailure<T>(
           new ManifestoError(
             "LINEAGE_STATE_ERROR",
             "Lineage runtime has no active branch continuity after bootstrap",
           ),
           "seal",
+        );
+      }
+
+      const targetBranchId = options?.branchId ?? currentBranchId;
+      const targetBaseWorldId = options?.baseWorldId ?? currentCompletedWorldId;
+      const previousVisibleSnapshot = scopedSealTarget
+        ? kernel.getVisibleCoreSnapshot()
+        : null;
+      let sealViewRestored = false;
+      const restoreSealView = (): void => {
+        if (sealViewRestored) {
+          return;
+        }
+        sealViewRestored = true;
+
+        if (previousVisibleSnapshot) {
+          kernel.setVisibleSnapshot(previousVisibleSnapshot, { notify: false });
+          return;
+        }
+        kernel.restoreVisibleSnapshot();
+      };
+      const restoreScopedSealViewOnThrow = <Result>(operation: () => Result): Result => {
+        try {
+          return operation();
+        } catch (error) {
+          if (scopedSealTarget) {
+            restoreSealView();
+          }
+          throw error;
+        }
+      };
+
+      if (scopedSealTarget) {
+        const branch = await service.getBranch(targetBranchId);
+        if (!branch) {
+          throw createLineageSealRuntimeFailure<T>(
+            new ManifestoError(
+              "LINEAGE_BRANCH_NOT_FOUND",
+              `Cannot seal intent on unknown branch "${targetBranchId}"`,
+            ),
+            "seal",
+          );
+        }
+        if (branch.head !== targetBaseWorldId) {
+          throw createLineageSealRuntimeFailure<T>(
+            new ManifestoError(
+              "LINEAGE_BRANCH_BASE_MISMATCH",
+              `Cannot seal intent on branch "${targetBranchId}" from stale base "${targetBaseWorldId}"`,
+            ),
+            "seal",
+          );
+        }
+
+        const restored = await service.restore(targetBaseWorldId);
+        kernel.setVisibleSnapshot(kernel.rehydrateSnapshot(restored), {
+          notify: false,
+        });
+      }
+
+      const actionAvailable = restoreScopedSealViewOnThrow(() =>
+        kernel.isActionAvailable(enrichedIntent.type as keyof T["actions"]));
+      if (!actionAvailable) {
+        if (scopedSealTarget) {
+          restoreSealView();
+        }
+        return kernel.rejectUnavailable(enrichedIntent);
+      }
+      const invalidInput = restoreScopedSealViewOnThrow(() =>
+        kernel.validateIntentInputFor(kernel.getCanonicalSnapshot(), enrichedIntent));
+      if (invalidInput) {
+        if (scopedSealTarget) {
+          restoreSealView();
+        }
+        return kernel.rejectInvalidInput(enrichedIntent, invalidInput.message);
+      }
+      const intentDispatchable = restoreScopedSealViewOnThrow(() =>
+        kernel.isIntentDispatchableFor(kernel.getCanonicalSnapshot(), enrichedIntent));
+      if (!intentDispatchable) {
+        if (scopedSealTarget) {
+          restoreSealView();
+        }
+        return kernel.rejectNotDispatchable(enrichedIntent);
+      }
+
+      const transitionContext = options?.context ?? restoreScopedSealViewOnThrow(() =>
+        kernel.createComputeContext(
+          enrichedIntent,
+          options?.externalContext,
+        ),
+      );
+
+      let result: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>;
+      try {
+        result = await kernel.executeHost(
+          enrichedIntent,
+          {
+            ...(options?.executionKey !== undefined ? { key: options.executionKey } : {}),
+            context: transitionContext,
+          },
+        );
+      } catch (error) {
+        restoreSealView();
+        throw createLineageSealRuntimeFailure<T>(error, "host");
+      }
+
+      if (
+        options?.rejectPendingBeforeSeal === true
+        && (result.status === "pending" || result.snapshot.system.status === "pending")
+      ) {
+        restoreSealView();
+        throw createLineageSealRuntimeFailure<T>(
+          new ManifestoError(
+            "LINEAGE_PENDING_RUNTIME",
+            "Lineage seal requires a terminal runtime snapshot; host dispatch remained pending",
+          ),
+          "host",
           result,
         );
       }
@@ -306,24 +420,40 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
       try {
         prepared = await service.prepareSealNext({
           schemaHash: kernel.schema.hash,
-          baseWorldId: currentCompletedWorldId,
-          branchId: currentBranchId,
+          baseWorldId: targetBaseWorldId,
+          branchId: targetBranchId,
+          computeEnvelope: {
+            intent: {
+              type: enrichedIntent.type,
+              intentId: enrichedIntent.intentId,
+              ...(enrichedIntent.input !== undefined ? { input: enrichedIntent.input } : {}),
+            },
+            context: result.context ?? transitionContext,
+          },
           terminalSnapshot: result.snapshot,
           createdAt: result.snapshot.meta.timestamp,
+          advanceHead: shouldAdvanceLineageHead(result),
           ...(options?.proposalRef ? { proposalRef: options.proposalRef } : {}),
           ...(options?.decisionRef ? { decisionRef: options.decisionRef } : {}),
         });
         await service.commitPrepared(prepared);
       } catch (error) {
-        kernel.restoreVisibleSnapshot();
+        restoreSealView();
         throw createLineageSealRuntimeFailure<T>(error, "seal", result);
       }
 
-      if (prepared.branchChange.headAdvanced) {
+      if (
+        prepared.branchChange.headAdvanced &&
+        prepared.branchId === currentBranchId
+      ) {
         currentCompletedWorldId = prepared.worldId;
       }
 
-      if (prepared.branchChange.headAdvanced && options?.publishOnCompleted !== false) {
+      if (
+        prepared.branchChange.headAdvanced &&
+        options?.publishOnCompleted !== false &&
+        prepared.branchId === currentBranchId
+      ) {
         return {
           intent: enrichedIntent,
           hostResult: result,
@@ -332,7 +462,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         };
       }
 
-      kernel.restoreVisibleSnapshot();
+      restoreSealView();
       return {
         intent: enrichedIntent,
         hostResult: result,
@@ -418,7 +548,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
 
       await ensureReady();
       const restored = await service.restore(worldId);
-      kernel.setVisibleSnapshot(restored);
+      kernel.setVisibleSnapshot(kernel.rehydrateSnapshot(restored));
       currentCompletedWorldId = worldId;
 
       const branches = await service.getBranches();
@@ -451,7 +581,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
       }
 
       const restored = await service.restore(branch.head);
-      kernel.setVisibleSnapshot(restored);
+      kernel.setVisibleSnapshot(kernel.rehydrateSnapshot(restored));
       currentBranchId = branch.id;
       currentCompletedWorldId = branch.head;
       return result;
@@ -497,6 +627,16 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
     switchActiveBranch,
     createBranch,
   };
+}
+
+function shouldAdvanceLineageHead(
+  result: Awaited<ReturnType<LineageControllerKernel<ManifestoDomainShape>["executeHost"]>>,
+): boolean {
+  if (result.status !== "complete" || result.snapshot.system.status !== "idle") {
+    return false;
+  }
+
+  return result.traces.every((trace) => trace.terminatedBy === "complete");
 }
 
 function toError(error: unknown): Error {

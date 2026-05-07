@@ -300,6 +300,28 @@ describe("CCTS Introspection Suite", () => {
               ],
             },
           },
+          dynamicRoot: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: [
+                { kind: "expr", expr: { kind: "lit", value: "tasks" } },
+              ],
+              value: { kind: "lit", value: ["dynamic"] },
+            },
+          },
+          dynamicNested: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: [
+                { kind: "prop", name: "items" },
+                { kind: "expr", expr: { kind: "lit", value: 0 } },
+                { kind: "prop", name: "done" },
+              ],
+              value: { kind: "lit", value: true },
+            },
+          },
         },
       });
       const normalizedGraph = extractSchemaGraph(normalizedSchema);
@@ -389,7 +411,9 @@ describe("CCTS Introspection Suite", () => {
             && edges.includes("action:mutate|mutates|state:box")
             && !normalizedEdges.includes("action:mutatePaths|mutates|state:count")
             && normalizedEdges.includes("action:mutatePaths|mutates|state:box")
-            && normalizedEdges.includes("action:mutatePaths|mutates|state:items"),
+            && normalizedEdges.includes("action:mutatePaths|mutates|state:items")
+            && !normalizedEdges.includes("action:dynamicRoot|mutates|state:tasks")
+            && normalizedEdges.includes("action:dynamicNested|mutates|state:items"),
           {
             passMessage: "Mutation roots are extracted from the top-level target segment.",
             failMessage: "Mutation roots were not reduced to the top-level target segment.",
@@ -474,6 +498,56 @@ describe("CCTS Introspection Suite", () => {
             passMessage: "Computed nodes tainted by transitive $* deps are excluded.",
             failMessage: "Computed nodes tainted by transitive $* deps were not excluded.",
             evidence: [noteEvidence("Observed node ids", nodeIds)],
+          },
+        ),
+      ]);
+    },
+  );
+
+  it(
+    caseTitle(
+      CCTS_CASES.INTROSPECTION_PROJECTION,
+      "(SGRAPH-12) Core-owned onceIntent guard bookkeeping stays outside SchemaGraph.",
+    ),
+    () => {
+      const compiled = adapter.compile(`
+        domain Demo {
+          state { count: number = 0 }
+
+          action bump() {
+            onceIntent {
+              patch count = add(count, 1)
+            }
+          }
+        }
+      `);
+
+      const graph = extractSchemaGraph(compiled.value!);
+      const nodeIds = graph.nodes.map((node) => node.id);
+      const edges = graph.edges.map((edge) => `${edge.from}|${edge.relation}|${edge.to}`);
+
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("SGRAPH-7"),
+          edges.includes("action:bump|mutates|state:count"),
+          {
+            passMessage: "onceIntent body patches still emit domain mutates edges.",
+            failMessage: "onceIntent body patch mutation was lost from SchemaGraph.",
+            evidence: [noteEvidence("Observed edges", edges)],
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("SGRAPH-12"),
+          compiled.success
+            && !nodeIds.some((id) => id.includes("$mel") || id.includes("guards"))
+            && !edges.some((edge) => edge.includes("$mel") || edge.includes("guards")),
+          {
+            passMessage: "Core-owned onceIntent guard bookkeeping stays outside SchemaGraph.",
+            failMessage: "onceIntent guard bookkeeping leaked into SchemaGraph.",
+            evidence: [
+              noteEvidence("Observed node ids", nodeIds),
+              noteEvidence("Observed edges", edges),
+            ],
           },
         ),
       ]);

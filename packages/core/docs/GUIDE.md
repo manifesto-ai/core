@@ -58,7 +58,7 @@ const schema: DomainSchema = {
       flow: {
         kind: "patch",
         op: "set",
-        path: "count",
+        path: [{ kind: "prop", name: "count" }],
         value: {
           kind: "add",
           left: { kind: "get", path: "count" },
@@ -69,14 +69,17 @@ const schema: DomainSchema = {
   },
 };
 
-// 3. Provide host context (deterministic inputs)
-const context = { now: 0, randomSeed: "seed" };
+// 3. Provide owner-neutral ADR-027 context (deterministic inputs)
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 
 // 4. Create initial snapshot
 const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
 
 // 5. Verify
-console.log(snapshot.data.count);
+console.log(snapshot.state.count);
 // → 0
 ```
 
@@ -92,22 +95,28 @@ console.log(snapshot.data.count);
 import { createCore, createSnapshot, createIntent } from "@manifesto-ai/core";
 
 const core = createCore();
-const context = { now: 0, randomSeed: "seed" };
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 
 // Create initial snapshot
 const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
-console.log(snapshot.data.count); // → 0
+console.log(snapshot.state.count); // → 0
 
 // Create intent
 const intent = createIntent("increment", "intent-1");
 
 // Compute result
 const result = await core.compute(schema, snapshot, intent, context);
+const patched = core.apply(schema, snapshot, result.patches);
+const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+const next = core.applySystemDelta(namespaced, result.systemDelta);
 
 // Check result
-console.log(result.status);           // → "complete"
-console.log(result.requirements.length); // → 0
-console.log(result.snapshot.data.count); // → 1
+console.log(result.status); // → "complete"
+console.log(next.system.pendingRequirements.length); // → 0
+console.log(next.state.count); // → 1
 ```
 
 ### Use Case 2: Applying Patches Manually
@@ -119,20 +128,23 @@ import { createCore, createSnapshot } from "@manifesto-ai/core";
 import type { Patch } from "@manifesto-ai/core";
 
 const core = createCore();
-const context = { now: 0, randomSeed: "seed" };
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
 
 // Define patches
 const patches: Patch[] = [
-  { op: "set", path: "count", value: 10 },
-  { op: "set", path: "name", value: "Alice" },
+  { op: "set", path: [{ kind: "prop", name: "count" }], value: 10 },
+  { op: "set", path: [{ kind: "prop", name: "name" }], value: "Alice" },
 ];
 
 // Apply patches
-const newSnapshot = core.apply(schema, snapshot, patches, context);
+const newSnapshot = core.apply(schema, snapshot, patches);
 
-console.log(newSnapshot.data.count); // → 10
-console.log(newSnapshot.data.name);  // → "Alice"
+console.log(newSnapshot.state.count); // → 10
+console.log(newSnapshot.state.name);  // → "Alice"
 ```
 
 ### Use Case 3: Handling Effects
@@ -191,16 +203,22 @@ const schemaWithEffect: DomainSchema = {
   },
 };
 
-const context = { now: 0, randomSeed: "seed" };
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 const snapshot = createSnapshot({ user: null }, schemaWithEffect.hash, context);
 const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
 
 const result = await core.compute(schemaWithEffect, snapshot, intent, context);
+const patched = core.apply(schemaWithEffect, snapshot, result.patches);
+const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+const next = core.applySystemDelta(namespaced, result.systemDelta);
 
 // Effect is recorded as a requirement, not executed
 console.log(result.status); // → "pending"
-console.log(result.requirements.length); // → 1
-console.log(result.requirements[0].type); // → "api.fetch"
+console.log(next.system.pendingRequirements.length); // → 1
+console.log(next.system.pendingRequirements[0].type); // → "api.fetch"
 ```
 
 ---
@@ -295,7 +313,10 @@ const schema: DomainSchema = {
   },
 };
 
-const context = { now: 0, randomSeed: "seed" };
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 const snapshot = createSnapshot({ items: [] }, schema.hash, context);
 const explanation = core.explain(schema, snapshot, "total");
 
@@ -323,10 +344,16 @@ if (!result.valid) {
 
 ```typescript
 // Wrong: Expecting the API call to happen
-const context = { now: 0, randomSeed: "seed" };
+const context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
 const result = await core.compute(schema, snapshot, intent, context);
-console.log(result.snapshot.data.user); // → undefined (effect not executed!)
+const patched = core.apply(schema, snapshot, result.patches);
+const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+const next = core.applySystemDelta(namespaced, result.systemDelta);
+console.log(next.state.user); // → null (effect not executed!)
 ```
 
 **Why it's wrong:** Core only declares effects as requirements. It never executes them.
@@ -334,10 +361,13 @@ console.log(result.snapshot.data.user); // → undefined (effect not executed!)
 **Correct approach:**
 
 ```typescript
-// Right: Check for requirements and use Host to execute
+// Right: Check materialized pending requirements and use Host to execute
 const result = await core.compute(schema, snapshot, intent, context);
+const patched = core.apply(schema, snapshot, result.patches);
+const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+const next = core.applySystemDelta(namespaced, result.systemDelta);
 
-if (result.requirements.length > 0) {
+if (next.system.pendingRequirements.length > 0) {
   // Use Host to execute effects
   // Host will call core.apply() with resulting patches
 }
@@ -349,7 +379,7 @@ if (result.requirements.length > 0) {
 
 ```typescript
 // Wrong: Direct mutation
-snapshot.data.count = 5;
+snapshot.state.count = 5;
 ```
 
 **Why it's wrong:** Snapshots are immutable. Direct mutation breaks determinism.
@@ -359,8 +389,8 @@ snapshot.data.count = 5;
 ```typescript
 // Right: Use patches
 const newSnapshot = core.apply(schema, snapshot, [
-  { op: "set", path: "count", value: 5 },
-], context);
+  { op: "set", path: [{ kind: "prop", name: "count" }], value: 5 },
+]);
 ```
 
 ### Mistake 3: Using Async in Expressions
@@ -403,10 +433,10 @@ const flow = {
 
 ```typescript
 // Check your path format
-// Correct: "todos[0].title"
+// Correct: [{ kind: "prop", name: "todos" }, { kind: "index", index: 0 }, { kind: "prop", name: "title" }]
 // Wrong: "/data/todos/0/title"
 
-const patch = { op: "set", path: "count", value: 5 }; // Use dot-separated semantic paths
+const patch = { op: "set", path: [{ kind: "prop", name: "count" }], value: 5 };
 ```
 
 ### Error: "Schema validation failed"
@@ -455,7 +485,10 @@ describe("Counter domain", () => {
   it("increments count", async () => {
     // Arrange
     const core = createCore();
-    const context = { now: 0, randomSeed: "seed" };
+    const context = {
+      runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+      external: {},
+    };
     const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
 
     // Act
@@ -465,26 +498,35 @@ describe("Counter domain", () => {
       createIntent("increment", "intent-1"),
       context
     );
+    const patched = core.apply(schema, snapshot, result.patches);
+    const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+    const next = core.applySystemDelta(namespaced, result.systemDelta);
 
     // Assert
     expect(result.status).toBe("complete");
-    expect(result.snapshot.data.count).toBe(1);
+    expect(next.state.count).toBe(1);
   });
 
   it("handles effects correctly", async () => {
     // Arrange
     const core = createCore();
-    const context = { now: 0, randomSeed: "seed" };
+    const context = {
+      runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+      external: {},
+    };
     const snapshot = createSnapshot({ user: null }, schemaWithEffect.hash, context);
     const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
 
     // Act
     const result = await core.compute(schemaWithEffect, snapshot, intent, context);
+    const patched = core.apply(schemaWithEffect, snapshot, result.patches);
+    const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+    const next = core.applySystemDelta(namespaced, result.systemDelta);
 
     // Assert
     expect(result.status).toBe("pending");
-    expect(result.requirements).toHaveLength(1);
-    expect(result.requirements[0].type).toBe("api.fetch");
+    expect(next.system.pendingRequirements).toHaveLength(1);
+    expect(next.system.pendingRequirements[0].type).toBe("api.fetch");
   });
 });
 ```
@@ -499,7 +541,7 @@ describe("Counter domain", () => {
 |-----|---------|---------|
 | `createCore()` | Create core instance | `const core = createCore()` |
 | `core.compute()` | Compute state transition | `await core.compute(schema, snapshot, intent, context)` |
-| `core.apply()` | Apply patches | `core.apply(schema, snapshot, patches, context)` |
+| `core.apply()` | Apply patches | `core.apply(schema, snapshot, patches)` |
 | `core.validate()` | Validate schema | `core.validate(schema)` |
 | `core.explain()` | Explain value | `core.explain(schema, snapshot, path)` |
 

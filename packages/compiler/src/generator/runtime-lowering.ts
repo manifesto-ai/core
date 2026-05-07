@@ -8,7 +8,6 @@ import {
 } from "../lowering/index.js";
 import {
   getBasePathExpr,
-  getPathExpr,
   objExpr,
 } from "../lowering/to-mel-expr.js";
 import type {
@@ -76,8 +75,15 @@ function lowerFlow(flow: CompilerFlowNode): CoreFlowNode {
       return {
         kind: "patch",
         op: flow.op,
-        path: flow.path,
+        path: lowerFlowPatchPath(flow.path),
         value: flow.value ? lowerActionExpr(flow.value) : undefined,
+      };
+
+    case "causalGuard":
+      return {
+        kind: "causalGuard",
+        guardId: flow.guardId,
+        body: lowerFlow(flow.body),
       };
 
     case "effect":
@@ -100,6 +106,18 @@ function lowerFlow(flow: CompilerFlowNode): CoreFlowNode {
     case "halt":
       return flow;
   }
+}
+
+function lowerFlowPatchPath(
+  path: Extract<CompilerFlowNode, { kind: "patch" }>["path"]
+): Extract<CoreFlowNode, { kind: "patch" }>["path"] {
+  return path.map((segment) => {
+    if (segment.kind === "prop" || segment.kind === "index") {
+      return segment;
+    }
+
+    return { kind: "expr", expr: lowerActionExpr(segment.expr) };
+  });
 }
 
 function lowerSchemaExpr(expr: MelExprNode): CoreExprNode {
@@ -125,9 +143,6 @@ function rewriteForRuntime(expr: MelExprNode): MelExprNode {
       return expr;
 
     case "sys":
-      if (expr.path[0] === "system") {
-        return getPathExpr("$system", ...expr.path.slice(1));
-      }
       return expr;
 
     case "get":

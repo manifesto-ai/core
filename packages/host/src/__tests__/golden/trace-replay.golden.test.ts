@@ -65,7 +65,7 @@ async function runScenario({
 }
 
 function extractReplayIntents(trace: TraceEvent[], snapshot: Snapshot): Intent[] {
-  const hostState = getHostState(snapshot.data);
+  const hostState = getHostState(snapshot);
   const intentSlots = hostState?.intentSlots ?? {};
   const intentOrder: string[] = [];
 
@@ -98,7 +98,6 @@ describe("Golden: Trace-derived replay", () => {
       types: {},
       state: {
         fields: {
-          $host: { type: "object", required: false, default: {} },
           counter: { type: "number", required: true },
           response: { type: "string", required: false },
         },
@@ -161,7 +160,7 @@ describe("Golden: Trace-derived replay", () => {
       effectHandlers,
     });
 
-    expect(liveRun.finalSnapshot.data).toEqual(replayRun.finalSnapshot.data);
+    expect(liveRun.finalSnapshot.state).toEqual(replayRun.finalSnapshot.state);
     expect(normalizeTrace(liveRun.trace)).toEqual(normalizeTrace(replayRun.trace));
   });
 });

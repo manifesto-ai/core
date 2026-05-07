@@ -10,11 +10,12 @@ import type {
   CreateIntentArgs,
   IntentExplanation,
   ManifestoDomainShape,
+  ProjectedSnapshot,
   SimulationDiagnostics,
-  Snapshot,
   TypedActionRef,
   TypedCreateIntent,
   TypedIntent,
+  TypedDomainRefs,
   TypedMEL,
 } from "./types.js";
 
@@ -29,6 +30,8 @@ export type ExtensionSimulateResult<
 };
 
 export interface ExtensionKernel<T extends ManifestoDomainShape> {
+  readonly refs: TypedDomainRefs<T>;
+  /** @deprecated Use refs. */
   readonly MEL: TypedMEL<T>;
   readonly schema: DomainSchema;
 
@@ -37,7 +40,7 @@ export interface ExtensionKernel<T extends ManifestoDomainShape> {
 
   readonly projectSnapshot: (
     snapshot: CanonicalSnapshot<T["state"]>,
-  ) => Snapshot<T["state"]>;
+  ) => ProjectedSnapshot<T>;
 
   readonly simulateSync: (
     snapshot: CanonicalSnapshot<T["state"]>,
@@ -74,7 +77,7 @@ export type SimulationSessionStep<
   T extends ManifestoDomainShape = ManifestoDomainShape,
 > = {
   readonly intent: TypedIntent<T>;
-  readonly snapshot: Snapshot<T["state"]>;
+  readonly snapshot: ProjectedSnapshot<T>;
   readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
   readonly availableActions: readonly SimulationActionRef<T>[];
   readonly requirements: readonly Requirement[];
@@ -85,7 +88,7 @@ export type SimulationSessionStep<
 export type SimulationSessionResult<
   T extends ManifestoDomainShape = ManifestoDomainShape,
 > = {
-  readonly snapshot: Snapshot<T["state"]>;
+  readonly snapshot: ProjectedSnapshot<T>;
   readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
   readonly depth: number;
   readonly trajectory: readonly SimulationSessionStep<T>[];
@@ -96,7 +99,7 @@ export type SimulationSessionResult<
 };
 
 export interface SimulationSession<T extends ManifestoDomainShape> {
-  readonly snapshot: Snapshot<T["state"]>;
+  readonly snapshot: ProjectedSnapshot<T>;
   readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
   readonly depth: number;
   readonly trajectory: readonly SimulationSessionStep<T>[];

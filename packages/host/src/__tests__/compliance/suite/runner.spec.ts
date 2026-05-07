@@ -77,7 +77,7 @@ describe("HCTS Runner Tests", () => {
       expectCompliance(result);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).done).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).done).toBe(true);
     });
   });
 
@@ -156,7 +156,7 @@ describe("HCTS Runner Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      expect((finalSnapshot.data as Record<string, unknown>).count).toBe(3);
+      expect((finalSnapshot.state as Record<string, unknown>).count).toBe(3);
     });
   });
 });

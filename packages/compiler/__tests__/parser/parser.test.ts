@@ -29,6 +29,23 @@ describe("Parser", () => {
       expect(program?.domain.members[0].kind).toBe("state");
     });
 
+    it("parses domain with context", () => {
+      const { program, diagnostics } = parseSource(`
+        domain TenantScoped {
+          context {
+            tenantId: string
+            locale: string
+          }
+        }
+      `);
+      expect(diagnostics).toHaveLength(0);
+      const context = program?.domain.members[0];
+      expect(context?.kind).toBe("context");
+      if (context?.kind === "context") {
+        expect(context.fields.map((field) => field.name)).toEqual(["tenantId", "locale"]);
+      }
+    });
+
     it("parses domain with computed", () => {
       const { program, diagnostics } = parseSource(`
         domain Counter {
@@ -364,23 +381,23 @@ describe("Parser", () => {
       )).toBe(true);
     });
 
-    it("parses system identifiers", () => {
-      const expr = parseExpr("$system.uuid");
+    it("parses runtime identifiers", () => {
+      const expr = parseExpr("$runtime.random.uuid");
       expect(expr?.kind).toBe("systemIdent");
       if (expr?.kind === "systemIdent") {
-        expect(expr.path).toEqual(["system", "uuid"]);
+        expect(expr.path).toEqual(["runtime", "random", "uuid"]);
       }
     });
 
-    it("parses dotted system identifiers", () => {
-      const expr = parseExpr("$system.time.now");
+    it("parses context identifiers", () => {
+      const expr = parseExpr("$context.tenantId");
       expect(expr?.kind).toBe("systemIdent");
       if (expr?.kind === "systemIdent") {
-        expect(expr.path).toEqual(["system", "time", "now"]);
+        expect(expr.path).toEqual(["context", "tenantId"]);
       }
     });
 
-    it("parses $meta identifiers", () => {
+    it("still lexes retired $meta identifiers for semantic rejection", () => {
       const expr = parseExpr("$meta.intentId");
       expect(expr?.kind).toBe("systemIdent");
       if (expr?.kind === "systemIdent") {
@@ -420,7 +437,7 @@ describe("Parser", () => {
         domain T {
           action test() {
             once(marker) {
-              patch marker = $meta.intentId
+              patch marker = $runtime.intent.id
             }
           }
         }
@@ -437,7 +454,7 @@ describe("Parser", () => {
         domain T {
           action test(x: number) {
             once(marker) when gt(x, 0) {
-              patch marker = $meta.intentId
+              patch marker = $runtime.intent.id
             }
           }
         }
@@ -552,7 +569,7 @@ describe("Parser", () => {
 
           action increment() {
             once(lastIntent) {
-              patch lastIntent = $meta.intentId
+              patch lastIntent = $runtime.intent.id
               patch count = add(count, 1)
             }
           }
@@ -583,9 +600,9 @@ describe("Parser", () => {
 
           action addTask(title: string) {
             once(adding) when neq(trim(title), "") {
-              patch adding = $meta.intentId
-              patch tasks[$system.uuid] = {
-                id: $system.uuid,
+              patch adding = $runtime.intent.id
+              patch tasks[$runtime.random.uuid] = {
+                id: $runtime.random.uuid,
                 title: trim(title),
                 completed: false
               }

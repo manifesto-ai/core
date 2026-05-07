@@ -1,11 +1,13 @@
 import type { ErrorValue, Intent as HostIntent, Snapshot } from "@manifesto-ai/core";
-import type { ArtifactRef, BranchId, World, WorldId } from "@manifesto-ai/lineage";
+import type { ArtifactRef, BranchId, ComputeEnvelope, World, WorldId } from "@manifesto-ai/lineage";
 import type { PreparedLineageCommit } from "@manifesto-ai/lineage/provider";
+import type { ExecutionOutcome } from "@manifesto-ai/sdk";
 
 export type { Snapshot } from "@manifesto-ai/core";
 export type {
   ArtifactRef,
   BranchId,
+  ComputeEnvelope,
   World,
   WorldId,
 } from "@manifesto-ai/lineage";
@@ -104,6 +106,7 @@ export interface Proposal {
   readonly actorId: ActorId;
   readonly authorityId: AuthorityId;
   readonly intent: Intent;
+  readonly computeEnvelope: ComputeEnvelope;
   readonly status: ProposalStatus;
   readonly executionKey: ExecutionKey;
   readonly submittedAt: number;
@@ -112,6 +115,7 @@ export interface Proposal {
   readonly decisionId?: DecisionId;
   readonly epoch: number;
   readonly resultWorld?: WorldId;
+  readonly terminalOutcome?: ExecutionOutcome;
   readonly supersededReason?: SupersedeReason;
   readonly approvedScope?: unknown;
 }
@@ -320,6 +324,7 @@ export interface CreateProposalInput {
   readonly actorId: ActorId;
   readonly authorityId: AuthorityId;
   readonly intent: Intent;
+  readonly computeEnvelope: ComputeEnvelope;
   readonly executionKey: ExecutionKey;
   readonly submittedAt: number;
   readonly epoch: number;

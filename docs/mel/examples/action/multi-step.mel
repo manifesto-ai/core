@@ -46,14 +46,12 @@ domain ActionMultiStep {
   action processData() {
     // Step 1: Fetch data
     once(step1) {
-      patch step1 = $meta.intentId
       patch status = "loading"
       effect api.fetch({ url: "/items", into: rawItems })
     }
 
     // Step 2: Filter (waits for step 1)
     once(step2) when isNotNull(rawItems) {
-      patch step2 = $meta.intentId
       patch status = "processing"
       effect array.filter({
         source: rawItems,
@@ -64,7 +62,6 @@ domain ActionMultiStep {
 
     // Step 3: Sort (waits for step 2)
     once(step3) when isNotNull(filteredItems) {
-      patch step3 = $meta.intentId
       effect array.sort({
         source: filteredItems,
         by: $item.createdAt,
@@ -83,7 +80,6 @@ domain ActionMultiStep {
   action transformData() {
     // Flatten nested arrays
     once(step1) when isNotNull(rawItems) {
-      patch step1 = $meta.intentId
       effect array.flatMap({
         source: rawItems,
         select: $item.children,
@@ -93,7 +89,6 @@ domain ActionMultiStep {
 
     // Map to summary objects
     once(step2) when isNotNull(childItems) {
-      patch step2 = $meta.intentId
       effect array.map({
         source: childItems,
         select: {
@@ -126,14 +121,13 @@ domain ActionMultiStep {
 // Multi-Step Pattern:
 //
 //   once(stepN) when <previous step ready> {
-//     patch stepN = $meta.intentId   // MUST be first
 //     effect ...
 //   }
 //
 // Key points:
 //   - Each step has its own marker (step1, step2, ...)
 //   - Each step waits for previous step's result
-//   - Marker patch MUST be first statement in once block
+//   - Compiler inserts the marker patch before the body
 //   - Effects write results to state for next step
 //
 // Host Loop:

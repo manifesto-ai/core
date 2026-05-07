@@ -10,6 +10,7 @@ import type { Intent } from "@manifesto-ai/core";
 import type { ExecutionContext } from "../types/execution.js";
 import type { ContinueComputeJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";
+import { applyComputeResult } from "./compute-interlock.js";
 
 /**
  * Handle ContinueCompute job
@@ -36,7 +37,7 @@ export function handleContinueCompute(
   // Get fresh snapshot (JOB-4)
   const snapshot = ctx.getSnapshot();
 
-  // Reset and freeze context for this job (CTX-1~5)
+  // Read the transition-attempt context (CTX-1~5)
   ctx.resetFrozenContext();
   const frozenContext = ctx.getFrozenContext();
 
@@ -45,8 +46,8 @@ export function handleContinueCompute(
     t: "context:frozen",
     key: ctx.key,
     jobId: job.id,
-    now: frozenContext.now,
-    randomSeed: frozenContext.randomSeed,
+    now: frozenContext.runtime.time.timestamp,
+    randomSeed: frozenContext.runtime.random.seed,
   });
 
   // For re-entry, we use a minimal intent with just the intentId
@@ -66,6 +67,7 @@ export function handleContinueCompute(
     intent,
     frozenContext
   );
+  ctx.recordCoreTrace?.(result.trace);
 
   // Emit core:compute trace
   ctx.trace({
@@ -75,13 +77,14 @@ export function handleContinueCompute(
     iteration,
   });
 
-  // Interlock order: apply(patches) -> applySystemDelta(systemDelta) -> dispatch
-  ctx.applyPatches(result.patches, "compute");
-  ctx.applySystemDelta(result.systemDelta, "compute");
+  // Interlock order: apply(patches) -> applyNamespaceDeltas(namespaceDelta) -> applySystemDelta(systemDelta) -> dispatch
+  const applied = applyComputeResult(ctx, result);
 
   // Check terminal states
   if (
-    result.status === "complete"
+    applied.interlockError
+    || applied.snapshot.system.status === "error"
+    || result.status === "complete"
     || result.status === "error"
     || result.status === "halted"
   ) {

@@ -9,7 +9,13 @@ import {
   type Snapshot,
 } from "@manifesto-ai/core";
 
-const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
 let intentCounter = 0;
 
 function adaptSchema(schema: MelDomainSchema): CoreDomainSchema {
@@ -36,8 +42,12 @@ function applyComputeResult(
   snapshot: Snapshot,
   result: ComputeResult
 ): Snapshot {
-  const patched = core.apply(schema, snapshot, result.patches, HOST_CONTEXT);
-  return core.applySystemDelta(patched, result.systemDelta);
+  const patched = core.apply(schema, snapshot, result.patches);
+  const namespaced = core.applyNamespaceDeltas(
+    patched,
+    result.namespaceDelta ?? []
+  );
+  return core.applySystemDelta(namespaced, result.systemDelta);
 }
 
 describe("Entity Primitive Core Integration", () => {
@@ -77,7 +87,7 @@ describe("Entity Primitive Core Integration", () => {
     );
     const nextSnapshot = applyComputeResult(core, schema, snapshot, computeResult);
 
-    expect(nextSnapshot.data).toMatchObject({
+    expect(nextSnapshot.state).toMatchObject({
       tasks: [
         { id: "task-1", title: "A", done: false },
         { id: "task-2", title: "B", done: true },
@@ -122,7 +132,7 @@ describe("Entity Primitive Core Integration", () => {
     );
     const nextSnapshot = applyComputeResult(core, schema, snapshot, computeResult);
 
-    expect(nextSnapshot.data).toMatchObject({
+    expect(nextSnapshot.state).toMatchObject({
       tasks: [{ id: "task-2", title: "C" }],
     });
   });

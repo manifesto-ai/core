@@ -11,6 +11,7 @@ export type DomainType =
   | { readonly kind: "unknown" }
   | { readonly kind: "primitive"; readonly type: DomainPrimitive }
   | { readonly kind: "literal"; readonly value: string | number | boolean | null }
+  | { readonly kind: "ref"; readonly name: string }
   | { readonly kind: "array"; readonly element: DomainType }
   | { readonly kind: "tuple"; readonly elements: readonly DomainType[] }
   | { readonly kind: "object"; readonly fields: Readonly<Record<string, DomainTypeField>> }
@@ -32,6 +33,10 @@ export function literalType(
   value: string | number | boolean | null
 ): DomainType {
   return value === null ? NULL_TYPE : { kind: "literal", value };
+}
+
+export function refType(name: string): DomainType {
+  return { kind: "ref", name };
 }
 
 export function arrayType(element: DomainType): DomainType {
@@ -188,6 +193,8 @@ export function renderDomainType(type: DomainType): string {
       return type.type;
     case "literal":
       return renderLiteral(type.value);
+    case "ref":
+      return type.name;
     case "array":
       return `${wrapArrayElement(renderDomainType(type.element), type.element)}[]`;
     case "tuple":
@@ -233,6 +240,8 @@ function stableTypeKey(type: DomainType): string {
       return `primitive:${type.type}`;
     case "literal":
       return `literal:${JSON.stringify(type.value)}`;
+    case "ref":
+      return `ref:${type.name}`;
     case "array":
       return `array:${stableTypeKey(type.element)}`;
     case "tuple":

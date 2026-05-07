@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { apply } from "../core/apply.js";
+import { apply, applyNamespaceDeltas } from "../core/apply.js";
 import { compute } from "../core/compute.js";
 import { applySystemDelta } from "../core/system-delta.js";
 import { createIntent, createSnapshot } from "../factories.js";
@@ -7,7 +7,13 @@ import type { DomainSchema } from "../schema/domain.js";
 import type { Requirement } from "../schema/snapshot.js";
 import { patchPathToDisplayString, semanticPathToPatchPath } from "../utils/patch-path.js";
 
-const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
 const pp = (path: string) => semanticPathToPatchPath(path);
 
 function createSchema(stateFields: DomainSchema["state"]["fields"], actions: DomainSchema["actions"]): DomainSchema {
@@ -53,11 +59,10 @@ describe("ADR-009 core acceptance", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "set", path: [{ kind: "prop", name: "history" }, { kind: "prop", name: "files" }, { kind: "prop", name: "file:///proof.lean" }], value: "ok" }],
-      HOST_CONTEXT
+      [{ op: "set", path: [{ kind: "prop", name: "history" }, { kind: "prop", name: "files" }, { kind: "prop", name: "file:///proof.lean" }], value: "ok" }]
     );
 
-    expect(result.data).toEqual({
+    expect(result.state).toEqual({
       history: {
         files: {
           "file:///proof.lean": "ok",
@@ -99,11 +104,10 @@ describe("ADR-009 core acceptance", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "set", path: pp("metrics.2024"), value: 7 }],
-      HOST_CONTEXT
+      [{ op: "set", path: pp("metrics.2024"), value: 7 }]
     );
 
-    const metrics = (result.data as { metrics: unknown }).metrics;
+    const metrics = (result.state as { metrics: unknown }).metrics;
     expect(Array.isArray(metrics)).toBe(false);
     expect(metrics).toEqual({ "2024": 7 });
   });
@@ -127,11 +131,10 @@ describe("ADR-009 core acceptance", () => {
       [
         { op: "unset", path: [{ kind: "prop", name: "items" }, { kind: "index", index: 0 }] },
         { op: "set", path: [{ kind: "prop", name: "items" }, { kind: "index", index: 1 }], value: "B" },
-      ],
-      HOST_CONTEXT
+      ]
     );
 
-    const items = (result.data as { items: unknown[] }).items;
+    const items = (result.state as { items: unknown[] }).items;
     expect(items).toHaveLength(3);
     expect(items[0]).toBeUndefined();
     expect(items[1]).toBe("B");
@@ -162,17 +165,15 @@ describe("ADR-009 core acceptance", () => {
     const dottedResult = apply(
       schema,
       snapshot,
-      [{ op: "set", path: pp("history.files.TACTIC_FAILED:simp"), value: "safe" }],
-      HOST_CONTEXT
+      [{ op: "set", path: pp("history.files.TACTIC_FAILED:simp"), value: "safe" }]
     );
 
-    expect(dottedResult.data).toEqual({ history: { files: { "TACTIC_FAILED:simp": "safe" } } });
+    expect(dottedResult.state).toEqual({ history: { files: { "TACTIC_FAILED:simp": "safe" } } });
 
     const polluted = apply(
       schema,
       snapshot,
-      [{ op: "set", path: [{ kind: "prop", name: "__proto__" }, { kind: "prop", name: "polluted" }], value: true }],
-      HOST_CONTEXT
+      [{ op: "set", path: [{ kind: "prop", name: "__proto__" }, { kind: "prop", name: "polluted" }], value: true }]
     );
 
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
@@ -180,7 +181,7 @@ describe("ADR-009 core acceptance", () => {
     expect(polluted.system.lastError?.code).toBe("PATH_NOT_FOUND");
   });
 
-  it("ADR §9.6: bypasses schema-walk for $host/$mel roots", () => {
+  it("ADR §9.6: keeps platform namespaces outside domain state patches", () => {
     const schema = createSchema(
       {
         count: { type: "number", required: true },
@@ -192,22 +193,28 @@ describe("ADR-009 core acceptance", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "merge", path: pp("$host.runtime"), value: { marker: "ok" } }],
-      HOST_CONTEXT
+      [{ op: "merge", path: pp("$runtime.runtime"), value: { marker: "ok" } }]
     );
 
-    expect(result.data).toEqual({
-      count: 1,
-      $host: {
+    expect(result.state).toEqual({ count: 1 });
+    expect(result.system.status).toBe("error");
+    expect(result.system.lastError?.code).toBe("PATH_NOT_FOUND");
+
+    const namespaceResult = applyNamespaceDeltas(
+      snapshot,
+      [{ namespace: "runtime", patches: [{ op: "merge", path: pp("runtime"), value: { marker: "ok" } }] }]
+    );
+
+    expect(namespaceResult.state).toEqual({ count: 1 });
+    expect(namespaceResult.namespaces.runtime).toEqual({
         runtime: {
           marker: "ok",
         },
-      },
     });
-    expect(result.system.status).toBe("idle");
+    expect(namespaceResult.system.status).toBe("idle");
   });
 
-  it("ADR §9.7: applies patch path at snapshot.data root, not snapshot.system", () => {
+  it("ADR §9.7: applies patch path at snapshot.state root, not snapshot.system", () => {
     const schema = createSchema(
       {
         system: {
@@ -225,11 +232,10 @@ describe("ADR-009 core acceptance", () => {
     const result = apply(
       schema,
       snapshot,
-      [{ op: "set", path: pp("system.status"), value: "domain-updated" }],
-      HOST_CONTEXT
+      [{ op: "set", path: pp("system.status"), value: "domain-updated" }]
     );
 
-    expect((result.data as { system: { status: string } }).system.status).toBe("domain-updated");
+    expect((result.state as { system: { status: string } }).system.status).toBe("domain-updated");
     expect(result.system.status).toBe("idle");
   });
 
@@ -269,9 +275,9 @@ describe("ADR-009 core acceptance", () => {
     });
     expect("snapshot" in result).toBe(false);
 
-    const withPatches = apply(schema, snapshot, result.patches, HOST_CONTEXT);
+    const withPatches = apply(schema, snapshot, result.patches);
     const finalSnapshot = applySystemDelta(withPatches, result.systemDelta);
-    expect(finalSnapshot.data).toEqual({ count: 1 });
+    expect(finalSnapshot.state).toEqual({ count: 1 });
   });
 
   it("applySystemDelta is deterministic and applies remove->add ordering", () => {

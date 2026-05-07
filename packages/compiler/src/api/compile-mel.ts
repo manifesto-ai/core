@@ -142,10 +142,10 @@ export interface CompileMelPatchOptions {
   actionName: string;
 
   /**
-   * Allowed system path prefixes.
-   * Default: ["meta", "input"] (system is forbidden per §20.3).
+   * Allowed dollar namespace prefixes.
+   * Default: ["input", "runtime", "context"].
    */
-  allowSysPaths?: { prefixes: ("meta" | "input")[] };
+  allowSysPaths?: { prefixes: ("input" | "runtime" | "context")[] };
 
   /**
    * Function table version.
@@ -473,7 +473,7 @@ function capDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
  * by evaluateRuntimePatches() to get concrete values.
  *
  * Constraints:
- * - §20.3: $system.* is forbidden in Translator path
+ * - ADR-027: `$system.*` and `$meta.*` are retired in current v5 MEL.
  *
  * @param melText - MEL patch source text
  * @param options - Compilation options

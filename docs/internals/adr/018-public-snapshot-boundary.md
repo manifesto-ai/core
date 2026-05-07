@@ -22,6 +22,12 @@
 | v6 | 2026-04-03 | Cross-model review round 4. Corrected `system.status` framing from "terminal dispatch outcome" to "last-published snapshot status" (rejected/failed dispatches may not update the snapshot). Removed false claim that current telemetry provides in-flight visibility. |
 | v7 | 2026-04-03 | Implemented. Added `getCanonicalSnapshot()`, projected `EffectContext.snapshot`, projected `subscribe()` semantics, canonical `getWorldSnapshot()`, and updated maintained docs. Removed obsolete SDK factory restore-key discussion; current v3 base factory remains restore-free. |
 
+> **Current v5 Surface Note:** ADR-026 keeps this ADR's projection boundary but
+> renames the current SDK root reads: `getSnapshot()` is now `snapshot()`, and
+> root `getCanonicalSnapshot()` is now `inspect.canonicalSnapshot()`. The older
+> method names below are retained as historical rationale unless explicitly
+> mapped to the current v5 surface.
+
 ---
 
 ## 1. Context
@@ -126,9 +132,9 @@ This ADR establishes **layer-scoped truth rules:**
 The word **Snapshot** is reserved for the ordinary user-facing surface.
 The word **CanonicalSnapshot** is used for the full internal substrate.
 
-### 2.3 `getSnapshot()` Returns User-Facing Snapshot
+### 2.3 `snapshot()` Returns User-Facing Snapshot
 
-`getSnapshot()` returns the default user-facing Snapshot, not the full CanonicalSnapshot.
+Current v5 `snapshot()` returns the default user-facing Snapshot, not the full CanonicalSnapshot. Earlier versions of this ADR used the name `getSnapshot()` for the same projection boundary.
 
 The returned shape MUST be sufficient for ordinary application development:
 
@@ -140,12 +146,12 @@ The returned shape MUST be sufficient for ordinary application development:
 
 It MUST NOT expose runtime residue or low-level orchestration state by default.
 
-### 2.4 `getCanonicalSnapshot()` Is the Advanced Substrate API
+### 2.4 `inspect.canonicalSnapshot()` Is the Advanced Substrate API
 
-A new advanced API is introduced:
+The current v5 advanced API is:
 
 ```typescript
-getCanonicalSnapshot(): CanonicalSnapshot
+inspect.canonicalSnapshot(): CanonicalSnapshot
 ```
 
 This API exists for advanced consumers who intentionally need the full substrate:

@@ -11,11 +11,12 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
+| v5.0.0 | ADR-025/ADR-027/ADR-028 hard cut — retire `Snapshot.data`, promote `Snapshot.state`, add `Snapshot.namespaces`, make PatchPath root channel-determined, define explicit compute `Context`, and assign dynamic Flow patch target resolution to Core | FDR-002, FDR-012, FDR-015 |
 | v4.2.0 | TypeDefinition-backed runtime typing seam — `StateSpec.fieldTypes`, `ActionSpec.inputType`, and `ActionSpec.params` become normative when present | — |
 | v4.1.0 | Add intent dispatchability query API — `ActionSpec.dispatchable`, `isIntentDispatchable()` | — |
 | v4.0.0 | ADR-015 hard cut — remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface | FDR-002, FDR-005 |
 | v3.1.0 | Additive availability query API — `isActionAvailable()`, `getAvailableActions()` | — |
-| v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()`, patch root anchored at `snapshot.data` | FDR-015 |
+| v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()`, patch root anchored at the then-current data root | FDR-015 |
 | v2.0.0 | Initial release — DomainSchema, StateSpec, ComputedSpec, ExprSpec, FlowSpec, Snapshot | FDR-001 ~ FDR-016 |
 | v2.0.1 | Patch operation clarification (`merge` is shallow), platform-reserved namespace policy | — |
 | v2.0.2 | Normative note on `data` vs "state" terminology, computed key access semantics | — |
@@ -40,7 +41,7 @@
 13. [Snapshot](#13-snapshot)
 14. [Validation Rules](#14-validation-rules)
 15. [Canonical Form](#15-canonical-form)
-16. [Host Interface](#16-host-interface)
+16. [Runtime Boundary Interface](#16-runtime-boundary-interface)
 
 ---
 
@@ -69,7 +70,7 @@ Manifesto is NOT:
 
 | Goal | Description |
 |------|-------------|
-| **Determinism** | Same input always produces same output |
+| **Determinism** | Same `schema + snapshot + intent + context` always produces same output |
 | **Explainability** | Every value can answer "why?" |
 | **Schema-first** | All semantics expressed as data |
 | **Host-agnostic** | No assumptions about execution environment |
@@ -86,14 +87,14 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 ### 3.1 The Manifesto Constitution
 
-> **Rationale (FDR-001):** Core is a pure semantic calculator. By separating computation from execution: determinism is guaranteed (`compute(snapshot, intent, context)` always produces the same result); testing requires no mocking; every step is traceable without IO interference; Core is portable (browser, server, edge, WASM).
+> **Rationale (FDR-001, ADR-027):** Core is a pure semantic calculator. By separating computation from execution and making context explicit: determinism is guaranteed (`compute(schema, snapshot, intent, context)` always produces the same result for the same four inputs); testing requires no mocking; every step is traceable without IO interference; Core is portable (browser, server, edge, WASM).
 > **Alternatives rejected:** Integrated runtime (violates purity); plugin architecture (still couples execution); actor model (adds complexity).
 > **Canonical statement:** "Core computes. Host executes. These concerns never mix."
 
 ```
 1. Core is a calculator, not an executor.
 2. Schema is the single source of truth.
-3. Snapshot is the only medium of communication.
+3. Snapshot is the only medium of communication between computations.
 4. Effects are declarations, not executions.
 5. Errors are values, not exceptions.
 6. Everything is explainable.
@@ -111,7 +112,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 │  - User interaction                                         │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              │ compute(snapshot, intent, context)
+                              │ compute(schema, snapshot, intent, context)
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                         CORE                                 │
@@ -124,7 +125,10 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 ### 3.3 The Snapshot Principle
 
-> **All communication happens through Snapshot. There is no other channel.**
+> **All continuity between computations happens through Snapshot. There is no hidden channel.**
+
+Context is the explicit captured external environment for the current compute
+call. It does not replace Snapshot and it is not a continuation channel.
 
 - Effects do NOT "return" values to Flows.
 - Effects produce Patches that modify Snapshot.
@@ -147,11 +151,11 @@ RIGHT:  effect('api:call')             // Declares requirement
 Each `compute()` call is **complete and independent**:
 
 ```
-compute(snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
+compute(schema, snapshot₀, intent, context) → ComputeResult
 ```
 
-- If `requirements` is empty: computation is **complete**.
-- If `requirements` is non-empty: Host MUST fulfill them, then call `compute()` **again**.
+- If materializing `patches`, `namespaceDelta`, and `systemDelta` leaves `snapshot.system.pendingRequirements` empty: computation is **terminal** for that intent step.
+- If materialization leaves `snapshot.system.pendingRequirements` non-empty: Host MUST fulfill those requirements, clear fulfilled IDs through `systemDelta`, then call `compute()` **again**.
 - There is no "resume". Each `compute()` is a fresh calculation.
 
 ```
@@ -159,7 +163,7 @@ compute(snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
 │                    COMPUTATION CYCLE                         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Host calls: compute(snapshot, intent, context)             │
+│  Host calls: compute(schema, snapshot, intent, context)     │
 │                     │                                       │
 │                     ▼                                       │
 │  ┌─────────────────────────────────────┐                   │
@@ -170,7 +174,7 @@ compute(snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
 │  └─────────────────────────────────────┘                   │
 │                     │                                       │
 │                     ▼                                       │
-│  Returns: (snapshot', requirements, trace)                  │
+│  Returns: ComputeResult                                     │
 │                     │                                       │
 │         ┌──────────┴──────────┐                            │
 │         ▼                     ▼                            │
@@ -209,6 +213,9 @@ type DomainSchema = {
 
   /** State structure definition */
   readonly state: StateSpec;
+
+  /** Direct-injected external context shape, when declared */
+  readonly context?: ContextSpec;
   
   /** Computed values (DAG) */
   readonly computed: ComputedSpec;
@@ -225,16 +232,32 @@ type DomainSchema = {
 };
 ```
 
+`context` declares the shape of `Context.external` values that may be read by
+`$context.*` during bound action Flow evaluation. It does not declare
+`context.runtime`; built-in runtime facts are owned by Core's `Context` type.
+
+```typescript
+type ContextSpec = {
+  readonly fields: Record<string, FieldSpec>;
+  readonly fieldTypes?: Record<string, TypeDefinition>;
+};
+```
+
 ### 4.2 Requirements
 
 - `id` MUST be a valid URI or UUID.
 - `version` MUST follow [Semantic Versioning 2.0](https://semver.org/).
 - `hash` MUST be computed using the [Canonical Form](#15-canonical-form) algorithm
   over the full schema (excluding the `hash` field), including `types`.
-- The schema hash is a **semantic identity**. Platform namespaces in `state.fields`
-  whose keys start with `$` (e.g., `$host`, `$mel`) MUST be excluded from the hash.
-  Any effective/runtime hash is an internal artifact and MUST NOT be exposed as part of DomainSchema.
+- The schema hash is a **semantic identity** over domain schema only. v5 schemas
+  MUST NOT model platform/runtime/tooling namespaces in `state.fields`.
+- Pre-v5 `$`-prefixed state fields (e.g., `$host`, `$mel`) are excluded from
+  the default semantic hash for continuity. The current implementation already
+  verifies this behavior in `hashSchema()` semantic mode; effective/runtime
+  hash modes include those fields and remain internal artifacts.
 - `state`, `computed`, and `actions` MUST NOT be empty.
+- `context` MAY be omitted. When present, it is part of the semantic schema and
+  MUST be included in schema hashing.
 
 ### 4.3 Types
 
@@ -346,31 +369,32 @@ type FieldType =
 - All `FieldSpec` with `required: false` MUST have a `default` value.
 - Circular references in object fields are NOT ALLOWED.
 
-### 5.5 Reserved Platform Namespaces (`$*`)
+### 5.5 Reserved Namespace Identifiers (`$*`)
 
-Keys in `snapshot.data` whose names start with `$` are **platform-reserved namespaces**.
+Domain state fields whose names start with `$` are reserved and MUST NOT appear
+in `StateSpec`.
 
-**Rule SCHEMA-RESERVED-1:** All keys in `snapshot.data` starting with `$` are reserved for platform use.
+Platform/runtime/tooling namespaces are no longer represented as fields inside
+domain state. They live under the top-level `Snapshot.namespaces` partition.
 
-| Prefix | Owner | Examples |
-|--------|-------|----------|
-| `$host` | Host layer | `$host.intentSlots`, `$host.errors` |
-| `$mel` | MEL Compiler | `$mel.guards.intent.*` |
-| `$*` (future) | Platform | Reserved for future platform components |
+**Rule SCHEMA-RESERVED-1:** Domain schemas MUST NOT define fields whose names start with `$`.
 
-**Rule SCHEMA-RESERVED-2:** Domain schemas MUST NOT define **domain-owned** fields with names starting with `$`.
+**Rule SCHEMA-RESERVED-2:** Platform namespaces MUST be represented under `snapshot.namespaces`, not `snapshot.state`.
 
-**Clarification:** This rule prohibits *domain logic* from using `$`-prefixed fields. It does NOT prohibit platform components (Host, Compiler, App) from injecting `$host`/`$mel`. The distinction is **ownership**: `$`-prefixed fields are *platform-owned*.
+| Symbolic Namespace | Storage Location | Owner | Examples |
+|--------|-------|-------|----------|
+| `$*` | `snapshot.namespaces.*` | Owner package | Owner-defined outside Core |
 
 **Enforcement:**
 - Compiler MUST reject domain field names starting with `$` (compile error)
-- Schema validation SHOULD reject `$`-prefixed user-defined *domain* fields
-- Runtime MAY ignore `$`-prefixed fields in domain logic
+- Schema validation MUST reject `$`-prefixed domain fields
+- Runtime MUST NOT treat `$`-prefixed fields as domain logic
 
 **Additional rules:**
-- Core MUST treat `data.$*` namespaces as opaque and MUST NOT require them to appear in StateSpec.
-- Platform layers MAY add or patch `data.$*` via `core.apply()` even when StateSpec does not include those namespaces.
-- Core validates only platform namespace roots as objects; nested field-level validation is not applied under `$*`.
+- Core MUST NOT require namespace owners to declare namespace shapes in StateSpec.
+- Domain patches MUST NOT target `snapshot.namespaces`.
+- Namespace owners mutate namespaces only through `NamespaceDelta`.
+- Core validates namespace roots as objects; nested field-level validation belongs to the namespace owner.
 
 ---
 
@@ -450,6 +474,9 @@ type SemanticPath = string;
 - All paths in `deps` MUST exist in StateSpec or ComputedSpec.
 - `deps` MUST accurately reflect all paths referenced in `expr`.
 - Computed values MUST be **total** (always produce a value, never throw).
+- Computed expressions MUST depend only on `snapshot.state` and other computed fields.
+- Computed expressions MUST NOT read `snapshot.namespaces`, `snapshot.system`, `snapshot.meta`, or `snapshot.input`.
+- Computed dependency closure MUST NOT contain namespace reads, including compiler-owned namespace reads.
 
 ---
 
@@ -591,6 +618,14 @@ Within collection operations (`filter`, `map`, `find`, `every`, `some`):
 
 - Expressions MUST be **pure** (no side effects).
 - Expressions MUST be **total** (always return a value).
+- User-authored expressions MUST NOT read `snapshot.namespaces` paths.
+- User-authored `get` paths MUST NOT start with `$` except for Core-defined lexical/runtime variables:
+  `$item`, `$index`, `$array`, `$runtime.*`, and `$context.*`.
+- `$runtime.*` reads built-in runtime facts from `intent` and `context.runtime`.
+- `$context.*` reads only schema-declared user context under `context.external`.
+- `$runtime.*` and `$context.*` are legal only during bound action Flow evaluation; they are illegal in state initializers, computed values, `available`, and `dispatchable` evaluation.
+- Legacy meta/system dollar namespaces are not current v5 expression namespaces.
+- Compiler-generated owner-specific namespace reads are not part of Core expression semantics.
 - Division by zero MUST return `null`, not throw.
 - Out-of-bounds array access MUST return `null`, not throw.
 - `null` in boolean context MUST be treated as `false`.
@@ -629,6 +664,13 @@ FlowSpec defines **state transition programs**. A Flow is a declarative descript
 ### 8.3 Node Types
 
 ```typescript
+type FlowPatchSegment =
+  | { readonly kind: "prop"; readonly name: string }
+  | { readonly kind: "index"; readonly index: number }
+  | { readonly kind: "expr"; readonly expr: ExprNode };
+
+type FlowPatchPath = readonly FlowPatchSegment[];
+
 type FlowNode =
   // Sequencing
   | { kind: 'seq'; steps: readonly FlowNode[] }
@@ -637,7 +679,7 @@ type FlowNode =
   | { kind: 'if'; cond: ExprNode; then: FlowNode; else?: FlowNode }
   
   // State mutation
-  | { kind: 'patch'; op: 'set' | 'unset' | 'merge'; path: PatchPath; value?: ExprNode }
+  | { kind: 'patch'; op: 'set' | 'unset' | 'merge'; path: FlowPatchPath; value?: ExprNode }
   
   // Requirement declaration
   | { kind: 'effect'; type: string; params: Record<string, ExprNode> }
@@ -662,8 +704,8 @@ Executes steps in order. Each step sees the Snapshot as modified by previous ste
 {
   "kind": "seq",
   "steps": [
-    { "kind": "patch", "op": "set", "path": "a", "value": { "kind": "lit", "value": 1 } },
-    { "kind": "patch", "op": "set", "path": "b", "value": { "kind": "get", "path": "a" } }
+    { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "a" }], "value": { "kind": "lit", "value": 1 } },
+    { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "b" }], "value": { "kind": "get", "path": "a" } }
   ]
 }
 // Result: a = 1, b = 1
@@ -708,6 +750,11 @@ type Patch =
   | { readonly op: "set"; readonly path: PatchPath; readonly value: unknown }
   | { readonly op: "unset"; readonly path: PatchPath }
   | { readonly op: "merge"; readonly path: PatchPath; readonly value: Record<string, unknown> };
+
+type NamespaceDelta = {
+  readonly namespace: string;
+  readonly patches: readonly Patch[];
+};
 ```
 
 ```json
@@ -724,41 +771,84 @@ type Patch =
 
 **CRITICAL: Patch Path Resolution**
 
-Patch paths MUST be concrete `PatchPath` values at apply-time. Dynamic path expressions are NOT evaluated by `core.apply()`.
-Compiler/runtime evaluation MUST resolve dynamic segments before calling Core.
+Core distinguishes Flow-level patch targets from apply-time patches.
+
+- `FlowNode.patch.path` is a `FlowPatchPath` and MAY contain `expr` segments.
+- `Patch.path` is a concrete `PatchPath` and MUST contain only `prop` and
+  `index` segments.
+- `core.apply()` accepts only concrete `Patch[]`; it never evaluates
+  `FlowPatchPath`, `ExprNode`, or any dynamic target expression.
+- `ComputeResult.patches` contains only concrete `Patch[]` rooted at
+  `snapshot.state`.
+
+During `compute()`, Core resolves every `FlowPatchPath` to a concrete
+`PatchPath` before emitting a `Patch`.
+
+Resolution rules:
+
+1. `prop` and `index` segments pass through unchanged.
+2. `expr` segments are evaluated with the same expression evaluator and the
+   same explicit `Context` input as the surrounding Flow.
+3. An expression resolving to a non-empty string becomes
+   `{ kind: "prop", name }`.
+4. An expression resolving to a non-negative integer becomes
+   `{ kind: "index", index }`.
+5. Any other value is a semantic failure.
 
 ```
 ALLOWED:
-  patch todos = ...              // lowered to concrete PatchPath
-  patch user.profile.name = ...  // lowered to concrete PatchPath
+  patch todos = ...              // FlowPatchPath with concrete segments
+  patch user.profile.name = ...  // FlowPatchPath with concrete segments
+  patch items[$runtime.random.uuid] = ... // FlowPatchPath with expr segment
 
 NOT ALLOWED at apply-time:
-  patch items[$system.uuid] = ...   // unresolved expr segment
+  patch items[$runtime.random.uuid] = ... // unresolved expr segment
   patch records[activeId] = ...     // unresolved expr segment
 ```
 
-When MEL source contains a dynamic path like `patch items[$system.uuid] = value`, lower/evaluate stages MUST:
+Invalid target resolution is not skip-and-warning behavior. Core MUST report:
 
-1. Parse as valid MEL syntax.
-2. Resolve expression segments to concrete runtime values.
-3. Produce `PatchPath` with only `prop` and `index` segments.
-4. Skip invalid path resolutions (TOTAL rule) with warnings, never throw.
+- invalid dynamic segment value: `INVALID_PATCH_PATH`
+- resolved path not admitted by schema: `PATH_NOT_FOUND`
+- invalid merge target or invalid value: `TYPE_MISMATCH`
+
+Those failures are expressed through the normal Core error path and become
+visible as `snapshot.system.lastError` after the Host/Core boundary applies the
+`SystemDelta`.
+
+Flow patch evaluation is sequential. Later patch values and later dynamic target
+expressions observe the working Snapshot produced by earlier patches in the same
+Flow evaluation.
+
+If a dynamic target expression uses `$runtime.random.uuid`, allocation is
+deterministic over the explicit Core input tuple:
+
+```text
+schema + snapshot + intent + context
+```
+
+Compiler MAY lower and preserve dynamic target expressions into `FlowPatchPath`,
+but it MUST NOT evaluate them, allocate runtime values, emit placeholder targets
+such as `"*"`, or produce runtime patches from runtime data. Host MUST NOT
+resolve dynamic targets; Host applies Core-emitted concrete patches only.
 
 **Rationale:**
 
-| Concern | Why Dynamic Paths Violate It |
+| Concern | Why unresolved apply-time targets violate it |
 |---------|------------------------------|
 | **Determinism** | Unresolved paths would depend on external runtime state |
-| **Purity** | Core would need expression execution in `apply()` |
+| **Purity** | Dynamic target expression execution belongs to `compute()`, never `apply()` |
 | **Reproducibility** | Same patch payload could map to different fields |
 | **Traceability** | String encoding/escaping loses structural intent |
 
 **Patch Root Anchor (Normative):**
 
-- `PatchPath` is always rooted at `snapshot.data`.
-- Patches MUST NOT target `snapshot.system`, `snapshot.input`, `snapshot.computed`, or `snapshot.meta`.
+- `PatchPath` values are root-relative and MUST NOT carry root information.
+- Domain patches carried in `ComputeResult.patches` are rooted at `snapshot.state`.
+- Namespace patches carried in `NamespaceDelta.patches` are rooted at `snapshot.namespaces[namespace]`.
+- Domain patches MUST NOT target `snapshot.system`, `snapshot.input`, `snapshot.computed`, `snapshot.meta`, or `snapshot.namespaces`.
 - System transitions are represented by `SystemDelta` (see §16.2), not by patches.
-- `$host` and `$mel` are platform-reserved data namespaces. If the first segment is `$host` or `$mel`, Core MUST treat subpaths as owner-managed and bypass state schema path checks.
+- Namespace transitions are represented by `NamespaceDelta`, not by domain patches.
 
 ```typescript
 function patchPathToDisplayString(path: PatchPath): string;
@@ -1015,7 +1105,7 @@ type Requirement = {
   /** Position in the flow where effect was encountered */
   readonly flowPosition: FlowPosition;
   
-  /** Timestamp when requirement was created */
+  /** Context runtime timestamp captured for the transition attempt */
   readonly createdAt: number;
 };
 
@@ -1035,7 +1125,7 @@ type FlowPosition = {
 │                   REQUIREMENT LIFECYCLE                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  1. Host calls compute(snapshot, intent, context)           │
+│  1. Host calls compute(schema, snapshot, intent, context)   │
 │                                                             │
 │  2. Core evaluates Flow                                     │
 │     - Applies patches to snapshot                           │
@@ -1055,9 +1145,9 @@ type FlowPosition = {
 │  5. Host executes effect (IO, network, etc.)                │
 │                                                             │
 │  6. Host applies result patches to snapshot:                │
-│     snapshot'' = apply(snapshot', resultPatches, context)   │
+│     snapshot'' = apply(schema, snapshot', resultPatches)    │
 │                                                             │
-│  7. Host calls compute(snapshot'', intent, context) AGAIN   │
+│  7. Host calls compute(schema, snapshot'', intent, context) AGAIN │
 │     - This is a NEW computation, not a resume               │
 │     - Flow will check snapshot state and proceed            │
 │                                                             │
@@ -1216,7 +1306,7 @@ type TraceNode = {
   /** Child trace nodes */
   readonly children: readonly TraceNode[];
   
-  /** Timestamp */
+  /** Context runtime timestamp captured for this compute call */
   readonly timestamp: number;
 };
 
@@ -1225,12 +1315,28 @@ type TraceNodeKind =
   | 'computed'    // Computed field evaluation
   | 'flow'        // Flow execution
   | 'patch'       // State mutation
+  | 'namespaceRead'  // Core-owned primitive bookkeeping read
+  | 'namespaceDelta' // Namespace transition
   | 'effect'      // Effect declaration
   | 'branch'      // Conditional branch taken
   | 'call'        // Flow call
   | 'halt'        // Normal termination
   | 'error';      // Error occurred
 ```
+
+Namespace trace events are part of the Core trace surface, but they are not
+domain-state trace events.
+
+| Rule ID | Description |
+|---------|-------------|
+| TRACE-NS-1 | Core-owned primitive bookkeeping reads MUST be traced with `kind: 'namespaceRead'`. |
+| TRACE-NS-2 | Namespace transitions MUST be traced with `kind: 'namespaceDelta'`. |
+| TRACE-NS-3 | Namespace trace nodes MUST identify the owning namespace and the fixed-shape path read or written. |
+| TRACE-NS-4 | Domain `patch` trace nodes MUST NOT be reused to represent namespace transitions. |
+
+Trace timestamps and duration fields are deterministic trace metadata. They
+MUST be derived from explicit inputs such as `context.runtime.time.timestamp` or
+logical trace positions, never from ambient wall-clock measurement.
 
 ### 12.3 Trace Graph
 
@@ -1251,7 +1357,7 @@ type TraceGraph = {
   /** Snapshot version at end */
   readonly resultVersion: number;
   
-  /** Total computation time (ms) */
+  /** Deterministic logical duration; Core MUST NOT measure wall-clock time */
   readonly duration: number;
   
   /** Termination reason */
@@ -1273,9 +1379,9 @@ In the Core SPEC, `Snapshot` is the **canonical immutable, point-in-time substra
 ### 13.2 Structure
 
 ```typescript
-type Snapshot<TData = unknown> = {
-  /** Domain data (matches StateSpec; may include platform-reserved `$*` namespaces) */
-  readonly data: TData;
+type Snapshot<TState = Record<string, unknown>> = {
+  /** Domain-owned state (matches StateSpec) */
+  readonly state: TState;
   
   /** Computed values (matches ComputedSpec) */
   readonly computed: Record<SemanticPath, unknown>;
@@ -1288,6 +1394,14 @@ type Snapshot<TData = unknown> = {
   
   /** Snapshot metadata */
   readonly meta: SnapshotMeta;
+
+  /** Platform/runtime/compiler/tooling namespaces */
+  readonly namespaces: SnapshotNamespaces;
+};
+
+type SnapshotNamespaces = {
+  /** Platform/runtime/tooling namespaces; nested shapes are owner-defined. */
+  readonly [namespace: string]: unknown;
 };
 
 type SystemState = {
@@ -1311,7 +1425,7 @@ type SnapshotMeta = {
   /** Timestamp of last modification */
   readonly timestamp: number;
 
-  /** Deterministic random seed from Host context */
+  /** Snapshot envelope seed; runtime expressions read Context.runtime.random.seed */
   readonly randomSeed: string;
   
   /** Hash of the schema this snapshot conforms to */
@@ -1319,30 +1433,61 @@ type SnapshotMeta = {
 };
 ```
 
-### 13.3 Normative Note: `data` vs "state" terminology, and computed key access
+### 13.3 Normative Note: `state`, `namespaces`, and computed key access
 
-In this specification, domain-owned mutable state is stored under `snapshot.data`.
-Higher-level layers (e.g., MEL or App-level facades) may refer to this conceptually as "state".
-This is terminology only.
+In this specification, domain-owned mutable state is stored under `snapshot.state`.
+`Snapshot.data` is retired from the current Core boundary contract.
 
 - Implementations and consumers operating at the **Core/Host boundary** MUST treat `Snapshot` as having the canonical fields:
-  `data`, `computed`, `system`, `input`, `meta`.
-  In particular, the field name is `data` (not `state`).
+  `state`, `computed`, `system`, `input`, `meta`, `namespaces`.
+  In particular, the domain field name is `state` (not `data`).
 
 - `snapshot.computed` is a **string-keyed map** whose keys are `SemanticPath` values (dot-separated paths such as `doubled` or `total`).
   Therefore, consumers MUST treat `snapshot.computed` as a dictionary/map and access values by string key
   (e.g., `snapshot.computed['doubled']`), not by assuming nested object structure.
 
-- Higher-level layers **MAY** provide derived read-only views or aliases (e.g., `snapshot.state` as an alias of `snapshot.data`,
-  or ergonomic aliases for computed keys), but such views **MUST NOT** change the canonical Snapshot contract at the Core/Host boundary. This includes SDK-level projected read models that intentionally hide canonical-only fields from default application reads.
+- `snapshot.namespaces` is a top-level partition for platform/runtime/compiler/tooling-owned operational state.
+  It is not domain state and MUST NOT be exposed by default projected application snapshots.
 
-### 13.4 Requirements
+### 13.4 Namespace Channel Rules
+
+| Rule ID | Requirement |
+|---------|-------------|
+| NSDELTA-1 | Namespace authority is owned by the namespace owner. Core applies namespace deltas structurally and opaquely. |
+| NSDELTA-1a | Core MAY materialize `NamespaceDelta` only for Core-owned generic primitives such as `causalGuard`. |
+| NSDELTA-1b | External packages MAY materialize `NamespaceDelta` for their own namespaces; their shapes are not Core contract. |
+| NSDELTA-2 | User-authored MEL explicit mutation syntax and user-supplied effect patches MUST NOT target namespaces or express `NamespaceDelta`. |
+| NSDELTA-2a | Compiler-owned language-runtime constructs MAY lower to Core-owned generic Flow primitives but MUST NOT require Core to know MEL storage shape. |
+| NSDELTA-3 | Namespace mutation MUST travel through `NamespaceDelta`; `NamespaceDelta.patches` are rooted at `snapshot.namespaces[namespace]`. |
+| NSDELTA-4 | Namespace transitions MUST be recorded as namespace-scoped trace nodes, distinct from domain patch nodes. |
+| NSREAD-1 | User-authored expressions MUST NOT reference `snapshot.namespaces` paths. |
+| NSREAD-2 | Core-owned generic primitives MAY read Core-owned bookkeeping; general expressions and compiler-generated owner-specific paths MUST NOT. |
+| NSREAD-3 | Core-owned namespace reads MUST remain scoped to the primitive that owns them. |
+| NSREAD-4 | Owner package namespace reads must be implemented by the owner package, not by Core expression evaluation. |
+| NSINIT-1 | Every canonical Snapshot MUST contain `namespaces` as an object. |
+| NSINIT-2 | Fresh Core snapshots initialize `namespaces` to `{}`. |
+| NSINIT-3 | Migration and restore code preserve `namespaces` as an object. |
+| NSINIT-4 | Core normalizes only Core-owned primitive bookkeeping. |
+| NSINIT-5 | Future namespaces SHOULD follow the same owner-defined shape and runtime-normalization pattern. |
+
+#### 13.4.1 Registered Namespace Constructs
+
+| Construct | Owner | Runtime Target | Materializer |
+|-----------|-------|----------------|--------------|
+| `causalGuard` | Core | Core-owned per-causal-intent bookkeeping | Core |
+
+Compiler `onceIntent` lowers to Core `causalGuard`. Core MUST NOT know MEL
+namespace names or MEL-owned storage shape.
+
+### 13.5 Requirements
 
 - Snapshots MUST be immutable.
 - `version` MUST be incremented on every change.
-- `computed` MUST be consistent with `data` (no stale values).
-- All communication between Host and Core happens through Snapshot.
-- `data.$*` namespaces are platform-owned and opaque to Core.
+- `computed` MUST be consistent with `state` (no stale values).
+- All cross-computation continuity between Host and Core happens through Snapshot.
+- Current-computation external environment MUST be passed as explicit `Context`, not hidden in Snapshot namespaces.
+- `namespaces` entries are platform-owned, operational, and opaque to domain logic.
+- Core validates namespace roots as objects; namespace owners validate nested namespace shape.
 
 ---
 
@@ -1354,7 +1499,7 @@ This is terminology only.
 |---------|-------------|
 | V-001 | All paths in ComputedSpec.deps MUST exist |
 | V-002 | ComputedSpec dependency graph MUST be acyclic |
-| V-003 | All paths in ExprNode.get MUST exist |
+| V-003 | User-authored `ExprNode.get` paths MUST resolve to allowed state, computed, input, or lexical/runtime variables; owner-specific namespace, system, and meta reads are not valid Core expression semantics |
 | V-004 | All `call` references in FlowSpec MUST exist |
 | V-005 | FlowSpec `call` graph MUST be acyclic |
 | V-006 | ActionSpec.available expression MUST return boolean |
@@ -1362,6 +1507,8 @@ This is terminology only.
 | V-008 | Schema hash MUST match canonical hash |
 | V-009 | ActionSpec.dispatchable expression MUST return boolean when present |
 | V-010 | `StateSpec.fieldTypes` / `ActionSpec.inputType` MUST be valid TypeDefinition carriers when present |
+| V-011 | StateSpec fields and StateSpec.fieldTypes roots MUST NOT start with `$` |
+| V-012 | Computed expressions MUST NOT depend on namespaces, system, meta, or input |
 
 ### 14.2 Runtime Validation
 
@@ -1369,8 +1516,12 @@ This is terminology only.
 |---------|-------------|
 | R-001 | Intent input MUST match ActionSpec.input |
 | R-002 | ActionSpec.available MUST evaluate to true **on initial invocation**. Skipped on re-entry (`system.currentAction === intent.type`). |
-| R-003 | Patch paths MUST exist in StateSpec (except `$`-prefixed platform namespaces in `snapshot.data`, which are platform-owned and opaque to Core) |
-| R-004 | Patch values MUST match field types (except under `$`-prefixed platform namespaces in `snapshot.data`; Core validates only namespace roots as objects) |
+| R-003 | Domain patch paths MUST exist in StateSpec and are rooted at `snapshot.state` |
+| R-004 | Domain patch values MUST match StateSpec field types |
+| R-005 | `NamespaceDelta` roots MUST name a non-empty namespace; namespace root values MUST be objects, and nested validation belongs to the namespace owner |
+| R-006 | User-authored expressions and patches MUST NOT read or write namespaces; registered compiler-owned constructs MAY use fixed-shape namespace reads/writes |
+| R-007 | `NamespaceDelta` patch paths MUST be safe structured `PatchPath` values and MUST be applied only under `snapshot.namespaces[namespace]` |
+| R-008 | `merge` targets in namespace patches MUST resolve to an object or be absent |
 
 ---
 
@@ -1442,11 +1593,13 @@ Core and its dependent packages (Host, Compiler, App) must work in browsers for 
 
 ---
 
-## 16. Host Interface
+## 16. Runtime Boundary Interface
 
 ### 16.1 Purpose
 
-The Host interface defines how external systems interact with Core.
+The runtime boundary interface defines how callers interact with Core. Host and
+SDK may assemble context, but Core's canonical input type is owner-neutral
+`Context`, not a host-owned context type.
 
 ### 16.2 Core API
 
@@ -1462,7 +1615,7 @@ interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot,
     intent: Intent,
-    context: HostContext
+    context: Context
   ): Promise<ComputeResult>;
 
   /**
@@ -1474,18 +1627,26 @@ interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot,
     intent: Intent,
-    context: HostContext
+    context: Context
   ): ComputeResult;
   
   /**
-   * Apply domain data patches to a snapshot.
-   * Patch paths are rooted at snapshot.data.
+   * Apply domain state patches to a snapshot.
+   * Patch paths are rooted at snapshot.state.
    */
   apply(
     schema: DomainSchema,
     snapshot: Snapshot,
-    patches: readonly Patch[],
-    context: HostContext
+    patches: readonly Patch[]
+  ): Snapshot;
+
+  /**
+   * Apply namespace transitions to a snapshot.
+   * Each delta's patch paths are rooted at snapshot.namespaces[namespace].
+   */
+  applyNamespaceDeltas(
+    snapshot: Snapshot,
+    deltas: readonly NamespaceDelta[]
   ): Snapshot;
 
   /**
@@ -1553,18 +1714,16 @@ type Intent = {
   readonly intentId: string;
 };
 
-type HostContext = {
-  /** Logical time provided by Host */
-  readonly now: number;
-
-  /** Deterministic random seed provided by Host */
-  readonly randomSeed: string;
-
-  /** Optional host environment metadata */
-  readonly env?: Record<string, unknown>;
-
-  /** Optional measured compute duration (ms) */
-  readonly durationMs?: number;
+type Context<TExternalContext = Record<string, unknown>> = {
+  readonly runtime: {
+    readonly time: {
+      readonly timestamp: number;
+    };
+    readonly random: {
+      readonly seed: string;
+    };
+  };
+  readonly external: TExternalContext;
 };
 
 type PatchSegment =
@@ -1578,6 +1737,12 @@ type Patch =
   | { readonly op: 'unset'; readonly path: PatchPath }
   | { readonly op: 'merge'; readonly path: PatchPath; readonly value: Record<string, unknown> };
 
+type NamespaceDelta = {
+  readonly namespace: string;
+  /** Patch paths are rooted at snapshot.namespaces[namespace]. */
+  readonly patches: readonly Patch[];
+};
+
 type SystemDelta = {
   readonly status?: SystemState['status'];
   readonly currentAction?: string | null;
@@ -1587,8 +1752,11 @@ type SystemDelta = {
 };
 
 type ComputeResult = {
-  /** Domain state patches only (snapshot.data root) */
+  /** Domain state patches only (snapshot.state root) */
   readonly patches: readonly Patch[];
+
+  /** Namespace transitions only (snapshot.namespaces[namespace] root) */
+  readonly namespaceDelta?: readonly NamespaceDelta[];
   
   /** System transition emitted by compute */
   readonly systemDelta: SystemDelta;
@@ -1609,12 +1777,25 @@ type ComputeStatus =
 
 **Normative rules:**
 
-- `PatchPath` is rooted at `snapshot.data`.
-- Patches MUST NOT target `system/input/computed/meta`.
+- `Context` MUST be JSON-serializable materialized data.
+- `Context` MUST NOT contain providers, callbacks, promises, mutable service objects, IO handles, or owner-specific shapes.
+- `compute()` is the only Core API in this section that accepts `Context`.
+- `apply()` and `applyNamespaceDeltas()` MUST NOT accept `Context`; they apply already-materialized patch data.
+- `PatchPath` is root-relative and MUST NOT carry root information.
+- `FlowPatchPath` is a Flow target representation only and MUST NOT cross the apply-time boundary.
+- Core resolves dynamic Flow patch targets during `compute()` before emitting `Patch[]`.
+- Domain patches in `ComputeResult.patches` are rooted at `snapshot.state`.
+- Namespace patches in `NamespaceDelta.patches` are rooted at `snapshot.namespaces[namespace]`.
+- Domain patches MUST NOT target `system/input/computed/meta/namespaces`.
+- Namespace changes MUST be expressed via `NamespaceDelta` and applied with `applyNamespaceDeltas()`.
 - System changes MUST be expressed via `SystemDelta` and applied with `applySystemDelta()`.
+- For one `ComputeResult`, Host MUST apply domain patches, then namespace deltas, then system delta.
+- Omitted `namespaceDelta` MUST be interpreted as an empty list.
+- `applyNamespaceDeltas()` MUST NOT mutate `snapshot.state`, `snapshot.computed`, `snapshot.input`, or `snapshot.system` except to record namespace-delta validation failures as error values in `system.lastError`.
+- `applyNamespaceDeltas()` MUST preserve computed values; namespace transitions are operational and MUST NOT trigger computed recomputation.
+- Core MAY materialize `namespaceDelta` only for registered Core-owned generic constructs. It MUST NOT materialize Host-owned, Compiler-owned, or MEL-owned namespace deltas.
+- Dynamic target failures MUST be expressed through Core's normal error path, not through warnings or skipped patch output.
 - `patchPathToDisplayString(path)` is display-only and MUST NOT be used as parse input.
-
-> **Implementation convergence pending (ADR-009):** Some current `src` modules may still expose pre-ADR path contracts. The normative contract in this document is the accepted ADR-009 hard-cut target.
 
 ### 16.3 Host Responsibilities
 
@@ -1622,6 +1803,7 @@ type ComputeStatus =
 |----------------|-------------|
 | **Effect Execution** | Execute effects recorded in pendingRequirements |
 | **Patch Application** | Apply domain patches via `core.apply()` |
+| **Namespace Transition Application** | Apply namespace deltas via `core.applyNamespaceDeltas()` |
 | **System Transition Application** | Apply system deltas via `core.applySystemDelta()` |
 | **Loop Control** | Call `compute()` again after fulfilling requirements |
 | **Persistence** | Store/retrieve snapshots |
@@ -1636,7 +1818,7 @@ async function processIntent(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
-  context: HostContext
+  context: Context
 ): Promise<Snapshot> {
   let current = snapshot;
   
@@ -1646,10 +1828,15 @@ async function processIntent(
     
     // Step 1: apply domain patches
     if (result.patches.length > 0) {
-      current = core.apply(schema, current, result.patches, context);
+      current = core.apply(schema, current, result.patches);
+    }
+
+    // Step 2: apply namespace transitions
+    if (result.namespaceDelta?.length) {
+      current = core.applyNamespaceDeltas(current, result.namespaceDelta);
     }
     
-    // Step 2: apply system transition
+    // Step 3: apply system transition
     current = core.applySystemDelta(current, result.systemDelta);
     
     // Check status
@@ -1666,8 +1853,13 @@ async function processIntent(
       case 'pending':
         // Fulfill requirements
         for (const req of current.system.pendingRequirements) {
-          const patches = await executeEffect(req, current, context);
-          current = core.apply(schema, current, patches, context);
+          const fulfillment = await executeEffect(req, current, context);
+          if (fulfillment.patches.length > 0) {
+            current = core.apply(schema, current, fulfillment.patches);
+          }
+          if (fulfillment.namespaceDelta.length > 0) {
+            current = core.applyNamespaceDeltas(current, fulfillment.namespaceDelta);
+          }
           current = core.applySystemDelta(current, {
             removeRequirementIds: [req.id],
           });
@@ -1678,26 +1870,42 @@ async function processIntent(
   }
 }
 
+type EffectFulfillment = {
+  readonly patches: readonly Patch[];
+  readonly namespaceDelta: readonly NamespaceDelta[];
+};
+
 async function executeEffect(
   requirement: Requirement,
   snapshot: Snapshot,
-  context: HostContext
-): Promise<Patch[]> {
+  context: Context
+): Promise<EffectFulfillment> {
   const handler = effectHandlers[requirement.type];
   if (!handler) {
-    return [
-      { op: 'set', path: [{ kind: 'prop', name: '$host' }, { kind: 'prop', name: 'lastUnknownEffectError' }], value: {
-        code: 'UNKNOWN_EFFECT',
-        message: `No handler for effect type: ${requirement.type}`,
-        source: { actionId: snapshot.system.currentAction, nodePath: '' },
-        timestamp: context.now
-      }}
-    ];
+    return {
+      patches: [],
+      namespaceDelta: [
+        {
+          namespace: 'host',
+          patches: [
+            { op: 'set', path: [{ kind: 'prop', name: 'lastUnknownEffectError' }], value: {
+              code: 'UNKNOWN_EFFECT',
+              message: `No handler for effect type: ${requirement.type}`,
+              source: { actionId: snapshot.system.currentAction, nodePath: '' },
+              timestamp: context.runtime.time.timestamp
+            }}
+          ],
+        },
+      ],
+    };
   }
-  return handler(requirement.type, requirement.params, {
-    snapshot,
-    requirement,
-  });
+  return {
+    patches: await handler(requirement.type, requirement.params, {
+      snapshot,
+      requirement,
+    }),
+    namespaceDelta: [],
+  };
 }
 ```
 
@@ -1708,10 +1916,11 @@ There is intentionally **no `resume()` API**.
 When computation yields due to an effect:
 
 1. Host reads `snapshot.system.pendingRequirements`.
-2. Host executes effects and collects result patches.
+2. Host executes effects and collects domain patches plus any Host-owned namespace deltas.
 3. Host applies domain patches via `core.apply()`.
-4. Host clears fulfilled requirements via `core.applySystemDelta({ removeRequirementIds })`.
-5. Host calls `core.compute()` again with the updated snapshot.
+4. Host applies namespace deltas via `core.applyNamespaceDeltas()`.
+5. Host clears fulfilled requirements via `core.applySystemDelta({ removeRequirementIds })`.
+6. Host calls `core.compute()` again with the updated snapshot.
 
 The Flow will naturally proceed because:
 
@@ -1736,7 +1945,7 @@ an explicit query path for host control flow.
 | AVAIL-Q-4 | MUST | If `actionName` does not exist in `schema.actions`, `isActionAvailable()` MUST throw. This is a schema contract violation, not a runtime availability question. |
 | AVAIL-Q-5 | MUST | `getAvailableActions()` MUST return the same result as filtering action names through `isActionAvailable()`. Order SHOULD follow `schema.actions` key order. |
 | AVAIL-Q-6 | MUST NOT | Availability query MUST NOT treat `snapshot.system.currentAction` as re-entry state. It answers whether the action family is currently available for a new invocation attempt against the current Snapshot. |
-| AVAIL-Q-7 | MUST NOT | Availability query MUST NOT require `HostContext`. It is pure over schema + snapshot. |
+| AVAIL-Q-7 | MUST NOT | Availability query MUST NOT require `Context`. It is pure over schema + snapshot. |
 
 ---
 
@@ -1758,7 +1967,7 @@ The query does not mutate Snapshot, does not emit `SystemDelta`, and does not re
 | DISP-Q-3 | MUST | `isIntentDispatchable()` MUST be pure and side-effect-free. It MUST NOT modify Snapshot, emit `SystemDelta`, create Patches, or generate trace entries. |
 | DISP-Q-4 | MUST | If the intent's action is not available under `isActionAvailable()`, `isIntentDispatchable()` MUST return `false` without evaluating `ActionSpec.dispatchable`. |
 | DISP-Q-5 | MUST | `isIntentDispatchable()` MUST reuse the same expression-evaluation machinery used by `compute()` rather than defining a second evaluation model. |
-| DISP-Q-6 | MUST NOT | `isIntentDispatchable()` MUST NOT require `HostContext`. It is pure over schema + snapshot + intent. |
+| DISP-Q-6 | MUST NOT | `isIntentDispatchable()` MUST NOT require `Context`. It is pure over schema + snapshot + intent. |
 
 ---
 
@@ -1976,8 +2185,8 @@ The absence of a `resume()` API is intentional and reflects a core design princi
 
 Traditional patterns:
 ```typescript
-const result = await api.call();  // Value returned
-if (result.ok) { ... }            // Value used
+const apiResult = await api.call();  // Value returned
+if (apiResult.ok) { ... }            // Value used
 ```
 
 Manifesto pattern:
@@ -2020,7 +2229,7 @@ For unbounded iteration, Host controls the loop by repeatedly calling `compute()
 | FDR-012 | Patch Operations Limited to Three | §8.4.3 |
 | FDR-013 | Host Responsibility Boundary | §16 |
 | FDR-014 | Browser Compatibility | §4 |
-| FDR-015 | Static Patch Paths | §8.4.3 |
+| FDR-015 | Concrete Apply-Time Patch Paths | §8.4.3 |
 | FDR-016 | Expression Semantic Heads | §7 |
 
 ---

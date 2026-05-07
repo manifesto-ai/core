@@ -8,12 +8,12 @@ import { isOk, isErr } from "../schema/common.js";
 
 // Helper to create a minimal test context
 function createTestContext(
-  data: unknown = {},
+  state: unknown = {},
   input?: unknown,
   meta?: { intentId: string; actionName: string | null; timestamp: number }
 ): ReturnType<typeof createContext> {
   const snapshot: Snapshot = {
-    data,
+    state,
     computed: {},
     system: {
       status: "idle",
@@ -27,6 +27,10 @@ function createTestContext(
       timestamp: meta?.timestamp ?? 0,
       randomSeed: "seed",
       schemaHash: "test-hash",
+    },
+    namespaces: {
+      platform: {},
+      tool: { guards: { intent: {} } },
     },
   };
 
@@ -46,7 +50,17 @@ function createTestContext(
     meta?.actionName ?? null,
     "test",
     meta?.intentId,
-    meta?.timestamp ?? 0
+    meta?.timestamp ?? 0,
+    {
+      context: {
+        runtime: {
+          time: { timestamp: meta?.timestamp ?? 0 },
+          random: { seed: "seed" },
+        },
+        external: {},
+      },
+      phase: "flow",
+    }
   );
 }
 
@@ -88,7 +102,7 @@ describe("Expression Evaluator", () => {
       expect(evaluate({ kind: "lit", value: { a: 1 } })).toEqual({ a: 1 });
     });
 
-    it("get - should get values from data", () => {
+    it("get - should get values from state", () => {
       const ctx = createTestContext({ count: 10, user: { name: "Alice" } });
       expect(evaluate({ kind: "get", path: "count" }, ctx)).toBe(10);
       expect(evaluate({ kind: "get", path: "user.name" }, ctx)).toBe("Alice");
@@ -106,26 +120,55 @@ describe("Expression Evaluator", () => {
       expect(evaluate({ kind: "get", path: "input" }, ctx)).toEqual({ amount: 100 });
     });
 
-    it("get - should get values from system", () => {
-      const ctx = createTestContext();
-      expect(evaluate({ kind: "get", path: "system.status" }, ctx)).toBe("idle");
+    it("get - should treat system-like paths as domain state", () => {
+      const ctx = createTestContext({ system: { status: "domain-idle" } });
+      expect(evaluate({ kind: "get", path: "system.status" }, ctx)).toBe("domain-idle");
     });
 
-    it("get - should get values from meta", () => {
+    it("get - should not expose platform namespaces to expressions", () => {
+      const ctx = createTestContext();
+      const namespaceCtx = {
+        ...ctx,
+        snapshot: {
+          ...ctx.snapshot,
+          namespaces: {
+            ...ctx.snapshot.namespaces,
+            runtime: {
+              intentSlots: {
+                "intent-1": { type: "submit" },
+              },
+            },
+          },
+        },
+      };
+
+      expect(isErr(evaluateExpr({ kind: "get", path: "$platform.intentSlots.intent-1.type" }, namespaceCtx))).toBe(true);
+      expect(isErr(evaluateExpr({ kind: "get", path: "$runtime.missing" }, namespaceCtx))).toBe(true);
+    });
+
+    it("get - should get values from runtime and domain meta state", () => {
       const ctx = createTestContext({}, undefined, {
         intentId: "intent-123",
         actionName: "testAction",
         timestamp: 1234,
       });
-      expect(evaluate({ kind: "get", path: "meta.intentId" }, ctx)).toBe("intent-123");
-      expect(evaluate({ kind: "get", path: "meta.actionName" }, ctx)).toBe("testAction");
-      expect(evaluate({ kind: "get", path: "meta.timestamp" }, ctx)).toBe(1234);
+      const domainMetaCtx = {
+        ...ctx,
+        snapshot: {
+          ...ctx.snapshot,
+          state: { meta: { timestamp: 99 } },
+        },
+      };
+      expect(evaluate({ kind: "get", path: "$runtime.intent.id" }, ctx)).toBe("intent-123");
+      expect(evaluate({ kind: "get", path: "$runtime.intent.action" }, ctx)).toBe("testAction");
+      expect(evaluate({ kind: "get", path: "$runtime.time.timestamp" }, ctx)).toBe(1234);
+      expect(evaluate({ kind: "get", path: "meta.timestamp" }, domainMetaCtx)).toBe(99);
     });
 
-    it("get - should normalize missing meta values to null", () => {
+    it("get - should normalize missing runtime and domain meta values to null", () => {
       const ctx = createTestContext();
-      expect(evaluate({ kind: "get", path: "meta.intentId" }, ctx)).toBeNull();
-      expect(evaluate({ kind: "get", path: "meta.actionName" }, ctx)).toBeNull();
+      expect(evaluate({ kind: "get", path: "$runtime.intent.id" }, ctx)).toBeNull();
+      expect(evaluate({ kind: "get", path: "$runtime.intent.action" }, ctx)).toBeNull();
       expect(evaluate({ kind: "get", path: "meta.missing" }, ctx)).toBeNull();
     });
   });
@@ -467,6 +510,35 @@ describe("Expression Evaluator", () => {
         array: { kind: "lit", value: [1, 2, 3] },
         mapper: { kind: "mul", left: { kind: "get", path: "$item" }, right: { kind: "lit", value: 2 } },
       })).toEqual([2, 4, 6]);
+    });
+
+    it("map - should allocate distinct deterministic runtime UUIDs across cloned collection contexts", () => {
+      const expr: ExprNode = {
+        kind: "map",
+        array: { kind: "lit", value: [1, 2] },
+        mapper: {
+          kind: "object",
+          fields: {
+            id: { kind: "get", path: "$runtime.random.uuid" },
+            otherId: { kind: "get", path: "$runtime.random.uuid" },
+          },
+        },
+      };
+      const meta = {
+        intentId: "intent-runtime-uuid-map",
+        actionName: "allocateIds",
+        timestamp: 123,
+      };
+
+      const first = evaluate(expr, createTestContext({}, undefined, meta)) as Array<{
+        id: string;
+        otherId: string;
+      }>;
+      const second = evaluate(expr, createTestContext({}, undefined, meta));
+      const ids = first.flatMap((row) => [row.id, row.otherId]);
+
+      expect(new Set(ids).size).toBe(4);
+      expect(second).toEqual(first);
     });
 
     it("find - should find first matching element", () => {

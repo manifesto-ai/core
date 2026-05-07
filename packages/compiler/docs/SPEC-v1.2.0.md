@@ -1,15 +1,32 @@
-# MEL Compiler SPEC v1.3.0
+# MEL Compiler SPEC v5.0.0
 
-> **Version:** 1.3.0
+> **Version:** 5.0.0
 > **Type:** Full
 > **Status:** Normative
-> **Date:** 2026-04-25
-> **Replaces:** v1.2.0 as the current full compiler contract
-> **Compatible with:** Core SPEC v4.2.0, current SDK activation-first contract
+> **Date:** 2026-04-29
+> **Replaces:** v1.3.0 as the current full compiler contract
+> **Compatible with:** Core SPEC v5.0.0, current SDK activation-first contract
 
 ---
 
 ## Changelog
+
+### v5.0.0
+
+- align the current compiler contract to ADR-025 and the Core v5 Snapshot ontology
+- specify that MEL `state {}` lowers to domain state observed at `snapshot.state`
+- specify that user patch paths lower to root-free `PatchPath` values carried through the state-rooted domain patch channel
+- move `onceIntent` lowering from retired MEL namespace storage to Core's generic `causalGuard` Flow primitive
+- require `onceIntent` to preserve per-intent semantics without requiring Core to know MEL namespace shape
+- align runtime expression lowering to ADR-027: `$runtime.*` and `$context.*`, with legacy meta/system dollar namespaces retired
+- add MEL `context {}` as a shape declaration for direct-injected `context.external`
+- define the current compiler-owned runtime construct registry with `onceIntent` as its only entry
+- clarify that user-authored MEL cannot read or write namespaces
+- align dynamic patch target ownership to ADR-028: Compiler lowers and preserves target expressions while Core resolves them during Flow computation
+- retire compiler-owned runtime patch evaluation APIs from the current v5 public contract
+- prohibit dynamic patch target placeholders such as `"*"` in compiler output
+- remove current `SchemaGraph` reliance on `$*` substrate filtering or tainted computed filtering
+- record that compiler-owned namespace bookkeeping MUST NOT participate in `DomainSchema.hash`
 
 ### v1.3.0
 
@@ -54,6 +71,7 @@ It consolidates the landed compiler surface into one current contract, including
 - object-literal spread as the sole bounded parser-level shorthand in current MEL
 - presence-aware object typing and direct `merge()` typing parity for spread-admitted object composition
 - compiler-owned source-fragment editing for authoring-time tooling
+- ADR-025 v5 Snapshot ontology alignment for `snapshot.state`, `snapshot.namespaces`, and compiler-owned namespace deltas
 
 Historical compiler docs remain useful for archaeology, but **this file is the current truth**.
 
@@ -86,11 +104,17 @@ Within `DomainSchema`, the compiler emits three distinct type-carrying seams:
 type DomainSchema = {
   readonly types: Record<string, TypeSpec>;
   readonly state: StateSpec;
+  readonly context?: ContextSpec;
   readonly actions: Record<string, ActionSpec>;
   // ...
 };
 
 type StateSpec = {
+  readonly fields: Record<string, FieldSpec>;
+  readonly fieldTypes?: Record<string, TypeDefinition>;
+};
+
+type ContextSpec = {
   readonly fields: Record<string, FieldSpec>;
   readonly fieldTypes?: Record<string, TypeDefinition>;
 };
@@ -117,9 +141,145 @@ Normative meaning:
 - `types` preserves named MEL type declarations losslessly.
 - `state.fields` and `action.input` are the **compatibility / coarse introspection seam**.
 - `state.fieldTypes` and `action.inputType` are the **normative runtime typing seam** when present.
+- `context.fields` and `context.fieldTypes` describe direct-injected user context under `Context.external`; they never describe built-in `context.runtime`.
 - `action.params` is the normative parameter-order seam.
 
 The compiler MUST preserve precise type information in `fieldTypes` / `inputType` whenever the source schema uses shapes that are wider than `FieldSpec`.
+
+### 2.1 ADR-025 Runtime Snapshot Ontology Boundary
+
+MEL source declares domain state with `state {}`. In the v5 runtime substrate,
+that domain-owned state is observed at `snapshot.state`.
+
+Compiler responsibilities:
+
+- `DomainSchema.state` describes domain-owned fields only.
+- User-authored MEL state fields whose names start with `$` MUST be rejected.
+- The compiler MUST NOT inject `$host`, `$mel`, `$system`, or any other
+  platform namespace into `DomainSchema.state.fields` or `state.fieldTypes`.
+- User-authored MEL patch paths lower to root-free `PatchPath` values. Those
+  paths are rooted at `snapshot.state` only because they are carried through the
+  domain patch channel (`ComputeResult.patches`).
+- `PatchPath` values emitted for domain patches MUST NOT carry a root
+  discriminator and MUST NOT encode `state`, `data`, or `namespaces` as a
+  synthetic first segment.
+- Compiler-owned namespace bookkeeping MUST NOT participate in
+  `DomainSchema.hash`.
+
+SCHEMA-HASH-3 disposition for the Compiler package: ADR-025 namespace
+relocation MUST NOT create a schema-hash epoch boundary by itself. Any
+`DomainSchema.hash` change is attributable only to semantic `DomainSchema`
+content, not to compiler-owned runtime namespace bookkeeping.
+
+Runtime Snapshot shape is owned by Core. The compiler does not construct or
+mutate canonical Snapshots directly; it emits schema and flow artifacts that
+Core evaluates.
+
+### 2.2 ADR-027 Context and Runtime Expression Boundary
+
+MEL `context {}` declares the shape of user-supplied external context:
+
+```mel
+context {
+  tenantId: string
+  locale: string
+}
+```
+
+Compiler responsibilities:
+
+- `context {}` MUST lower to `DomainSchema.context`.
+- `$context.*` MUST resolve only against `DomainSchema.context` and lower to
+  Core reads from `Context.external`.
+- `$runtime.*` MUST lower only to Core's built-in runtime expression surface
+  over `intent` and `Context.runtime`.
+- `$runtime.*` and `$context.*` are legal only in bound action Flow expressions,
+  including patch values, effect params, and guarded action-body expressions.
+- `$runtime.*` and `$context.*` MUST be rejected in state initializers,
+  computed values, `available when`, and `dispatchable when`.
+- Legacy meta/system dollar namespaces are retired in current v5 MEL and MUST be rejected,
+  not lowered as compatibility aliases.
+- User-defined context generators, resolvers, providers, lazy getters,
+  callbacks, promises, and function-valued context fields are not representable
+  in current MEL.
+
+`$context.*` is not a user-defined effect alias channel. Domain-specific
+external work remains explicit `effect` syntax.
+
+### 2.3 Compiler-Owned Runtime Construct Registry
+
+Compiler-owned runtime lowering is exceptional and fixed-shape. User-authored
+MEL MUST NOT read from or write to namespaces directly.
+
+The current registry contains exactly one compiler-owned runtime construct:
+
+| Construct | Runtime target | Purpose |
+|-----------|----------------|---------|
+| `onceIntent` | Core `causalGuard` Flow primitive | Per-causal-intent idempotency without domain-state guard fields |
+
+Normative rules:
+
+- `onceIntent` remains a contextual statement keyword.
+- `guardId` remains deterministic for the action and block position.
+- The compiler MUST emit Core `causalGuard` and MUST NOT emit a MEL namespace
+  read/write path for `onceIntent`.
+- The Core `causalGuard` primitive owns any runtime bookkeeping it needs.
+- Adding another compiler-owned runtime construct requires a new ADR before it
+  becomes current SPEC behavior.
+
+### 2.4 ADR-028 Dynamic Patch Target Boundary
+
+Compiler parses MEL patch target syntax, type-checks statically invalid target
+forms where possible, and lowers valid targets into Core Flow representation.
+
+Compiler MUST:
+
+- preserve dynamic target expressions for Core Flow evaluation
+- preserve static property and index segments without string flattening
+- keep user-authored MEL patch paths root-free
+- reject statically invalid target syntax where the source and schema make the
+  failure knowable at compile time
+
+Compiler MUST NOT:
+
+- evaluate dynamic target expressions
+- allocate `$runtime.*` values
+- emit placeholder target segments such as `"*"`
+- turn runtime data into concrete `Patch[]`
+- own skip-and-warning behavior for invalid runtime target values
+
+Core owns dynamic target resolution during `compute()`. `core.apply()` and Host
+receive only concrete `Patch[]` emitted by Core.
+
+Because Flow IR is part of runtime `DomainSchema` content, preserved
+`FlowPatchPath` values participate in `DomainSchema.hash`. The compiler MUST
+compute emitted runtime `DomainSchema.hash` from the final runtime
+`DomainSchema` after lowering. Compiler-internal canonical MEL IR hashes MUST
+NOT be reused as runtime schema hashes when lowering changes serialized schema
+content.
+
+The following runtime patch evaluation surface is removed from the current v5
+compiler contract:
+
+- `compileMelPatch()`
+- `createEvaluationContext`
+- `evaluateExpr`
+- `evaluateConditionalPatchOps`
+- `evaluateRuntimePatches`
+- `evaluateRuntimePatchesWithTrace`
+- `EvaluationContext`
+- `IRPathSegment`
+- `IRPatchPath`
+- `MelIRPathSegment`
+- `MelIRPatchPath`
+- `MelRuntimePatch`
+- `MelRuntimePatchOp`
+- `lowerRuntimePatch`
+- `lowerRuntimePatches`
+- `RuntimeConditionalPatchOp`
+
+The generated public-surface inventory is code-current and no longer lists the
+retired runtime patch evaluation surface.
 
 ---
 
@@ -392,8 +552,12 @@ Compatibility note:
 
 - it MAY reference state, computed values, and bare action parameter names
 - it MUST NOT allow direct `$input.*` syntax in source
-- it MUST NOT allow `$meta.*`, `$system.*`, or effects
+- it MUST NOT allow `$runtime.*`, `$context.*`, legacy meta/system dollar namespaces, namespace reads, namespace writes, or effects
 - it MUST lower to `ActionSpec.dispatchable`
+
+`available when` remains state/computed-only. It MUST NOT read action
+parameters, `$input.*`, `$runtime.*`, `$context.*`, legacy meta/system dollar namespaces,
+namespaces, or effects.
 
 If both clauses are present, ordering is fixed:
 
@@ -411,6 +575,18 @@ The compiler MUST continue to extract the projected static graph with:
 
 - nodes: `state`, `computed`, `action`
 - edges: `feeds`, `mutates`, `unlocks`
+
+Graph extraction is based on `DomainSchema.state`, `computed`, and `actions`.
+It MUST NOT model `snapshot.namespaces` or any compiler-owned namespace
+bookkeeping as graph nodes or edges.
+
+Computed dependencies are limited to state and computed paths. User-authored
+namespace dependencies are impossible in current MEL source, and compiler-owned
+namespace reads such as `onceIntent` MUST NOT produce `feeds` edges.
+
+ADR-025 removes the current need for `$*` substrate filtering and transitive
+tainted-computed filtering. Current `SchemaGraph` projection MUST NOT rely on
+pre-v5 state-root platform namespace fields being present.
 
 `dispatchable when` is input-bound and MUST NOT be projected into `SchemaGraph`.
 `unlocks` remains derived from `available when` only.
@@ -584,7 +760,7 @@ Current invariants:
 |-----------|---------|
 | INV-META-1 | Removing all `@meta` from MEL source MUST leave emitted `DomainSchema` byte-identical |
 | INV-META-2 | Removing all `@meta` from MEL source MUST leave emitted `SchemaGraph` identical |
-| INV-META-3 | For any snapshot and intent, `compute()` results MUST remain identical regardless of annotation presence |
+| INV-META-3 | For any schema, snapshot, intent, and context, `compute()` results MUST remain identical regardless of annotation presence |
 | INV-META-4 | For any snapshot, `getAvailableActions()` MUST remain identical regardless of annotation presence |
 | INV-META-5 | For any snapshot and intent, `isIntentDispatchable()` MUST remain identical regardless of annotation presence |
 | INV-META-6 | Tooling-only `DomainModule` artifacts MUST remain outside runtime schema-input seams |
@@ -687,7 +863,7 @@ Current invariants:
 |-----------|---------|
 | INV-SMAP-1 | Adding or removing `SourceMapIndex` emission MUST leave emitted `DomainSchema` byte-identical |
 | INV-SMAP-2 | Adding or removing `SourceMapIndex` emission MUST leave emitted `SchemaGraph` identical |
-| INV-SMAP-3 | For any snapshot and intent, runtime legality and compute results MUST remain identical regardless of source-map emission |
+| INV-SMAP-3 | For any schema, snapshot, intent, and context, runtime legality and compute results MUST remain identical regardless of source-map emission |
 | INV-SMAP-4 | Tooling-only `DomainModule` artifacts that carry `sourceMap` MUST remain outside runtime schema-input seams |
 
 ---
@@ -1001,6 +1177,8 @@ The compliance suite for this surface MUST cover:
 
 The following diagnostics remain active in this area:
 
+- reserved namespace diagnostics for user-authored `$*` domain identifiers and
+  namespace reads/writes
 - `E043` for unsupported non-trivial schema-position unions
 - `E044` for recursive schema-position refs that cannot be soundly lowered
 - `E047` / `E048` for `dispatchable when` scope violations
@@ -1049,6 +1227,14 @@ The current compiler contract is:
 - Safe v1 remove/rename source edits are all-or-nothing, with complete safe edits or no partial edits on diagnostics
 - source edit results are tooling-only artifacts and do not change runtime entrypoints or semantic schema artifacts
 - `action_param` annotations remain outside the current v1 surface
+- MEL `state {}` corresponds to runtime `snapshot.state`
+- compiler-owned runtime constructs lower to Core primitives without adding domain state
+- `onceIntent` lowers to Core `causalGuard`
+- dynamic patch targets are preserved for Core Flow evaluation
+- Compiler does not evaluate dynamic patch targets or emit placeholder target segments
+- compiler-owned runtime patch evaluation APIs are retired from the current v5 public contract
+- user-authored MEL cannot read or write namespaces
+- domain patch paths remain root-free and are interpreted at `snapshot.state` by the Core domain patch channel
 - `dispatchable when` is part of the full action contract
 - `SchemaGraph` remains availability-only and input-independent
 

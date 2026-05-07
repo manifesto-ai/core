@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/core",
-  "version": "2.13.0",
+  "version": "5.0.0",
   "description": "Manifesto Core - Pure semantic calculator for deterministic state computation",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -46,6 +46,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@manifesto-ai/cts-kit": "workspace:*",
     "typescript": "^5.9.3",
     "vite": "^8.0.8",
     "vitest": "^4.1.4",

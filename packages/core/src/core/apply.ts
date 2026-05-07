@@ -1,11 +1,11 @@
 import type { DomainSchema } from "../schema/domain.js";
 import type { Snapshot } from "../schema/snapshot.js";
 import type { Patch, PatchPath } from "../schema/patch.js";
-import type { HostContext } from "../schema/host-context.js";
 import type { FieldSpec } from "../schema/field.js";
 import { evaluateComputed } from "../evaluator/computed.js";
 import { isOk, isErr } from "../schema/common.js";
 import type { SystemState, ErrorValue } from "../schema/snapshot.js";
+import type { NamespaceDelta } from "../schema/result.js";
 import { createError } from "../errors.js";
 import {
   getFieldSpecAtSegments,
@@ -23,24 +23,22 @@ import {
   unsetByPatchPath,
 } from "../utils/patch-path.js";
 
-const PLATFORM_NAMESPACE_SPEC: FieldSpec = { type: "object", required: false };
-
 /**
- * Apply patches to snapshot.data and recompute computed values.
+ * Apply domain patches to snapshot.state and recompute computed values.
  *
- * Patch targets are rooted at snapshot.data only.
+ * Patch targets are rooted at snapshot.state only.
  * System transitions are handled by applySystemDelta().
  */
 export function apply(
   schema: DomainSchema,
   snapshot: Snapshot,
-  patches: readonly Patch[],
-  context: HostContext
+  patches: readonly Patch[]
 ): Snapshot {
-  let newData = snapshot.data;
+  let newState = snapshot.state;
   let newSystem: SystemState = snapshot.system;
   const newInput = snapshot.input;
   const validationErrors: ErrorValue[] = [];
+  const errorTimestamp = snapshot.meta.timestamp;
   const rootSpec: FieldSpec = { type: "object", required: true, fields: schema.state.fields };
 
   for (const patch of patches) {
@@ -52,51 +50,9 @@ export function apply(
         `Unsafe patch path: ${displayPath}`,
         snapshot.system.currentAction ?? "",
         displayPath,
-        context.now,
+        errorTimestamp,
         { patch }
       ));
-      continue;
-    }
-
-    const bypassRoot = getPlatformBypassRoot(patch.path);
-    if (bypassRoot) {
-      if (patch.op !== "unset") {
-        if (patch.path.length === 1) {
-          const platformRootResult = validateValueAgainstFieldSpec(
-            patch.value,
-            PLATFORM_NAMESPACE_SPEC,
-            {
-              allowPartial: patch.op === "merge",
-              allowUndefined: false,
-            }
-          );
-          if (!platformRootResult.ok) {
-            validationErrors.push(createError(
-              "TYPE_MISMATCH",
-              `Invalid patch value at ${displayPath}: ${platformRootResult.message ?? "type mismatch"}`,
-              snapshot.system.currentAction ?? "",
-              displayPath,
-              context.now,
-              { patch }
-            ));
-            continue;
-          }
-        }
-
-        if (patch.op === "merge" && !isMergeTargetCompatible(newData, patch.path)) {
-          validationErrors.push(createError(
-            "TYPE_MISMATCH",
-            `Invalid merge target at ${displayPath}: target path must be an object or absent`,
-            snapshot.system.currentAction ?? "",
-            displayPath,
-            context.now,
-            { patch }
-          ));
-          continue;
-        }
-      }
-
-      newData = applyPatch(newData, patch);
       continue;
     }
 
@@ -108,19 +64,19 @@ export function apply(
         `Unknown patch path: ${displayPath}`,
         snapshot.system.currentAction ?? "",
         displayPath,
-        context.now,
+        errorTimestamp,
         { patch }
       ));
       continue;
     }
 
-    if (patch.op === "merge" && !isMergeTargetCompatible(newData, patch.path)) {
+    if (patch.op === "merge" && !isMergeTargetCompatible(newState, patch.path)) {
       validationErrors.push(createError(
         "TYPE_MISMATCH",
         `Invalid merge target at ${displayPath}: target path must be an object or absent`,
         snapshot.system.currentAction ?? "",
         displayPath,
-        context.now,
+        errorTimestamp,
         { patch }
       ));
       continue;
@@ -142,14 +98,14 @@ export function apply(
           `Invalid patch value at ${displayPath}: ${result.message ?? "type mismatch"}`,
           snapshot.system.currentAction ?? "",
           displayPath,
-          context.now,
+          errorTimestamp,
           { patch }
         ));
         continue;
       }
     }
 
-    newData = applyPatch(newData, patch);
+    newState = applyPatch(newState, patch);
   }
 
   if (validationErrors.length > 0) {
@@ -163,7 +119,7 @@ export function apply(
 
   const intermediateSnapshot: Snapshot = {
     ...snapshot,
-    data: newData,
+    state: newState,
     system: newSystem,
     input: newInput,
   };
@@ -183,25 +139,16 @@ export function apply(
   }
 
   return {
-    data: newData,
+    state: newState,
     computed,
     system: newSystem,
     input: newInput,
     meta: {
       ...snapshot.meta,
       version: snapshot.meta.version + 1,
-      timestamp: context.now,
-      randomSeed: context.randomSeed,
     },
+    namespaces: snapshot.namespaces,
   };
-}
-
-function getPlatformBypassRoot(path: PatchPath): string | null {
-  const first = path[0];
-  if (first.kind !== "prop") {
-    return null;
-  }
-  return first.name.startsWith("$") ? first.name : null;
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -250,4 +197,119 @@ function applyPatch(value: unknown, patch: Patch): unknown {
     case "merge":
       return mergeAtPatchPath(value, patch.path, patch.value);
   }
+}
+
+/**
+ * Apply namespace transitions to snapshot.namespaces.
+ *
+ * Patch targets are rooted at snapshot.namespaces[namespace].
+ */
+export function applyNamespaceDeltas(
+  snapshot: Snapshot,
+  deltas: readonly NamespaceDelta[]
+): Snapshot {
+  if (deltas.length === 0) {
+    return snapshot;
+  }
+
+  let newNamespaces: Record<string, unknown> = cloneNamespaceRecord(snapshot.namespaces);
+  let newSystem: SystemState = snapshot.system;
+  const validationErrors: ErrorValue[] = [];
+  const errorTimestamp = snapshot.meta.timestamp;
+
+  for (const delta of deltas) {
+    if (delta.namespace.length === 0) {
+      validationErrors.push(createError(
+        "PATH_NOT_FOUND",
+        "Invalid namespace: namespace must be non-empty",
+        snapshot.system.currentAction ?? "",
+        "namespaces",
+        errorTimestamp,
+        { delta }
+      ));
+      continue;
+    }
+
+    const existingRoot = Object.prototype.hasOwnProperty.call(newNamespaces, delta.namespace)
+      ? newNamespaces[delta.namespace]
+      : undefined;
+    if (existingRoot !== undefined && !isObjectRecord(existingRoot)) {
+      validationErrors.push(createError(
+        "TYPE_MISMATCH",
+        `Invalid namespace root: ${delta.namespace} must be an object`,
+        snapshot.system.currentAction ?? "",
+        `namespaces.${delta.namespace}`,
+        errorTimestamp,
+        { delta }
+      ));
+      continue;
+    }
+
+    let namespaceRoot: unknown = existingRoot ?? {};
+    let deltaFailed = false;
+
+    for (const patch of delta.patches) {
+      const displayPath = `${delta.namespace}.${patchPathToDisplayString(patch.path)}`;
+
+      if (!isSafePatchPath(patch.path)) {
+        validationErrors.push(createError(
+          "PATH_NOT_FOUND",
+          `Unsafe namespace patch path: ${displayPath}`,
+          snapshot.system.currentAction ?? "",
+          displayPath,
+          errorTimestamp,
+          { delta, patch }
+        ));
+        deltaFailed = true;
+        break;
+      }
+
+      if (patch.op === "merge" && !isMergeTargetCompatible(namespaceRoot, patch.path)) {
+        validationErrors.push(createError(
+          "TYPE_MISMATCH",
+          `Invalid namespace merge target at ${displayPath}: target path must be an object or absent`,
+          snapshot.system.currentAction ?? "",
+          displayPath,
+          errorTimestamp,
+          { delta, patch }
+        ));
+        deltaFailed = true;
+        break;
+      }
+
+      namespaceRoot = applyPatch(namespaceRoot, patch);
+    }
+
+    if (deltaFailed) {
+      continue;
+    }
+
+    newNamespaces = cloneNamespaceRecord(newNamespaces);
+    newNamespaces[delta.namespace] = namespaceRoot;
+  }
+
+  if (validationErrors.length > 0) {
+    const lastError = validationErrors[validationErrors.length - 1];
+    newSystem = {
+      ...newSystem,
+      status: "error",
+      lastError,
+    };
+  }
+
+  return {
+    ...snapshot,
+    system: newSystem,
+    namespaces: newNamespaces,
+    meta: {
+      ...snapshot.meta,
+      version: snapshot.meta.version + 1,
+    },
+  };
+}
+
+function cloneNamespaceRecord(
+  namespaces: Snapshot["namespaces"] | Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.assign(Object.create(null) as Record<string, unknown>, namespaces);
 }

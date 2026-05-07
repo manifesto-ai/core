@@ -1,27 +1,29 @@
 /**
- * compileMelPatch vs legacy lowering parity tests.
+ * compileMelPatch guard compatibility tests.
  *
  * These tests codify law-level invariants from issue #107 and related
  * while/once/onceIntent regressions:
- * - when block snapshot scope is entry-stable per block
- * - once/onceIntent are executed only once per intended scope
- * - behavior is equivalent to legacy domain lowering
+ * - patch-only compilation rejects guarded control that needs runtime channels
+ * - full domain compilation remains the supported path for guard semantics
  */
 
 import { describe, it, expect } from "vitest";
-import { compileMelDomain, compileMelPatch } from "../api/index.js";
+import { compileMelDomain, compileMelPatch } from "../api/compile-mel.js";
 import {
   createCore,
   createIntent,
   createSnapshot,
   type ComputeResult,
-  type Patch,
-  type PatchPath,
   type Snapshot,
 } from "@manifesto-ai/core";
-import { createEvaluationContext, evaluateRuntimePatches } from "../evaluation/index.js";
 
-const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
 
 const DEFAULT_STATE = `
   state {
@@ -30,17 +32,6 @@ const DEFAULT_STATE = `
     flag: boolean = false
     x: number = 0
     y: number = 0
-  }
-`;
-
-const DEFAULT_STATE_WITH_ONCE_MARKER = `
-  state {
-    count: number = 0
-    status: string = ""
-    flag: boolean = false
-    x: number = 0
-    y: number = 0
-    onceMarker: string = ""
   }
 `;
 
@@ -56,34 +47,6 @@ function domainSource(actionBody: string, stateSource = DEFAULT_STATE): string {
   `;
 }
 
-function stripInternalGuards(ops: Patch[]) {
-  return ops.filter(
-    (op) => !isInternalGuardPath(op.path)
-  );
-}
-
-function isInternalGuardPath(path: PatchPath): boolean {
-  if (path.length < 2) {
-    return false;
-  }
-  return (
-    path[0].kind === "prop"
-    && path[0].name === "$mel"
-    && path[1].kind === "prop"
-    && (path[1].name === "__whenGuards" || path[1].name === "__onceScopeGuards")
-  );
-}
-
-function stripInternalState(data: unknown): Record<string, unknown> | undefined {
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
-    return undefined;
-  }
-
-  const projected = { ...(data as Record<string, unknown>) };
-  delete projected.$mel;
-  return projected;
-}
-
 async function runLegacyCycle(
   schema: any,
   core: ReturnType<typeof createCore>,
@@ -94,7 +57,7 @@ async function runLegacyCycle(
   const result = await core.compute(
     schema,
     snapshot,
-    createIntent("probe", input ?? {}, intentId),
+    createIntent("probe", input, intentId),
     HOST_CONTEXT
   );
 
@@ -104,131 +67,22 @@ async function runLegacyCycle(
   };
 }
 
-function runCompileMelPatchCycle(
-  schema: any,
-  core: ReturnType<typeof createCore>,
-  snapshot: Snapshot,
-  patchResult: ReturnType<typeof compileMelPatch>,
-  intentId: string,
-  input: Record<string, unknown> = {}
-) {
-  if (patchResult.errors.length > 0) {
-    throw new Error(patchResult.errors[0]?.message ?? "compileMelPatch failed");
-  }
-
-  const concretePatches = evaluateRuntimePatches(
-    patchResult.ops,
-    createEvaluationContext({
-      meta: { intentId },
-      snapshot: {
-        data: snapshot.data,
-        computed: snapshot.computed,
-      },
-      input,
-    })
-  );
-
-  return core.apply(
-    schema,
-    snapshot,
-    stripInternalGuards(concretePatches),
-    HOST_CONTEXT
-  );
-}
-
 function applyComputeResult(
   core: ReturnType<typeof createCore>,
   schema: any,
   snapshot: Snapshot,
   result: ComputeResult
 ): Snapshot {
-  const patchedSnapshot = core.apply(schema, snapshot, result.patches, HOST_CONTEXT);
-  return core.applySystemDelta(patchedSnapshot, result.systemDelta);
-}
-
-async function runParityCycleBatch(options: {
-  actionBody: string;
-  actionName: string;
-  initial: Record<string, unknown>;
-  stateSource?: string;
-  cycles: { intent: string; input?: Record<string, unknown> }[];
-  assert?: (args: {
-    legacyData: Record<string, unknown> | undefined;
-    melData: Record<string, unknown> | undefined;
-    legacyResult: Awaited<ReturnType<typeof runLegacyCycle>>;
-    melResult: ReturnType<typeof runCompileMelPatchCycle>;
-    cycle: { intent: string; input?: Record<string, unknown> };
-    cycleIndex: number;
-  }) => void;
-}) {
-  const compileResult = compileMelDomain(
-    domainSource(options.actionBody, options.stateSource),
-    { mode: "domain" }
+  const patchedSnapshot = core.apply(schema, snapshot, result.patches);
+  const namespacedSnapshot = core.applyNamespaceDeltas(
+    patchedSnapshot,
+    result.namespaceDelta ?? []
   );
-  expect(compileResult.errors).toHaveLength(0);
-  expect(compileResult.schema).not.toBeNull();
-  const schema = compileResult.schema as NonNullable<typeof compileResult.schema>;
-
-  const core = createCore();
-
-  const patchResult = compileMelPatch(options.actionBody, {
-    mode: "patch",
-    actionName: options.actionName,
-  });
-  expect(patchResult.errors).toHaveLength(0);
-
-  let legacySnapshot = createSnapshot(options.initial, schema.hash, HOST_CONTEXT);
-  let melSnapshot = createSnapshot(options.initial, schema.hash, HOST_CONTEXT);
-
-  const history: {
-    legacy: Awaited<ReturnType<typeof runLegacyCycle>>;
-    mel: ReturnType<typeof runCompileMelPatchCycle>;
-  }[] = [];
-
-  for (const cycle of options.cycles) {
-    const legacyResult = await runLegacyCycle(
-      schema,
-      core,
-      legacySnapshot,
-      cycle.intent,
-      cycle.input
-    );
-    const melResult = runCompileMelPatchCycle(
-      schema,
-      core,
-      melSnapshot,
-      patchResult,
-      cycle.intent,
-      cycle.input
-    );
-
-    const legacyData = stripInternalState(legacyResult.snapshot.data);
-    const melData = stripInternalState(melResult.data);
-
-    if (options.assert) {
-      options.assert({
-        legacyData,
-        melData,
-        legacyResult,
-        melResult,
-        cycle,
-        cycleIndex: history.length,
-      });
-    } else {
-      expect(melData).toEqual(legacyData);
-    }
-
-    history.push({ legacy: legacyResult, mel: melResult });
-
-    legacySnapshot = legacyResult.snapshot;
-    melSnapshot = melResult;
-  }
-
-  return { schema, core, history };
+  return core.applySystemDelta(namespacedSnapshot, result.systemDelta);
 }
 
 describe("compileMelPatch legacy lowering parity", () => {
-  it("matches when true/false branch semantics", async () => {
+  it("rejects when blocks in patch-only compilation", () => {
     const body = `
       when eq(count, 0) {
         patch count = add(count, 1)
@@ -236,36 +90,18 @@ describe("compileMelPatch legacy lowering parity", () => {
       }
     `;
 
-    const trueCase = await runParityCycleBatch({
-      actionBody: body,
-      actionName: "compat-when-true",
-      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
-      cycles: [{ intent: "when-true" }],
-    });
-    expect(trueCase.history[0].mel.data).toEqual({
-      count: 1,
-      status: "updated",
-      flag: false,
-      x: 0,
-      y: 0,
+    const result = compileMelPatch(body, {
+      mode: "patch",
+      actionName: "compat-when-unsupported",
     });
 
-    const falseCase = await runParityCycleBatch({
-      actionBody: body,
-      actionName: "compat-when-false",
-      initial: { count: 5, status: "ready", flag: false, x: 0, y: 0 },
-      cycles: [{ intent: "when-false" }],
-    });
-    expect(falseCase.history[0].mel.data).toEqual({
-      count: 5,
-      status: "ready",
-      flag: false,
-      x: 0,
-      y: 0,
-    });
+    expect(result.ops).toHaveLength(0);
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
+    ]);
   });
 
-  it("matches when block-entry snapshot for patch expressions", async () => {
+  it("keeps when semantics available in full domain compilation", async () => {
     const body = `
       when eq(count, 0) {
         patch count = add(count, 1)
@@ -273,29 +109,42 @@ describe("compileMelPatch legacy lowering parity", () => {
       }
     `;
 
-    const positive = await runParityCycleBatch({
-      actionBody: body,
-      actionName: "compat-when-entry-snapshot",
-      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
-      cycles: [{ intent: "when-entry-snapshot" }],
-      assert: ({ melData }) => {
-        expect(melData).toMatchObject({
-          count: 1,
-          flag: true,
-          status: "",
-          x: 0,
-          y: 0,
-        });
-      },
+    const compiled = compileMelDomain(domainSource(body), { mode: "domain" });
+    expect(compiled.errors).toHaveLength(0);
+    expect(compiled.schema).not.toBeNull();
+    const schema = compiled.schema!;
+    const core = createCore();
+
+    const positive = await runLegacyCycle(
+      schema,
+      core,
+      createSnapshot(
+        { count: 0, status: "", flag: false, x: 0, y: 0 },
+        schema.hash,
+        HOST_CONTEXT,
+      ),
+      "when-entry-snapshot",
+    );
+
+    expect(positive.snapshot.state).toMatchObject({
+      count: 1,
+      flag: false,
+      status: "",
+      x: 0,
+      y: 0,
     });
 
-    const negative = await runParityCycleBatch({
-      actionBody: body,
-      actionName: "compat-when-entry-snapshot-false",
-      initial: { count: 5, status: "ready", flag: false, x: 0, y: 0 },
-      cycles: [{ intent: "when-entry-snapshot-false" }],
-    });
-    expect(negative.history[0].mel.data).toEqual({
+    const negative = await runLegacyCycle(
+      schema,
+      core,
+      createSnapshot(
+        { count: 5, status: "ready", flag: false, x: 0, y: 0 },
+        schema.hash,
+        HOST_CONTEXT,
+      ),
+      "when-entry-snapshot-false",
+    );
+    expect(negative.snapshot.state).toEqual({
       count: 5,
       status: "ready",
       flag: false,
@@ -304,7 +153,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     });
   });
 
-  it("matches nested when semantics under outer-block entry snapshot", async () => {
+  it("rejects nested when blocks in patch-only compilation", () => {
     const body = `
       when eq(count, 0) {
         patch count = add(count, 1)
@@ -315,23 +164,18 @@ describe("compileMelPatch legacy lowering parity", () => {
       }
     `;
 
-    const nestedResult = await runParityCycleBatch({
-      actionBody: body,
+    const result = compileMelPatch(body, {
+      mode: "patch",
       actionName: "compat-nested-when",
-      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
-      cycles: [{ intent: "nested-when" }],
     });
 
-    expect(nestedResult.history[0].mel.data).toMatchObject({
-      count: 1,
-      status: "inner",
-      flag: true,
-      x: 0,
-      y: 0,
-    });
+    expect(result.ops).toHaveLength(0);
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
+    ]);
   });
 
-  it("matches once marker semantics and monotonic execution", async () => {
+  it("rejects once marker semantics in patch-only compilation", () => {
     const body = `
       once(onceMarker) {
         patch count = add(count, 1)
@@ -339,34 +183,18 @@ describe("compileMelPatch legacy lowering parity", () => {
       }
     `;
 
-    const onceResult = await runParityCycleBatch({
-      actionBody: body,
+    const result = compileMelPatch(body, {
+      mode: "patch",
       actionName: "compat-once-marker",
-      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
-      stateSource: DEFAULT_STATE_WITH_ONCE_MARKER,
-      cycles: [{ intent: "once-A" }, { intent: "once-A" }, { intent: "once-B" }],
     });
 
-    expect(onceResult.history[0].mel.data).toMatchObject({
-      count: 1,
-      status: "once",
-      flag: false,
-      onceMarker: "once-A",
-      x: 0,
-      y: 0,
-    });
-    expect(onceResult.history[1].mel.data).toEqual(onceResult.history[0].mel.data);
-    expect(onceResult.history[2].mel.data).toMatchObject({
-      count: 2,
-      status: "once",
-      flag: false,
-      onceMarker: "once-B",
-      x: 0,
-      y: 0,
-    });
+    expect(result.ops).toHaveLength(0);
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
+    ]);
   });
 
-  it("matches onceIntent semantics per intent scope", async () => {
+  it("rejects onceIntent semantics in patch-only compilation", () => {
     const body = `
       onceIntent {
         patch count = add(count, 1)
@@ -374,46 +202,18 @@ describe("compileMelPatch legacy lowering parity", () => {
       }
     `;
 
-    const onceIntentResult = await runParityCycleBatch({
-      actionBody: body,
+    const result = compileMelPatch(body, {
+      mode: "patch",
       actionName: "compat-once-intent",
-      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
-      cycles: [{ intent: "onceIntent-A" }, { intent: "onceIntent-A" }, { intent: "onceIntent-B" }],
-      assert: ({ melData, cycleIndex }) => {
-        if (cycleIndex === 0) {
-          expect(melData).toMatchObject({
-            count: 1,
-            status: "",
-            flag: true,
-            x: 0,
-            y: 0,
-          });
-        }
-
-        if (cycleIndex === 1) {
-          expect(melData).toMatchObject({
-            count: 1,
-            status: "",
-            flag: true,
-            x: 0,
-            y: 0,
-          });
-        }
-
-        if (cycleIndex === 2) {
-          expect(melData).toMatchObject({
-            count: 2,
-            status: "",
-            flag: false,
-            x: 0,
-            y: 0,
-          });
-        }
-      },
     });
+
+    expect(result.ops).toHaveLength(0);
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
+    ]);
   });
 
-  it("matches once/onceIntent nesting with when conditions", async () => {
+  it("rejects conditional once and onceIntent guards in patch-only compilation", () => {
     const onceWhenBody = `
       once(onceMarker) when eq(count, 0) {
         patch count = add(count, 1)
@@ -421,20 +221,14 @@ describe("compileMelPatch legacy lowering parity", () => {
       }
     `;
 
-    const onceWhenResult = await runParityCycleBatch({
-      actionBody: onceWhenBody,
+    const onceWhenResult = compileMelPatch(onceWhenBody, {
+      mode: "patch",
       actionName: "compat-once-when",
-      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
-      stateSource: DEFAULT_STATE_WITH_ONCE_MARKER,
-      cycles: [{ intent: "once-when-A" }, { intent: "once-when-A" }],
     });
-    expect(onceWhenResult.history[0].mel.data).toMatchObject({
-      count: 1,
-      status: "once-when",
-      x: 0,
-      y: 0,
-    });
-    expect(onceWhenResult.history[1].mel.data).toEqual(onceWhenResult.history[0].mel.data);
+    expect(onceWhenResult.ops).toHaveLength(0);
+    expect(onceWhenResult.errors).toEqual([
+      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
+    ]);
 
     const onceIntentWhenBody = `
       onceIntent when eq(count, 0) {
@@ -442,34 +236,17 @@ describe("compileMelPatch legacy lowering parity", () => {
         patch status = "once-intent-when"
       }
     `;
-    const onceIntentWhenResult = await runParityCycleBatch({
-      actionBody: onceIntentWhenBody,
+    const onceIntentWhenResult = compileMelPatch(onceIntentWhenBody, {
+      mode: "patch",
       actionName: "compat-once-intent-when",
-      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
-      cycles: [{ intent: "once-intent-when-A" }, { intent: "once-intent-when-B" }],
-      assert: ({ melData, cycleIndex }) => {
-        if (cycleIndex === 0) {
-          expect(melData).toMatchObject({
-            count: 1,
-            status: "once-intent-when",
-            x: 0,
-            y: 0,
-          });
-        }
-
-        if (cycleIndex === 1) {
-          expect(melData).toMatchObject({
-            count: 1,
-            status: "once-intent-when",
-            x: 0,
-            y: 0,
-          });
-        }
-      },
     });
+    expect(onceIntentWhenResult.ops).toHaveLength(0);
+    expect(onceIntentWhenResult.errors).toEqual([
+      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
+    ]);
   });
 
-  it("regression for issue #107: once-evaluated once block entry snapshot", async () => {
+  it("rejects issue #107 when-block patch-only regression shape", () => {
     const body = `
       when eq(count, 0) {
         patch count = add(count, 1)
@@ -477,25 +254,14 @@ describe("compileMelPatch legacy lowering parity", () => {
       }
     `;
 
-    const issueResult = await runParityCycleBatch({
-      actionBody: body,
+    const result = compileMelPatch(body, {
+      mode: "patch",
       actionName: "compat-issue-107",
-      initial: { count: 0, status: "", flag: false, x: 0, y: 0 },
-      cycles: [{ intent: "issue-107" }, { intent: "issue-107" }],
-      assert: ({ melData, cycleIndex }) => {
-        expect(melData).toMatchObject({
-          count: 1,
-          flag: true,
-          x: 0,
-          y: 0,
-        });
-        if (cycleIndex === 1) {
-          expect(melData).toMatchObject({
-            count: 1,
-            flag: true,
-          });
-        }
-      },
     });
+
+    expect(result.ops).toHaveLength(0);
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
+    ]);
   });
 });

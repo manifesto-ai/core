@@ -1,6 +1,8 @@
 import {
   type ComputeStatus,
+  type Context,
   type DomainSchema,
+  type JsonValue,
   type Patch,
   type Requirement,
   type Snapshot as CoreSnapshot,
@@ -17,23 +19,28 @@ import {
   ManifestoError,
 } from "../errors.js";
 import type {
+  ActionAnnotation,
   BaseLaws,
   CanonicalSnapshot,
   ComposableManifesto,
+  ContextUpdater,
+  DispatchExecutionOutcome,
   DispatchBlocker,
+  DomainExternalContext,
+  ExternalContext,
   ExecutionDiagnostics,
   ExecutionFailureInfo,
-  ExecutionOutcome,
   IntentAdmission,
   ManifestoDomainShape,
   ManifestoEvent,
-  ManifestoEventMap,
+  ManifestoEventPayloadMap,
+  ProjectedSnapshot,
   SchemaGraph,
   SimulationDiagnostics,
   SimulateResult as ProjectedSimulateResult,
-  Snapshot,
   TypedActionMetadata,
   TypedCreateIntent,
+  TypedDomainRefs,
   TypedGetActionMetadata,
   TypedGetIntentBlockers,
   TypedIntent,
@@ -86,11 +93,13 @@ export type SimulateResult<
 
 export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly schema: DomainSchema;
+  readonly refs: TypedDomainRefs<T>;
+  /** @deprecated Use refs. */
   readonly MEL: TypedMEL<T>;
   readonly createIntent: TypedCreateIntent<T>;
   readonly subscribe: TypedSubscribe<T>;
   readonly on: TypedOn<T>;
-  readonly getSnapshot: () => Snapshot<T["state"]>;
+  readonly getSnapshot: () => ProjectedSnapshot<T>;
   readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
   readonly getAvailableActionsFor: (
     snapshot: CanonicalSnapshot<T["state"]>,
@@ -116,6 +125,10 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly simulateSync: (
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
+    options?: {
+      readonly externalContext?: DomainExternalContext<T>;
+      readonly context?: Context;
+    },
   ) => SimulateResult<T>;
   readonly simulate: TypedSimulate<T>;
   readonly simulateIntent: TypedSimulateIntent<T>;
@@ -125,11 +138,12 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly setVisibleSnapshot: (
     snapshot: CoreSnapshot,
     options?: { readonly notify?: boolean },
-  ) => Snapshot<T["state"]>;
+  ) => ProjectedSnapshot<T>;
+  readonly rehydrateSnapshot: (snapshot: CoreSnapshot) => CoreSnapshot;
   readonly restoreVisibleSnapshot: () => void;
   readonly emitEvent: <K extends ManifestoEvent>(
     event: K,
-    payload: ManifestoEventMap<T>[K],
+    payload: ManifestoEventPayloadMap[K],
   ) => void;
   readonly enqueue: <R>(task: () => Promise<R>) => Promise<R>;
   readonly ensureIntentId: (intent: TypedIntent<T>) => TypedIntent<T>;
@@ -137,6 +151,20 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
     intent: TypedIntent<T>,
     options?: HostDispatchOptions,
   ) => Promise<HostResult>;
+  readonly createComputeContext: (
+    intent: TypedIntent<T>,
+    externalContext?: ExternalContext,
+  ) => Context;
+  readonly getExternalContext: () => DomainExternalContext<T>;
+  readonly replaceExternalContext: (
+    next: DomainExternalContext<T>,
+  ) => DomainExternalContext<T>;
+  readonly updateExternalContext: (
+    updater: ContextUpdater<DomainExternalContext<T>>,
+  ) => DomainExternalContext<T>;
+  readonly captureExternalContext: (
+    override?: ExternalContext,
+  ) => DomainExternalContext<T>;
   readonly validateIntentInputFor: (
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
@@ -152,7 +180,7 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly deriveExecutionOutcome: (
     beforeSnapshot: CanonicalSnapshot<T["state"]>,
     afterSnapshot: CanonicalSnapshot<T["state"]>,
-  ) => ExecutionOutcome<T>;
+  ) => DispatchExecutionOutcome<T>;
   readonly classifyExecutionFailure: (
     error: unknown,
     stage: "host" | "seal",
@@ -177,14 +205,20 @@ type RuntimePublicReadFacet<T extends ManifestoDomainShape> = Pick<
   | "on"
   | "getSnapshot"
   | "getCanonicalSnapshot"
+  | "getAvailableActionsFor"
   | "getAvailableActions"
   | "isIntentDispatchable"
   | "getIntentBlockers"
   | "getActionMetadata"
   | "isActionAvailable"
   | "getSchemaGraph"
+  | "simulateSync"
   | "simulate"
   | "simulateIntent"
+  | "getExternalContext"
+  | "replaceExternalContext"
+  | "updateExternalContext"
+  | "captureExternalContext"
 >;
 
 type RuntimeLifecycleFacet<T extends ManifestoDomainShape> = Pick<
@@ -194,12 +228,13 @@ type RuntimeLifecycleFacet<T extends ManifestoDomainShape> = Pick<
 
 type RuntimeExecutionFacet<T extends ManifestoDomainShape> = Pick<
   RuntimeKernel<T>,
-  "ensureIntentId" | "executeHost"
+  "ensureIntentId" | "executeHost" | "createComputeContext" | "captureExternalContext"
 >;
 
 type RuntimeSealAdmissionFacet<T extends ManifestoDomainShape> = Pick<
   RuntimeKernel<T>,
   | "isActionAvailable"
+  | "isActionAvailableFor"
   | "validateIntentInputFor"
   | "isIntentDispatchableFor"
   | "rejectUnavailable"
@@ -217,7 +252,10 @@ type RuntimeReportAdmissionFacet<T extends ManifestoDomainShape> = Pick<
 
 type RuntimePublicationFacet<T extends ManifestoDomainShape> = Pick<
   RuntimeKernel<T>,
-  "getVisibleCoreSnapshot" | "setVisibleSnapshot" | "restoreVisibleSnapshot"
+  | "getVisibleCoreSnapshot"
+  | "setVisibleSnapshot"
+  | "rehydrateSnapshot"
+  | "restoreVisibleSnapshot"
 >;
 
 type RuntimeReportingFacet<T extends ManifestoDomainShape> = Pick<
@@ -256,6 +294,7 @@ export type GovernanceRuntimeKernel<T extends ManifestoDomainShape> =
   & RuntimeLifecycleFacet<T>
   & RuntimeExecutionFacet<T>
   & RuntimeSealAdmissionFacet<T>
+  & RuntimeReportAdmissionFacet<T>
   & RuntimePublicationFacet<T>
   & Pick<RuntimeKernel<T>, "deriveExecutionOutcome">
   & RuntimeDispatchEventsFacet<T>
@@ -286,10 +325,12 @@ type ExtensionKernelCarrier<T extends ManifestoDomainShape> = {
 export type RuntimeKernelOptions<T extends ManifestoDomainShape> = {
   readonly schema: DomainSchema;
   readonly projectionPlan: SnapshotProjectionPlan;
+  readonly actionAnnotations: Readonly<Record<string, ActionAnnotation>>;
   readonly host: ManifestoHost;
   readonly hostContextProvider: HostContextProvider;
   readonly MEL: TypedMEL<T>;
   readonly createIntent: TypedCreateIntent<T>;
+  readonly initialContext?: Record<string, JsonValue>;
 };
 
 export function attachRuntimeKernelFactory<

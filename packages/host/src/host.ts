@@ -4,7 +4,7 @@
  * Event-loop execution model with Mailbox + Runner + Job architecture.
  *
  * Changes from v2.0.1:
- * - Intent slots stored in data.$host (HOST-NS-1)
+ * - Intent slots stored in namespaces.host (HOST-NS-1)
  * - Host no longer writes to system.* (INV-SNAP-4)
  *
  * @see host-SPEC-v2.0.2.md
@@ -16,12 +16,17 @@ import {
   evaluateComputed,
   isOk,
   Snapshot as SnapshotSchema,
+  toJcs,
   type ManifestoCore,
   type DomainSchema,
   type Snapshot,
   type Intent,
+  type NamespaceDelta,
   type TraceGraph,
   type Patch,
+  type JsonValue,
+  type Context,
+  type ErrorValue,
 } from "@manifesto-ai/core";
 import { EffectHandlerRegistry, createEffectRegistry } from "./effects/registry.js";
 import { EffectExecutor, createEffectExecutor } from "./effects/executor.js";
@@ -63,6 +68,11 @@ export interface HostResult {
    * Error if status is "error"
    */
   error?: HostError;
+
+  /**
+   * Materialized ADR-027 Context used by this transition attempt.
+   */
+  context?: Context;
 }
 
 /**
@@ -75,7 +85,12 @@ export interface HostOptions {
   maxIterations?: number;
 
   /**
-   * Initial snapshot data
+   * Canonical v5 Snapshot used as the initial Host baseline.
+   */
+  initialSnapshot?: Snapshot;
+
+  /**
+   * Legacy data-only initial state. Prefer initialSnapshot for v5 Host bootstrap.
    */
   initialData?: unknown;
 
@@ -87,7 +102,7 @@ export interface HostOptions {
   /**
    * Environment variables to include in context
    */
-  env?: Record<string, unknown>;
+  env?: Record<string, JsonValue>;
 
   /**
    * Trace event handler for debugging
@@ -102,6 +117,26 @@ export interface HostOptions {
   disableAutoEffect?: boolean;
 }
 
+export interface HostDispatchOptions {
+  /**
+   * Optional execution key override for mailbox serialization.
+   */
+  key?: ExecutionKey;
+
+  /**
+   * Direct-injected ADR-027 external context for this transition attempt.
+   */
+  externalContext?: Record<string, JsonValue>;
+
+  /**
+   * Fully materialized ADR-027 Context for this transition attempt.
+   *
+   * This is an internal replay/settlement seam. User-facing SDK APIs expose
+   * only flat external context.
+   */
+  context?: Context;
+}
+
 const DEFAULT_MAX_ITERATIONS = 100;
 
 type PendingEffect = {
@@ -111,6 +146,15 @@ type PendingEffect = {
   promise: Promise<void>;
 };
 
+function getReservedStateKeys(state: unknown): string[] {
+  if (state === null || typeof state !== "object" || Array.isArray(state)) {
+    return [];
+  }
+
+  return Object.keys(state as Record<string, unknown>)
+    .filter((key) => key.startsWith("$"));
+}
+
 /**
  * ManifestoHost class v2.0.2
  *
@@ -119,7 +163,7 @@ type PendingEffect = {
  * - Single-runner with lost-wakeup prevention (RUN-1~4, LIVE-1~4)
  * - Run-to-completion job model (JOB-1~5)
  * - Frozen context per job (CTX-1~5)
- * - Intent slots in data.$host (HOST-NS-1)
+ * - Intent slots in namespaces.host (HOST-NS-1)
  */
 export class ManifestoHost {
   private core: ManifestoCore;
@@ -148,27 +192,66 @@ export class ManifestoHost {
     return structuredClone(snapshot);
   }
 
-  private normalizeResetSnapshot(candidate: unknown): Snapshot {
-    const normalized = typeof candidate === "object" &&
-      candidate !== null &&
-      "data" in candidate &&
-      "computed" in candidate &&
-      "system" in candidate &&
-      "meta" in candidate
-      ? {
-          ...(candidate as Record<string, unknown>),
-          input: (candidate as Record<string, unknown>).input ?? null,
-        }
-      : null;
+  private recordHostLastError(snapshot: Snapshot, errorValue: ErrorValue): Snapshot {
+    return this.core.applyNamespaceDeltas(snapshot, [{
+      namespace: "host",
+      patches: [{
+        op: "set",
+        path: [{ kind: "prop", name: "lastError" }],
+        value: errorValue,
+      }],
+    }]);
+  }
+
+  private clearHostLastError(snapshot: Snapshot): Snapshot {
+    const hostState = getHostState(snapshot);
+    if (hostState?.lastError == null) {
+      return snapshot;
+    }
+
+    return this.core.applyNamespaceDeltas(snapshot, [{
+      namespace: "host",
+      patches: [{
+        op: "unset",
+        path: [{ kind: "prop", name: "lastError" }],
+      }],
+    }]);
+  }
+
+  private normalizeCanonicalSnapshot(candidate: unknown, operation: string): Snapshot {
+    let normalized: Record<string, unknown> | null = null;
+
+    if (typeof candidate === "object" && candidate !== null) {
+      const record = candidate as Record<string, unknown>;
+      if (
+        "state" in record &&
+        "namespaces" in record &&
+        "computed" in record &&
+        "system" in record &&
+        "meta" in record
+      ) {
+        normalized = {
+          ...record,
+          input: record.input ?? null,
+        };
+      }
+    }
 
     if (!normalized) {
-      throw createHostError("INVALID_STATE", "Host.reset() requires a canonical Snapshot payload");
+      throw createHostError("INVALID_STATE", `${operation} requires a canonical Snapshot payload`);
     }
 
     const parsed = SnapshotSchema.safeParse(normalized);
     if (!parsed.success) {
-      throw createHostError("INVALID_STATE", "Host.reset() canonical Snapshot validation failed", {
+      throw createHostError("INVALID_STATE", `${operation} canonical Snapshot validation failed`, {
         issues: parsed.error.issues,
+      });
+    }
+
+    const reservedStateKeys = getReservedStateKeys(parsed.data.state);
+    if (reservedStateKeys.length > 0) {
+      throw createHostError("INVALID_STATE", `${operation} canonical Snapshot state contains reserved keys`, {
+        keys: reservedStateKeys,
       });
     }
 
@@ -195,8 +278,13 @@ export class ManifestoHost {
     this.pendingEffects = new Map();
     this.fatalErrors = new Map();
 
-    // Initialize with initial data if provided
-    if (options.initialData !== undefined) {
+    if (options.initialSnapshot !== undefined && options.initialData !== undefined) {
+      throw createHostError("INVALID_STATE", "Host accepts either initialSnapshot or legacy initialData, not both");
+    }
+
+    if (options.initialSnapshot !== undefined) {
+      this.currentSnapshot = this.normalizeCanonicalSnapshot(options.initialSnapshot, "Host initialSnapshot");
+    } else if (options.initialData !== undefined) {
       this.initializeSnapshot(options.initialData);
     }
   }
@@ -205,6 +293,13 @@ export class ManifestoHost {
    * Initialize snapshot with data
    */
   private initializeSnapshot(initialData: unknown): void {
+    const reservedStateKeys = getReservedStateKeys(initialData);
+    if (reservedStateKeys.length > 0) {
+      throw createHostError("INVALID_STATE", "Host initialData contains reserved state keys", {
+        keys: reservedStateKeys,
+      });
+    }
+
     const initialContext = this.contextProvider.createInitialContext();
     const snapshot = createSnapshot(initialData, this.schema.hash, initialContext);
     // Evaluate computed values on initial snapshot
@@ -256,7 +351,7 @@ export class ManifestoHost {
    */
   async dispatch(
     intent: Intent,
-    options?: { key?: ExecutionKey }
+    options?: HostDispatchOptions
   ): Promise<HostResult> {
     if (!this.currentSnapshot) {
       const initialContext = this.contextProvider.createInitialContext();
@@ -284,12 +379,57 @@ export class ManifestoHost {
       };
     }
 
+    this.currentSnapshot = this.clearHostLastError(this.currentSnapshot);
+
+    const initialHostLastError = getHostState(this.currentSnapshot)?.lastError ?? null;
+    const stableSnapshot = this.cloneSnapshot(this.currentSnapshot);
+
     // Use explicit execution key when provided, otherwise fallback to intentId
     const key: ExecutionKey = options?.key ?? intent.intentId;
+    let transitionContext: Context;
+    try {
+      transitionContext = options?.context ?? this.contextProvider.createFrozenContext(
+        intent.intentId,
+        options?.externalContext,
+      );
+    } catch (error) {
+      const hostError = createHostError(
+        "INVALID_STATE",
+        error instanceof Error
+          ? error.message
+          : "Invalid external context",
+        { intentId: intent.intentId },
+      );
+      const errorValue = {
+        code: "INVALID_CONTEXT",
+        message: hostError.message,
+        source: {
+          actionId: intent.type,
+          nodePath: "host.dispatch.context",
+        },
+        timestamp: this.currentSnapshot.meta.timestamp,
+        context: { intentId: intent.intentId },
+      };
+      const snapshot = this.recordHostLastError(this.currentSnapshot, errorValue);
+      this.currentSnapshot = snapshot;
+
+      return {
+        status: "error",
+        snapshot,
+        traces: [],
+        error: hostError,
+      };
+    }
 
     // Create mailbox and execution context
     const mailbox = this.mailboxManager.getOrCreate(key);
-    const ctx = this.createExecutionContext(key, mailbox, this.currentSnapshot, intent.intentId);
+    const ctx = this.createExecutionContext(
+      key,
+      mailbox,
+      stableSnapshot,
+      intent.intentId,
+      transitionContext,
+    );
     this.executionContexts.set(key, ctx);
 
     // Enqueue StartIntent job
@@ -298,9 +438,10 @@ export class ManifestoHost {
 
     // Process mailbox until completion
     let iterations = 0;
-    const traces: TraceGraph[] = [];
+    let traces: TraceGraph[] = [];
 
     let fatalError: HostError | undefined;
+    let hostOperationalError: ErrorValue | null = null;
 
     while (iterations < this.maxIterations) {
       iterations++;
@@ -310,6 +451,12 @@ export class ManifestoHost {
 
       if (this.fatalErrors.has(key)) {
         fatalError = this.fatalErrors.get(key);
+        break;
+      }
+
+      const currentHostLastError = getHostState(ctx.getSnapshot())?.lastError ?? null;
+      if (currentHostLastError && !isSameErrorValue(initialHostLastError, currentHostLastError)) {
+        hostOperationalError = currentHostLastError;
         break;
       }
 
@@ -327,43 +474,94 @@ export class ManifestoHost {
 
     // Get final snapshot
     const finalSnapshot = ctx.getSnapshot();
-    this.currentSnapshot = finalSnapshot;
+    traces = [...ctx.getCoreTraces()];
 
     // Cleanup via releaseExecution
     this.releaseExecution(key);
 
     // Determine status
     if (fatalError) {
+      this.currentSnapshot = finalSnapshot;
       return {
         status: "error",
         snapshot: finalSnapshot,
         traces,
+        context: transitionContext,
         error: fatalError,
       };
     }
 
-    if (iterations >= this.maxIterations) {
+    if (hostOperationalError) {
+      this.currentSnapshot = finalSnapshot;
       return {
         status: "error",
         snapshot: finalSnapshot,
         traces,
+        context: transitionContext,
         error: createHostError(
-          "LOOP_MAX_ITERATIONS",
-          `Host loop exceeded maximum iterations (${this.maxIterations})`,
-          { maxIterations: this.maxIterations }
+          "EFFECT_EXECUTION_FAILED",
+          hostOperationalError.message,
+          { lastError: hostOperationalError }
         ),
       };
     }
+
+    if (iterations >= this.maxIterations) {
+      const hostError = createHostError(
+        "LOOP_MAX_ITERATIONS",
+        `Host loop exceeded maximum iterations (${this.maxIterations})`,
+        { maxIterations: this.maxIterations }
+      );
+      const snapshot = this.recordHostLastError(finalSnapshot, {
+        code: "LOOP_MAX_ITERATIONS",
+        message: hostError.message,
+        source: {
+          actionId: intent.type,
+          nodePath: "host.dispatch.loop",
+        },
+        timestamp: transitionContext.runtime.time.timestamp,
+        context: {
+          intentId: intent.intentId,
+          maxIterations: this.maxIterations,
+        },
+      });
+      this.currentSnapshot = snapshot;
+      return {
+        status: "error",
+        snapshot,
+        traces,
+        context: transitionContext,
+        error: hostError,
+      };
+    }
+
+    this.currentSnapshot = finalSnapshot;
 
     if (finalSnapshot.system.status === "error") {
       return {
         status: "error",
         snapshot: finalSnapshot,
         traces,
+        context: transitionContext,
         error: createHostError(
           "EFFECT_EXECUTION_FAILED",
           finalSnapshot.system.lastError?.message ?? "Unknown error",
           { lastError: finalSnapshot.system.lastError }
+        ),
+      };
+    }
+
+    const hostLastError = getHostState(finalSnapshot)?.lastError ?? null;
+    if (hostLastError && !isSameErrorValue(initialHostLastError, hostLastError)) {
+      return {
+        status: "error",
+        snapshot: finalSnapshot,
+        traces,
+        context: transitionContext,
+        error: createHostError(
+          "EFFECT_EXECUTION_FAILED",
+          hostLastError.message,
+          { lastError: hostLastError }
         ),
       };
     }
@@ -374,6 +572,7 @@ export class ManifestoHost {
       status,
       snapshot: finalSnapshot,
       traces,
+      context: transitionContext,
     };
   }
 
@@ -384,7 +583,8 @@ export class ManifestoHost {
     key: ExecutionKey,
     mailbox: ExecutionMailbox,
     snapshot: Snapshot,
-    intentId: string
+    intentId: string,
+    transitionContext?: Context,
   ): ExecutionContextImpl {
     return createExecutionContext({
       key,
@@ -393,6 +593,7 @@ export class ManifestoHost {
       mailbox,
       runtime: this.runtime,
       initialSnapshot: snapshot,
+      ...(transitionContext !== undefined ? { transitionContext } : {}),
       contextProvider: this.contextProvider,
       currentIntentId: intentId,
       onTrace: (event) => {
@@ -458,12 +659,9 @@ export class ManifestoHost {
 
     // Execute effect
     const result = await this.executor.execute(requirement, snapshot);
-    const effectError = result.success
+    const effectError = result.ok
       ? undefined
-      : {
-          code: result.errorCode ?? "EFFECT_EXECUTION_FAILED",
-          message: result.error ?? "Unknown effect execution error",
-        };
+      : result.failure;
 
     // Inject result as FulfillEffect job (REINJ-1~4)
     const mailbox = this.mailboxManager.get(key);
@@ -473,7 +671,8 @@ export class ManifestoHost {
         requirementId,
         result.patches,
         intent,
-        effectError
+        effectError,
+        result.namespaceDelta
       );
       mailbox.enqueue(fulfillJob);
     }
@@ -507,7 +706,7 @@ export class ManifestoHost {
    * Check if a fatal error has been recorded for a key.
    *
    * Fatal errors are tracked in a separate map and are NOT written to
-   * snapshot.system.lastError (only to data.$host.lastError as best-effort).
+   * snapshot.system.lastError (only to namespaces.host.lastError as best-effort).
    * The drain loop must check this so it doesn't report "completed" after
    * a fatal failure.
    *
@@ -565,30 +764,26 @@ export class ManifestoHost {
     );
     this.fatalErrors.set(key, hostError);
 
-    // Mark execution as failed (best-effort) in data.$host
+    // Mark execution as failed (best-effort) in namespaces.host
     const ctx = this.executionContexts.get(key);
     if (ctx) {
       try {
-        const snapshot = ctx.getSnapshot();
-        const hostState = getHostState(snapshot.data);
         const frozenContext = ctx.getFrozenContext();
         const errorValue = {
           code: "FATAL_ERROR",
           message: error.message,
           source: { actionId: intentId, nodePath: "host.fatal" },
-          timestamp: frozenContext.now,
+          timestamp: frozenContext.runtime.time.timestamp,
         };
-        const patches: Patch[] = [
-          {
-            op: "merge",
-            path: [{ kind: "prop", name: "$host" }],
-            value: {
-              ...(hostState ? hostState : {}),
-              lastError: errorValue,
-            },
-          },
-        ];
-        ctx.applyPatches(patches, "fatal-error");
+        const deltas: NamespaceDelta[] = [{
+          namespace: "host",
+          patches: [{
+            op: "set",
+            path: [{ kind: "prop", name: "lastError" }],
+            value: errorValue,
+          }],
+        }];
+        ctx.applyNamespaceDeltas(deltas, "fatal-error");
       } catch {
         // Best-effort only
       }
@@ -642,7 +837,7 @@ export class ManifestoHost {
    * invoking Host.reset().
    */
   reset(snapshotOrData: unknown): void {
-    this.currentSnapshot = this.normalizeResetSnapshot(snapshotOrData);
+    this.currentSnapshot = this.normalizeCanonicalSnapshot(snapshotOrData, "Host.reset()");
   }
 
   // === v2.0.1 API for HCTS testing ===
@@ -701,11 +896,12 @@ export class ManifestoHost {
     requirementId: string,
     intentId: string,
     patches: Patch[],
-    intent?: Intent
+    intent?: Intent,
+    namespaceDelta?: readonly NamespaceDelta[]
   ): void {
     const mailbox = this.mailboxManager.get(key);
     if (mailbox) {
-      // Try to get intent from data.$host if not provided (v2.0.2 HOST-NS-1)
+      // Try to get intent from namespaces.host if not provided (v2.0.2 HOST-NS-1)
       const ctx = this.executionContexts.get(key);
       let effectIntent = intent;
       if (!effectIntent && ctx) {
@@ -719,7 +915,14 @@ export class ManifestoHost {
         }
       }
 
-      const job = createFulfillEffectJob(intentId, requirementId, patches, effectIntent);
+      const job = createFulfillEffectJob(
+        intentId,
+        requirementId,
+        patches,
+        effectIntent,
+        undefined,
+        namespaceDelta
+      );
       mailbox.enqueue(job);
     }
   }
@@ -756,6 +959,16 @@ export class ManifestoHost {
     }
     return this.cloneSnapshot(snapshot);
   }
+}
+
+function isSameErrorValue(left: Snapshot["system"]["lastError"], right: Snapshot["system"]["lastError"]): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (left === null || right === null) {
+    return false;
+  }
+  return toJcs(left) === toJcs(right);
 }
 
 /**

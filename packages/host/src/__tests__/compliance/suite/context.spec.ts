@@ -45,8 +45,8 @@ describe("HCTS Context Determinism Tests", () => {
 
   describe("CTX-1: Context frozen per job", () => {
     it("HCTS-CTX-001: Timestamp remains constant during a single compute cycle", async () => {
-      // This test verifies that the `now` value captured at job start
-      // doesn't change during computation
+      // This test verifies that the runtime timestamp captured at job start
+      // doesn't change during computation.
 
       const schema = createTestSchema({
         actions: {
@@ -57,12 +57,12 @@ describe("HCTS Context Determinism Tests", () => {
                 {
                   kind: "patch",
                   op: "set", path: pp("firstTimestamp"),
-                  value: { kind: "get", path: "meta.timestamp" },
+                  value: { kind: "get", path: "$runtime.time.timestamp" },
                 },
                 {
                   kind: "patch",
                   op: "set", path: pp("secondTimestamp"),
-                  value: { kind: "get", path: "meta.timestamp" },
+                  value: { kind: "get", path: "$runtime.time.timestamp" },
                 },
               ],
             },
@@ -80,7 +80,7 @@ describe("HCTS Context Determinism Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const data = finalSnapshot.data as Record<string, unknown>;
+      const data = finalSnapshot.state as Record<string, unknown>;
 
       // Both timestamps should be identical (time frozen during compute)
       expect(data.firstTimestamp).toBe(data.secondTimestamp);
@@ -99,7 +99,7 @@ describe("HCTS Context Determinism Tests", () => {
                 {
                   kind: "patch",
                   op: "set", path: pp("firstSeed"),
-                  value: { kind: "get", path: "meta.randomSeed" },
+                  value: { kind: "get", path: "$runtime.random.seed" },
                 },
                 {
                   kind: "if",
@@ -113,7 +113,7 @@ describe("HCTS Context Determinism Tests", () => {
                 {
                   kind: "patch",
                   op: "set", path: pp("secondSeed"),
-                  value: { kind: "get", path: "meta.randomSeed" },
+                  value: { kind: "get", path: "$runtime.random.seed" },
                 },
               ],
             },
@@ -135,9 +135,9 @@ describe("HCTS Context Determinism Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const data = finalSnapshot.data as Record<string, unknown>;
+      const data = finalSnapshot.state as Record<string, unknown>;
 
-      // Both seeds should be the same intent ID (v1.x uses intentId as seed)
+      // Both seeds should come from the frozen context for the same intent job.
       expect(data.firstSeed).toBe(data.secondSeed);
     });
   });
@@ -150,9 +150,19 @@ describe("HCTS Context Determinism Tests", () => {
         actions: {
           setDone: {
             flow: {
-              kind: "patch",
-              op: "set", path: pp("done"),
-              value: { kind: "lit", value: true },
+              kind: "seq",
+              steps: [
+                {
+                  kind: "patch",
+                  op: "set", path: pp("done"),
+                  value: { kind: "lit", value: true },
+                },
+                {
+                  kind: "patch",
+                  op: "set", path: pp("capturedTimestamp"),
+                  value: { kind: "get", path: "$runtime.time.timestamp" },
+                },
+              ],
             },
           },
         },
@@ -173,26 +183,24 @@ describe("HCTS Context Determinism Tests", () => {
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
 
-      // The timestamp should reflect the runtime's time
-      // Note: This depends on implementation using runtime.now()
-      expect(finalSnapshot.meta.timestamp).toBeGreaterThanOrEqual(0);
+      const data = finalSnapshot.state as Record<string, unknown>;
+
+      // The runtime expression should reflect the runtime's time source.
+      expect(data.capturedTimestamp).toBe(1000);
     });
   });
 
   describe("CTX-3: Context isolation", () => {
     it("HCTS-CTX-004: Different intents have different context identifiers", async () => {
-      // This test verifies that different intents receive different context
-      // identifiers during computation. We use meta.intentId which is properly
-      // exposed via the expression evaluator.
-      // Note: meta.randomSeed in expressions reads from snapshot.meta, not the
-      // current context, so we use intentId to verify context isolation.
+      // This test verifies that different intents receive different runtime
+      // intent identifiers during computation.
       const schema = createTestSchema({
         actions: {
           captureIntentId: {
             flow: {
               kind: "patch",
               op: "set", path: pp("capturedSeed"),
-              value: { kind: "get", path: "meta.intentId" },
+              value: { kind: "get", path: "$runtime.intent.id" },
             },
           },
         },
@@ -207,7 +215,7 @@ describe("HCTS Context Determinism Tests", () => {
       adapter.submitIntent(executionKey, createTestIntent("captureIntentId"));
       await adapter.drain(executionKey);
       const result1 = adapter.getSnapshot(executionKey);
-      const data1 = result1.data as Record<string, unknown>;
+      const data1 = result1.state as Record<string, unknown>;
 
       // Second intent with different key
       const executionKey2 = "context-test-2";
@@ -216,10 +224,9 @@ describe("HCTS Context Determinism Tests", () => {
       adapter.submitIntent(executionKey2, createTestIntent("captureIntentId"));
       await adapter.drain(executionKey2);
       const result2 = adapter.getSnapshot(executionKey2);
-      const data2 = result2.data as Record<string, unknown>;
+      const data2 = result2.state as Record<string, unknown>;
 
-      // The captured intentIds should be different
-      // v1.x uses intentId as the randomSeed, so different intents = different seeds
+      // The captured intentIds should be different.
       expect(data1.capturedSeed).toBeDefined();
       expect(data2.capturedSeed).toBeDefined();
       expect(data1.capturedSeed).not.toBe(data2.capturedSeed);

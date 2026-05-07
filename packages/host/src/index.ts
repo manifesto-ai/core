@@ -10,7 +10,13 @@
  */
 
 // Host
-export { ManifestoHost, createHost, type HostOptions, type HostResult } from "./host.js";
+export {
+  ManifestoHost,
+  createHost,
+  type HostDispatchOptions,
+  type HostOptions,
+  type HostResult,
+} from "./host.js";
 
 // v2.0.2 Execution Model
 export type {
@@ -42,7 +48,7 @@ export type { TraceEvent } from "./types/trace.js";
 
 // Host-owned state namespace (v2.0.2)
 export type { HostOwnedState, IntentSlot } from "./types/host-state.js";
-export { getHostState, getIntentSlot } from "./types/host-state.js";
+export { getHostState, getIntentSlot, getLegacyDataRootHostState } from "./types/host-state.js";
 
 // Mailbox
 export {

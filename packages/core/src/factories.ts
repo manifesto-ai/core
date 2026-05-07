@@ -1,31 +1,32 @@
 import type { Snapshot } from "./schema/snapshot.js";
 import type { Intent } from "./schema/patch.js";
-import type { HostContext } from "./schema/host-context.js";
-import { createInitialSystemState } from "./schema/snapshot.js";
+import type { Context } from "./schema/context.js";
+import { createInitialNamespaces, createInitialSystemState } from "./schema/snapshot.js";
 
 /**
- * Create a new snapshot with initial data
+ * Create a new snapshot with initial state
  *
- * @param data - Initial domain data
+ * @param state - Initial domain state
  * @param schemaHash - Hash of the schema this snapshot conforms to
  * @returns New snapshot
  */
 export function createSnapshot<T>(
-  data: T,
+  state: T,
   schemaHash: string,
-  context: HostContext
+  context: Context
 ): Snapshot {
   return {
-    data,
+    state,
     computed: {},
     system: createInitialSystemState(),
     input: undefined,
     meta: {
       version: 0,
-      timestamp: context.now,
-      randomSeed: context.randomSeed,
+      timestamp: context.runtime.time.timestamp,
+      randomSeed: context.runtime.random.seed,
       schemaHash,
     },
+    namespaces: createInitialNamespaces(),
   };
 }
 

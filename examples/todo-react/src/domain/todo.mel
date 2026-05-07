@@ -15,17 +15,20 @@ domain TodoApp {
   computed activeCount = sub(todoCount, completedCount)
   computed hasCompleted = gt(completedCount, 0)
 
-  action addTodo(title: string) {
-    onceIntent when neq(trim(title), "") {
+  action addTodo(title: string)
+    dispatchable when neq(trim(title), "") {
+    onceIntent {
       patch todos = append(todos, {
-        id: $system.uuid,
+        id: $runtime.random.uuid,
         title: trim(title),
         completed: false
       })
     }
   }
 
-  action toggleTodo(id: string) {
+  action toggleTodo(id: string)
+    available when gt(todoCount, 0)
+    dispatchable when gt(len(filter(todos, eq($item.id, id))), 0) {
     onceIntent {
       patch todos = map(todos,
         cond(eq($item.id, id),
@@ -36,20 +39,24 @@ domain TodoApp {
     }
   }
 
-  action removeTodo(id: string) {
+  action removeTodo(id: string)
+    available when gt(todoCount, 0)
+    dispatchable when gt(len(filter(todos, eq($item.id, id))), 0) {
     onceIntent {
       patch todos = filter(todos, neq($item.id, id))
     }
   }
 
-  action setFilter(newFilter: "all" | "active" | "completed") {
+  action setFilter(newFilter: "all" | "active" | "completed")
+    dispatchable when neq(filterMode, newFilter) {
     onceIntent {
       patch filterMode = newFilter
     }
   }
 
-  action clearCompleted() {
-    onceIntent when hasCompleted {
+  action clearCompleted()
+    available when hasCompleted {
+    onceIntent {
       patch todos = filter(todos, not($item.completed))
     }
   }

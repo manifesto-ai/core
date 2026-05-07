@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { compute as computeRaw, computeSync as computeSyncRaw } from "./compute.js";
-import { apply } from "./apply.js";
+import { apply, applyNamespaceDeltas } from "./apply.js";
 import { applySystemDelta } from "./system-delta.js";
 import { createSnapshot, createIntent } from "../factories.js";
 import { hashSchemaSync } from "../utils/hash.js";
 import { semanticPathToPatchPath } from "../utils/patch-path.js";
 import type { DomainSchema } from "../schema/domain.js";
+import type { Context } from "../schema/context.js";
 import type { ComputeResult } from "../schema/result.js";
 
 const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
@@ -80,7 +81,13 @@ function createTestSchema(overrides: Partial<DomainSchema> = {}): DomainSchema {
   };
 }
 
-const HOST_CONTEXT = { now: 0, randomSeed: "seed" };
+const HOST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
 const pp = (path: string) => semanticPathToPatchPath(path);
 let intentCounter = 0;
 const nextIntentId = () => `intent-${intentCounter++}`;
@@ -99,15 +106,16 @@ function materializeComputeResult(
   snapshot: SnapshotType,
   result: ComputeResult
 ): SnapshotType {
-  const patched = apply(schema, snapshot, result.patches, HOST_CONTEXT);
-  return applySystemDelta(patched, result.systemDelta) as SnapshotType;
+  const patched = apply(schema, snapshot, result.patches);
+  const namespaced = applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+  return applySystemDelta(namespaced, result.systemDelta) as SnapshotType;
 }
 
 const computeSync = (
   schema: DomainSchema,
   snapshot: SnapshotType,
   intent: ReturnType<typeof createIntent>,
-  context: typeof HOST_CONTEXT = HOST_CONTEXT
+  context: Context = HOST_CONTEXT
 ): ComputeResultWithSnapshot => {
   const result = computeSyncRaw(schema, snapshot, intent, context);
   return {
@@ -120,7 +128,7 @@ const compute = async (
   schema: DomainSchema,
   snapshot: SnapshotType,
   intent: ReturnType<typeof createIntent>,
-  context: typeof HOST_CONTEXT = HOST_CONTEXT
+  context: Context = HOST_CONTEXT
 ): Promise<ComputeResultWithSnapshot> => {
   const result = await computeRaw(schema, snapshot, intent, context);
   return {
@@ -133,10 +141,82 @@ const computeWithContext = (
   schema: DomainSchema,
   snapshot: ReturnType<typeof createSnapshot>,
   intent: ReturnType<typeof createIntent>
-) => compute(schema, snapshot, intent);
+) => compute(schema, snapshot, intent, HOST_CONTEXT);
 
 describe("compute", () => {
   describe("Basic Intent Processing", () => {
+    it("rejects external context that does not match schema.context", async () => {
+      const schema = createTestSchema({
+        context: {
+          fields: {
+            locale: { type: "string", required: true },
+          },
+          fieldTypes: {
+            locale: { kind: "primitive", type: "string" },
+          },
+        },
+        actions: {
+          capture: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: pp("value"),
+              value: { kind: "get", path: "$context.locale" },
+            },
+          },
+        },
+      });
+      const snapshot = createTestSnapshot({ value: "" }, schema.hash);
+      const intent = createTestIntent("capture");
+
+      const result = await compute(schema, snapshot, intent, {
+        runtime: {
+          time: { timestamp: 123 },
+          random: { seed: "seed" },
+        },
+        external: { locale: 42 },
+      });
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError).toMatchObject({
+        code: "INVALID_CONTEXT",
+      });
+      expect(result.snapshot.state).toEqual({ value: "" });
+    });
+
+    it("returns an error value instead of throwing when context parsing overflows", () => {
+      const schema = createTestSchema({
+        actions: {
+          capture: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: pp("value"),
+              value: { kind: "lit", value: "captured" },
+            },
+          },
+        },
+      });
+      const snapshot = createTestSnapshot({ value: "" }, schema.hash);
+      const intent = createTestIntent("capture");
+      const cyclic: Record<string, unknown> = {};
+      cyclic.self = cyclic;
+
+      const result = computeSync(schema, snapshot, intent, {
+        runtime: {
+          time: { timestamp: 123 },
+          random: { seed: "seed" },
+        },
+        external: { cyclic },
+      } as unknown as Context);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError).toMatchObject({
+        code: "INVALID_INPUT",
+      });
+      expect(result.snapshot.state).toEqual({ value: "" });
+    });
+
     it("should process a simple action", async () => {
       const schema = createTestSchema({
         actions: {
@@ -160,7 +240,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ count: 1 });
+      expect(result.snapshot.state).toEqual({ count: 1 });
       expect(result.snapshot.meta.version).toBe(1);
     });
 
@@ -175,10 +255,38 @@ describe("compute", () => {
       expect(result.snapshot.system.lastError?.code).toBe("UNKNOWN_ACTION");
     });
 
+    it("should reject input for actions that declare no input", async () => {
+      const schema = createTestSchema({
+        actions: {
+          noop: {
+            flow: { kind: "halt", reason: "noop" },
+          },
+        },
+      });
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent = createTestIntent("noop", { report: "summary" });
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError).toMatchObject({
+        code: "INVALID_INPUT",
+        message: 'Action "noop" does not accept input',
+      });
+      expect(result.snapshot.state).toEqual({ count: 0 });
+    });
+
     it("should handle action with input", async () => {
       const schema = createTestSchema({
         actions: {
           setName: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                name: { type: "string", required: true },
+              },
+            },
             flow: {
               kind: "patch",
               op: "set", path: pp("name"),
@@ -194,7 +302,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ name: "Alice" });
+      expect(result.snapshot.state).toEqual({ name: "Alice" });
     });
 
     it("should reject intent without intentId", async () => {
@@ -225,10 +333,17 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           markIntent: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                name: { type: "string", required: true },
+              },
+            },
             flow: {
               kind: "patch",
               op: "set", path: pp("value"),
-              value: { kind: "get", path: "meta.intentId" },
+              value: { kind: "get", path: "$runtime.intent.id" },
             },
           },
         },
@@ -240,7 +355,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ value: intent.intentId });
+      expect(result.snapshot.state).toEqual({ value: intent.intentId });
       expect(result.snapshot.input).toBeUndefined();
     });
   });
@@ -250,6 +365,13 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           withdraw: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                amount: { type: "number", required: true },
+              },
+            },
             available: {
               kind: "gt",
               left: { kind: "get", path: "balance" },
@@ -274,7 +396,7 @@ describe("compute", () => {
       const result1 = await computeWithContext(schema, snapshot1, intent1);
 
       expect(result1.status).toBe("complete");
-      expect(result1.snapshot.data).toEqual({ balance: 50 });
+      expect(result1.snapshot.state).toEqual({ balance: 50 });
 
       // Should fail when balance = 0
       const snapshot2 = createTestSnapshot({ balance: 0 }, schema.hash);
@@ -310,6 +432,40 @@ describe("compute", () => {
 
       expect(result.status).toBe("error");
       expect(result.snapshot.system.lastError?.code).toBe("TYPE_MISMATCH");
+    });
+
+    it("should timestamp availability errors from the compute context", async () => {
+      const schema = createTestSchema({
+        actions: {
+          invalidAvailable: {
+            available: {
+              kind: "lit",
+              value: "not-boolean",
+            },
+            flow: {
+              kind: "patch",
+              op: "set", path: pp("count"),
+              value: { kind: "lit", value: 1 },
+            },
+          },
+        },
+      });
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent = createTestIntent("invalidAvailable");
+
+      const result = await compute(schema, snapshot, intent, {
+        runtime: {
+          time: { timestamp: 9876 },
+          random: { seed: "seed" },
+        },
+        external: {},
+      });
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError).toMatchObject({
+        code: "TYPE_MISMATCH",
+        timestamp: 9876,
+      });
     });
   });
 
@@ -528,6 +684,13 @@ describe("compute", () => {
         },
         actions: {
           setA: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                value: { type: "number", required: true },
+              },
+            },
             flow: {
               kind: "patch",
               op: "set", path: pp("a"),
@@ -543,7 +706,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({ a: 100, b: 20 });
+      expect(result.snapshot.state).toEqual({ a: 100, b: 20 });
       expect(result.snapshot.computed["total"]).toBe(120);
     });
   });
@@ -576,7 +739,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("pending");
-      expect(result.snapshot.data).toEqual({ loading: true });
+      expect(result.snapshot.state).toEqual({ loading: true });
       expect(result.snapshot.system.pendingRequirements).toHaveLength(1);
       expect(result.snapshot.system.pendingRequirements[0].type).toBe("http");
     });
@@ -587,6 +750,13 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           conditionalHalt: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                shouldHalt: { type: "boolean", required: true },
+              },
+            },
             flow: {
               kind: "seq",
               steps: [
@@ -609,7 +779,7 @@ describe("compute", () => {
       const result1 = await computeWithContext(schema, snapshot1, intent1);
 
       expect(result1.status).toBe("halted");
-      expect(result1.snapshot.data).toEqual({ started: true });
+      expect(result1.snapshot.state).toEqual({ started: true });
 
       // Without halt
       const snapshot2 = createTestSnapshot({}, schema.hash);
@@ -617,7 +787,7 @@ describe("compute", () => {
       const result2 = await computeWithContext(schema, snapshot2, intent2);
 
       expect(result2.status).toBe("complete");
-      expect(result2.snapshot.data).toEqual({ started: true, completed: true });
+      expect(result2.snapshot.state).toEqual({ started: true, completed: true });
     });
   });
 
@@ -626,6 +796,13 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           validateInput: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                value: { type: "string", required: false },
+              },
+            },
             flow: {
               kind: "if",
               cond: { kind: "isNull", arg: { kind: "get", path: "input.value" } },
@@ -650,7 +827,7 @@ describe("compute", () => {
       const result2 = await computeWithContext(schema, snapshot2, intent2);
 
       expect(result2.status).toBe("complete");
-      expect(result2.snapshot.data).toEqual({ value: "test" });
+      expect(result2.snapshot.state).toEqual({ value: "test" });
     });
   });
 
@@ -752,7 +929,7 @@ describe("compute", () => {
 
       // First add - initialize todos array
       const snapshot = createTestSnapshot({}, schema.hash);
-      const intent = createTestIntent("addTodo", { text: "Test todo" });
+      const intent = createTestIntent("addTodo");
 
       const result = await computeWithContext(schema, snapshot, intent);
 
@@ -764,6 +941,13 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           transfer: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                amount: { type: "number", required: true },
+              },
+            },
             flow: {
               kind: "seq",
               steps: [
@@ -800,7 +984,7 @@ describe("compute", () => {
       const result = await computeWithContext(schema, snapshot, intent);
 
       expect(result.status).toBe("complete");
-      expect(result.snapshot.data).toEqual({
+      expect(result.snapshot.state).toEqual({
         fromBalance: 70,
         toBalance: 80,
       });
@@ -920,7 +1104,7 @@ describe("compute", () => {
                   {
                     kind: "patch",
                     op: "set", path: pp("pending"),
-                    value: { kind: "get", path: "meta.intentId" },
+                    value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
                     kind: "effect",
@@ -945,7 +1129,7 @@ describe("compute", () => {
 
       const afterEffect = {
         ...first.snapshot,
-        data: { ...(first.snapshot.data as Record<string, unknown>), result: "done" },
+        state: { ...(first.snapshot.state as Record<string, unknown>), result: "done" },
         system: {
           ...first.snapshot.system,
           pendingRequirements: [],
@@ -990,7 +1174,7 @@ describe("compute", () => {
                   {
                     kind: "patch",
                     op: "set", path: pp("pending"),
-                    value: { kind: "get", path: "meta.intentId" },
+                    value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
                     kind: "effect",
@@ -1012,7 +1196,7 @@ describe("compute", () => {
       const result1 = await compute(schema, snapshot1, intent, HOST_CONTEXT);
 
       expect(result1.status).toBe("pending");
-      expect(result1.snapshot.data).toEqual(
+      expect(result1.snapshot.state).toEqual(
         expect.objectContaining({ pending: "intent-run-1" })
       );
       expect(result1.snapshot.system.currentAction).toBe("run");
@@ -1022,7 +1206,7 @@ describe("compute", () => {
       // The snapshot has currentAction === "run" (set during 1st compute pending).
       const reEntrySnapshot = {
         ...result1.snapshot,
-        data: { ...result1.snapshot.data as Record<string, unknown>, result: "done" },
+        state: { ...result1.snapshot.state as Record<string, unknown>, result: "done" },
         system: {
           ...result1.snapshot.system,
           // currentAction remains "run" — this signals re-entry
@@ -1068,7 +1252,7 @@ describe("compute", () => {
                   {
                     kind: "patch",
                     op: "set", path: pp("pending"),
-                    value: { kind: "get", path: "meta.intentId" },
+                    value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
                     kind: "effect",
@@ -1101,7 +1285,7 @@ describe("compute", () => {
       // pending is already "intent-A", so the if-branch is skipped → no patches, no effects.
       // Result: completes as no-op, does NOT corrupt state.
       expect(resultB.snapshot.system.lastError?.code).not.toBe("ACTION_UNAVAILABLE");
-      expect((resultB.snapshot.data as Record<string, unknown>).pending).toBe("intent-A"); // unchanged
+      expect((resultB.snapshot.state as Record<string, unknown>).pending).toBe("intent-A"); // unchanged
     });
 
     it("SCENARIO: different action type on pending snapshot still checks availability", async () => {
@@ -1127,7 +1311,7 @@ describe("compute", () => {
                 {
                   kind: "patch",
                   op: "set", path: pp("pending"),
-                  value: { kind: "get", path: "meta.intentId" },
+                  value: { kind: "get", path: "$runtime.intent.id" },
                 },
                 {
                   kind: "effect",
@@ -1190,7 +1374,7 @@ describe("compute", () => {
             flow: {
               kind: "patch",
               op: "set", path: pp("pending"),
-              value: { kind: "get", path: "meta.intentId" },
+              value: { kind: "get", path: "$runtime.intent.id" },
             },
           },
         },

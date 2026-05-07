@@ -241,7 +241,7 @@ describe("IR Generator", () => {
           }
           action increment() {
             once(lastIntent) {
-              patch lastIntent = $meta.intentId
+              patch lastIntent = $runtime.intent.id
             }
           }
         }
@@ -482,7 +482,7 @@ describe("IR Generator", () => {
       }
     });
 
-    it("resolves $meta.intentId", () => {
+    it("resolves $runtime.intent.id", () => {
       const result = compile(`
         domain Counter {
           state {
@@ -490,7 +490,7 @@ describe("IR Generator", () => {
           }
           action increment() {
             when true {
-              patch lastIntent = $meta.intentId
+              patch lastIntent = $runtime.intent.id
             }
           }
         }
@@ -500,7 +500,7 @@ describe("IR Generator", () => {
         const flow = result.schema.actions.increment.flow;
         if (flow.kind === "if") {
           const patchFlow = flow.then as { kind: "patch"; value?: CoreExprNode };
-          expect(patchFlow.value).toEqual({ kind: "get", path: "meta.intentId" });
+          expect(patchFlow.value).toEqual({ kind: "get", path: "$runtime.intent.id" });
         }
       }
     });
@@ -520,7 +520,7 @@ describe("IR Generator", () => {
 
           action increment() {
             once(lastIntent) {
-              patch lastIntent = $meta.intentId
+              patch lastIntent = $runtime.intent.id
               patch count = add(count, 1)
             }
           }
@@ -556,7 +556,7 @@ describe("IR Generator", () => {
 
           action addTask(title: string) {
             once(lastAdded) when neq(trim(title), "") {
-              patch lastAdded = $meta.intentId
+              patch lastAdded = $runtime.intent.id
             }
           }
 

@@ -2518,13 +2518,19 @@ Snapshot
 
 ---
 
-# Part XIII: $mel Namespace & onceIntent (v0.5.0)
+# Part XIII: `onceIntent` Runtime Bookkeeping (v0.5.0, v5-amended)
+
+> **v5 Boundary Amendment (2026-05-01):**
+> ADR-025 supersedes the original `$mel` runtime-storage design in this part.
+> `onceIntent` remains valid MEL syntax, but current v5 lowering emits Core's
+> generic `causalGuard` Flow primitive. Core MUST NOT know the MEL namespace
+> name or any `$mel.guards.intent` shape.
 
 ## FDR-MEL-074: `onceIntent` Sugar
 
 ### Decision
 
-**`onceIntent` provides per-intent idempotency as syntactic sugar over `once()`, with guard state stored in `$mel.guards.intent.*` instead of domain state.**
+**`onceIntent` provides per-intent idempotency without adding domain guard fields. In v5, it lowers to Core's generic `causalGuard` Flow primitive rather than to MEL-owned namespace paths.**
 
 ### Context
 
@@ -2539,7 +2545,7 @@ This creates DX friction for the common case of "run this block once per intent.
 
 | Concern | `once(guard)` | `onceIntent` |
 |---------|---------------|--------------|
-| Schema pollution | Guard field in domain | Guard in `$mel` (hidden) |
+| Schema pollution | Guard field in domain | Core-owned runtime guard bookkeeping |
 | Boilerplate | Manual marker patch | Automatic |
 | Mental model | "Why save intentId?" | "Once per intent" |
 | Advanced patterns | Full control | Use `once()` instead |
@@ -2548,56 +2554,51 @@ This creates DX friction for the common case of "run this block once per intent.
 
 ### Consequences
 
-- `onceIntent` desugars to `once($mel.guards.intent.<guardId>)` with auto-generated marker patch
-- Guard state is excluded from World hash (WORLD-HASH-4b)
+- `onceIntent` lowers to Core `causalGuard` with a compiler-generated stable guard id
+- Guard bookkeeping remains outside domain state and outside `DomainSchema.hash`
 - Existing `once()` behavior is unchanged
 - Migration is optional (both syntaxes coexist)
 
 ---
 
-## FDR-MEL-075: `$mel` Namespace
+## FDR-MEL-075: Compiler Runtime Bookkeeping Boundary
 
 ### Decision
 
-**Compiler-owned internal state MUST be stored in `data.$mel`, separate from Host-owned `data.$host`.**
+**Compiler lowering MUST NOT require Core or Host to know a MEL-owned namespace shape. Any runtime bookkeeping introduced by compiler syntax must be represented through a Core-owned primitive or an owner-opaque namespace channel whose owner is not interpreted by Core or Host.**
 
 ### Context
 
-ADR-002 needed a place to store compiler-generated guard state. Options considered:
+ADR-002 originally needed a place to store compiler-generated guard state. ADR-025 changed the Snapshot ontology and clarified package sovereignty: Core computes generic semantics; Host executes requirements; neither layer may know MEL-specific storage.
 
-| Option | Pros | Cons |
-|--------|------|------|
-| `$host.__compiler.*` | Single namespace | Violates HOST-DATA-1, role confusion |
-| `$runtime` | Neutral name | Ambiguous (Host? Compiler? Both?) |
-| `$mel` | Clear ownership | New namespace |
+The pre-v5 `$mel` design is retained only as historical rationale. It is not the v5 lowering contract for `onceIntent`.
 
 ### Rationale
 
 **Separation of concerns:**
-- `$host` = Host layer owns it (intent slots, errors, execution context)
-- `$mel` = MEL Compiler owns it (guards, future compiler internals)
+- Core must not know Host or MEL namespace names.
+- Host must not depend on MEL bookkeeping.
+- Compiler syntax that needs runtime guard state should lower to a Core semantic primitive when the behavior is part of Flow semantics.
 
-**Naming:** `$mel` is short for "MEL" (Manifesto Expression Language), making ownership explicit.
-
-**Extensibility:** Future compiler features (e.g., `onceExecution`, debug info) have a clear home.
+**Current placement:** `onceIntent` is semantic Flow behavior, so the compiler emits `causalGuard`. Authoring/tooling sidecars may still use owner-opaque namespaces, but those namespaces are not Core- or Host-interpreted.
 
 ### Consequences
 
-- World SPEC must exclude `$mel` from hash (WORLD-HASH-4b)
-- App must inject `$mel` into schemas (APP-NS-1)
-- Domain schemas cannot use `$mel` (SCHEMA-RESERVED-1)
+- Core and Host have no MEL-specific imports, types, namespace initialization, or namespace reads.
+- Domain schemas cannot use `$*` platform namespace identifiers as domain fields.
+- Compiler-owned runtime bookkeeping must not participate in `DomainSchema.hash`.
 
 ---
 
-## FDR-MEL-076: `$mel` Patch Safety
+## FDR-MEL-076: Retired `$mel` Patch Safety Rule
 
 ### Decision
 
-**Compiler MUST generate guard patches as `merge` at `$mel.guards.intent` level. Root `$mel` merge is FORBIDDEN.**
+**The pre-v5 `$mel.guards.intent` merge rule is retired for current `onceIntent` lowering. v5 Compiler MUST emit `causalGuard` and MUST NOT emit MEL namespace read/write paths for `onceIntent`.**
 
 ### Context
 
-Core's `merge` operation is **shallow**. This creates a critical issue:
+Core's `merge` operation is **shallow**. The original `$mel` design had a critical issue:
 
 ```typescript
 // Action with two onceIntent blocks
@@ -2616,7 +2617,7 @@ Lost guards cause:
 
 ### Rationale
 
-**Solution:** Merge at the map level where keys should accumulate:
+**Historical solution:** Merge at the map level where keys should accumulate:
 
 ```typescript
 { op: "merge", path: "$mel.guards.intent", value: { a: "i1" } }
@@ -2624,15 +2625,12 @@ Lost guards cause:
 // Result: { guards: { intent: { a: "i1", b: "i1" } } }  // Both preserved!
 ```
 
-**Defense in depth:**
-1. App provides structured default: `$mel = { guards: { intent: {} } }`
-2. Compiler uses map-level merge (COMPILER-MEL-1)
+In v5 this safety rule moves out of the current `onceIntent` path because `causalGuard` owns the runtime guard transition and Core applies it through an owner-opaque namespace delta.
 
 ### Consequences
 
-- COMPILER-MEL-1 is a MUST rule
-- Violation causes silent guard loss → potential infinite loops
-- Implementation must be tested with multiple `onceIntent` blocks
+- Current implementation must test multiple `onceIntent` blocks through `causalGuard`.
+- Any future compiler-owned namespace protocol must define its own shallow-merge safety rules without making Core or Host depend on compiler namespace shape.
 
 ---
 

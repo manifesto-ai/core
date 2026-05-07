@@ -6,7 +6,7 @@
  * @see host-SPEC-v2.0.1.md Appendix C: Job Type Reference
  */
 
-import type { Intent, Patch } from "@manifesto-ai/core";
+import type { Intent, NamespaceDelta, Patch } from "@manifesto-ai/core";
 
 /**
  * Job types as defined in SPEC Appendix C
@@ -99,6 +99,11 @@ export interface FulfillEffectJob extends JobBase {
   readonly resultPatches: Patch[];
 
   /**
+   * Host-owned namespace deltas from fulfillment.
+   */
+  readonly namespaceDelta?: readonly NamespaceDelta[];
+
+  /**
    * Effect execution error (if any)
    */
   readonly effectError?: EffectErrorInfo;
@@ -188,7 +193,8 @@ export function createFulfillEffectJob(
   requirementId: string,
   resultPatches: Patch[],
   intent?: Intent,
-  effectError?: EffectErrorInfo
+  effectError?: EffectErrorInfo,
+  namespaceDelta?: readonly NamespaceDelta[]
 ): FulfillEffectJob {
   return {
     type: "FulfillEffect",
@@ -197,6 +203,7 @@ export function createFulfillEffectJob(
     intent,
     requirementId,
     resultPatches,
+    namespaceDelta,
     effectError,
   };
 }

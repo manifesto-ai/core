@@ -87,7 +87,7 @@ describe("Semantic Analyzer", () => {
       }
     });
 
-    it("allows $system.* in actions", () => {
+    it("rejects retired $system.* in actions", () => {
       const { program } = parseSource(`
         domain Test {
           state { id: string | null = null }
@@ -101,17 +101,17 @@ describe("Semantic Analyzer", () => {
 
       if (program) {
         const { diagnostics } = analyzeScope(program);
-        expect(diagnostics.filter(d => d.code === "E001")).toHaveLength(0);
+        expect(diagnostics.some(d => d.code === "E003")).toBe(true);
       }
     });
 
-    it("allows dotted $system keys in actions", () => {
+    it("allows dotted $runtime keys in actions", () => {
       const { program } = parseSource(`
         domain Test {
           state { createdAt: number = 0 }
           action create() {
             when true {
-              patch createdAt = $system.time.now
+              patch createdAt = $runtime.time.timestamp
             }
           }
         }
@@ -124,13 +124,13 @@ describe("Semantic Analyzer", () => {
       }
     });
 
-    it("rejects unsupported dotted $system keys", () => {
+    it("rejects unsupported dotted $runtime keys", () => {
       const { program } = parseSource(`
         domain Test {
           state { count: number = 0 }
           action create() {
             when true {
-              patch count = $system.foo.bar
+              patch count = $runtime.foo.bar
             }
           }
         }
@@ -268,7 +268,7 @@ describe("Semantic Analyzer", () => {
           computed trimmed = neq(trim(title), "")
           computed empty = eq(len(items), 0)
           action check() {
-            when neq(marker, $meta.intentId) {
+            when neq(marker, $runtime.intent.id) {
               stop "Already processed"
             }
           }
@@ -641,7 +641,7 @@ describe("Semantic Analyzer", () => {
       expect(result.success).toBe(true);
     });
 
-    it("passes action with dotted and legacy system keys", () => {
+    it("passes action with dotted runtime keys", () => {
       const result = compile(`
         domain EventLog {
           state {
@@ -651,8 +651,8 @@ describe("Semantic Analyzer", () => {
 
           action record() {
             when true {
-              patch ts = $system.timestamp
-              patch createdAt = $system.time.now
+              patch ts = $runtime.time.timestamp
+              patch createdAt = $runtime.time.timestamp
             }
           }
         }
@@ -661,7 +661,7 @@ describe("Semantic Analyzer", () => {
       expect(result.success).toBe(true);
     });
 
-    it("fails unsupported dotted system key in action", () => {
+    it("fails unsupported dotted runtime key in action", () => {
       const result = compile(`
         domain EventLog {
           state {
@@ -670,7 +670,7 @@ describe("Semantic Analyzer", () => {
 
           action bad() {
             when true {
-              patch count = $system.env.NODE_ID
+              patch count = $runtime.env.NODE_ID
             }
           }
         }

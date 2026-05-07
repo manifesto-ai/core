@@ -60,6 +60,10 @@ Records of significant architectural decisions:
 | [ADR-022](./adr/022-compiler-owned-source-location-sidecar-source-map-index) | Compiler-Owned Source Location Sidecar (`SourceMapIndex`) | Accepted |
 | [ADR-023](./adr/023-object-spread-sugar-in-mel) | Object Spread Sugar in MEL | Accepted |
 | [ADR-024](./adr/024-compiler-owned-mel-source-fragment-editing-primitive) | Compiler-Owned MEL Source Fragment Editing Primitive | Accepted |
+| [ADR-025](./adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation) | Snapshot Ontology Hard Cut — `data` Retirement and Namespace Separation | Accepted |
+| [ADR-026](./adr/026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress) | SDK v5 Action Candidate Surface and Law-Aware `submit()` Ingress | Accepted |
+| [ADR-027](./adr/027-context-and-runtime-namespace-semantics) | Context and Runtime Namespace Semantics | Accepted |
+| [ADR-028](./adr/028-core-owned-dynamic-patch-target-semantics) | Core-Owned Dynamic Patch Target Semantics | Accepted |
 
 Status meanings (Proposed, Accepted, Implemented, Withdrawn, etc.) are defined in [ADR Status Definitions](./adr/#adr-status-definitions).
 

@@ -1,11 +1,20 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type {
   CanonicalDomainSchema,
   CoreExprNode,
   CoreFlowNode,
   DomainSchema,
 } from "../../../generator/ir.js";
-import { createEvaluationContext, evaluateExpr } from "../../../index.js";
+import {
+  createCore,
+  createIntent,
+  createSnapshot,
+  hashSchemaSync,
+  patchPathToDisplayString,
+  validate,
+} from "@manifesto-ai/core";
+import { createEvaluationContext } from "../../../evaluation/context.js";
+import { evaluateExpr } from "../../../evaluation/evaluate-expr.js";
 import type { MelExprNode } from "../../../lowering/lower-expr.js";
 import { createCompilerComplianceAdapter } from "../ccts-adapter.js";
 import {
@@ -21,6 +30,19 @@ import { getRuleOrThrow } from "../ccts-rules.js";
 const adapter = createCompilerComplianceAdapter();
 const CANONICAL_EXPR_KINDS = new Set(["lit", "var", "sys", "get", "field", "call", "obj", "arr"]);
 const FORBIDDEN_EXPR_MARKERS = new Set(["seq", "effect", "patch", "halt", "fail"]);
+const TEST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
+
+function expectRuntimeSchemaHash(schema: DomainSchema): void {
+  const { hash, ...schemaWithoutHash } = schema;
+  expect(hash).toBe(hashSchemaSync(schemaWithoutHash));
+  expect(validate(schema).errors.filter((error) => error.code === "V-008")).toEqual([]);
+}
 
 function collectEffectTypes(flow: CoreFlowNode | undefined, types: string[] = []): string[] {
   if (!flow) {
@@ -39,12 +61,46 @@ function collectEffectTypes(flow: CoreFlowNode | undefined, types: string[] = []
         collectEffectTypes(flow.else, types);
       }
       break;
+    case "causalGuard":
+      collectEffectTypes(flow.body, types);
+      break;
     case "effect":
       types.push(flow.type);
       break;
   }
 
   return types;
+}
+
+function collectPatchFlows(
+  flow: CoreFlowNode | undefined,
+  patches: Array<Extract<CoreFlowNode, { kind: "patch" }>> = []
+): Array<Extract<CoreFlowNode, { kind: "patch" }>> {
+  if (!flow) {
+    return patches;
+  }
+
+  switch (flow.kind) {
+    case "seq":
+      for (const step of flow.steps) {
+        collectPatchFlows(step, patches);
+      }
+      break;
+    case "if":
+      collectPatchFlows(flow.then, patches);
+      if (flow.else) {
+        collectPatchFlows(flow.else, patches);
+      }
+      break;
+    case "causalGuard":
+      collectPatchFlows(flow.body, patches);
+      break;
+    case "patch":
+      patches.push(flow);
+      break;
+  }
+
+  return patches;
 }
 
 function walkCanonicalExpr(expr: MelExprNode | undefined, visit: (expr: MelExprNode) => void): void {
@@ -226,6 +282,9 @@ function collectCanonicalFlowExprs(flow: CanonicalDomainSchema["actions"][string
         collectCanonicalFlowExprs(flow.else, exprs);
       }
       return;
+    case "causalGuard":
+      collectCanonicalFlowExprs(flow.body, exprs);
+      return;
     case "patch":
       if (flow.value) {
         walkCanonicalExpr(flow.value, (expr) => exprs.push(expr));
@@ -275,6 +334,9 @@ function collectRuntimeFlowExprs(flow: CoreFlowNode, exprs: CoreExprNode[]): voi
         collectRuntimeFlowExprs(flow.else, exprs);
       }
       return;
+    case "causalGuard":
+      collectRuntimeFlowExprs(flow.body, exprs);
+      return;
     case "patch":
       if (flow.value) {
         walkRuntimeExpr(flow.value, (expr) => exprs.push(expr));
@@ -323,8 +385,8 @@ function runtimeRoot(expr: CoreExprNode): string | null {
   if (expr.path === "$item" || expr.path.startsWith("$item.")) {
     return "$item";
   }
-  if (expr.path.startsWith("$system.")) {
-    return "$system";
+  if (expr.path.startsWith("$runtime.")) {
+    return "$runtime";
   }
   return "snapshot";
 }
@@ -449,7 +511,7 @@ describe("CCTS Lowering and IR Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(A20..A24/A27/A34) compiler-owned system lowering inserts explicit effects"), () => {
+  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(A20..A24/A27/A34) runtime lowering remains MEL-namespace independent"), () => {
     const source = `
       domain Demo {
         state {
@@ -458,8 +520,8 @@ describe("CCTS Lowering and IR Suite", () => {
         }
         action create() {
           when true {
-            patch id = $system.uuid
-            patch otherId = $system.uuid
+            patch id = $runtime.random.uuid
+            patch otherId = $runtime.random.uuid
           }
         }
       }
@@ -471,65 +533,50 @@ describe("CCTS Lowering and IR Suite", () => {
     const loweredRendered = JSON.stringify(lowered.value);
     const flow = lowered.value?.actions["create"]?.flow as CoreFlowNode | undefined;
     const effectTypes = collectEffectTypes(flow);
-    const melField = lowered.value?.state.fields["$mel"];
-    const slotFields = melField?.type === "object"
-      ? Object.keys(
-          melField.fields?.["sys"]?.fields?.["create"]?.fields?.["uuid"]?.fields ?? {}
-        )
-      : [];
-    const guardedFlow = flow?.kind === "seq"
-      ? flow.steps[flow.steps.length - 1]
-      : undefined;
-    const readinessSatisfied =
-      guardedFlow?.kind === "if" &&
-      guardedFlow.cond.kind === "eq" &&
-      guardedFlow.cond.left.kind === "get" &&
-      guardedFlow.cond.left.path === "$mel.sys.create.uuid.intent" &&
-      guardedFlow.cond.right.kind === "get" &&
-      guardedFlow.cond.right.path === "meta.intentId";
+    const noMelStorage = lowered.success && !loweredRendered.includes("$mel");
 
     expectAllCompliance([
-      evaluateRule(getRuleOrThrow("A20"), lowered.success && effectTypes.includes("system.get"), {
-        passMessage: "System values lower into Host-executed system.get effects.",
-        failMessage: "System values did not lower into explicit system.get effects.",
+      evaluateRule(getRuleOrThrow("A20"), lowered.success && effectTypes.length === 0, {
+        passMessage: "System value compatibility lowering does not introduce Host/MEL execution effects.",
+        failMessage: "System value lowering introduced unexpected effects.",
         evidence: [noteEvidence("Observed effect types", effectTypes)],
       }),
-      evaluateRule(getRuleOrThrow("A21"), lowered.success && effectTypes.length > 0 && effectTypes.every((type) => type === "system.get"), {
-        passMessage: "Lowering uses only the system.get effect.",
-        failMessage: "Lowering emitted non-system.get effects for system values.",
+      evaluateRule(getRuleOrThrow("A21"), lowered.success && !effectTypes.includes("system.get"), {
+        passMessage: "Lowering no longer relies on the system.get compatibility effect.",
+        failMessage: "Lowering still emitted system.get effects.",
         evidence: [noteEvidence("Observed effect types", effectTypes)],
       }),
-      evaluateRule(getRuleOrThrow("A22"), compiled.success && compiledRendered.includes("$system.uuid") && lowered.success && loweredRendered.includes("system.get"), {
-        passMessage: "Compiler inserts system effects at lowering time.",
-        failMessage: "Compiler did not insert system effects across the lowering boundary.",
+      evaluateRule(getRuleOrThrow("A22"), compiled.success && compiledRendered.includes("$runtime.random.uuid") && lowered.success && loweredRendered.includes("$runtime.random.uuid"), {
+        passMessage: "System values remain on the deterministic Core expression path.",
+        failMessage: "System value compatibility lowering changed the runtime expression path.",
         evidence: [
           noteEvidence("Compiled schema excerpt", compiledRendered.slice(0, 320)),
           noteEvidence("Lowered schema excerpt", loweredRendered.slice(0, 320)),
         ],
       }),
-      evaluateRule(getRuleOrThrow("A23"), lowered.success && slotFields.length === 2, {
-        passMessage: "Repeated $system.uuid use in one action deduplicates to one slot pair.",
-        failMessage: "Repeated $system.uuid use in one action no longer deduplicates to one slot pair.",
-        evidence: [noteEvidence("Observed slot fields", slotFields)],
-      }),
-      evaluateRule(getRuleOrThrow("A24"), readinessSatisfied, {
-        passMessage: "Replay/readiness is expressed through intent slots in the lowered schema.",
-        failMessage: "Replay/readiness is no longer expressed through intent slots in the lowered schema.",
-        evidence: [noteEvidence("Observed lowered flow", flow)],
-      }),
-      evaluateRule(getRuleOrThrow("A27"), readinessSatisfied, {
-        passMessage: "Readiness uses eq(intent_marker, $meta.intentId).",
-        failMessage: "Readiness no longer uses eq(intent_marker, $meta.intentId).",
-        evidence: [noteEvidence("Observed lowered flow", flow)],
-      }),
-      evaluateRule(getRuleOrThrow("A34"), lowered.success && !loweredRendered.includes("$system.uuid"), {
-        passMessage: "Compiler remains the single MEL -> Core lowering boundary for system values.",
-        failMessage: "System values survived past the compiler lowering boundary.",
+      evaluateRule(getRuleOrThrow("A23"), noMelStorage, {
+        passMessage: "System value compatibility lowering does not add MEL-owned slot state.",
+        failMessage: "System value compatibility lowering still adds MEL-owned slot state.",
         evidence: [noteEvidence("Lowered schema excerpt", loweredRendered.slice(0, 320))],
       }),
-      evaluateRule(getRuleOrThrow("AD-COMP-LOW-001"), compiled.success && compiledRendered.includes("$system.uuid") && lowered.success && !loweredRendered.includes("$system.uuid"), {
-        passMessage: "Compiler owns the lowering boundary from MEL Canonical IR to lowered runtime IR.",
-        failMessage: "Lowering boundary ownership is no longer isolated to the compiler.",
+      evaluateRule(getRuleOrThrow("A24"), noMelStorage, {
+        passMessage: "Replay bookkeeping is not expressed through MEL namespace slots.",
+        failMessage: "Replay bookkeeping still uses MEL namespace slots.",
+        evidence: [noteEvidence("Observed lowered flow", flow)],
+      }),
+      evaluateRule(getRuleOrThrow("A27"), noMelStorage, {
+        passMessage: "No MEL intent marker readiness check is emitted.",
+        failMessage: "MEL intent marker readiness is still emitted.",
+        evidence: [noteEvidence("Observed lowered flow", flow)],
+      }),
+      evaluateRule(getRuleOrThrow("A34"), noMelStorage, {
+        passMessage: "Compiler lowering preserves Core/Compiler storage boundaries.",
+        failMessage: "Compiler lowering reintroduced MEL-owned runtime storage.",
+        evidence: [noteEvidence("Lowered schema excerpt", loweredRendered.slice(0, 320))],
+      }),
+      evaluateRule(getRuleOrThrow("AD-COMP-LOW-001"), compiled.success && compiledRendered.includes("$runtime.random.uuid") && noMelStorage, {
+        passMessage: "Compiler compatibility lowering does not cross into owner-specific runtime storage.",
+        failMessage: "Compiler compatibility lowering crossed an owner-specific runtime boundary.",
         evidence: [
           noteEvidence("Compiled schema excerpt", compiledRendered.slice(0, 320)),
           noteEvidence("Lowered schema excerpt", loweredRendered.slice(0, 320)),
@@ -538,13 +585,13 @@ describe("CCTS Lowering and IR Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.IR_PLATFORM_NAMESPACE, "(A26, COMPILER-MEL-4, SCHEMA-RESERVED-1) platform namespace alignment stays tracked"), () => {
+  it(caseTitle(CCTS_CASES.IR_PLATFORM_NAMESPACE, "(A26, COMPILER-MEL-4, SCHEMA-RESERVED-1) platform namespace alignment stays owner-neutral"), () => {
     const lowered = adapter.lower(`
       domain Demo {
         state { id: string = "" }
         action create() {
           when true {
-            patch id = $system.uuid
+            patch id = $runtime.random.uuid
           }
         }
       }
@@ -553,22 +600,228 @@ describe("CCTS Lowering and IR Suite", () => {
     const rendered = JSON.stringify(lowered.value);
 
     expectAllCompliance([
-      evaluateRule(getRuleOrThrow("A26"), lowered.success && rendered.includes("$mel.sys"), {
-        passMessage: "Lowered system slots live under $mel.sys.",
-        failMessage: "Lowered system slots still use a legacy namespace.",
+      evaluateRule(getRuleOrThrow("A26"), lowered.success && !rendered.includes("$mel.sys"), {
+        passMessage: "Lowered runtime schema does not introduce $mel.sys slots.",
+        failMessage: "Lowered runtime schema still introduces $mel.sys slots.",
         evidence: [noteEvidence("Observed lowered schema excerpt", rendered.slice(0, 320))],
       }),
-      evaluateRule(getRuleOrThrow("COMPILER-MEL-4"), lowered.success && rendered.includes("$mel.sys") && rendered.includes("\"op\":\"set\""), {
-        passMessage: "System value patch bookkeeping uses leaf-level writes under $mel.sys.",
-        failMessage: "System value patch bookkeeping is not yet aligned with $mel.sys leaf writes.",
+      evaluateRule(getRuleOrThrow("COMPILER-MEL-4"), lowered.success && !rendered.includes("$mel"), {
+        passMessage: "System value compatibility lowering stays independent of MEL-owned storage.",
+        failMessage: "System value compatibility lowering still references MEL-owned storage.",
         evidence: [noteEvidence("Observed lowered schema excerpt", rendered.slice(0, 320))],
       }),
-      evaluateRule(getRuleOrThrow("SCHEMA-RESERVED-1"), lowered.success && rendered.includes("$mel"), {
-        passMessage: "Compiler-owned schema state is isolated under the reserved $mel namespace.",
-        failMessage: "Compiler-owned schema state is not yet isolated under the reserved $mel namespace.",
+      evaluateRule(getRuleOrThrow("SCHEMA-RESERVED-1"), lowered.success && !rendered.includes("$mel"), {
+        passMessage: "Compiler-owned runtime bookkeeping is not injected into domain state.",
+        failMessage: "Compiler-owned runtime bookkeeping still appears in domain state.",
         evidence: [noteEvidence("Observed lowered schema excerpt", rendered.slice(0, 320))],
       }),
     ]);
+  });
+
+  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(ADR-028) dynamic patch targets lower without placeholder evaluation"), async () => {
+    const compiled = adapter.compile(`
+      domain Demo {
+        state {
+          records: Record<string, string> = {}
+          items: Array<string> = [""]
+          literalKeys: Record<string, number> = {}
+          value: string = "v"
+        }
+        computed currentValue = value
+        action write(id: string) {
+          when true {
+            patch records[id] = value
+            patch literalKeys["file:///proof.lean"] = 1
+            patch items[0] = value
+            patch records[$runtime.random.uuid] = value
+          }
+        }
+      }
+    `);
+
+    const flow = compiled.value?.actions["write"]?.flow;
+    const patches = collectPatchFlows(flow);
+    const rendered = JSON.stringify(compiled.value);
+    const recordsByInputId = patches.find((patch) =>
+      patch.path[0]?.kind === "prop" &&
+      patch.path[0].name === "records" &&
+      patch.path[1]?.kind === "expr" &&
+      patch.path[1].expr.kind === "get" &&
+      patch.path[1].expr.path === "input.id"
+    );
+    const literalUri = patches.find((patch) =>
+      patch.path[0]?.kind === "prop" &&
+      patch.path[0].name === "literalKeys" &&
+      patch.path[1]?.kind === "prop" &&
+      patch.path[1].name === "file:///proof.lean"
+    );
+    const arrayIndex = patches.find((patch) =>
+      patch.path[0]?.kind === "prop" &&
+      patch.path[0].name === "items" &&
+      patch.path[1]?.kind === "index" &&
+      patch.path[1].index === 0
+    );
+    const recordsByRuntimeUuid = patches.find((patch) =>
+      patch.path[0]?.kind === "prop" &&
+      patch.path[0].name === "records" &&
+      patch.path[1]?.kind === "expr" &&
+      patch.path[1].expr.kind === "get" &&
+      patch.path[1].expr.path === "$runtime.random.uuid"
+    );
+
+    expect(compiled.errors).toEqual([]);
+    expect(compiled.value).not.toBeNull();
+    expect(patches).toHaveLength(4);
+    expect(rendered).not.toContain('"*"');
+    expect(recordsByInputId?.path).toBeDefined();
+    expect(literalUri?.path).toBeDefined();
+    expect(arrayIndex?.path).toBeDefined();
+    expect(recordsByRuntimeUuid?.path).toBeDefined();
+    expectRuntimeSchemaHash(compiled.value!);
+
+    const core = createCore();
+    const snapshot = createSnapshot(
+      { records: {}, items: [""], literalKeys: {}, value: "v" },
+      compiled.value!.hash,
+      TEST_CONTEXT
+    );
+    const result = await core.compute(
+      compiled.value!,
+      snapshot,
+      createIntent("write", { id: "alpha" }, "intent-1"),
+      TEST_CONTEXT
+    );
+
+    expect(result.systemDelta.lastError).toBeNull();
+    expect(result.patches.map((patch) => patchPathToDisplayString(patch.path))).toEqual([
+      "records.alpha",
+      "literalKeys.file:///proof.lean",
+      "items[0]",
+      expect.stringMatching(/^records\.[0-9a-f-]+$/),
+    ]);
+  });
+
+  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(ADR-028) once marker paths preserve dynamic segments"), async () => {
+    const compiled = adapter.compile(`
+      domain Demo {
+        state {
+          markers: Record<string, string | null> = {}
+          writes: Record<string, number> = {}
+        }
+        action write(id: string, value: number) {
+          once(markers[id]) {
+            patch writes[id] = value
+          }
+        }
+      }
+    `);
+
+    const flow = compiled.value?.actions["write"]?.flow;
+    const patches = collectPatchFlows(flow);
+    const rendered = JSON.stringify(compiled.value);
+    const markerPatch = patches.find((patch) =>
+      patch.path[0]?.kind === "prop" &&
+      patch.path[0].name === "markers" &&
+      patch.path[1]?.kind === "expr" &&
+      patch.path[1].expr.kind === "get" &&
+      patch.path[1].expr.path === "input.id"
+    );
+
+    expect(compiled.errors).toEqual([]);
+    expect(rendered).not.toContain('"*"');
+    expect(markerPatch).toBeDefined();
+
+    const core = createCore();
+    const snapshot = createSnapshot(
+      { markers: {}, writes: {} },
+      compiled.value!.hash,
+      TEST_CONTEXT
+    );
+    const first = await core.compute(
+      compiled.value!,
+      snapshot,
+      createIntent("write", { id: "alpha", value: 1 }, "intent-alpha-1"),
+      TEST_CONTEXT
+    );
+    const firstSnapshot = core.apply(compiled.value!, snapshot, first.patches);
+    const second = await core.compute(
+      compiled.value!,
+      firstSnapshot,
+      createIntent("write", { id: "beta", value: 2 }, "intent-beta-1"),
+      TEST_CONTEXT
+    );
+
+    expect(first.patches.map((patch) => patchPathToDisplayString(patch.path))).toEqual([
+      "markers.alpha",
+      "writes.alpha",
+    ]);
+    expect(second.patches.map((patch) => patchPathToDisplayString(patch.path))).toEqual([
+      "markers.beta",
+      "writes.beta",
+    ]);
+  });
+
+  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(ADR-028) runtime schema hash includes lowered Flow IR"), () => {
+    const dynamicTargetSource = `
+      domain DynamicTarget {
+        state {
+          records: Record<string, string> = {}
+          value: string = "v"
+        }
+        computed current = value
+        action write(id: string) {
+          when true {
+            patch records[id] = value
+          }
+        }
+      }
+    `;
+    const sources = [
+      `
+        domain ValueExpr {
+          state {
+            count: number = 0
+            value: number = 1
+          }
+          computed current = value
+          action set() {
+            when true {
+              patch count = value
+            }
+          }
+        }
+      `,
+      `
+        domain ConditionExpr {
+          state {
+            count: number = 0
+            value: number = 1
+          }
+          computed current = value
+          action set() {
+            when gt(value, 0) {
+              patch count = 1
+            }
+          }
+        }
+      `,
+      dynamicTargetSource,
+    ];
+
+    for (const source of sources) {
+      const compiled = adapter.compile(source);
+      expect(compiled.errors).toEqual([]);
+      expect(compiled.value).not.toBeNull();
+      expectRuntimeSchemaHash(compiled.value!);
+    }
+
+    const canonical = adapter.canonical(dynamicTargetSource);
+    const compiled = adapter.compile(dynamicTargetSource);
+    expect(canonical.errors).toEqual([]);
+    expect(canonical.value).not.toBeNull();
+    expect(compiled.errors).toEqual([]);
+    expect(compiled.value).not.toBeNull();
+    expect(compiled.value!.hash).not.toBe(canonical.value!.hash);
   });
 
   it(caseTitle(CCTS_CASES.IR_EXPR_CLOSURE, "(A1) expression trees remain finite and flow-free"), () => {
@@ -657,7 +910,7 @@ describe("CCTS Lowering and IR Suite", () => {
     const ctxKeys = Object.keys(
       createEvaluationContext({
         meta: { intentId: "i1" },
-        snapshot: { data: {}, computed: {} },
+        snapshot: { state: {}, computed: {} },
         input: {},
       })
     ).sort();
@@ -695,7 +948,7 @@ describe("CCTS Lowering and IR Suite", () => {
     const ctx = createEvaluationContext({
       meta: { intentId: "i1" },
       snapshot: {
-        data: {
+        state: {
           source: createRecordingObject(
             [
               ["b", 1],
@@ -793,7 +1046,7 @@ describe("CCTS Lowering and IR Suite", () => {
   it(caseTitle(CCTS_CASES.IR_TOTAL_EVALUATION, "(A3/A35, AD-COMP-LOW-003) expression evaluation stays total"), () => {
     const ctx = createEvaluationContext({
       meta: { intentId: "i1" },
-      snapshot: { data: { count: 1 }, computed: {} },
+      snapshot: { state: { count: 1 }, computed: {} },
     });
 
     const division = evaluateExpr(
@@ -914,7 +1167,7 @@ describe("CCTS Lowering and IR Suite", () => {
         computed trimmed = neq(trim(title), "")
         computed empty = eq(len(items), 0)
         action check() {
-          when neq(marker, $meta.intentId) {
+          when neq(marker, $runtime.intent.id) {
             stop "Already processed"
           }
         }
@@ -977,7 +1230,7 @@ describe("CCTS Lowering and IR Suite", () => {
     const ctx = createEvaluationContext({
       meta: { intentId: "i1" },
       snapshot: {
-        data: {
+        state: {
           observed: 8,
           predicted: 5,
           score: 14,
@@ -1046,7 +1299,7 @@ describe("CCTS Lowering and IR Suite", () => {
           compiled.value!.computed.fields["code"].expr,
           createEvaluationContext({
             meta: { intentId: "i1" },
-            snapshot: { data: { status: "open" }, computed: {} },
+            snapshot: { state: { status: "open" }, computed: {} },
           })
         )
       : null;
@@ -1055,7 +1308,7 @@ describe("CCTS Lowering and IR Suite", () => {
           compiled.value!.computed.fields["code"].expr,
           createEvaluationContext({
             meta: { intentId: "i1" },
-            snapshot: { data: { status: "pending" }, computed: {} },
+            snapshot: { state: { status: "pending" }, computed: {} },
           })
         )
       : null;
@@ -1111,7 +1364,7 @@ describe("CCTS Lowering and IR Suite", () => {
     const ctx = createEvaluationContext({
       meta: { intentId: "i1" },
       snapshot: {
-        data: {
+        state: {
           aOk: true,
           bOk: true,
           cOk: false,

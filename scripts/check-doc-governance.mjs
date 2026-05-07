@@ -151,27 +151,27 @@ const requiredAnchors = [
   {
     path: "docs/internals/spec/current-contract.md",
     tokens: [
-      "dispatchAsyncWithReport()",
-      "commitAsyncWithReport()",
-      "waitForProposalWithReport()",
+      "ADR-026 v5 SDK Surface Baseline",
+      "ActionHandle.submit(input)",
+      "mode-specific result types",
       "snapshot.system.lastError",
-      "data.$host.lastError",
+      "namespaces.host.lastError",
       "MUST NOT automatically promote",
     ],
   },
   {
     path: "packages/sdk/docs/sdk-SPEC.md",
     tokens: [
-      "### 7.2.3 Failure Observation Surfaces",
+      "### 18.1 Failure Observation Surfaces",
       "`snapshot.system.lastError` is the current semantic error surface",
-      "`data.$host.lastError` is Host-owned execution diagnostic state",
+      "`namespaces.host.lastError` is Host-owned execution diagnostic state",
       "getLastError()",
     ],
   },
   {
     path: "packages/host/docs/host-SPEC.md",
     tokens: [
-      "`$host.lastError` is an execution diagnostic owned by Host",
+      "`namespaces.host.lastError` is an execution diagnostic owned by Host",
       "MUST NOT be automatically promoted",
       "SDK/Lineage/Governance report helpers",
     ],
@@ -179,17 +179,24 @@ const requiredAnchors = [
   {
     path: "packages/lineage/docs/lineage-SPEC.md",
     tokens: [
-      "commitAsyncWithReport()",
-      "Host-owned `data.$host.lastError` is canonical diagnostic",
-      "MUST NOT | lineage MUST NOT derive sealed failed outcome",
+      "Lineage v5 is the continuity-owning decorator",
+      "action.x.submit(...)",
+      "WorldRecord",
+      "Host-owned `namespaces.host.lastError` is a canonical-only",
+      "MUST NOT | Lineage MUST NOT derive sealed failed outcome",
     ],
   },
   {
     path: "packages/governance/docs/governance-SPEC.md",
     tokens: [
-      "waitForProposalWithReport()",
-      "Host-owned `data.$host.lastError` is canonical diagnostic state",
-      "MUST NOT | governance settlement `ErrorInfo` MUST NOT merge",
+      "Governance v5 is the legitimacy-owning decorator",
+      "action.x.submit(...)",
+      "ProposalRef",
+      "waitForSettlement(ref)",
+      "type GovernanceSettlementReport",
+      "`settled.before` MUST project",
+      "MUST NOT | Governance `submit()` MUST NOT directly execute base or lineage write verbs",
+      "MUST NOT | Governance settlement `ErrorInfo` MUST NOT merge",
     ],
   },
   {

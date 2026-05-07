@@ -3,8 +3,8 @@
 > **Status:** Normative (Living Document)
 > **Package:** `@manifesto-ai/host`
 > **Scope:** Manifesto Host Implementations
-> **Compatible with:** Core SPEC v4.2.0, ARCHITECTURE v2.0
-> **Hard-cut Alignment:** ADR-011, ADR-015
+> **Compatible with:** Core SPEC v5.0.0, ARCHITECTURE v2.0
+> **Hard-cut Alignment:** ADR-011, ADR-015, ADR-025, ADR-027, ADR-028
 > **Authors:** Manifesto Team
 > **License:** MIT
 
@@ -14,12 +14,15 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
+| v5.0.0 | ADR-028 boundary — Host applies Core-emitted concrete patches and never resolves dynamic Flow patch targets | ADR-028 |
+| v5.0.0 | ADR-025 hard cut — Host aligns to `Snapshot.state`, `Snapshot.namespaces`, and `NamespaceDelta` application interlock | FDR-H025 |
 | v4.0.0 | ADR-015 hard cut — Host-facing Snapshot references remove accumulated `system.errors` and follow Core current contract | FDR-H025 |
 | v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()` interlock | FDR-H025 |
 | v1.0 | Initial release — Core-Host boundary, Snapshot communication, Effect handlers | FDR-H001 ~ H010 |
 | v1.x | Compiler Integration — Translator pipeline, Expression evaluation | FDR-H011 ~ H017 |
 | v2.0 | Event-Loop Execution Model — Mailbox, Job model, Single-runner | FDR-H018 ~ H022 |
-| v2.0.1 | Context Determinism — HostContext frozen per job; Compiler/Translator Decoupling | FDR-H023, FDR-H024 |
+| v2.0.1 | Historical Context Determinism — pre-v5 host context frozen per job; Compiler/Translator Decoupling | FDR-H023, FDR-H024 |
+| v5.0.0 | ADR-027 context materialization — Host passes owner-neutral Core `Context` and `apply()` no longer accepts context | ADR-027 |
 | v2.0.2 | Snapshot Type Alignment — Core Snapshot canonical reference; Snapshot Ownership | FDR-H025 |
 | v2.0.3 | Baseline snapshot completeness at boundary entry (ADR-011 migration, data-only reset rejected) | FDR-H025 |
 
@@ -54,15 +57,16 @@ This document defines the **Host Contract** for Manifesto.
 The Host is the execution layer that:
 - Bridges Core (pure computation) with external reality (IO, network, persistence)
 - Executes effects declared by Core
-- Applies patches to snapshots
+- Applies domain patches, namespace deltas, and system deltas to snapshots
 - Ensures determinism and reproducibility through single-writer semantics
 
 This specification defines:
 - The absolute boundary between Core and Host
-- Snapshot as the sole communication channel
+- Snapshot as the sole continuity channel between computations, with explicit
+  `Context` as the current computation's captured environment
 - Effect handler contract (no-throw, Patch[] return)
 - Intent processing model (no resume, re-entry required)
-- Requirement lifecycle (generate, execute, apply, clear, continue)
+- Requirement lifecycle (generate, execute, apply domain/namespace results, clear, continue)
 - **Execution model with mailbox-based serialization (v2.0)**
 
 ---
@@ -81,13 +85,14 @@ The pure computation engine that evaluates Flows against Snapshots.
 
 ```typescript
 interface Core {
-  compute(schema: DomainSchema, snapshot: Snapshot, intent: Intent, context: HostContext): ComputeResult;
-  apply(schema: DomainSchema, snapshot: Snapshot, patches: Patch[], context: HostContext): Snapshot;
+  compute(schema: DomainSchema, snapshot: Snapshot, intent: Intent, context: Context): ComputeResult;
+  apply(schema: DomainSchema, snapshot: Snapshot, patches: Patch[]): Snapshot;
+  applyNamespaceDeltas(snapshot: Snapshot, deltas: readonly NamespaceDelta[]): Snapshot;
   applySystemDelta(snapshot: Snapshot, delta: SystemDelta): Snapshot;
 }
-```
 
-> **Implementation convergence pending (ADR-009):** Some current `src` paths may still use pre-ADR contracts. This SPEC is normative for the accepted hard-cut target.
+type Context = import("@manifesto-ai/core").Context;
+```
 
 ### 3.2 Host
 
@@ -96,8 +101,13 @@ The execution layer that orchestrates Core computation and effect execution.
 ```typescript
 interface Host {
   processIntent(intent: Intent): Promise<void>;
-  executeEffect(requirement: Requirement): Promise<Patch[]>;
+  executeEffect(requirement: Requirement): Promise<EffectFulfillment>;
 }
+
+type EffectFulfillment = {
+  readonly patches: readonly Patch[];
+  readonly namespaceDelta?: readonly NamespaceDelta[];
+};
 ```
 
 ### 3.3 Snapshot (Core Reference)
@@ -108,17 +118,37 @@ The canonical complete state of a domain at a point in time.
 
 ```typescript
 // Host imports from Core (NOT redefined here)
-import type { Snapshot, SystemState, SnapshotMeta, ErrorValue, SystemDelta } from '@manifesto-ai/core';
+import type {
+  ErrorValue,
+  NamespaceDelta,
+  Snapshot,
+  SnapshotMeta,
+  SnapshotNamespaces,
+  SystemDelta,
+  SystemState,
+} from '@manifesto-ai/core';
 
 // ============================================================
-// AUTHORITATIVE DEFINITION - Core SPEC v4.2.0
+// AUTHORITATIVE DEFINITION - Core SPEC v5.0.0
 // ============================================================
-// type Snapshot<TData = unknown> = {
-//   readonly data: TData;
-//   readonly computed: Record<string, unknown>;
+// type Snapshot<TState = Record<string, unknown>> = {
+//   readonly state: TState;
+//   readonly computed: Record<SemanticPath, unknown>;
 //   readonly system: SystemState;
 //   readonly input: unknown;
 //   readonly meta: SnapshotMeta;
+//   readonly namespaces: SnapshotNamespaces;
+// };
+//
+// type SnapshotNamespaces = {
+//   readonly host?: Record<string, unknown>;
+//   readonly mel?: {
+//     readonly guards: {
+//       readonly intent: Record<string, string>;
+//     };
+//     readonly [key: string]: unknown;
+//   };
+//   readonly [namespace: string]: unknown;
 // };
 //
 // type SystemState = {
@@ -131,7 +161,7 @@ import type { Snapshot, SystemState, SnapshotMeta, ErrorValue, SystemDelta } fro
 // type SnapshotMeta = {
 //   readonly version: number;
 //   readonly timestamp: number;
-//   readonly randomSeed: string;
+//   readonly randomSeed: string; // Snapshot envelope seed, not runtime expression source
 //   readonly schemaHash: string;
 // };
 // ============================================================
@@ -148,25 +178,27 @@ import type { Snapshot, SystemState, SnapshotMeta, ErrorValue, SystemDelta } fro
 
 | Field | Owner | Host Reads | Host Writes | Description |
 |-------|-------|------------|-------------|-------------|
-| `data.*` | Core | Yes | via Patch | Domain state |
-| `data.$host.*` | **Host** | Yes | Yes | Host-owned canonical diagnostics/bookkeeping namespace (see below) |
+| `state.*` | Core | Yes | via domain `Patch[]` | Domain state |
 | `computed.*` | Core | Yes | No | Derived values |
 | `system.status` | Core | Yes | No | Core sets via compute() |
 | `system.lastError` | Core | Yes | No | Current semantic error state |
 | `system.pendingRequirements` | Core | Yes | via `core.applySystemDelta()` | Requirement lifecycle |
 | `system.currentAction` | Core | Yes | No | Core sets during compute |
+| `namespaces.host.*` | **Host** | Yes | via `NamespaceDelta(namespace: "host")` | Host-owned diagnostics/bookkeeping namespace |
+| `namespaces.<owner>.*` | Owner package | Opaque | Preserve only | Host MUST NOT assume non-Host namespace shape |
 | `meta.schemaHash` | Core | Yes | No | Domain schema identity |
 | `meta.version` | Core | Yes | No | Core-owned versioning |
 | `meta.timestamp` | Host | Yes | Yes | Host provides per execution |
-| `meta.randomSeed` | Host | Yes | Yes | Host provides, frozen per job |
+| `meta.randomSeed` | Host | Yes | Yes | Snapshot envelope seed; runtime expressions read `context.runtime.random.seed` |
 
 ### 3.3.1 Host-Owned State Namespace
 
 Host requires persistent state across intent processing (e.g., intent-scoped effect data).
-Rather than extending Core's `SystemState`, Host uses a **reserved namespace in `data`**.
+Rather than extending Core's `SystemState` or domain `state`, Host uses a
+**reserved namespace in `snapshot.namespaces`**.
 
 ```typescript
-// Host-owned state lives in data.$host (NOT in system.*)
+// Host-owned state lives in snapshot.namespaces.host (NOT in system.* or state.*)
 type HostOwnedState = {
   /** Intent-scoped effect data */
   intentSlots?: Record<string, Record<string, unknown>>;
@@ -177,33 +209,54 @@ type HostOwnedState = {
 };
 
 // Access pattern
-const hostState = snapshot.data.$host as HostOwnedState | undefined;
+const hostState = snapshot.namespaces.host as HostOwnedState | undefined;
+
+const hostDelta: NamespaceDelta = {
+  namespace: 'host',
+  patches: [{ op: 'set', path: [{ kind: 'prop', name: 'lastError' }], value: errorValue }],
+};
 ```
 
-**Note:** Patch paths are rooted at `data` by default. Use `$host.*` to target
-the Host-owned namespace. Core reserves `$host` as opaque Host-owned state and
-accepts `$host` patches even when StateSpec does not declare `$host` (Core SPEC §5.5).
+**Note:** Domain `Patch[]` paths are rooted at `snapshot.state`. Host-owned
+namespace writes MUST be represented as `NamespaceDelta` values rooted at
+`snapshot.namespaces.host`, then applied with `core.applyNamespaceDeltas()`.
+Core does not require StateSpec declarations for `namespaces.host`.
 
-`$host.lastError` is an execution diagnostic owned by Host. It is not the
-semantic Snapshot error surface and MUST NOT be automatically promoted into
+`namespaces.host.lastError` is an execution diagnostic owned by Host. It is not
+the semantic Snapshot error surface and MUST NOT be automatically promoted into
 `system.lastError`. Application and tooling callers that need per-attempt
-outcomes should use the SDK/Lineage/Governance report helpers; callers that
-need the current semantic error state should read `snapshot.system.lastError`.
+outcomes should use the SDK/Lineage/Governance report helpers; callers that need
+the current semantic error state should read `snapshot.system.lastError`.
 
 | Rule ID | Description |
 |---------|-------------|
-| HOST-NS-1 | Host-owned state MUST be stored in `data.$host` namespace |
+| HOST-NS-1 | Host-owned state MUST be stored in `snapshot.namespaces.host` |
 | HOST-NS-2 | Host MUST NOT extend Core's SystemState with custom fields |
-| HOST-NS-3 | Host MUST treat `data.$host` as opaque to Core |
-| HOST-NS-4 | Patches targeting `$host` follow standard Patch semantics (Core validates only that `$host` is an object) |
-| HOST-NS-5 | Host error reporting MUST use `$host` or domain paths (never `system.*`) |
-| HOST-NS-6 | Host MAY patch `$host` even when StateSpec does not declare `$host` (Core SPEC §5.5) |
+| HOST-NS-3 | Host MUST treat `snapshot.namespaces.host` as opaque to Core and domain state |
+| HOST-NS-4 | Host namespace writes MUST use `NamespaceDelta(namespace: "host")` and `core.applyNamespaceDeltas()` |
+| HOST-NS-5 | Host error reporting MUST use `namespaces.host` or domain-owned paths (never `system.*`) |
+| HOST-NS-6 | Host MUST NOT require StateSpec declarations for `namespaces.host` |
+| HOST-NS-7 | Host MUST NOT express Host namespace writes as domain `Patch[]` |
+| HOST-NS-8 | Host MAY materialize `NamespaceDelta` for `namespaces.host` only for Host-owned bookkeeping such as diagnostics, intent slots, and effect coordination |
 
-> **Rationale (FDR-H025):** Host MUST treat Snapshot as Core-owned schema. Host-owned state lives in `$host` (data namespace); Host MUST NOT write to `system.*`.
+> **Rationale (FDR-H025):** Host MUST treat Snapshot as Core-owned schema. Host-owned state lives in `namespaces.host`; Host MUST NOT write to `system.*`.
 >
-> **Why:** Core owns `system.*` because Core computes meaning. If Host writes `system.*`, it bypasses Core and corrupts the causal chain. If Host stores durable state outside Snapshot, replay diverges and debugging becomes non-deterministic. The `$host` namespace provides an explicit location for Host state without altering the Core schema.
+> **Why:** Core owns `system.*` because Core computes meaning. If Host writes `system.*`, it bypasses Core and corrupts the causal chain. If Host stores durable state outside Snapshot, replay diverges and debugging becomes non-deterministic. The `namespaces.host` namespace provides an explicit location for Host state without altering domain `state` or Core system fields.
 > **Alternatives rejected:** Host extending SystemState (violates Core ownership); in-memory maps (hidden state, replay gap); Host writing `system.*` (corrupts causal chain).
-> **Consequences:** Clear ownership boundary (Core owns `system.*`, Host owns `$host`); Host bookkeeping represented in Snapshot; replay and trace determinism preserved; any Host patch to `system.*` is a compliance violation.
+> **Consequences:** Clear ownership boundary (Core owns `system.*`, Host owns `namespaces.host`); Host bookkeeping represented in Snapshot; replay and trace determinism preserved; any Host patch to `system.*` or domain patch targeting Host-owned namespace state is a compliance violation.
+
+### 3.3.2 Reset/Restore Normalization
+
+Host reset, bootstrap, and restore boundaries MUST enter Core with a canonical
+v5 Snapshot shape before any `compute()`, `apply()`, `applyNamespaceDeltas()`, or
+`applySystemDelta()` call.
+
+| Rule ID | Description |
+|---------|-------------|
+| HOST-RESTORE-1 | Reset/bootstrap/restore inputs MUST be full canonical Snapshots, not partial payloads |
+| HOST-RESTORE-2 | Canonical v5 Snapshots MUST include `state`, `computed`, `system`, `input`, `meta`, and `namespaces` |
+| HOST-RESTORE-3 | Host MUST reject data-only baselines unless an explicit legacy compatibility path is selected |
+| HOST-RESTORE-4 | Legacy data-root snapshots MAY be normalized to `state` plus initialized `namespaces` only as an explicit compatibility migration; the normalized Snapshot MUST be v5 before Core receives it |
 
 ### 3.4 Intent
 
@@ -267,9 +320,10 @@ Host executes reality.
 |---------|-------------|
 | CORE-HOST-1 | Core MUST NOT perform IO, network calls, or any side effects |
 | CORE-HOST-2 | Host MUST NOT interpret Flow semantics or compute derived values |
-| CORE-HOST-3 | Core MUST remain pure: same input -> same output |
+| CORE-HOST-3 | Core MUST remain pure: same schema + snapshot + intent + context -> same output |
 | CORE-HOST-4 | Host MUST handle all IO, network, and persistence |
 | CORE-HOST-5 | Host MUST receive a full canonical Snapshot at reset/bootstrap boundary |
+| CORE-HOST-6 | Host MUST NOT inspect Flow IR, evaluate expressions, or resolve dynamic patch targets |
 
 ### 4.3 Diagram
 
@@ -295,14 +349,17 @@ Core
 
 Snapshot is the **only** valid communication channel between Core and Host.
 
-There are no return values, no callbacks, no events, no mutable context passing between jobs; each job receives a fresh frozen HostContext (CTX-1~5).
+There are no return values, no callbacks, no events, and no mutable context
+passing between jobs. Each transition attempt receives one materialized
+owner-neutral `Context` value that is reused for all Core `compute()` re-entry
+within that attempt.
 
 ### 5.2 Rules (MUST)
 
 | Rule ID | Description |
 |---------|-------------|
 | SNAP-1 | All state MUST be visible in Snapshot |
-| SNAP-2 | Effect results MUST be expressed as Patch[] applied to Snapshot |
+| SNAP-2 | Effect results MUST be expressed as domain `Patch[]` and optional Host-owned `NamespaceDelta[]` applied to Snapshot |
 | SNAP-3 | No hidden execution context MUST exist |
 | SNAP-4 | Core MUST NOT receive effect results via return values or callbacks |
 
@@ -314,12 +371,13 @@ const result = await executeEffect();
 core.resume(result);  // Hidden state!
 
 // REQUIRED: Effect result as Snapshot mutation
-const patches = await executeEffect();
-// Context is frozen once per job (CTX-1~5)
-// frozenContext.now is captured once (CTX-3)
-// frozenContext.randomSeed = intentId (CTX-4)
-const frozenContext = createFrozenContext(job.id, job.intentId);
-snapshot = core.apply(schema, snapshot, patches, frozenContext);
+const fulfillment = await executeEffect();
+// Context is materialized once per transition attempt (CTX-1~5)
+// context.runtime.time.timestamp is captured once (CTX-3)
+// context.runtime.random.seed is materialized once (CTX-4)
+const context = materializeContext(job.id, job.intentId, job.externalContext);
+snapshot = core.apply(schema, snapshot, fulfillment.patches);
+snapshot = core.applyNamespaceDeltas(snapshot, fulfillment.namespaceDelta ?? []);
 ```
 
 ---
@@ -388,6 +446,11 @@ Effect handlers MUST return `Patch[]` and MUST NOT throw exceptions.
 | HANDLER-4 | Effect handlers MUST NOT contain domain logic |
 | HANDLER-5 | Effect handlers MUST be pure IO adapters |
 
+Effect handler `Patch[]` results are domain results rooted at `snapshot.state`.
+Handlers MUST NOT return namespace deltas. Host-owned execution diagnostics
+around fulfillment MAY be represented by Host-generated `NamespaceDelta[]` for
+`namespaces.host`.
+
 ### 7.3 Correct Pattern
 
 ```typescript
@@ -397,19 +460,19 @@ async function fetchUserHandler(type: string, params: any): Promise<Patch[]> {
     const response = await fetch(`/users/${params.id}`);
     if (!response.ok) {
       return [
-        { op: 'set', path: 'user.error', value: { code: response.status } },
-        { op: 'set', path: 'user.data', value: null }
+        { op: 'set', path: ['user', 'error'], value: { code: response.status } },
+        { op: 'set', path: ['user', 'data'], value: null }
       ];
     }
     const data = await response.json();
     return [
-      { op: 'set', path: 'user.data', value: data },
-      { op: 'set', path: 'user.error', value: null }
+      { op: 'set', path: ['user', 'data'], value: data },
+      { op: 'set', path: ['user', 'error'], value: null }
     ];
   } catch (error) {
     return [
-      { op: 'set', path: 'user.error', value: { message: error.message } },
-      { op: 'set', path: 'user.data', value: null }
+      { op: 'set', path: ['user', 'error'], value: { message: error.message } },
+      { op: 'set', path: ['user', 'data'], value: null }
     ];
   }
 }
@@ -423,14 +486,14 @@ All domain decisions belong in Flow or Computed, not in handlers.
 // WRONG: Domain logic in handler
 async function purchaseHandler(type, params) {
   if (params.amount > 1000) {  // Business rule in handler!
-    return [{ op: 'set', path: 'approval.required', value: true }];
+    return [{ op: 'set', path: ['approval', 'required'], value: true }];
   }
 }
 
 // CORRECT: Handler does IO only
 async function paymentHandler(type, params) {
   const result = await paymentGateway.charge(params.amount);
-  return [{ op: 'set', path: 'payment.status', value: result.status }];
+  return [{ op: 'set', path: ['payment', 'status'], value: result.status }];
 }
 ```
 
@@ -482,7 +545,7 @@ type RequirementIdInputs = {
 |------|--------|---------|
 | 1. Generate | `requirementId = hash(schema + intent + action + path)` | REQ-GEN-1 |
 | 2. Execute | Effect runner processes requirement | REQ-EXEC-1 |
-| 3. Apply | Result patches applied to snapshot | REQ-APPLY-1 |
+| 3. Apply | Result patches and Host-owned namespace deltas applied to snapshot | REQ-APPLY-1 |
 | 4. Clear | Remove from `pendingRequirements` | REQ-CLEAR-1 |
 | 5. Continue | Re-invoke compute | REQ-CONT-1 |
 
@@ -492,7 +555,7 @@ type RequirementIdInputs = {
 |---------|-------------|
 | REQ-GEN-1 | `requirementId` MUST be computed using Section 8.2 algorithm |
 | REQ-EXEC-1 | Effect runner MUST NOT throw (H005) |
-| REQ-APPLY-1 | Result MUST be applied via `Core.apply()` |
+| REQ-APPLY-1 | Domain result patches MUST be applied via `Core.apply()`; Host-owned namespace deltas MUST be applied via `Core.applyNamespaceDeltas()` |
 | REQ-CLEAR-1 | **Host MUST clear fulfilled requirement from `pendingRequirements`** |
 | REQ-CONT-1 | Host MUST re-invoke `compute()` after clearing |
 | REQ-SEQ-1 | **Steps 3, 4, 5 MUST be executed atomically in sequence** |
@@ -593,13 +656,19 @@ async function handleStartIntent(job) {
 // CORRECT: request effect, terminate job
 function handleStartIntent(job) {
   const snapshot = context.getCanonicalHead();  // Fresh read
-  const computed = Core.compute(schema, snapshot, job.intent);
-  
-  if (computed.pendingRequirements.length > 0) {
-    requestEffectExecution(job.intentId, computed.pendingRequirements);
+  const result = Core.compute(schema, snapshot, job.intent, job.context);
+
+  let next = Core.apply(schema, snapshot, result.patches);
+  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? []);
+  next = Core.applySystemDelta(next, result.systemDelta);
+  context.setCanonicalHead(next);
+
+  const requirements = next.system.pendingRequirements;
+  if (requirements.length > 0) {
+    requestEffectExecution(job.intentId, requirements);
     // Job terminates here. No continuation state.
   } else {
-    enqueue({ type: 'ApplyPatches', patches: computed.patches });
+    enqueue({ type: 'ContinueCompute', intentId: job.intentId });
   }
 }
 ```
@@ -619,16 +688,18 @@ FulfillEffect job enqueued -> Patches applied -> ContinueCompute enqueued
 | Rule ID | Description |
 |---------|-------------|
 | COMP-REQ-INTERLOCK-1 | **All snapshot mutations from `Core.compute()` MUST be applied BEFORE effect execution requests are dispatched** |
-| COMP-REQ-INTERLOCK-1a | **Host MUST apply domain `patches` first, then `systemDelta`, before dispatch** |
+| COMP-REQ-INTERLOCK-1a | **Host MUST apply domain `patches`, then `namespaceDelta`, then `systemDelta`, before dispatch** |
+| COMP-REQ-INTERLOCK-1b | **Host MUST interpret omitted `namespaceDelta` as an empty list** |
 | COMP-REQ-INTERLOCK-2 | **Effect dispatch list SHOULD be read from `snapshot.system.pendingRequirements` AFTER apply, not from compute return value** |
 
 **Why This Matters:**
 
 Core.compute() returns both:
-- Domain `patches` to apply at `snapshot.data` root
+- Domain `patches` to apply at `snapshot.state` root
+- Optional `namespaceDelta` to apply at `snapshot.namespaces[namespace]` roots
 - `systemDelta` describing system transitions (`addRequirements`, etc.)
 
-If effect execution starts BEFORE `patches + systemDelta` are applied:
+If effect execution starts BEFORE `patches + namespaceDelta + systemDelta` are applied:
 - `pendingRequirements` may not contain the new requirement yet
 - FULFILL-0 check will incorrectly treat fulfillment as "stale"
 - Race condition between apply and fulfill
@@ -645,21 +716,22 @@ Reading effect dispatch list from `snapshot.system.pendingRequirements` after ap
 ```typescript
 function handleStartIntent(job: StartIntent) {
   const snapshot = ctx.getCanonicalHead();
-  const result = Core.compute(schema, snapshot, job.intent);
-  
-  // STEP 1: Apply domain patches first
-  if (result.patches.length > 0) {
-    applyPatches(result.patches);
-  }
+  const result = Core.compute(schema, snapshot, job.intent, job.context);
 
-  // STEP 2: Apply system transitions second
-  applySystemDelta(result.systemDelta);
+  // STEP 1: Apply domain patches first
+  let next = Core.apply(schema, snapshot, result.patches);
+
+  // STEP 2: Apply namespace transitions second (omitted means empty)
+  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? []);
+
+  // STEP 3: Apply system transitions third
+  next = Core.applySystemDelta(next, result.systemDelta);
+  ctx.setCanonicalHead(next);
   
-  // STEP 3: Read requirements from UPDATED snapshot (COMP-REQ-INTERLOCK-2)
-  const updatedSnapshot = ctx.getCanonicalHead();  // Fresh read after apply
-  const requirements = updatedSnapshot.system.pendingRequirements;
+  // STEP 4: Read requirements from UPDATED snapshot (COMP-REQ-INTERLOCK-2)
+  const requirements = next.system.pendingRequirements;
   
-  // STEP 4: THEN dispatch effect requests
+  // STEP 5: THEN dispatch effect requests
   if (requirements.length > 0) {
     for (const req of requirements) {
       requestEffectExecution(job.intentId, req);  // Async, outside mailbox
@@ -672,36 +744,23 @@ function handleStartIntent(job: StartIntent) {
 }
 ```
 
-**Alternative (Simpler but less safe):**
-
-If implementation guarantees compute return value matches snapshot update:
-
-```typescript
-// Acceptable if Core guarantees requirements mirror applied systemDelta
-const result = Core.compute(schema, snapshot, job.intent);
-applyPatches(result.patches);
-applySystemDelta(result.systemDelta);
-
-if (result.requirements.length > 0) {
-  for (const req of result.requirements) {
-    requestEffectExecution(job.intentId, req);
-  }
-}
-```
+There is no alternate requirements list on `ComputeResult`. Requirements become
+observable only after the `systemDelta` is applied to the Snapshot.
 
 **Wrong Pattern (violates COMP-REQ-INTERLOCK-1):**
 
 ```typescript
 // WRONG: Effect request before patch apply
 function handleStartIntent(job: StartIntent) {
-  const result = Core.compute(schema, snapshot, job.intent);
+  const result = Core.compute(schema, snapshot, job.intent, job.context);
   
   // Effect requested BEFORE pendingRequirements is materialized in snapshot
-  requestEffectExecution(job.intentId, result.requirements[0]);
+  requestEffectExecution(job.intentId, snapshot.system.pendingRequirements[0]);
   
   // Now apply patches - too late!
-  applyPatches(result.patches);
-  applySystemDelta(result.systemDelta);
+  let next = Core.apply(schema, snapshot, result.patches);
+  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? []);
+  next = Core.applySystemDelta(next, result.systemDelta);
 }
 ```
 
@@ -805,20 +864,23 @@ Effect results MUST be reinjected to the mailbox as jobs.
 ```typescript
 // WRONG: Direct application from callback
 async function executeEffect(req: Requirement) {
-  const patches = await effectRunner.execute(req);
-  Core.apply(snapshot, patches);  // VIOLATION: outside mailbox
+  const fulfillment = await effectRunner.execute(req);
+  let next = Core.apply(schema, snapshot, fulfillment.patches);
+  next = Core.applyNamespaceDeltas(next, fulfillment.namespaceDelta ?? []);
+  ctx.setCanonicalHead(next);  // VIOLATION: outside mailbox
 }
 
 // CORRECT: Reinject as job
 async function executeEffect(key: ExecutionKey, req: Requirement) {
-  const patches = await effectRunner.execute(req);
+  const fulfillment = await effectRunner.execute(req);
   
   // Reinject to mailbox
   mailboxes.get(key)?.enqueue({
     type: 'FulfillEffect',
     intentId: req.intentId,
     requirementId: req.id,
-    resultPatches: patches
+    resultPatches: fulfillment.patches,
+    namespaceDelta: fulfillment.namespaceDelta ?? []
   });
   
   // Trigger processing
@@ -879,7 +941,7 @@ Effect results MUST be applied in deterministic order within an ExecutionKey.
 
 | Rule ID | Description |
 |---------|-------------|
-| ORD-1 | Effect result patches MUST be applied in mailbox dequeue order |
+| ORD-1 | Effect result patches and fulfillment namespace deltas MUST be applied in mailbox dequeue order |
 | ORD-2 | Out-of-order application is SPEC VIOLATION |
 | ORD-3 | Version conflicts indicate order violation or concurrent modification |
 | ORD-4 | **Reinjection order MUST be deterministic for reproducible traces** |
@@ -919,11 +981,11 @@ Without deterministic reinjection order:
 
 ```typescript
 // When using parallel execution
-const pendingResults = new Map<string, Patch[]>(); // requirementId -> patches
+const pendingResults = new Map<string, EffectFulfillment>(); // requirementId -> fulfillment
 const expectedOrder: string[] = [...pendingRequirements.map(r => r.id)];
 
-function onEffectComplete(reqId: string, patches: Patch[]) {
-  pendingResults.set(reqId, patches);
+function onEffectComplete(reqId: string, fulfillment: EffectFulfillment) {
+  pendingResults.set(reqId, fulfillment);
   flushInOrder();
 }
 
@@ -932,11 +994,16 @@ function flushInOrder() {
     const nextReqId = expectedOrder[0];
     if (!pendingResults.has(nextReqId)) break; // Wait for this one
     
-    const patches = pendingResults.get(nextReqId)!;
+    const fulfillment = pendingResults.get(nextReqId)!;
     pendingResults.delete(nextReqId);
     expectedOrder.shift();
     
-    enqueue({ type: 'FulfillEffect', requirementId: nextReqId, resultPatches: patches });
+    enqueue({
+      type: 'FulfillEffect',
+      requirementId: nextReqId,
+      resultPatches: fulfillment.patches,
+      namespaceDelta: fulfillment.namespaceDelta ?? []
+    });
   }
 }
 ```
@@ -946,7 +1013,7 @@ function flushInOrder() {
 | Rule ID | Description |
 |---------|-------------|
 | ORD-TIMEOUT-1 | Timeout/cancel MUST produce a fulfillment outcome for ordering purposes |
-| ORD-TIMEOUT-2 | Timeout result (error patch) MUST be enqueued to pendingResults like success |
+| ORD-TIMEOUT-2 | Timeout result (domain error patches and/or Host namespace diagnostics) MUST be enqueued to pendingResults like success |
 | ORD-TIMEOUT-3 | Ordering buffer MUST NOT stall waiting for timed-out requirements |
 
 **Why This Matters:**
@@ -964,16 +1031,16 @@ R1 times out -> ??? (buffer stuck waiting for R1)
 
 ```typescript
 function onEffectTimeout(reqId: string, error: Error) {
-  // Timeout produces a fulfillment outcome (error patches)
-  const errorPatches = createTimeoutErrorPatches(reqId, error);
-  pendingResults.set(reqId, errorPatches);  // ORD-TIMEOUT-1
+  // Timeout produces a fulfillment outcome (domain patches and/or Host diagnostics)
+  const fulfillment = createTimeoutFulfillment(reqId, error);
+  pendingResults.set(reqId, fulfillment);  // ORD-TIMEOUT-1
   flushInOrder();  // Buffer can now proceed
 }
 
 function onEffectCancel(reqId: string) {
   // Cancel also produces an outcome (empty or cancel-marker patches)
-  const cancelPatches = createCancelPatches(reqId);
-  pendingResults.set(reqId, cancelPatches);  // ORD-TIMEOUT-1
+  const fulfillment = createCancelFulfillment(reqId);
+  pendingResults.set(reqId, fulfillment);  // ORD-TIMEOUT-1
   flushInOrder();
 }
 ```
@@ -982,7 +1049,7 @@ function onEffectCancel(reqId: string) {
 
 FulfillEffect job MUST perform the complete requirement lifecycle atomically, with stale/duplicate protection.
 
-**Scope Clarification:** FulfillEffect handles **Core-generated Requirements** (from Flow evaluation). It receives `Patch[]`, not fragments or expressions.
+**Scope Clarification:** FulfillEffect handles **Core-generated Requirements** (from Flow evaluation). It receives domain `Patch[]` plus optional Host-owned `NamespaceDelta[]`, not fragments or expressions.
 
 > **Rationale (FDR-H022):** FulfillEffect MUST perform the complete requirement lifecycle atomically, with stale/duplicate protection (FULFILL-0) and guaranteed clear even on apply failure (ERR-FE-4). Skipping the clear step causes infinite loop and duplicate effects. Timeout/cancel race conditions can cause stale fulfillments to overwrite valid state. The correct mental model is "clear ALWAYS, to prevent re-execution."
 > **Alternatives rejected:** Auto-clear by Core (implicit); idempotent requirements (most effects aren't); clear only on success (apply failure → infinite loop); no stale check (timeout race corrupts state).
@@ -993,10 +1060,11 @@ FulfillEffect job MUST perform the complete requirement lifecycle atomically, wi
 | Rule ID | Description |
 |---------|-------------|
 | FULFILL-0 | **FulfillEffect MUST verify requirementId exists in pendingRequirements before applying** |
-| FULFILL-1 | FulfillEffect MUST apply result patches (only if FULFILL-0 passes) |
+| FULFILL-1 | FulfillEffect MUST apply domain result patches (only if FULFILL-0 passes) |
+| FULFILL-NS-1 | FulfillEffect MUST apply Host-owned namespace deltas after domain patches and before clear/continue |
 | FULFILL-2 | FulfillEffect MUST clear requirement via `applySystemDelta({ removeRequirementIds })` |
 | FULFILL-3 | FulfillEffect MUST enqueue ContinueCompute |
-| FULFILL-4 | Steps 0, 1, 2, 3 MUST be executed in one job (no splitting) |
+| FULFILL-4 | Steps 0, 1, NS, 2, 3 MUST be executed in one job (no splitting) |
 
 #### 9.7.2 FULFILL-0: Stale/Duplicate Protection (Critical)
 
@@ -1005,7 +1073,7 @@ FulfillEffect job MUST perform the complete requirement lifecycle atomically, wi
 ```
 Timeline of timeout race condition:
 1. Effect request sent (requirementId = R1)
-2. Timeout fires -> Apply error patch -> Clear R1 -> ContinueCompute
+2. Timeout fires -> Apply timeout fulfillment -> Clear R1 -> ContinueCompute
 3. Compute continues, maybe retries or moves on
 4. Original network request FINALLY completes
 5. FulfillEffect(R1, successPatches) arrives
@@ -1043,11 +1111,15 @@ function handleFulfillEffect(job: FulfillEffect) {
     return;  // MUST NOT apply, MUST NOT continue
   }
 
-  // FULFILL-1: Apply result patches
-  applyPatches(job.resultPatches);
+  // FULFILL-1: Apply domain result patches
+  let next = Core.apply(schema, snapshot, job.resultPatches);
+
+  // FULFILL-NS-1: Apply Host-owned namespace diagnostics/bookkeeping
+  next = Core.applyNamespaceDeltas(next, job.namespaceDelta ?? []);
   
   // FULFILL-2: Clear requirement through system delta
-  applySystemDelta({ removeRequirementIds: [job.requirementId] });
+  next = Core.applySystemDelta(next, { removeRequirementIds: [job.requirementId] });
+  ctx.setCanonicalHead(next);
   
   // FULFILL-3: Continue
   enqueue({ type: 'ContinueCompute', intentId: job.intentId });
@@ -1079,7 +1151,7 @@ effect request
 v
 Effect runner (async, outside mailbox, may parallelize)
   - Executes IO/network/external calls
-  - Returns Patch[] (never throws)
+  - Returns EffectFulfillment (never throws)
   - Enqueues FulfillEffect to mailbox
 ```
 
@@ -1101,34 +1173,55 @@ function handleJob(job: Job, context: ExecutionContext) {
 
 ## 10. Context Determinism
 
-This section defines the determinism requirements for `HostContext` to preserve the `f(snapshot) = snapshot'` philosophy.
+This section defines Host responsibilities for ADR-027 `Context`
+materialization. Host may capture external environment, but the Core boundary is
+owner-neutral:
 
-> **Rationale (FDR-H023):** HostContext MUST be frozen at the start of each job. All operations within a job MUST use the same frozen context. If `now` is called multiple times during a single job and returns different values, the fundamental equation `f(snapshot, intent) = snapshot'` is broken — same logical operation produces different results depending on wall-clock timing. Jobs are the atomic unit of work (FDR-H019), so context freezing aligns with run-to-completion semantics.
-> **Alternatives rejected:** Context per operation (non-deterministic, breaks replay); mutable context (violates immutability); global frozen context (different jobs need different timestamps).
-> **Consequences:** Context frozen at job start, immutable during job; `randomSeed` deterministic from intentId; trace replay produces identical results.
+```text
+compute(schema, snapshot, intent, context)
+```
+
+> **Rationale (FDR-H023, ADR-027):** Context MUST be materialized once for a
+> transition attempt and reused for every Core `compute()` re-entry in that
+> attempt. If time/random values are captured per operation, determinism over
+> `schema + snapshot + intent + context` is broken.
+> **Alternatives rejected:** Context per operation (non-deterministic, breaks
+> replay); mutable context (violates immutability); hidden namespace transport
+> (pollutes Core with Host/MEL owner shapes).
+> **Consequences:** Runtime values are explicit, replayable, and not hidden in
+> `snapshot.namespaces.host`, `snapshot.namespaces.mel`, or `CoreIntent.frame`.
 
 ### 10.1 Problem Statement
 
-`HostContext` provides temporal and random values to Core computation:
+`Context` provides materialized runtime values and caller-supplied external
+context to Core computation:
 
 ```typescript
-type HostContext = {
-  readonly now: number;        // Current timestamp
-  readonly randomSeed: string; // Seed for deterministic randomness
-  readonly env?: Record<string, unknown>;
+type Context<TExternalContext = Record<string, unknown>> = {
+  readonly runtime: {
+    readonly time: {
+      readonly timestamp: number;
+    };
+    readonly random: {
+      readonly seed: string;
+    };
+  };
+  readonly external: TExternalContext;
 };
 ```
 
-**Issue:** If `now` is called multiple times during a single job and returns different values, determinism is broken.
+**Issue:** If runtime values are materialized multiple times during one
+transition attempt, the same logical operation can observe different external
+environment.
 
 ```typescript
-// WRONG: Different timestamps within same job
+// WRONG: Different context values within one transition attempt
 function handleStartIntent(job) {
-  const ctx1 = getContext();  // now = 1000
+  const ctx1 = materializeContext(); // timestamp = 1000
   Core.compute(..., ctx1);
 
-  const ctx2 = getContext();  // now = 1005 (5ms later!)
-  Core.apply(..., ctx2);      // Different context!
+  const ctx2 = materializeContext(); // timestamp = 1005
+  Core.compute(..., ctx2);           // Different context for same attempt!
 }
 ```
 
@@ -1136,39 +1229,43 @@ function handleStartIntent(job) {
 
 | Rule ID | Description |
 |---------|-------------|
-| CTX-1 | HostContext MUST be frozen at the start of each job |
-| CTX-2 | All operations within a single job MUST use the same frozen context |
-| CTX-3 | `now` value MUST NOT change during job execution |
-| CTX-4 | `randomSeed` MUST be deterministically derived from intentId |
-| CTX-5 | Context MUST be captured ONCE per job, not per operation |
+| CTX-1 | Context MUST be materialized once at the start of each transition attempt |
+| CTX-2 | Every Core `compute()` re-entry for that attempt MUST use the same context |
+| CTX-3 | `context.runtime.time.timestamp` MUST NOT change during the attempt |
+| CTX-4 | `context.runtime.random.seed` MUST be materialized once and remain stable during the attempt |
+| CTX-5 | Context MUST be captured once per transition attempt, not per operation |
+| CTX-6 | Host MUST NOT transport runtime values through `snapshot.namespaces.host` or `snapshot.namespaces.mel` for Core to read |
+| CTX-7 | Host MUST NOT expose a legacy host-context alias as the canonical Core boundary type |
 
-### 10.3 Frozen Context Pattern
+### 10.3 Materialized Context Pattern
 
 ```typescript
-// CORRECT: Freeze context at job start
+// CORRECT: Materialize context once at transition-attempt start
 function handleStartIntent(job: StartIntent) {
-  // Capture context ONCE at job start
-  const frozenContext: HostContext = {
-    now: Date.now(),                    // Captured once
-    randomSeed: job.intentId,           // Deterministic from intentId
-    env: getEnvironment(),
+  const context: Context = {
+    runtime: {
+      time: { timestamp: nowProvider() },
+      random: { seed: seedProvider(job.intentId) },
+    },
+    external: job.externalContext ?? {},
   };
 
   const snapshot = ctx.getCanonicalHead();
-  const result = Core.compute(schema, snapshot, job.intent, frozenContext);
+  const result = Core.compute(schema, snapshot, job.intent, context);
 
-  if (result.patches.length > 0) {
-    // Same frozenContext for apply
-    applyPatches(result.patches, frozenContext);
-  }
+  // apply() receives already-materialized patch data, not context
+  let next = Core.apply(schema, snapshot, result.patches);
+  next = Core.applyNamespaceDeltas(next, result.namespaceDelta ?? []);
+  next = Core.applySystemDelta(next, result.systemDelta);
 
-  // ... rest of job uses same frozenContext
+  // Later compute re-entry for this same attempt reuses the same context
+  const resumed = Core.compute(schema, next, job.intent, context);
 }
 
-// WRONG: Call getContext() multiple times
+// WRONG: Materialize context multiple times
 function handleStartIntent(job: StartIntent) {
-  const result = Core.compute(..., getContext());  // now = 1000
-  applyPatches(result.patches, getContext());      // now = 1005 - VIOLATION!
+  const result = Core.compute(..., materializeContext());
+  const resumed = Core.compute(..., materializeContext()); // VIOLATION
 }
 ```
 
@@ -1176,51 +1273,55 @@ function handleStartIntent(job: StartIntent) {
 
 | Scope | Context Behavior |
 |-------|-----------------|
-| **Per Job** | Context frozen at job start (REQUIRED) |
-| Per Iteration | Context frozen at iteration start (ACCEPTABLE but less precise) |
+| **Per Transition Attempt** | Context materialized once and reused for all Core re-entry (REQUIRED) |
+| Per Host Job | Acceptable only if the job exactly matches one transition attempt |
 | Per Operation | Context created per call (FORBIDDEN - breaks determinism) |
 
 ### 10.5 Deterministic Replay
 
-For trace replay and debugging, the frozen context values MUST be recorded:
+For trace replay and debugging, the exact materialized context value MUST be
+recorded by the replay owner. In lineage mode, ADR-027 assigns this replay
+envelope to Lineage `SealAttempt` metadata.
 
 ```typescript
 type TraceEntry = {
   jobType: string;
   intentId: string;
-  frozenContext: HostContext;  // Recorded for replay
+  context: Context; // Recorded for replay
   // ...
 };
 
 // Replay uses recorded context, not current time
 function replayJob(trace: TraceEntry) {
-  const frozenContext = trace.frozenContext;  // From trace, not Date.now()
-  Core.compute(schema, snapshot, intent, frozenContext);
+  const context = trace.context;
+  Core.compute(schema, snapshot, intent, context);
 }
 ```
 
 ### 10.6 Implementation Pattern
 
 ```typescript
-interface HostContextProvider {
+interface ContextMaterializer {
   /**
-   * Create a frozen context for a job.
-   * MUST be called once at job start.
+   * Create a materialized Context for a transition attempt.
+   * MUST be called once at attempt start.
    */
-  createFrozenContext(intentId: string): HostContext;
+  materialize(intentId: string, external?: Record<string, unknown>): Context;
 }
 
-class DefaultHostContextProvider implements HostContextProvider {
+class DefaultContextMaterializer implements ContextMaterializer {
   constructor(
     private readonly nowProvider: () => number = Date.now,
-    private readonly envProvider: () => Record<string, unknown> = () => ({})
+    private readonly seedProvider: (intentId: string) => string = (intentId) => intentId
   ) {}
 
-  createFrozenContext(intentId: string): HostContext {
+  materialize(intentId: string, external: Record<string, unknown> = {}): Context {
     return Object.freeze({
-      now: this.nowProvider(),      // Called once, frozen
-      randomSeed: intentId,          // Deterministic
-      env: this.envProvider(),
+      runtime: {
+        time: { timestamp: this.nowProvider() },
+        random: { seed: this.seedProvider(intentId) },
+      },
+      external,
     });
   }
 }
@@ -1232,14 +1333,14 @@ For deterministic tests, inject a fixed `nowProvider`:
 
 ```typescript
 // Test setup
-const testProvider = new DefaultHostContextProvider(
+const materializer = new DefaultContextMaterializer(
   () => 1704067200000,  // Fixed timestamp: 2024-01-01T00:00:00Z
-  () => ({ NODE_ENV: 'test' })
+  () => 'seed-1'
 );
 
-// All jobs will have the same frozen timestamp
-const context = testProvider.createFrozenContext(intentId);
-// context.now === 1704067200000 (always)
+const context = materializer.materialize(intentId, { locale: "ko-KR" });
+// context.runtime.time.timestamp === 1704067200000
+// context.runtime.random.seed === "seed-1"
 ```
 
 ---
@@ -1289,19 +1390,19 @@ const context = testProvider.createFrozenContext(intentId);
 | INV-EX-12 | **FulfillEffect MUST guarantee requirement clear even on error** |
 | INV-EX-13 | **FulfillEffect MUST verify requirement is pending before applying (stale protection)** |
 | INV-EX-14 | **Apply failure does NOT exempt from clear obligation** |
-| INV-EX-15 | **Compute result patches MUST be applied before effect dispatch** |
+| INV-EX-15 | **Compute result patches, namespace deltas, and system delta MUST be applied before effect dispatch** |
 | INV-EX-16 | **Timeout/cancel MUST produce fulfillment outcome for ordering (ORD-PARALLEL)** |
-| INV-EX-17 | **Error patch recording is best-effort; failure MUST NOT block continue** |
+| INV-EX-17 | **Error diagnostic recording failure MUST be observable and MUST NOT silently continue** |
 
 ### 11.5 Context Determinism Invariants
 
 | ID | Invariant |
 |----|-----------|
-| INV-CTX-1 | **HostContext MUST be frozen at job start** |
-| INV-CTX-2 | **All operations in a job MUST use the same frozen context** |
-| INV-CTX-3 | **`now` value MUST NOT change during job execution** |
-| INV-CTX-4 | **`randomSeed` MUST be deterministic (derived from intentId)** |
-| INV-CTX-5 | **Frozen context MUST be recorded in trace for replay** |
+| INV-CTX-1 | **Context MUST be materialized once per transition attempt** |
+| INV-CTX-2 | **All Core compute re-entry in an attempt MUST use the same context** |
+| INV-CTX-3 | **`context.runtime.time.timestamp` MUST NOT change during the attempt** |
+| INV-CTX-4 | **`context.runtime.random.seed` MUST remain stable during the attempt** |
+| INV-CTX-5 | **Replay owner MUST record exact context for replayable transitions** |
 
 ### 11.6 Snapshot Type Invariants
 
@@ -1310,11 +1411,12 @@ const context = testProvider.createFrozenContext(intentId);
 | INV-SNAP-1 | **Host MUST use Core's canonical Snapshot type** |
 | INV-SNAP-2 | **Host MUST NOT redefine Snapshot/SnapshotMeta/SystemState** |
 | INV-SNAP-3 | **Host MUST preserve all Core-owned fields when applying patches** |
-| INV-SNAP-4 | **Host MUST NOT write to Core-owned fields (status, lastError, errors, currentAction)** |
+| INV-SNAP-4 | **Host MUST NOT write to Core-owned fields (status, lastError, currentAction)** |
 | INV-SNAP-5 | **Host reads Core fields but MUST NOT assume field absence** |
-| INV-SNAP-6 | **Host-owned state MUST be stored in `data.$host` namespace** |
+| INV-SNAP-6 | **Host-owned state MUST be stored in `snapshot.namespaces.host`** |
 | INV-SNAP-7 | **Host MUST NOT extend Core's SystemState with custom fields** |
-| INV-SNAP-8 | **Host reset/bootstrap MUST reject non-canonical baseline payloads (missing `computed`, `system`, or `meta`)** |
+| INV-SNAP-8 | **Host reset/bootstrap MUST reject non-canonical baseline payloads (missing `state`, `computed`, `system`, `input`, `meta`, or `namespaces`)** |
+| INV-SNAP-9 | **Host namespace writes MUST use `NamespaceDelta`, not domain `Patch[]`** |
 
 ---
 
@@ -1323,15 +1425,24 @@ const context = testProvider.createFrozenContext(intentId);
 ### 12.1 Effect Execution Errors
 
 Effect handlers MUST NOT throw. Errors are expressed as patches.
-Host-generated error patches MUST target `$host` or domain-owned paths.
+Host-generated execution diagnostics MUST target `namespaces.host` via
+`NamespaceDelta`, or domain-owned paths when the failure is itself a domain
+outcome.
 `system.*` is structurally non-patchable at Core boundary. Host MUST use `core.applySystemDelta()` for system transitions.
 
-Host-generated `$host.lastError` records are best-effort Host execution
+Host-generated `namespaces.host.lastError` records are Host execution
 diagnostics. They help canonical-substrate debugging for effect handler
-failure, unknown effects, or fulfillment/apply failure. They do not by
+failure, unknown effects, or fulfillment/apply failure. If Host cannot persist
+the diagnostic after clearing the requirement, it MUST escalate the execution to
+a fatal error instead of silently continuing. Host diagnostics do not by
 themselves make a terminal Snapshot semantically failed; semantic failure is
 represented by `system.lastError` or domain state through Core-owned
 transitions.
+
+Host diagnostics are not Flow re-entry guards. Core MUST NOT read
+`namespaces.host`, so effectful flows that may re-enter after fulfillment MUST
+be guarded by domain state or Core-owned Flow primitives such as `causalGuard`.
+Host MUST NOT rely on Host namespace diagnostics to alter Core evaluation.
 
 ### 12.2 Mailbox Processing Errors
 
@@ -1346,8 +1457,8 @@ transitions.
 
 | Error Type | Handling |
 |------------|----------|
-| Effect timeout | Apply timeout error patch (not `system.*`), clear via `removeRequirementIds`, continue |
-| Effect network error | Apply error patch (not `system.*`), clear via `removeRequirementIds`, continue |
+| Effect timeout | Apply timeout error as domain patch or Host namespace delta (not `system.*`), clear via `removeRequirementIds`, continue |
+| Effect network error | Apply error as domain patch or Host namespace delta (not `system.*`), clear via `removeRequirementIds`, continue |
 | Clear failed | CRITICAL: Must retry or fail execution |
 
 ### 12.4 FulfillEffect Error Handling (Critical)
@@ -1369,8 +1480,8 @@ The goal is NOT "apply succeeded -> clear" but "**requirement never runs twice**
 
 | Scenario | Wrong Approach | Correct Approach |
 |----------|----------------|------------------|
-| Apply throws | Don't clear (req remains) -> infinite loop | Clear anyway -> error patch -> continue |
-| Partial apply | Don't clear -> re-runs and double-applies | Clear -> error patch with partial state |
+| Apply throws | Don't clear (req remains) -> infinite loop | Clear anyway -> error diagnostic -> continue |
+| Partial apply | Don't clear -> re-runs and double-applies | Clear -> error diagnostic with partial state |
 | Clear throws | Ignore -> req remains -> infinite loop | Fatal for ExecutionKey |
 
 **Key insight:** Even if apply fails completely, the requirement MUST be cleared. The alternative (re-execution) is worse than recording "effect failed" in state.
@@ -1391,7 +1502,9 @@ function handleFulfillEffect(job: FulfillEffect) {
 
   // Step 1: Attempt apply (may fail)
   try {
-    applyPatches(job.resultPatches);
+    let next = Core.apply(schema, snapshot, job.resultPatches);
+    next = Core.applyNamespaceDeltas(next, job.namespaceDelta ?? []);
+    ctx.setCanonicalHead(next);
   } catch (error) {
     applyError = error;
     // DO NOT RETURN - must still clear
@@ -1399,20 +1512,24 @@ function handleFulfillEffect(job: FulfillEffect) {
 
   // Step 2: ALWAYS clear via system delta (ERR-FE-1, ERR-FE-2)
   try {
-    applySystemDelta({ removeRequirementIds: [job.requirementId] });
+    const cleared = Core.applySystemDelta(ctx.getCanonicalHead(), {
+      removeRequirementIds: [job.requirementId],
+    });
+    ctx.setCanonicalHead(cleared);
   } catch (clearError) {
     // ERR-FE-3: Clear failure is fatal - cannot recover safely
     escalateToFatal(job.intentId, clearError);
     return;
   }
 
-  // Step 3: Record error if apply failed (best-effort), then continue
+  // Step 3: Record error diagnostic if apply failed
   if (applyError) {
     try {
-      applyErrorPatch(job.intentId, job.requirementId, applyError); // not system.*
+      applyHostErrorNamespaceDelta(job.intentId, job.requirementId, applyError); // not system.*
     } catch (patchError) {
-      // ERR-FE-5: Error patch failure is logged but does NOT block continue
-      logErrorPatchFailure(job, patchError);
+      // ERR-FE-5: visibility failure is fatal after clear
+      escalateToFatal(job.intentId, patchError);
+      return;
     }
   }
 
@@ -1421,33 +1538,34 @@ function handleFulfillEffect(job: FulfillEffect) {
 }
 ```
 
-#### 12.4.4 Error Patch Recording (ERR-FE-5)
+#### 12.4.4 Error Diagnostic Recording (ERR-FE-5)
 
 | Rule ID | Description |
 |---------|-------------|
-| ERR-FE-5 | Error patch recording is best-effort; failure MUST NOT block ContinueCompute |
+| ERR-FE-5 | Error diagnostic recording failure MUST escalate to ExecutionKey-level fatal after the requirement is cleared |
 
-Error patches MUST NOT target `system.*`. Use `$host` or domain-owned paths.
+Error diagnostics MUST NOT target `system.*`. Use `namespaces.host` via
+`NamespaceDelta`, or use domain-owned paths when the error is a domain outcome.
 
 **Rationale:** The priority order is:
 1. **Clear** (non-negotiable - prevents infinite loop)
-2. **Continue** (non-negotiable - execution must proceed)
-3. **Error patch** (best-effort - nice to have for debugging)
+2. **Error diagnostic or fatal escalation** (non-negotiable visibility)
+3. **Continue** (only when the diagnostic was persisted)
 
-If error patch recording fails:
+If error diagnostic recording fails:
 - Log the failure for debugging
-- Continue anyway (ContinueCompute MUST be enqueued)
-- Alternatively, escalate to fatal if error visibility is critical for domain
+- Escalate to ExecutionKey-level fatal
+- Do not enqueue ContinueCompute
 
-#### 12.4.5 Why "Clear Before Error Patch"?
+#### 12.4.5 Why "Clear Before Error Diagnostic"?
 
-The order is: **Attempt Apply -> Clear -> Error Patch -> Continue**
+The order is: **Attempt Apply -> Clear -> Error Diagnostic -> Continue**
 
-NOT: Apply -> Error Patch -> Clear
+NOT: Apply -> Error Diagnostic -> Clear
 
-Reason: If error patch application fails, we still need the requirement cleared. Clear is the **non-negotiable** step.
+Reason: If error diagnostic application fails, we still need the requirement cleared. Clear is the **non-negotiable** step.
 
-#### 12.4.5 Fatal Escalation
+#### 12.4.6 Fatal Escalation
 
 When clear fails, the ExecutionKey is in an unrecoverable state:
 
@@ -1513,17 +1631,17 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | Intent | INTENT-1~5, INTENT-ID-1~4: No resume, re-entry |
 | Handler | HANDLER-1~5: No throw, Patch[], IO only |
 | Requirement | REQ-*: Deterministic ID, clear obligation |
-| Concrete Patch | COMP-4,5: Host passes only concrete Patch[] (see Appendix D) |
+| Concrete Patch | COMP-4,5: Host passes only concrete domain Patch[] to `Core.apply()` (see Appendix D) |
 | Mailbox | MAIL-1~4: Per-key serialization |
 | Job | JOB-1~5: Await ban, fresh read; **COMP-REQ-INTERLOCK-1~2** |
 | Runner | RUN-1~4: Single runner, **lost wakeup prevention** |
 | Reinjection | REINJ-1~4: Via FulfillEffect |
 | Liveness | LIVE-1~4: Enqueue -> eventually processed, **blocked kick retry** |
 | Order | ORD-1~4: **Deterministic order**; **ORD-TIMEOUT-1~3** (buffer timeout handling) |
-| FulfillEffect | **FULFILL-0~4**: Stale check, atomic lifecycle |
-| Error | ERR-FE-1~5: FulfillEffect must guarantee clear, error patch best-effort |
-| Context | CTX-1~5: Frozen per job, deterministic randomSeed |
-| Snapshot | HOST-SNAP-1~4, HOST-NS-1~6: Core canonical type, `$host` namespace |
+| FulfillEffect | **FULFILL-0~4, FULFILL-NS-1**: Stale check, atomic lifecycle |
+| Error | ERR-FE-1~5: FulfillEffect must guarantee clear, failed error diagnostic escalates fatal |
+| Context | CTX-1~7: Materialized once per transition attempt, stable runtime values |
+| Snapshot | HOST-SNAP-1~4, HOST-NS-1~8, HOST-RESTORE-1~4: Core canonical type, `namespaces.host` |
 
 ### A.2 Critical Violations
 
@@ -1541,8 +1659,8 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | **Clear only on apply success** | **Apply failure -> infinite loop** |
 | **Effect dispatch before patch apply** | **FULFILL-0 false positive (stale)** |
 | **Timeout not producing fulfillment outcome** | **Ordering buffer stall (ORD-PARALLEL)** |
-| **Multiple getContext() calls per job** | **Non-deterministic timestamps (INV-CTX-3 violation)** |
-| **Context not frozen at job start** | **f(snapshot) = snapshot' broken (INV-CTX-1 violation)** |
+| **Multiple context materializations per attempt** | **Non-deterministic timestamps/seeds (INV-CTX-3 violation)** |
+| **Context not reused for re-entry** | **`schema + snapshot + intent + context` determinism broken (INV-CTX-1 violation)** |
 
 ### A.3 Implementation Checklist
 
@@ -1557,15 +1675,17 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 - [ ] FulfillEffect checks pendingRequirements before apply (FULFILL-0)
 - [ ] FulfillEffect performs Apply + Clear + Continue atomically
 - [ ] **FulfillEffect guarantees clear even on apply failure (ERR-FE-2)**
-- [ ] **Error patch recording is best-effort, does not block continue (ERR-FE-5)**
-- [ ] **Compute patches applied BEFORE effect dispatch (COMP-REQ-INTERLOCK-1)**
+- [ ] **Error diagnostic recording failure escalates fatal after clear (ERR-FE-5)**
+- [ ] **Compute domain patches, namespace deltas, and system delta applied BEFORE effect dispatch (COMP-REQ-INTERLOCK-1)**
 - [ ] **Effect dispatch list read from snapshot after apply (COMP-REQ-INTERLOCK-2, SHOULD)**
+- [ ] **Omitted namespaceDelta treated as empty (COMP-REQ-INTERLOCK-1b)**
+- [ ] **Host-owned diagnostics/bookkeeping written through NamespaceDelta, not domain Patch[] (HOST-NS-4, HOST-NS-7)**
 - [ ] Effect execution policy documented (ORD-SERIAL or ORD-PARALLEL)
 - [ ] **If ORD-PARALLEL: timeout/cancel produces fulfillment outcome (ORD-TIMEOUT-1)**
-- [ ] **HostContext frozen at job start, not per operation (CTX-1, CTX-5)**
-- [ ] **Same frozen context used for all Core calls in a job (CTX-2)**
-- [ ] **randomSeed derived from intentId (CTX-4)**
-- [ ] **Frozen context recorded in trace for replay (CTX-5)**
+- [ ] **Context materialized once per transition attempt, not per operation (CTX-1, CTX-5)**
+- [ ] **Same context used for all Core compute re-entry in an attempt (CTX-2)**
+- [ ] **`context.runtime.random.seed` stable for the attempt (CTX-4)**
+- [ ] **Materialized context recorded by replay owner for replay (CTX-5)**
 - [ ] **No @manifesto-ai/compiler dependency (v2.0.1 decoupling)**
 
 ---
@@ -1589,16 +1709,28 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | FulfillEffect atomic sequence | FULFILL-1~4 |
 | FulfillEffect error handling | ERR-FE-1~5 |
 | **Compute-effect interlock** | **COMP-REQ-INTERLOCK-1~2** |
+| **Snapshot namespace contract** | **HOST-NS-1~8, HOST-RESTORE-1~4** |
 
-### B.1.1 New Requirements (v2.0.1)
+### B.1.1 Historical Requirements (v2.0.1, superseded by ADR-027)
 
 | Requirement | Rule ID |
 |-------------|---------|
-| **HostContext frozen at job start** | **CTX-1** |
-| **Same context for all operations in job** | **CTX-2** |
-| **now value immutable during job** | **CTX-3** |
-| **randomSeed from intentId** | **CTX-4** |
-| **Context recorded in trace** | **CTX-5** |
+| **Pre-v5 host context frozen at job start** | **CTX-1** |
+| **Same pre-v5 context for all operations in job** | **CTX-2** |
+| **Pre-v5 now value immutable during job** | **CTX-3** |
+| **Pre-v5 randomSeed from intentId** | **CTX-4** |
+| **Pre-v5 context recorded in trace** | **CTX-5** |
+
+### B.1.2 New Requirements (v5.0.0 / ADR-025)
+
+| Requirement | Rule ID |
+|-------------|---------|
+| Host-owned state stored in `snapshot.namespaces.host` | HOST-NS-1 |
+| Host namespace writes use `NamespaceDelta` | HOST-NS-4, HOST-NS-7 |
+| Omitted `namespaceDelta` treated as empty | COMP-REQ-INTERLOCK-1b |
+| Compute application order is domain patches -> namespace deltas -> system delta | COMP-REQ-INTERLOCK-1a |
+| Fulfillment namespace deltas applied before clear/continue | FULFILL-NS-1 |
+| Reset/restore inputs normalized to canonical v5 Snapshot before Core entry | HOST-RESTORE-1~4 |
 
 ### B.2 Backward Compatibility
 
@@ -1612,16 +1744,23 @@ v2.0.1 **deprecates**:
 
 v2.0/v2.0.1 **strengthens enforcement** of existing principles (FDR-H003, H008, H010).
 
+v5.0.0 **hard-cuts** Host-facing Snapshot structure to Core SPEC v5:
+- Domain state is `snapshot.state`.
+- Host-owned execution state is `snapshot.namespaces.host`.
+- Domain patches do not target namespaces.
+- Namespace transitions use `NamespaceDelta` and `core.applyNamespaceDeltas()`.
+
 ### B.3 Implementation Impact
 
 | Component | Impact |
 |-----------|--------|
 | Effect handlers | No change |
-| Intent processing | Restructure as job queue; apply patches before effect dispatch; read requirements from snapshot |
-| Requirement lifecycle | Ensure atomic Clear step; **stale check before apply** |
-| Error handling | **Clear even on apply failure**; **error patch is best-effort** |
+| Intent processing | Restructure as job queue; apply patches/namespace deltas/system delta before effect dispatch; read requirements from snapshot |
+| Requirement lifecycle | Ensure atomic Clear step; **stale check before apply**; apply Host namespace deltas before clear |
+| Error handling | **Clear even on apply failure**; **error diagnostic failure escalates fatal** |
 | ORD-PARALLEL users | **Timeout/cancel must produce fulfillment outcome** |
 | **Context handling (v2.0.1)** | **Freeze context at job start; use same context throughout job** |
+| **Snapshot handling (v5.0.0)** | **Use `state` and `namespaces`; migrate legacy data-root snapshots only through explicit compatibility normalization** |
 
 ---
 
@@ -1657,6 +1796,7 @@ interface FulfillEffect {
   readonly intentId: string;
   readonly requirementId: string;      // Core-generated requirement ID
   readonly resultPatches: Patch[];     // Concrete patches (NOT expressions)
+  readonly namespaceDelta?: NamespaceDelta[]; // Host-owned fulfillment diagnostics/bookkeeping
 }
 
 interface ApplyPatches {
@@ -1671,8 +1811,8 @@ interface ApplyPatches {
 
 | Job Type | Input | Source | Requirement Clear? |
 |----------|-------|--------|-------------------|
-| FulfillEffect | `Patch[]` | Core Requirement | YES |
-| ApplyPatches | `Patch[]` | Direct patches | NO |
+| FulfillEffect | `Patch[]` + optional `NamespaceDelta[]` | Core Requirement | YES |
+| ApplyPatches | `Patch[]` | Direct domain patches | NO |
 
 ### C.3 When to Use Each
 
@@ -1690,7 +1830,7 @@ interface ApplyPatches {
 > **Deprecated as of v2.0.1.** Host is decoupled from Compiler and Translator.
 > Formerly §9 in SPEC v2.0.0. Preserved here for historical reference.
 
-> **Rationale (FDR-H024):** Host MUST NOT depend on `@manifesto-ai/compiler`. Host receives only concrete Patch[] values. Host's single responsibility is execution orchestration (mailbox serialization, effect coordination, patch application). Translator output processing (MEL IR lowering, expression evaluation) belongs to the Compiler/App domain.
+> **Rationale (FDR-H024, ADR-028):** Host MUST NOT depend on `@manifesto-ai/compiler`. Host receives only concrete domain `Patch[]` values and explicit `NamespaceDelta[]` values; it never receives compiler fragments, Flow target expressions, or unresolved dynamic patch targets. Host's single responsibility is execution orchestration (mailbox serialization, effect coordination, patch/namespace/system application). Dynamic Flow patch target resolution belongs to Core `compute()`.
 > **Alternatives rejected:** Host imports Compiler (unnecessary coupling, larger bundle); Host processes fragments (wrong responsibility boundary).
 > **Consequences:** Host decoupled from Compiler/Translator; Bridge/App layer handles Translator processing if needed; simpler Host with fewer dependencies.
 
@@ -1698,37 +1838,39 @@ interface ApplyPatches {
 
 | Rule ID | Description | Status |
 |---------|-------------|--------|
-| COMP-4 | Host MUST pass only concrete `Patch[]` to `Core.apply()` | **RETAINED** |
+| COMP-4 | Host MUST pass only concrete domain `Patch[]` to `Core.apply()` | **RETAINED** |
 | COMP-5 | Passing expressions to `Core.apply()` is SPEC VIOLATION | **RETAINED** |
+| COMP-7 | Host MUST NOT resolve dynamic patch targets or evaluate Flow/MEL expressions | **RETAINED** |
 
 ### D.2 Deprecated Rules
 
 | Rule ID | Description | Status |
 |---------|-------------|--------|
-| COMP-1 | Host MUST import from `@manifesto-ai/compiler` | DEPRECATED |
-| COMP-2 | Host MUST call `lowerPatchFragments()` first | DEPRECATED |
-| COMP-3 | Host MUST call `evaluateConditionalPatchOps()` second | DEPRECATED |
-| COMP-6 | `$system.*` MUST be excluded from Translator path `allowSysPaths` | DEPRECATED |
-| TRANS-1 | LLM translate call is treated as Host-level async operation | DEPRECATED |
-| TRANS-2 | Translator fragments MUST be processed via `ApplyTranslatorOutput` job | DEPRECATED |
-| TRANS-3 | Lower -> Evaluate -> Apply MUST run synchronously in ONE job | DEPRECATED |
-| TRANS-4 | Splitting Lower/Evaluate/Apply into separate jobs is FORBIDDEN | DEPRECATED |
+| COMP-1 | Former Host obligation to import from `@manifesto-ai/compiler` | DEPRECATED |
+| COMP-2 | Former Host obligation to call `lowerPatchFragments()` first | DEPRECATED |
+| COMP-3 | Former Host obligation to call `evaluateConditionalPatchOps()` second | DEPRECATED |
+| COMP-6 | Former Translator path rule excluding legacy system dollar paths from `allowSysPaths` | DEPRECATED |
+| TRANS-1 | Former treatment of LLM translate calls as Host-level async operations | DEPRECATED |
+| TRANS-2 | Former `ApplyTranslatorOutput` job for Translator fragments | DEPRECATED |
+| TRANS-3 | Former synchronous Lower -> Evaluate -> Apply job rule | DEPRECATED |
+| TRANS-4 | Former prohibition against splitting Lower/Evaluate/Apply jobs | DEPRECATED |
 
 ### D.3 Migration
 
-If Translator integration is needed, implement a `TranslatorAdapter` at the App layer:
+If historical Translator integration is encountered, keep it outside Host and
+do not route unresolved targets through Host:
 
 ```
 App layer (optional TranslatorAdapter, outside Host)
   - Depends on @manifesto-ai/compiler (if used)
-  - Translator.translate() -> TranslatorFragment[]
-  - lowerPatchFragments()
-  - evaluateConditionalPatchOps()
-  - Submits concrete Patch[] to Host
+  - Translator.translate() -> source/tooling artifacts
+  - Recompile a full domain or enter Core-owned runtime paths
+  - Submits only concrete domain Patch[] and explicit NamespaceDelta[] to Host
 
 Host (compiler-free, translator-free)
-  - Receives only concrete Patch[]
+  - Receives only concrete domain Patch[] and explicit NamespaceDelta[]
   - No @manifesto-ai/compiler dependency
+  - No Flow IR inspection or dynamic target resolution
   - Single responsibility: execution orchestration
 ```
 

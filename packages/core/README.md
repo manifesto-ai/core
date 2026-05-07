@@ -6,14 +6,14 @@
 
 ## What is Core?
 
-Core is responsible for evaluating domain semantics. Given a schema, snapshot, and intent, it computes what patches and effects should result—but never executes them.
+Core is responsible for evaluating domain semantics. Given a schema, snapshot, intent, and context, it computes what patches and requirements should result—but never executes them.
 
 In the Manifesto architecture:
 
 ```
 Host -> CORE -> ComputeResult
            |
-    Computes patches & effects
+    Computes patches & requirements
     (pure, no IO, deterministic)
 ```
 
@@ -23,7 +23,7 @@ Host -> CORE -> ComputeResult
 
 | Responsibility | Description |
 |----------------|-------------|
-| Compute state transitions | Given (schema, snapshot, intent), produce patches and effects |
+| Compute state transitions | Given (schema, snapshot, intent, context), produce patches and requirements |
 | Apply patches | Transform snapshots by applying patch operations |
 | Validate schemas | Check DomainSchema structure for correctness |
 | Explain values | Trace why a computed value has its current result |
@@ -56,7 +56,7 @@ pnpm add @manifesto-ai/core
 
 ```typescript
 import { createCore, createSnapshot, createIntent } from "@manifesto-ai/core";
-import type { DomainSchema } from "@manifesto-ai/core";
+import type { Context, DomainSchema } from "@manifesto-ai/core";
 
 // Create core instance
 const core = createCore();
@@ -85,7 +85,7 @@ const schema: DomainSchema = {
       flow: {
         kind: "patch",
         op: "set",
-        path: "count",
+        path: [{ kind: "prop", name: "count" }],
         value: {
           kind: "add",
           left: { kind: "get", path: "count" },
@@ -96,8 +96,11 @@ const schema: DomainSchema = {
   },
 };
 
-// Create host context (deterministic inputs)
-const context = { now: 0, randomSeed: "seed" };
+// Create owner-neutral ADR-027 context (deterministic inputs)
+const context: Context = {
+  runtime: { time: { timestamp: 0 }, random: { seed: "seed" } },
+  external: {},
+};
 
 // Create initial snapshot
 const snapshot = createSnapshot({ count: 0 }, schema.hash, context);
@@ -107,9 +110,12 @@ const intent = createIntent("increment", "intent-1");
 
 // Compute result (pure, deterministic)
 const result = await core.compute(schema, snapshot, intent, context);
+const patched = core.apply(schema, snapshot, result.patches);
+const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+const next = core.applySystemDelta(namespaced, result.systemDelta);
 
 console.log(result.status); // -> "complete"
-console.log(result.snapshot.data.count); // -> 1
+console.log(next.state.count); // -> 1
 ```
 
 > See [GUIDE.md](docs/GUIDE.md) for the full tutorial.
@@ -127,17 +133,17 @@ function createCore(): ManifestoCore;
 // Core interface
 interface ManifestoCore {
   compute(schema, snapshot, intent, context): Promise<ComputeResult>;
-  apply(schema, snapshot, patches, context): Snapshot;
+  apply(schema, snapshot, patches): Snapshot;
   validate(schema): ValidationResult;
   explain(schema, snapshot, path): ExplainResult;
 }
 
 // Key types
-type DomainSchema = { id, version, hash, types, state, computed, actions, meta? };
-type Snapshot = { data, computed, system, input, meta };
+type DomainSchema = { id, version, hash, types, state, context?, computed, actions, meta? };
+type Snapshot = { state, computed, system, input, meta, namespaces };
 type Intent = { type, input?, intentId };
 type Patch = { op: "set" | "unset" | "merge", path, value? };
-type ComputeResult = { status, snapshot, requirements, trace };
+type ComputeResult = { status, patches, namespaceDelta?, systemDelta, trace };
 ```
 
 > See [core-SPEC.md](docs/core-SPEC.md) for the current living specification.
@@ -152,7 +158,7 @@ All communication between Core and Host happens through Snapshot. There is no hi
 
 ### Deterministic Computation
 
-Given the same (schema, snapshot, intent), Core always produces the same result. This enables:
+Given the same (schema, snapshot, intent, context), Core always produces the same result. This enables:
 - Reliable testing without mocks
 - Time-travel debugging
 - Reproducible bug reports

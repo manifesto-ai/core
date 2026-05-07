@@ -30,22 +30,14 @@ export type {
 export type {
   GovernanceComposableManifesto,
   GovernanceConfig,
+  GovernanceControlSurface,
   GovernanceExecutionConfig,
   GovernanceInstance,
   GovernanceProposalRuntime,
 } from "./runtime-types.js";
-export type {
-  ProposalSettlement,
-  ProposalSettlementReport,
-  WaitForProposalOptions,
-} from "./wait-for-proposal.js";
 export {
   createNoopGovernanceEventSink,
 } from "./types.js";
 export { createInMemoryGovernanceStore } from "./store/in-memory-governance-store.js";
 
 export { withGovernance } from "./with-governance.js";
-export {
-  waitForProposal,
-  waitForProposalWithReport,
-} from "./wait-for-proposal.js";

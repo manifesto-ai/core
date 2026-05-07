@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/activation-cts",
-  "version": "0.1.0",
+  "version": "5.0.0",
   "private": true,
   "description": "Cross-package activation and decorator compliance suite",
   "type": "module",

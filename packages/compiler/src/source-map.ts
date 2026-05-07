@@ -115,6 +115,9 @@ export function extractSourceMap(
         }
         break;
 
+      case "context":
+        break;
+
       case "computed":
         entries.set(
           `computed:${member.name}`,

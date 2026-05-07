@@ -251,7 +251,7 @@ export interface DeterministicRuntime {
 
 ---
 
-### HCTS-FULFILL-003: error patch는 best-effort (ERR-FE-5)
+### HCTS-FULFILL-003: error patch 기록 실패는 fatal (ERR-FE-5)
 
 * **커버:** ERR-FE-5, INV-EX-17
 * **시나리오:**
@@ -259,8 +259,9 @@ export interface DeterministicRuntime {
     * applyErrorPatch도 throw 나게 만들어봄(의도)
 * **검증:**
 
-    * 그래도 continueCompute가 enqueue되어 진행됨
-    * error patch 실패 로그 이벤트는 있으면 좋고(권장), 없어도 “continue 보장”이 핵심
+    * pendingRequirements에서 해당 req는 제거됨
+    * continueCompute는 enqueue되지 않음
+    * ExecutionKey-level fatal 이 관측됨
 
 ---
 
@@ -632,7 +633,7 @@ export interface DeterministicRuntime {
 
 ---
 
-### HCTS-FULFILL-003: error patch는 best-effort (ERR-FE-5)
+### HCTS-FULFILL-003: error patch 기록 실패는 fatal (ERR-FE-5)
 
 * **커버:** ERR-FE-5, INV-EX-17
 * **시나리오:**
@@ -640,8 +641,9 @@ export interface DeterministicRuntime {
     * applyErrorPatch도 throw 나게 만들어봄(의도)
 * **검증:**
 
-    * 그래도 continueCompute가 enqueue되어 진행됨
-    * error patch 실패 로그 이벤트는 있으면 좋고(권장), 없어도 “continue 보장”이 핵심
+    * pendingRequirements에서 해당 req는 제거됨
+    * continueCompute는 enqueue되지 않음
+    * ExecutionKey-level fatal 이 관측됨
 
 ---
 

@@ -14,8 +14,6 @@ export type {
   CompileMelDomainResult,
   CompileMelModuleOptions,
   CompileMelModuleResult,
-  CompileMelPatchOptions,
-  CompileMelPatchResult,
   DomainModule,
   JsonLiteral,
   LocalTargetKey,
@@ -50,5 +48,5 @@ export type {
   SchemaModifiedTarget,
 } from "./compile-fragment-in-context.js";
 
-export { compileMelDomain, compileMelModule, compileMelPatch } from "./compile-mel.js";
+export { compileMelDomain, compileMelModule } from "./compile-mel.js";
 export { compileFragmentInContext } from "./compile-fragment-in-context.js";

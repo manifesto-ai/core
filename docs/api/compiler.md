@@ -8,7 +8,7 @@
 
 `@manifesto-ai/compiler` provides the MEL compilation seams used by runtime creation, tooling, and bundler integration.
 
-The current canonical compiler contract is documented in the [current SPEC index](../internals/spec/index.md), with the compiler pinned to `SPEC-v1.3.0`.
+The current canonical compiler contract is documented in the [current SPEC index](../internals/spec/index.md), with the compiler aligned to v5.0.0 in `packages/compiler/docs/SPEC-v1.2.0.md`.
 
 Current compiler responsibilities include:
 - schema-only compilation through `compileMelDomain()`
@@ -18,9 +18,9 @@ Current compiler responsibilities include:
 - declaration-level source locations as an out-of-schema `SourceMapIndex` sidecar
 - authoring-time source edits through `compileFragmentInContext()`
 - intent-level dispatchability via `dispatchable when`
-- MEL patch lowering through `compileMelPatch()`
+- dynamic patch target lowering/preservation through full-domain compilation
 
-Current MEL v1.3 compiler highlights include:
+Current compiler highlights include:
 - object-literal spread as the sole bounded parser-level shorthand
 - canonical lowering of spread through `merge(...)`
 - presence-aware object typing shared by spread and direct `merge()`
@@ -80,16 +80,16 @@ Use `compileFragmentInContext()` when authoring-time tooling needs the compiler 
 ```typescript
 import { compileFragmentInContext } from "@manifesto-ai/compiler";
 
-const result = compileFragmentInContext(melSource, {
+const compileResult = compileFragmentInContext(melSource, {
   kind: "addComputed",
   name: "nextCount",
   expr: "add(count, 1)",
 }, { includeSchemaDiff: true });
 
-if (result.ok) {
-  const nextSource = result.newSource;
-  const changedTargets = result.changedTargets;
-  const impact = result.schemaDiff;
+if (compileResult.ok) {
+  const nextSource = compileResult.newSource;
+  const changedTargets = compileResult.changedTargets;
+  const impact = compileResult.schemaDiff;
 }
 ```
 
@@ -101,18 +101,17 @@ Pre-materialization failures return diagnostics as values with `newSource === ba
 
 Runtime creation still consumes `DomainSchema`. If a tool accepts an edited source, compile the accepted source through `compileMelDomain()` or `compileMelModule()` and pass only the resulting schema into runtime seams.
 
-### `compileMelPatch()`
+### Dynamic Patch Targets
 
-```typescript
-import { compileMelPatch } from "@manifesto-ai/compiler";
+Dynamic patch targets are part of full-domain Flow semantics.
 
-const result = compileMelPatch(patchText, {
-  mode: "patch",
-  actionName: "updateTodo",
-});
-```
+The compiler parses and type-checks MEL target syntax, then preserves dynamic
+target expressions for Core. Core resolves those targets during `compute()`
+before emitting concrete `Patch[]`.
 
-`compileMelPatch()` returns unresolved conditional ops. Runtime MUST evaluate them before applying to Core.
+New integrations should compile a full MEL domain through `compileMelDomain()`
+or `compileMelModule()` and pass only the resulting `DomainSchema` to runtime
+creation.
 
 ## Tooling vs Runtime
 
@@ -168,37 +167,26 @@ type SourceMapEntry = {
 - `sourceMap` is keyed by the same landed declaration target space and carries physical source spans only.
 - `sourceMap` remains tooling-only and does not participate in runtime schema input, schema hash, or `SchemaGraph` derivation.
 
-## Patch IR Types
+## Retired v5 Patch Evaluation Surface
 
-```typescript
-type IRPathSegment =
-  | { kind: "prop"; name: string }
-  | { kind: "expr"; expr: CoreExprNode };
+ADR-028 removes compiler-owned runtime patch evaluation from the current v5
+contract. The compiler does not evaluate dynamic target expressions, allocate
+runtime values, emit `"*"` placeholder targets, or produce runtime patches from
+runtime data.
 
-type IRPatchPath = readonly IRPathSegment[];
+The following APIs are not current v5 integration seams:
 
-type ConditionalPatchOp = {
-  condition?: CoreExprNode;
-  op: "set" | "unset" | "merge";
-  path: IRPatchPath;
-  value?: CoreExprNode;
-};
-```
+- `compileMelPatch()`
+- `evaluateConditionalPatchOps()`
+- `evaluateRuntimePatches()`
+- `evaluateRuntimePatchesWithTrace()`
+- `lowerRuntimePatch()` / `lowerRuntimePatches()`
+- `IRPatchPath` / `MelIRPatchPath`
+- `RuntimeConditionalPatchOp`
 
-## Evaluation Contract
-
-```typescript
-function evaluateConditionalPatchOps(
-  ops: ConditionalPatchOp[],
-  ctx: EvaluationContext
-): Patch[];
-```
-
-- `resolveIRPath()` MUST convert `IRPatchPath` -> concrete `PatchPath`.
-- `expr` segment evaluates to:
-  - string -> `{ kind: "prop", name }`
-  - non-negative integer -> `{ kind: "index", index }`
-- Any other value => skip op + emit warning.
+The generated public-surface inventory no longer lists these retired APIs after
+ADR-028 PR-3. This curated guide describes the current compiler contract rather
+than the historical patch-evaluation surface.
 
 ## Related Packages
 

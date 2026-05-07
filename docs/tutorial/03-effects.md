@@ -9,7 +9,7 @@
 - What an effect declaration does in MEL
 - What an effect handler does in TypeScript
 - Why effect handlers return patches instead of values
-- How to model loading, success, and failure in `snapshot.data`
+- How to model loading, success, and failure in `snapshot.state`
 
 ---
 
@@ -78,7 +78,7 @@ Create `effects.ts`:
 import { defineEffects } from "@manifesto-ai/sdk/effects";
 import type { UserProfileDomain } from "./user-profile-types";
 
-export const effects = defineEffects<UserProfileDomain>(({ set, unset }, MEL) => ({
+export const effects = defineEffects<UserProfileDomain>(({ set, unset }, refs) => ({
   "api.fetchUser": async (params, ctx) => {
     const { id } = params as { id: string };
 
@@ -91,15 +91,15 @@ export const effects = defineEffects<UserProfileDomain>(({ set, unset }, MEL) =>
       const user = (await response.json()) as { id: string; name: string };
 
       return [
-        set(MEL.state.user, user),
-        set(MEL.state.loading, false),
-        unset(MEL.state.error),
+        set(refs.state.user, user),
+        set(refs.state.loading, false),
+        unset(refs.state.error),
       ];
     } catch (error) {
       return [
-        set(MEL.state.loading, false),
+        set(refs.state.loading, false),
         set(
-          MEL.state.error,
+          refs.state.error,
           error instanceof Error ? error.message : "Unknown error",
         ),
       ];
@@ -126,13 +126,13 @@ import { createManifesto } from "@manifesto-ai/sdk";
 import UserProfileMel from "./user-profile.mel";
 import { effects } from "./effects";
 
-const instance = createManifesto(UserProfileMel, effects).activate();
+const app = createManifesto(UserProfileMel, effects).activate();
 
-instance.subscribe(
+app.observe.state(
   (snapshot) => ({
-    loading: snapshot.data.loading,
-    error: snapshot.data.error,
-    user: snapshot.data.user,
+    loading: snapshot.state.loading,
+    error: snapshot.state.error,
+    user: snapshot.state.user,
   }),
   (view) => {
     console.log("View state:", view);
@@ -140,20 +140,18 @@ instance.subscribe(
 );
 
 async function run() {
-  await instance.dispatchAsync(
-    instance.createIntent(instance.MEL.actions.fetchUser, "123"),
-  );
+  await app.action.fetchUser.submit("123");
 
-  const snapshot = instance.getSnapshot();
+  const snapshot = app.snapshot();
   console.log("Has user:", snapshot.computed["hasUser"]);
-  console.log("User data:", snapshot.data.user);
+  console.log("User data:", snapshot.state.user);
 
-  instance.dispose();
+  app.dispose();
 }
 
 run().catch((error) => {
   console.error(error);
-  instance.dispose();
+  app.dispose();
 });
 ```
 
@@ -165,7 +163,7 @@ run().catch((error) => {
 2. Host invoked the registered handler
 3. The handler returned patches
 4. Those patches became part of the next snapshot
-5. `subscribe()` and `getSnapshot()` saw the updated state
+5. `observe.state()` and `snapshot()` saw the updated state
 
 That is the core pattern for all IO in Manifesto.
 

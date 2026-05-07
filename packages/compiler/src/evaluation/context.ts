@@ -1,5 +1,11 @@
 import { parsePath } from "@manifesto-ai/core";
 
+type RuntimeAllocationState = {
+  ordinal: number;
+};
+
+const RUNTIME_ALLOCATION_STATE = Symbol("manifesto.compiler.runtimeAllocationState");
+
 /**
  * Evaluation Context Types
  *
@@ -15,10 +21,10 @@ import { parsePath } from "@manifesto-ai/core";
  */
 export interface EvaluationSnapshot {
   /**
-   * Domain data (matches StateSpec).
+   * Domain state (matches StateSpec).
    * Path resolution default target.
    */
-  data: unknown;
+  state: unknown;
 
   /**
    * Computed values (matches ComputedSpec).
@@ -28,7 +34,7 @@ export interface EvaluationSnapshot {
 }
 
 /**
- * Intent metadata for evaluation.
+ * Legacy evaluator metadata.
  *
  * @see SPEC v0.4.0 §18.3
  */
@@ -60,13 +66,13 @@ export interface EvaluationMeta {
 export interface EvaluationContext {
   /**
    * Current snapshot for state lookups.
-   * Paths resolve to snapshot.data.* by default.
+   * Paths resolve to snapshot.state.* by default.
    */
   snapshot: EvaluationSnapshot;
 
   /**
-   * Intent metadata.
-   * Paths starting with "meta.*" resolve here.
+   * Legacy metadata retained for older call sites. MEL v5 runtime reads must
+   * enter through explicit `$runtime.*` and `$context.*` inputs.
    */
   meta: EvaluationMeta;
 
@@ -81,6 +87,28 @@ export interface EvaluationContext {
    * Paths starting with "$item.*" resolve here.
    */
   item?: unknown;
+
+  /**
+   * Bound transition runtime facts for `$runtime.*` reads.
+   */
+  runtime?: {
+    intent?: {
+      id?: string;
+      action?: string;
+    };
+    time?: {
+      timestamp?: number;
+      iso?: string;
+    };
+    random?: {
+      seed?: string;
+    };
+  };
+
+  /**
+   * Direct-injected external context for `$context.*` reads.
+   */
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -93,11 +121,45 @@ export function createEvaluationContext(
   options: Partial<EvaluationContext> & { meta: EvaluationMeta }
 ): EvaluationContext {
   return {
-    snapshot: options.snapshot ?? { data: {}, computed: {} },
+    snapshot: options.snapshot ?? { state: {}, computed: {} },
     meta: options.meta,
     input: options.input ?? {},
     item: options.item,
+    ...(options.runtime ? { runtime: options.runtime } : {}),
+    ...(options.context ? { context: options.context } : {}),
   };
+}
+
+export function getRuntimeAllocationState(ctx: EvaluationContext): RuntimeAllocationState {
+  const existing = (ctx as { [RUNTIME_ALLOCATION_STATE]?: RuntimeAllocationState })[
+    RUNTIME_ALLOCATION_STATE
+  ];
+  if (existing) {
+    return existing;
+  }
+
+  return setRuntimeAllocationState(ctx, { ordinal: 0 });
+}
+
+export function inheritRuntimeAllocationState(
+  parent: EvaluationContext,
+  child: EvaluationContext,
+): EvaluationContext {
+  setRuntimeAllocationState(child, getRuntimeAllocationState(parent));
+  return child;
+}
+
+function setRuntimeAllocationState(
+  ctx: EvaluationContext,
+  state: RuntimeAllocationState,
+): RuntimeAllocationState {
+  Object.defineProperty(ctx, RUNTIME_ALLOCATION_STATE, {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: state,
+  });
+  return state;
 }
 
 /**
@@ -112,14 +174,12 @@ export function applyPatchToWorkingSnapshot(
   path: string,
   value: unknown
 ): EvaluationSnapshot {
-  // Deep clone data
-  const newData = structuredClone(snapshot.data) as Record<string, unknown>;
+  const newState = structuredClone(snapshot.state) as Record<string, unknown>;
 
-  // Apply patch at path
-  setValueAtPath(newData, path, value);
+  setValueAtPath(newState, path, value);
 
   return {
-    data: newData,
+    state: newState,
     computed: snapshot.computed,
   };
 }

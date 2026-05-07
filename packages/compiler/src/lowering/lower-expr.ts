@@ -135,13 +135,14 @@ function lowerVar(
 }
 
 /**
- * Lower sys node.
+ * Lower dollar namespace node.
  *
- * sys(["meta", "intentId"]) → get("meta.intentId")
  * sys(["input", "title"]) → get("input.title")
- * sys(["system", ...]) → LoweringError (forbidden in Translator path)
+ * sys(["runtime", ...]) → get("$runtime...")
+ * sys(["context", ...]) → get("$context...")
+ * sys(["meta" | "system", ...]) → LoweringError (retired in v5)
  *
- * @see FDR-MEL-067, FDR-MEL-071, SPEC §17.3.1
+ * @see ADR-027, SPEC §17.3.1
  */
 function lowerSys(
   input: { kind: "sys"; path: MelSystemPath },
@@ -152,13 +153,17 @@ function lowerSys(
   }
 
   const prefix = input.path[0];
-  const allowedPrefixes = ctx.allowSysPaths?.prefixes ?? ["meta", "input"];
+  const allowedPrefixes = ctx.allowSysPaths?.prefixes ?? ["input", "runtime", "context"];
 
-  if (!allowedPrefixes.includes(prefix as "meta" | "input")) {
+  if (!allowedPrefixes.includes(prefix as "input" | "runtime" | "context")) {
     throw invalidSysPath(input.path);
   }
 
-  // Core convention: no $ prefix for meta/input
+  if (prefix === "runtime" || prefix === "context") {
+    return { kind: "get", path: `$${input.path.join(".")}` };
+  }
+
+  // Core convention: no $ prefix for input
   const path = input.path.join(".");
   return { kind: "get", path };
 }

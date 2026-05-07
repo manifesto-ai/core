@@ -35,11 +35,11 @@
 
 ### ActionRef
 
-**Definition:** A type-safe reference to an action on the activated `MEL.actions.*` surface. `ActionRef.name` is the stable public identifier used by `createIntent()`, runtime metadata queries, and SDK introspection.
+**Definition:** A type-safe reference to an action. In the v5 app-facing runtime, callers use `app.action.<name>` handles; low-level extension tooling may still expose action references for simulation and debugging.
 
 **Not to be confused with:**
-- Raw string action names - string names are not the canonical SDK v3 creation surface
-- Intent - `ActionRef` identifies an action; `Intent` is a concrete request to run it
+- Raw string action names - string names are metadata, not the canonical submit surface
+- BoundAction - `ActionRef` identifies an action; bound actions carry candidate input and can expose an advanced `intent()` escape hatch
 
 **See also:** [FieldRef](#fieldref), [ComputedRef](#computedref), [Intent](#intent)
 
@@ -89,7 +89,7 @@
 
 ### ComputedRef
 
-**Definition:** A type-safe reference to a computed node on the activated `MEL.computed.*` surface. `ComputedRef.name` is the stable public identifier used by SDK introspection and typed access.
+**Definition:** A type-safe reference to a computed node on the typed domain refs surface, such as `refs.computed.*`. `ComputedRef.name` is the stable public identifier used by SDK introspection and typed access.
 
 **Not to be confused with:**
 - Computed values themselves - `ComputedRef` identifies the node; it is not the evaluated value
@@ -125,6 +125,16 @@
 
 ---
 
+### Context
+
+**Definition:** The captured external environment supplied to one Core computation. Context is explicit JSON-serializable data, not a provider, callback, promise, mutable object, or IO handle.
+
+**Key distinction:** Snapshot is schema-driven existence information that persists across computations. Context is external environment captured for the current transition attempt and must be supplied again for deterministic replay.
+
+**See also:** [Core](#core), [Snapshot](#snapshot), [Coordinate Calculation](#coordinate-calculation)
+
+---
+
 ### Coordinate
 
 **Definition:** A single point in semantic space, represented by snapshot state. At the Core/Host boundary this means the canonical snapshot substrate. At the SDK boundary applications usually observe a projected public read model derived from that same coordinate.
@@ -139,9 +149,11 @@
 
 **Definition:** The process by which Core determines the next valid position in semantic space from the current position and an intent.
 
-**Equation:** `compute(schema, snapshot, intent) -> (snapshot', requirements, trace)`
+**Equation:** `compute(schema, snapshot, intent, context) -> ComputeResult`
 
-**See also:** [Coordinate](#coordinate), [Core](#core)
+Determinism is over the full `schema + snapshot + intent + context` tuple.
+
+**See also:** [Coordinate](#coordinate), [Context](#context), [Core](#core)
 
 ---
 
@@ -233,7 +245,7 @@
 
 ### FieldRef
 
-**Definition:** A type-safe reference to a state field on the activated `MEL.state.*` surface. `FieldRef.name` is the stable public identifier for the referenced top-level state node.
+**Definition:** A type-safe reference to a state field on the typed domain refs surface, such as `refs.state.*`. `FieldRef.name` is the stable public identifier for the referenced top-level state node.
 
 **Not to be confused with:**
 - String paths - user-facing APIs should not require string paths as the canonical surface
@@ -314,7 +326,7 @@
 
 ### Intent
 
-**Definition:** A command requesting a domain action. `Intent` is the current canonical public request object at the SDK/runtime boundary.
+**Definition:** A command requesting a domain action. In v5, raw `Intent` construction is an advanced protocol escape hatch exposed from `BoundAction.intent()` and extension tooling; normal app code submits through `action.<name>`.
 
 **Related low-level forms:**
 - `IntentBody` - command body (`type` + input)
@@ -366,7 +378,7 @@
 
 ### Projection
 
-**Definition:** A derived read model produced from canonical substrate. In the current maintained docs, the primary projection is the SDK `Snapshot` returned by `getSnapshot()`, which hides canonical-only substrate while preserving application-facing meaning.
+**Definition:** A derived read model produced from canonical substrate. In the current maintained docs, the primary projection is the SDK `Snapshot` returned by `snapshot()`, which hides canonical-only substrate while preserving application-facing meaning.
 
 **Not to be confused with:**
 - Historical Bridge/App event routing usage - older docs sometimes used "projection" for event-to-intent translation
@@ -397,7 +409,7 @@
 
 ### Requirement
 
-**Definition:** A pending effect execution declaration awaiting Host fulfillment. Requirements live in canonical `snapshot.system.pendingRequirements` and are intentionally excluded from the projected SDK `getSnapshot()` surface.
+**Definition:** A pending effect execution declaration awaiting Host fulfillment. Requirements live in canonical `snapshot.system.pendingRequirements` and are intentionally excluded from the projected SDK `snapshot()` surface.
 
 **Key properties:**
 - Deterministically identified
@@ -428,14 +440,15 @@
 
 ### Snapshot
 
-**Definition:** The complete state coordinate of a domain at a point in time. At the Core/Host boundary this means the full canonical substrate. At the SDK/application boundary `getSnapshot()` returns a projected public read model derived from that substrate, while `getCanonicalSnapshot()` exposes the current canonical runtime substrate directly.
+**Definition:** The complete state coordinate of a domain at a point in time. At the Core/Host boundary this means the full canonical substrate. At the SDK/application boundary `snapshot()` returns a projected public read model derived from that substrate, while `inspect.canonicalSnapshot()` exposes the current canonical runtime substrate directly.
 
 **Structure:**
-- `data` - domain state; canonical data may also contain reserved platform namespaces under `data.$*`
+- `state` - domain state
 - `computed` - derived values
 - `system` - projected reads expose `status` and `lastError`; canonical substrate also carries `pendingRequirements` and `currentAction`
 - `meta` - projected reads expose `schemaHash`; canonical substrate also carries `version`, `timestamp`, and `randomSeed`
 - `input` - canonical-only transient action input
+- `namespaces` - canonical platform/runtime/tooling state such as Host and MEL bookkeeping
 
 **Current contract note:** accumulated `system.errors` is not part of the current canonical snapshot contract.
 
@@ -483,12 +496,12 @@
 
 | Term | One-Liner |
 |------|-----------|
-| ActionRef | Typed action identifier on `MEL.actions.*` |
+| ActionRef | Typed action identifier used by runtime handles and extension tooling |
 | Actor | Entity that originates governed change requests |
 | Authority | Entity that judges proposals |
 | Bridge | Historical translation/glue term, not a current package |
 | Computed | Derived value from snapshot state |
-| ComputedRef | Typed computed identifier on `MEL.computed.*` |
+| ComputedRef | Typed computed identifier on `refs.computed.*` |
 | Compiler | MEL-to-schema and graph extraction layer |
 | Core | Pure semantic computation layer |
 | Coordinate | A point in semantic space |
@@ -498,7 +511,7 @@
 | DomainSchema | Compiled domain specification understood by Core |
 | Effect | Declaration of external work |
 | ExprNode | Pure expression node |
-| FieldRef | Typed state-field identifier on `MEL.state.*` |
+| FieldRef | Typed state-field identifier on `refs.state.*` |
 | Flow | Declarative transition sequence |
 | FlowNode | Node in the flow DSL |
 | Governance | Legitimacy/approval decorator layer |

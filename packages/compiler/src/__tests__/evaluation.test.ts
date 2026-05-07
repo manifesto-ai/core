@@ -8,16 +8,18 @@
 
 import { describe, it, expect } from "vitest";
 import { patchPathToDisplayString, semanticPathToPatchPath, type ExprNode, type Patch } from "@manifesto-ai/core";
+import { createEvaluationContext, type EvaluationContext } from "../evaluation/context.js";
+import { evaluateExpr } from "../evaluation/evaluate-expr.js";
 import {
-  evaluateExpr,
   evaluateConditionalPatchOps,
   evaluateCondition,
+} from "../evaluation/evaluate-patch.js";
+import {
   evaluateRuntimePatches,
   evaluateRuntimePatchesWithTrace,
-  createEvaluationContext,
-  type EvaluationContext,
-} from "../evaluation/index.js";
-import type { ConditionalPatchOp, RuntimeConditionalPatchOp } from "../lowering/index.js";
+} from "../evaluation/evaluate-runtime-patch.js";
+import type { ConditionalPatchOp } from "../lowering/lower-patch.js";
+import type { RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.js";
 
 const irp = (path: string): RuntimeConditionalPatchOp["path"] =>
   semanticPathToPatchPath(path).map((segment) =>
@@ -45,8 +47,12 @@ function createTestContext(
 ): EvaluationContext {
   return createEvaluationContext({
     meta: { intentId: "test-intent-123" },
+    runtime: {
+      intent: { id: "test-intent-123", action: "test-action" },
+      time: { timestamp: 1234567890 },
+    },
     snapshot: {
-      data: { count: 10, name: "Alice", items: [1, 2, 3] },
+      state: { count: 10, name: "Alice", items: [1, 2, 3] },
       computed: { total: 100 },
     },
     input: { title: "Hello", value: 42 },
@@ -84,15 +90,15 @@ describe("evaluateExpr", () => {
   });
 
   describe("get (path resolution)", () => {
-    it("should resolve data paths", () => {
+    it("should resolve state paths", () => {
       const ctx = createTestContext();
       expect(evaluateExpr({ kind: "get", path: "count" }, ctx)).toBe(10);
       expect(evaluateExpr({ kind: "get", path: "name" }, ctx)).toBe("Alice");
     });
 
-    it("should resolve meta paths", () => {
+    it("should resolve runtime paths", () => {
       const ctx = createTestContext();
-      expect(evaluateExpr({ kind: "get", path: "meta.intentId" }, ctx)).toBe(
+      expect(evaluateExpr({ kind: "get", path: "$runtime.intent.id" }, ctx)).toBe(
         "test-intent-123"
       );
     });
@@ -133,7 +139,7 @@ describe("evaluateExpr", () => {
       );
     });
 
-    it("should return null for missing meta intent and action paths", () => {
+    it("should return null for legacy meta intent and action paths", () => {
       const ctx = createTestContext({
         meta: {} as EvaluationContext["meta"],
       });
@@ -322,7 +328,7 @@ describe("evaluateExpr", () => {
       const accesses: string[] = [];
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             flags: createRecordingObject(
               [
                 ["left", false],
@@ -372,7 +378,7 @@ describe("evaluateExpr", () => {
       const accesses: string[] = [];
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             branches: createRecordingObject(
               [
                 ["then", "accepted"],
@@ -815,7 +821,7 @@ describe("evaluateCondition", () => {
     it("should evaluate merge expression", () => {
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             base: { a: 1, b: 2 },
             count: 10,
             name: "Alice",
@@ -837,7 +843,7 @@ describe("evaluateCondition", () => {
     it("should evaluate keys/values/entries expressions", () => {
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             obj: { x: 1, y: 2 },
             count: 10,
             name: "Alice",
@@ -855,7 +861,7 @@ describe("evaluateCondition", () => {
       const accesses: string[] = [];
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             source: createRecordingObject(
               [
                 ["b", 1],
@@ -986,10 +992,10 @@ describe("evaluateConditionalPatchOps", () => {
   });
 
   it("should implement sequential evaluation semantics", () => {
-    // Create context with initial data
+    // Create context with initial state
     const ctx = createEvaluationContext({
       meta: { intentId: "test" },
-      snapshot: { data: { value: 0 }, computed: {} },
+      snapshot: { state: { value: 0 }, computed: {} },
       input: {},
     });
 
@@ -1024,7 +1030,7 @@ describe("evaluateConditionalPatchOps", () => {
 
     expect(result.patches).toHaveLength(2);
     expect(result.skipped).toHaveLength(0);
-    expect(result.finalSnapshot.data).toEqual({
+    expect(result.finalSnapshot.state).toEqual({
       value: 10,
       result: "success",
     });
@@ -1097,7 +1103,7 @@ describe("evaluateRuntimePatches", () => {
     it("should evaluate patch paths with escaped segments", () => {
       const ctx = createTestContext({
         snapshot: {
-          data: {
+          state: {
             history: {
               files: {},
             },
@@ -1145,7 +1151,7 @@ describe("evaluateRuntimePatches", () => {
   });
 
   describe("value expression evaluation", () => {
-    it("should evaluate expressions referencing snapshot data", () => {
+    it("should evaluate expressions referencing snapshot state", () => {
       const ctx = createTestContext();
       const ops: RuntimeConditionalPatchOp[] = [
         {
@@ -1187,13 +1193,13 @@ describe("evaluateRuntimePatches", () => {
       });
     });
 
-    it("should evaluate expressions referencing meta", () => {
+    it("should evaluate expressions referencing runtime intent", () => {
       const ctx = createTestContext();
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
           path: irp("lastIntentId"),
-          value: { kind: "get", path: "meta.intentId" },
+          value: { kind: "get", path: "$runtime.intent.id" },
         },
       ];
 
@@ -1328,7 +1334,7 @@ describe("evaluateRuntimePatches", () => {
     it("should apply patches sequentially (later patches see earlier changes)", () => {
       const ctx = createEvaluationContext({
         meta: { intentId: "test" },
-        snapshot: { data: { count: 0 }, computed: {} },
+        snapshot: { state: { count: 0 }, computed: {} },
         input: {},
       });
 
@@ -1362,13 +1368,13 @@ describe("evaluateRuntimePatches", () => {
         path: "doubled",
         value: 20,
       });
-      expect(result.finalSnapshot.data).toEqual({ count: 10, doubled: 20 });
+      expect(result.finalSnapshot.state).toEqual({ count: 10, doubled: 20 });
     });
 
     it("should handle conditions based on previous patches", () => {
       const ctx = createEvaluationContext({
         meta: { intentId: "test" },
-        snapshot: { data: { status: null }, computed: {} },
+        snapshot: { state: { status: null }, computed: {} },
         input: {},
       });
 
@@ -1403,7 +1409,7 @@ describe("evaluateRuntimePatches", () => {
     it("should handle unset in sequence", () => {
       const ctx = createEvaluationContext({
         meta: { intentId: "test" },
-        snapshot: { data: { temp: "value", final: null }, computed: {} },
+        snapshot: { state: { temp: "value", final: null }, computed: {} },
         input: {},
       });
 

@@ -69,6 +69,7 @@ export function validateEntityPrimitives(program: ProgramNode): Diagnostic[] {
       }
 
       case "state":
+      case "context":
       case "flow":
         break;
     }

@@ -37,7 +37,7 @@ This reference treats the current MEL surface as the set of source forms that su
    - 8.2 [Record Effects](#82-record-effects)
    - 8.3 [I/O Effects](#83-io-effects)
    - 8.4 [Effect Composition](#84-effect-composition)
-9. [System Values](#9-system-values)
+9. [Runtime and Context Values](#9-runtime-and-context-values)
 10. [Common Patterns](#10-common-patterns)
 
 ---
@@ -93,13 +93,13 @@ domain TaskList {
   computed taskCount = len(tasks)
   computed hasUndone = taskCount > 0
 
-  action addTask(title: string) {
+  action addTask(id: string, title: string) {
     when trim(title) == "" {
       fail "MISSING_TITLE"
     }
     onceIntent when trim(title) != "" {
-      patch tasks[$system.uuid] = {
-        id: $system.uuid,
+      patch tasks[id] = {
+        id: id,
         title: trim(title),
         done: false
       }
@@ -288,10 +288,10 @@ state {
   $myVar: number = 0    // Error: $ is reserved
 }
 
-// NOT ALLOWED: System values in initializers
+// NOT ALLOWED: Runtime values in initializers
 state {
-  id: string = $system.uuid          // Error: must be deterministic
-  createdAt: number = $system.time.now  // Error: must be deterministic
+  id: string = $runtime.random.uuid          // Error: must be deterministic
+  createdAt: number = $runtime.time.timestamp  // Error: must be deterministic
 }
 
 // NOT ALLOWED: Inline object type (use named type)
@@ -308,7 +308,7 @@ Computed values are pure expressions derived from state. They are recalculated o
 
 **Rules:**
 - No effects in computed
-- No `$system.*` in computed (non-deterministic)
+- No `$runtime.*` / `$context.*` in computed (transition-bound)
 - Aggregation functions (`sum`, `min(arr)`, `max(arr)`) only in computed, not in action guards
 - No composition inside aggregation calls — argument must be a direct reference
 
@@ -357,8 +357,8 @@ computed withDefaults = { theme: "light", lang: "en", ...config }
 // NOT ALLOWED: Effect in computed
 computed filtered = effect array.filter(...)
 
-// NOT ALLOWED: $system.* in computed
-computed now = $system.time.now
+// NOT ALLOWED: runtime context in computed
+computed now = $runtime.time.timestamp
 
 // NOT ALLOWED: Aggregation in action guard
 action checkout() {
@@ -780,7 +780,7 @@ Current rules:
 // Spread-first object composition (later contributors win)
 computed withDefaults = { theme: "light", locale: "en", ...defaults }
 computed withOverride = { ...config, theme: "light" }
-computed fullProfile = { ...base, ...userPrefs, lastSeen: $meta.timestamp }
+computed fullProfile = { ...base, ...userPrefs, lastSeen: lastSeenAt }
 
 // Direct merge() remains available and follows the same typing rules
 computed mergedSettings = merge(defaults, config)
@@ -899,7 +899,7 @@ action submit(email: string) {
     fail "DUPLICATE"
   }
   when trim(email) != "" {
-    patch users[email] = { email: email, createdAt: $system.time.now }
+    patch users[email] = { email: email, createdAt: $runtime.time.timestamp }
   }
 }
 ```
@@ -936,12 +936,12 @@ action process(id: string) {
 
 Ensures a block runs only once per intent ID. Prevents duplicate execution on re-entry (when Host re-runs the same action after an effect completes).
 
-**The marker patch must be the first statement in the `once` block.**
+The compiler inserts the marker write automatically before the user-authored
+body.
 
 ```mel
 action increment() {
   once(lastIncrement) {
-    patch lastIncrement = $meta.intentId    // MUST be first
     patch count = add(count, 1)
   }
 }
@@ -950,11 +950,10 @@ action increment() {
 **With an additional condition:**
 
 ```mel
-action addTask(title: string) {
+action addTask(id: string, title: string) {
   once(creating) when neq(trim(title), "") {
-    patch creating = $meta.intentId
-    patch tasks[$system.uuid] = {
-      id: $system.uuid,
+    patch tasks[id] = {
+      id: id,
       title: trim(title),
       done: false
     }
@@ -967,12 +966,10 @@ action addTask(title: string) {
 ```mel
 action processData() {
   once(step1) {
-    patch step1 = $meta.intentId
     effect api.fetch({ url: "/items", into: rawItems })
   }
 
   once(step2) when isNotNull(rawItems) {
-    patch step2 = $meta.intentId
     effect array.filter({
       source: rawItems,
       where: eq($item.active, true),
@@ -988,7 +985,8 @@ action processData() {
 
 **How `once` works:**
 
-`once(marker)` compiles to `when neq(marker, $meta.intentId)`. This means:
+`once(marker)` compiles to `when neq(marker, $runtime.intent.id)` with a
+compiler-owned marker write before the body. This means:
 - First call with intent A: `neq(null, "A")` = true — runs and sets marker to `"A"`
 - Re-entry of intent A: `neq("A", "A")` = false — skips
 - New intent B: `neq("A", "B")` = true — runs again
@@ -1006,7 +1004,7 @@ action processData() {
 
 ### 6.3 `onceIntent`
 
-Per-intent idempotency without requiring a guard field in domain state. The guard state is stored in the platform `$mel` namespace, not in your domain state.
+Per-intent idempotency without requiring a guard field in domain state. In the current v5 compiler contract, `onceIntent` lowers to Core's owner-neutral `causalGuard` primitive. It does not expose `$mel` namespace reads or writes to MEL authors.
 
 Use `onceIntent` when you want idempotency but do not need the marker field visible in your domain schema.
 
@@ -1021,10 +1019,10 @@ action increment() {
 **With an additional condition:**
 
 ```mel
-action addTask(title: string) {
+action addTask(id: string, title: string) {
   onceIntent when trim(title) != "" {
-    patch tasks[$system.uuid] = {
-      id: $system.uuid,
+    patch tasks[id] = {
+      id: id,
       title: trim(title),
       done: false
     }
@@ -1049,7 +1047,7 @@ action decrement() available when count > 0 {
 
 action submit() available when email != null && submittedAt == null {
   onceIntent {
-    patch submittedAt = $system.time.now
+    patch submittedAt = $runtime.time.timestamp
     effect api.post({ url: "/submit", body: formData, into: result })
   }
 }
@@ -1058,8 +1056,8 @@ action submit() available when email != null && submittedAt == null {
 **`available when` restrictions:**
 - Cannot use `$input.*` — parameters are not available at availability check time
 - Cannot use bare action parameter names — input does not exist yet
-- Cannot use `$meta.*` — metadata is not part of the coarse pre-intent gate
-- Cannot use `$system.*` — IO is not available at availability check time
+- Cannot use `$runtime.*` — runtime context is not part of the coarse pre-intent gate
+- Cannot use `$context.*` — external context is not part of the coarse pre-intent gate
 - May appear at most once per action
 - Must be a pure expression over state/computed only
 
@@ -1090,7 +1088,7 @@ action shoot(cellIndex: number)
 - May reference state and computed values
 - May reference action parameters by bare declared name
 - Cannot use direct `$input.*` syntax in MEL source
-- Cannot use `$meta.*`, `$system.*`, or effects
+- Cannot use `$runtime.*`, `$context.*`, or effects
 - May appear at most once per action
 - If both clauses are present, `available when` must appear before `dispatchable when`
 - Dispatchability is only considered after coarse availability passes; if `available when` is false, the runtime/query returns `false` without evaluating `dispatchable when`
@@ -1123,7 +1121,7 @@ action createUser(email: string) {
 
   // Success path
   onceIntent when trim(email) != "" {
-    patch users[email] = { email: email, createdAt: $system.time.now }
+    patch users[email] = { email: email, createdAt: $runtime.time.timestamp }
   }
 }
 ```
@@ -1188,7 +1186,7 @@ Replaces the value at a path.
 patch count = add(count, 1)
 patch user.name = "Alice"
 patch status = "loading"
-patch tasks[$system.uuid] = { id: $system.uuid, title: title, done: false }
+patch tasks[id] = { id: id, title: title, done: false }
 patch tasks[id].done = true
 ```
 
@@ -1208,7 +1206,7 @@ Shallow-merges an object into the value at a path.
 ```mel
 patch user merge { name: "Bob" }
 patch settings merge $input.partialSettings
-patch tasks[id] merge { done: true, completedAt: $system.time.now }
+patch tasks[id] merge { done: true, completedAt: $runtime.time.timestamp }
 ```
 
 > **`patch merge` is not the same as `merge()`.** See §5.7 for the distinction.
@@ -1397,7 +1395,7 @@ effect record.filter({
 ```mel
 effect record.mapValues({
   source: tasks,
-  select: merge($item, { updatedAt: $system.time.now }),
+  select: merge($item, { updatedAt: $runtime.time.timestamp }),
   into: updatedTasks
 })
 ```
@@ -1507,17 +1505,14 @@ effect array.map({
 ```mel
 action process() {
   once(step1) {
-    patch step1 = $meta.intentId
     effect array.flatMap({ source: teams, select: $item.members, into: allMembers })
   }
 
   once(step2) when isNotNull(allMembers) {
-    patch step2 = $meta.intentId
     effect array.filter({ source: allMembers, where: eq($item.active, true), into: activeMembers })
   }
 
   once(step3) when isNotNull(activeMembers) {
-    patch step3 = $meta.intentId
     effect array.sort({ source: activeMembers, by: $item.name, into: sorted })
   }
 }
@@ -1525,44 +1520,49 @@ action process() {
 
 Each step in a pipeline:
 1. Guards with `when isNotNull(previousResult)` to wait for the prior step
-2. Sets its own marker patch first
+2. Uses its own marker so the compiler inserts an independent marker patch
 3. Declares one effect
 4. The next step detects completion by checking its source is non-null
 
 ---
 
-## 9. System Values
+## 9. Runtime and Context Values
 
-System values provide access to runtime context and IO. They have two categories: pure values (`$meta.*`, `$input.*`) and IO values (`$system.*`).
+Runtime values expose the ADR-027 context captured for one transition attempt.
+They are deterministic once `Context` has been materialized, but they are still
+transition-bound and therefore phase-restricted.
 
 ### Scope Rules
 
 | Value | Available In | Forbidden In |
 |-------|-------------|--------------|
-| `$system.time.now` | Action body only | Computed, state init |
-| `$system.uuid` | Action body only | Computed, state init |
-| `$system.random` | Action body only | Computed, state init |
-| `$system.env.<name>` | Action body only | Computed, state init |
+| `$runtime.time.timestamp` | Action body only | Computed, `available when`, `dispatchable when`, state init |
+| `$runtime.random.uuid` | Action body only | Computed, `available when`, `dispatchable when`, state init |
+| `$runtime.random.seed` | Action body only | Computed, `available when`, `dispatchable when`, state init |
+| `$context.<name>` | Action body only | Computed, `available when`, `dispatchable when`, state init |
 | `$input.<field>` | Action body, effect sub-expressions | `available when`, `dispatchable when`, state init |
-| `$meta.intentId` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
-| `$meta.actor` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
-| `$meta.authority` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
-| `$item` | Effect `where`, `select`, `by` expressions | Computed, outside effect context |
+| `$runtime.intent.id` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
+| `$item` | Collection callbacks and effect `where`, `select`, `by` expressions | Computed, outside callback/effect scope |
 
 Bare action parameter names are valid source syntax in action bodies and in `dispatchable when`. Direct `$input.*` remains invalid in `dispatchable when` even though the compiled schema lowers parameter reads to input paths.
 
-### `$system.*` — IO Values
+### `$runtime.*` — Built-In Runtime Values
 
-IO values are not pure expressions. The compiler lowers them to `system.get` effects. The values are deduplicated: multiple references to the same `$system.<key>` in the same action use the same value.
+Runtime values are read from the materialized Core `Context`, not from ambient
+IO. Runtime time and seed references read the same captured context for one
+transition attempt. Each `$runtime.random.uuid` allocation site produces a
+deterministic UUID derived from the context seed, intent identity, and canonical
+allocation site.
 
 ```mel
-action create(title: string) {
+action create(id: string, title: string) {
   onceIntent {
-    // $system.uuid appears twice but refers to the same value
-    patch tasks[$system.uuid] = {
-      id: $system.uuid,          // Same UUID as the key
+    // Use an explicit id when two fields must share the same identifier.
+    patch tasks[id] = {
+      id: id,
       title: title,
-      createdAt: $system.time.now
+      createdAt: $runtime.time.timestamp,
+      creationToken: $runtime.random.uuid
     }
   }
 }
@@ -1570,12 +1570,13 @@ action create(title: string) {
 
 | Path | Type | Description |
 |------|------|-------------|
-| `$system.uuid` | `string` | A UUID. Same value throughout the action. |
-| `$system.time.now` | `number` | Current Unix timestamp in milliseconds. |
-| `$system.random` | `number` | A random number in [0, 1). |
-| `$system.env.<name>` | `string \| null` | Environment variable. `null` if not set. |
+| `$runtime.random.uuid` | `string` | A deterministic UUID for this allocation site. Distinct sites may produce distinct values. |
+| `$runtime.time.timestamp` | `number` | Current Unix timestamp in milliseconds. |
+| `$runtime.random.seed` | `string` | Captured deterministic seed for this transition. |
+| `$context.<name>` | schema-declared type | User external context declared by `context {}` and injected by the runtime. |
 
-> **`$system.*` is forbidden in computed.** System values are IO — they cannot be used in pure expressions.
+> **`$runtime.*` and `$context.*` are forbidden in computed.** They are
+> transition-bound and are legal only in action flow expressions.
 
 ### `$input.*` — Action Parameters
 
@@ -1591,26 +1592,20 @@ action updateUser(name: string, age: number) {
 }
 ```
 
-### `$meta.*` — Intent Context
+### `$runtime.intent.*` — Intent Context
 
-Available anywhere, including computed expressions.
+Available only in action flow expressions.
 
 ```mel
-// In computed
-computed actorLabel = concat("Modified by: ", $meta.actor)
-
-// In actions (once marker pattern)
+// In actions (once marker pattern; marker write is compiler-owned)
 once(creating) {
-  patch creating = $meta.intentId    // Standard once marker
-  patch tasks[$system.uuid] = { ... }
+  patch tasks[$runtime.random.uuid] = { ... }
 }
 ```
 
 | Path | Type | Description |
 |------|------|-------------|
-| `$meta.intentId` | `string` | Unique ID of the current intent. Used as `once` markers. |
-| `$meta.actor` | `string` | ID of the actor submitting the intent. |
-| `$meta.authority` | `string` | ID of the authority that approved the intent. |
+| `$runtime.intent.id` | `string` | Unique ID of the current intent. Used as `once` markers. |
 
 ### `$item` — Iteration Variable
 
@@ -1656,16 +1651,16 @@ domain TodoList {
   computed count = len(todoIds)
   computed hasAny = count > 0
 
-  action add(title: string) {
+  action add(id: string, title: string) {
     when trim(title) == "" {
       fail "MISSING_TITLE"
     }
     onceIntent when trim(title) != "" {
-      patch todos[$system.uuid] = {
-        id: $system.uuid,
+      patch todos[id] = {
+        id: id,
         title: trim(title),
         done: false,
-        createdAt: $system.time.now
+        createdAt: $runtime.time.timestamp
       }
     }
   }
@@ -1729,7 +1724,6 @@ domain SignupForm {
       fail "WEAK_PASSWORD" with "Password must be at least 8 characters"
     }
     once(submitting) {
-      patch submitting = $meta.intentId
       patch status = "loading"
       effect api.post({
         url: "/auth/signup",
@@ -1779,13 +1773,11 @@ domain ProductCatalog {
 
   action load() {
     once(loading) {
-      patch loading = $meta.intentId
       patch status = "loading"
       effect api.fetch({ url: "/products", into: rawProducts })
     }
 
     once(filtering) when isNotNull(rawProducts) {
-      patch filtering = $meta.intentId
       effect array.filter({
         source: rawProducts,
         where: eq($item.active, true),
@@ -1794,7 +1786,6 @@ domain ProductCatalog {
     }
 
     once(sorting) when isNotNull(filteredProducts) {
-      patch sorting = $meta.intentId
       effect array.sort({
         source: filteredProducts,
         by: $item.price,
@@ -1847,7 +1838,6 @@ domain UserRegistry {
   // Refresh the index of user IDs
   action refreshIndex() {
     once(indexing) {
-      patch indexing = $meta.intentId
       effect record.keys({ source: users, into: userIds })
     }
   }
@@ -1919,8 +1909,8 @@ domain Toggles {
 | Statement | Purpose | Marker required? |
 |-----------|---------|-----------------|
 | `when expr { }` | Conditional — runs when `expr` is true | No |
-| `once(marker) { }` | Per-intent idempotency — runs once per intent ID | Yes — `patch marker = $meta.intentId` must be first |
-| `once(marker) when expr { }` | Per-intent idempotency with extra condition | Yes |
+| `once(marker) { }` | Per-intent idempotency — runs once per intent ID | Yes — compiler owns the marker write |
+| `once(marker) when expr { }` | Per-intent idempotency with extra condition | Yes — compiler inserts marker write |
 | `onceIntent { }` | Per-intent idempotency — no marker in domain state | No |
 | `onceIntent when expr { }` | Per-intent idempotency with extra condition | No |
 
@@ -1958,8 +1948,8 @@ domain Toggles {
 | Legacy `len(keys(tasks))` workaround | `len(tasks)` |
 | `sum(filter(prices))` | Two computed: `computed active = filter(prices, ...)` then `sum(active)` |
 | Unguarded `patch count = 1` | `when true { patch count = 1 }` |
-| `once` block without marker first | `patch marker = $meta.intentId` must be first statement |
-| `$system.uuid` in computed | Only in action body |
+| Manual marker write inside `once` | Remove it; the compiler inserts the marker write before the body |
+| `$runtime.random.uuid` in computed | Only in action body |
 | Nested effects | Sequential `once` blocks with `when isNotNull(prev)` |
 
 ---

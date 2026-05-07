@@ -2,10 +2,10 @@ import type {
   DispatchReport,
   ExecutionDiagnostics,
   ExecutionFailureInfo,
-  ExecutionOutcome,
+  DispatchExecutionOutcome,
   IntentAdmission,
   ManifestoDomainShape,
-  Snapshot,
+  ProjectedSnapshot,
   TypedIntent,
 } from "../types.js";
 import type {
@@ -17,10 +17,6 @@ import type {
 import {
   ManifestoError,
 } from "../errors.js";
-import {
-  emitDispatchFailedEvent,
-  emitDispatchRejectedEvent,
-} from "./events.js";
 import type {
   RuntimePublicationHelpers,
 } from "./facets.js";
@@ -29,9 +25,12 @@ type RejectedAttempt<T extends ManifestoDomainShape> = {
   readonly kind: "rejected";
   readonly intent: TypedIntent<T>;
   readonly admission: Extract<IntentAdmission<T>, { readonly kind: "blocked" }>;
-  readonly beforeSnapshot: Snapshot<T["state"]>;
+  readonly beforeSnapshot: ProjectedSnapshot<T>;
   readonly beforeCanonicalSnapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>;
-  readonly rejection: ReturnType<typeof emitDispatchRejectedEvent<T>>;
+  readonly rejection: {
+    readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT";
+    readonly reason: string;
+  };
   readonly rejectionError: ManifestoError;
 };
 
@@ -39,21 +38,21 @@ type FailedAttempt<T extends ManifestoDomainShape> = {
   readonly kind: "failed";
   readonly intent: TypedIntent<T>;
   readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
-  readonly beforeSnapshot: Snapshot<T["state"]>;
+  readonly beforeSnapshot: ProjectedSnapshot<T>;
   readonly beforeCanonicalSnapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>;
   readonly failure: Error;
   readonly errorInfo: ExecutionFailureInfo;
   readonly published: boolean;
   readonly diagnostics?: ExecutionDiagnostics;
-  readonly outcome?: ExecutionOutcome<T>;
+  readonly outcome?: DispatchExecutionOutcome<T>;
 };
 
 type CompletedAttempt<T extends ManifestoDomainShape> = {
   readonly kind: "completed";
   readonly intent: TypedIntent<T>;
   readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
-  readonly publishedSnapshot: Snapshot<T["state"]>;
-  readonly outcome: ExecutionOutcome<T>;
+  readonly publishedSnapshot: ProjectedSnapshot<T>;
+  readonly outcome: DispatchExecutionOutcome<T>;
   readonly diagnostics: ExecutionDiagnostics;
 };
 
@@ -72,6 +71,7 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
     "publishCompletedHostResult" | "publishFailedHostResult"
   >,
   intent: TypedIntent<T>,
+  context: ReturnType<RuntimeKernel<T>["createComputeContext"]>,
 ): Promise<BaseDispatchAttemptResult<T>> {
   const beforeCanonicalSnapshot = kernel.getCanonicalSnapshot();
   const beforeSnapshot = extensionKernel.projectSnapshot(beforeCanonicalSnapshot);
@@ -84,11 +84,10 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
       { readonly kind: "blocked" }
     >;
     const rejectionError = toRejectedDispatchError(kernel, legality);
-    const rejection = emitDispatchRejectedEvent(
-      kernel.emitEvent,
-      legality.intent,
-      rejectionError,
-    );
+    const rejection = {
+      code: rejectionError.code as "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT",
+      reason: rejectionError.message,
+    } as const;
 
     return {
       kind: "rejected",
@@ -108,10 +107,11 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
 
   let result;
   try {
-    result = await kernel.executeHost(legality.intent);
+    result = await kernel.executeHost(legality.intent, {
+      context,
+    });
   } catch (error) {
     const failure = toError(error);
-    emitDispatchFailedEvent(kernel.emitEvent, legality.intent, failure);
     return {
       kind: "failed",
       intent: legality.intent,
@@ -132,8 +132,6 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
       publishedSnapshot,
       publishedCanonicalSnapshot,
     } = publication.publishFailedHostResult(
-      legality.intent,
-      failure,
       result.snapshot,
     );
     return {
@@ -157,7 +155,6 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
     publishedSnapshot,
     publishedCanonicalSnapshot,
   } = publication.publishCompletedHostResult(
-    legality.intent,
     result.snapshot,
   );
   return {
@@ -175,7 +172,7 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
 
 export function attemptToDispatchAsyncResult<T extends ManifestoDomainShape>(
   attempt: BaseDispatchAttemptResult<T>,
-): Snapshot<T["state"]> {
+): ProjectedSnapshot<T> {
   if (attempt.kind === "completed") {
     return attempt.publishedSnapshot;
   }

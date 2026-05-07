@@ -4,7 +4,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@manifesto-ai/host.svg)](https://www.npmjs.com/package/@manifesto-ai/host)
 
-> **Current Contract Note:** The current public package contract is documented in [docs/host-SPEC.md](docs/host-SPEC.md) through v4.0.0. Host-facing Snapshot references now follow the current Core v4 contract and no longer include accumulated `system.errors`. The co-deployed lineage/governance composition epoch remains tracked in their package docs.
+> **Current Contract Note:** The current public package contract is documented in [docs/host-SPEC.md](docs/host-SPEC.md) through the v5-aligned Host surface. Host-facing Snapshot references use `snapshot.state` for domain state and `snapshot.namespaces.host` for Host-owned operational state; accumulated `system.errors` is not part of the current contract.
 
 ---
 
@@ -25,12 +25,15 @@ SDK runtime / governed decorators -> HOST -> Core
 
 ## Current Changelog Highlights
 
-### v4.0.0 New Features
+### v5-aligned Contract Highlights
 
 - **ADR-015 Current Hard Cut**
-  - Host-facing Snapshot references now follow Core v4
+  - Host-facing Snapshot references now use `snapshot.state`
   - accumulated `system.errors` is removed from the current Host contract
   - `lastError` remains the sole current error surface
+- **ADR-025 Namespace Separation**
+  - Host-owned state lives in `snapshot.namespaces.host`
+  - domain patches remain rooted at `snapshot.state`
 
 ### v3.0.0 New Features
 
@@ -43,14 +46,14 @@ SDK runtime / governed decorators -> HOST -> Core
 
 - **Snapshot Ownership Alignment (HOST-SNAP-1~4)**
   - Host uses Core's canonical Snapshot type
-  - Host-owned state moves to `data.$host`
+  - Host-owned state moves to `snapshot.namespaces.host`
   - Snapshot field ownership invariants (INV-SNAP-1~7)
 
-### v2.0.1 New Features
+### v2.0.1 Historical Feature
 
 - **Context Determinism (CTX-1~5)**
-  - `HostContext` frozen at job start — same `now` value throughout job execution
-  - `randomSeed` derived from `intentId` for deterministic randomness
+  - pre-v5 host context was frozen at job start
+  - v5 materializes owner-neutral ADR-027 `Context` once per transition attempt
 
 - **Compiler/Translator Decoupling (FDR-H024)**
   - Host no longer depends on `@manifesto-ai/compiler`
@@ -88,15 +91,17 @@ const schema: DomainSchema = {
   version: "1.0.0",
   hash: "example-hash",
   state: {
-    count: { type: "number", default: 0 },
+    fields: {
+      count: { type: "number", required: true, default: 0 },
+    },
   },
   actions: {
     increment: {
       flow: {
         kind: "patch",
         op: "set",
-        path: "count",
-        value: { kind: "add", left: { kind: "get", path: "count" }, right: 1 },
+        path: [{ kind: "prop", name: "count" }],
+        value: { kind: "add", left: { kind: "get", path: "count" }, right: { kind: "lit", value: 1 } },
       },
     },
   },
@@ -111,7 +116,7 @@ const host = new ManifestoHost(schema, {
 host.registerEffect("api.fetch", async (_type, params, context) => {
   const response = await fetch(params.url);
   const data = await response.json();
-  return [{ op: "set", path: params.targetPath, value: data }];
+  return [{ op: "set", path: [{ kind: "prop", name: "user" }], value: data }];
 });
 
 // 4. Dispatch intent
@@ -119,7 +124,7 @@ const intent = createIntent("increment", "intent-1");
 const result = await host.dispatch(intent);
 
 console.log(result.status);        // -> "complete"
-console.log(result.snapshot.data); // -> { count: 1 }
+console.log(result.snapshot.state); // -> { count: 1 }
 ```
 
 ---
@@ -164,27 +169,28 @@ Four job types for different operations:
 
 ---
 
-## Context Determinism (v2.0.1)
+## Context Determinism
 
-Host guarantees deterministic context per job:
+Host guarantees one materialized ADR-027 `Context` per transition attempt:
 
 ```typescript
-// Context is frozen at job start
-const frozenContext: HostContext = {
-  now: Date.now(),           // Captured ONCE
-  randomSeed: job.intentId,  // Deterministic from intentId
-  env: {},
+// Context is captured once before Core compute.
+const context: Context = {
+  runtime: {
+    time: { timestamp: runtime.now() },
+    random: { seed: intent.intentId },
+  },
+  external: {},
 };
 
-// All Core operations use the same frozen context
-Core.compute(schema, snapshot, intent, frozenContext);
-Core.apply(schema, snapshot, patches, frozenContext);
+// All Core re-entry for the same transition reuses the same context.
+Core.compute(schema, snapshot, intent, context);
 ```
 
 **Benefits:**
 - Same input -> same output (determinism preserved)
 - Trace replay produces identical results
-- `f(snapshot) = snapshot'` philosophy maintained
+- `compute(schema, snapshot, intent, context)` remains replayable
 
 ---
 
@@ -255,9 +261,11 @@ interface Runtime {
   randomSeed(): string;
 }
 
-// Context provider
+// Host-owned context materialization helper.
+// The HostContextProvider name is retained as a package compatibility type;
+// the canonical Core boundary type is owner-neutral Context.
 interface HostContextProvider {
-  createFrozenContext(intentId: string): HostContext;
+  createFrozenContext(intentId: string, external?: Record<string, JsonValue>): Context;
 }
 ```
 
@@ -276,15 +284,15 @@ host.registerEffect("api.get", async (type, params) => {
   try {
     const response = await fetch(params.url);
     if (!response.ok) {
-      return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+      return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: `HTTP ${response.status}` }];
     }
     const data = await response.json();
     return [
-      { op: "set", path: params.target, value: data },
-      { op: "set", path: "error", value: null },
+      { op: "set", path: [{ kind: "prop", name: "data" }], value: data },
+      { op: "set", path: [{ kind: "prop", name: "error" }], value: null },
     ];
   } catch (e) {
-    return [{ op: "set", path: "error", value: e.message }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: e.message }];
   }
 });
 

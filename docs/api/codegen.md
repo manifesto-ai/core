@@ -10,8 +10,8 @@
 
 Use this package when you need:
 
-- TypeScript type definitions from your domain schema
-- Zod runtime validators that match those types
+- Canonical SDK v5 domain facades from your domain schema
+- TypeScript type definitions and Zod validators through the canonical domain plugin
 - Deterministic, reproducible code generation in CI
 - Custom output formats via the plugin system
 - Explicit build-tool integration via injected emitters
@@ -25,16 +25,17 @@ Use this package when you need:
 Runs the codegen pipeline: plugins produce file patches, which are validated, collision-checked, and flushed to disk.
 
 ```typescript
-import { generate, createTsPlugin, createZodPlugin } from "@manifesto-ai/codegen";
+import { generate, createDomainPlugin } from "@manifesto-ai/codegen";
 
 const result = await generate({
-  schema,                                          // DomainSchema
-  outDir: "./generated",                           // Output directory
-  plugins: [createTsPlugin(), createZodPlugin()],  // Plugin array (order matters)
+  schema,
+  outDir: "./generated",
+  sourceId: "src/domain/todo.mel",
+  plugins: [createDomainPlugin()],
 });
 
-if (result.diagnostics.some(d => d.level === "error")) {
-  // Error occurred — no files written to disk
+if (result.diagnostics.some((d) => d.level === "error")) {
+  // Error occurred; no files were written to disk
 }
 ```
 
@@ -57,9 +58,22 @@ melPlugin({
 });
 ```
 
-Options are optional. By default, this uses `createDomainPlugin()` and emits `<source>.mel.ts` next to the source `.mel` file.
+Options are optional. By default, this uses `createDomainPlugin()` and emits a canonical `<source>.domain.ts` facade next to the source `.mel` file.
 
-### createTsPlugin()
+### createDomainPlugin()
+
+Generates the canonical SDK v5 domain facade for `snapshot.state`, `computed`,
+`action.*`, `ActionInput`, and `ActionArgs`.
+
+```typescript
+import { createDomainPlugin } from "@manifesto-ai/codegen";
+
+const plugin = createDomainPlugin({
+  fileName: "todo.domain.ts",
+});
+```
+
+### createTsPlugin() (deprecated)
 
 Generates TypeScript type definitions from `schema.types`.
 
@@ -74,7 +88,7 @@ const plugin = createTsPlugin({
 
 **Artifacts published:** `{ typeNames: string[], typeImportPath: string }`
 
-### createZodPlugin()
+### createZodPlugin() (deprecated)
 
 Generates Zod schemas from `schema.types`. When run after the TS plugin, adds `z.ZodType<T>` annotations and type imports.
 

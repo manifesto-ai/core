@@ -168,8 +168,8 @@ describe("Hash Utilities", () => {
         state: {
           fields: {
             ...schemaBase.state.fields,
-            $host: { type: "object", required: false },
-            $mel: { type: "object", required: false },
+            $platform: { type: "object", required: false },
+            $tool: { type: "object", required: false },
           },
         },
       };
@@ -198,8 +198,8 @@ describe("Hash Utilities", () => {
         state: {
           fields: {
             ...schemaBase.state.fields,
-            $host: { type: "object", required: false },
-            $mel: { type: "object", required: false },
+            $platform: { type: "object", required: false },
+            $tool: { type: "object", required: false },
           },
         },
       };
@@ -234,7 +234,7 @@ describe("Hash Utilities", () => {
         state: {
           fields: {
             count: { type: "number", required: true },
-            $mel: { type: "object", required: false },
+            $tool: { type: "object", required: false },
           },
         },
         computed: { fields: {} },

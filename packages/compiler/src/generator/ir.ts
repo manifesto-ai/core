@@ -11,6 +11,7 @@ import type {
   TypeDeclNode,   // v0.3.3
   StateNode,
   StateFieldNode,
+  ContextFieldNode,
   ComputedNode,
   ActionNode,
   ExprNode,
@@ -36,11 +37,9 @@ import {
 } from "../lowering/to-mel-expr.js";
 import {
   hashSchemaSync,
-  semanticPathToPatchPath,
   sha256Sync,
   type ExprNode as RuntimeExprNode,
   type FlowNode as RuntimeFlowNode,
-  type PatchPath,
 } from "@manifesto-ai/core";
 import { lowerCanonicalSchema } from "./runtime-lowering.js";
 
@@ -54,14 +53,22 @@ export type CoreExprNode = RuntimeExprNode;
 export type CompilerExprNode = MelExprNode;
 
 /**
- * Core FlowNode types (matching core/schema/flow.ts)
+ * Core FlowNode type (kept attached to @manifesto-ai/core to avoid schema drift).
  */
 export type CoreFlowNode = RuntimeFlowNode;
+
+type CompilerFlowPatchSegment =
+  | { kind: "prop"; name: string }
+  | { kind: "index"; index: number }
+  | { kind: "expr"; expr: CompilerExprNode };
+
+type CompilerFlowPatchPath = CompilerFlowPatchSegment[];
 
 export type CompilerFlowNode =
   | { kind: "seq"; steps: CompilerFlowNode[] }
   | { kind: "if"; cond: CompilerExprNode; then: CompilerFlowNode; else?: CompilerFlowNode }
-  | { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CompilerExprNode }
+  | { kind: "patch"; op: "set" | "unset" | "merge"; path: CompilerFlowPatchPath; value?: CompilerExprNode }
+  | { kind: "causalGuard"; guardId: string; body: CompilerFlowNode }
   | { kind: "effect"; type: string; params: Record<string, CompilerExprNode> }
   | { kind: "call"; flow: string }
   | { kind: "halt"; reason?: string }
@@ -90,6 +97,11 @@ export interface FieldSpec {
  * State specification
  */
 export interface StateSpec {
+  fields: Record<string, FieldSpec>;
+  fieldTypes?: Record<string, TypeDefinition>;
+}
+
+export interface ContextSpec {
   fields: Record<string, FieldSpec>;
   fieldTypes?: Record<string, TypeDefinition>;
 }
@@ -169,6 +181,7 @@ export interface DomainSchema {
   /** v0.3.3: Named type declarations */
   types: Record<string, TypeSpec>;
   state: StateSpec;
+  context?: ContextSpec;
   computed: ComputedSpec;
   actions: Record<string, ActionSpec>;
   meta?: {
@@ -184,6 +197,7 @@ export interface CanonicalDomainSchema {
   hash: string;
   types: Record<string, TypeSpec>;
   state: StateSpec;
+  context?: ContextSpec;
   computed: { fields: Record<string, CompilerComputedFieldSpec> };
   actions: Record<string, CompilerActionSpec>;
   meta?: {
@@ -263,6 +277,7 @@ export function generateCanonical(program: ProgramNode): GenerateCanonicalResult
 
   // Generate schema parts
   const state = generateState(program.domain, ctx);
+  const context = generateContext(program.domain, ctx);
   const computed = generateComputed(program.domain, ctx);
   const actions = generateActions(program.domain, ctx);
 
@@ -279,6 +294,7 @@ export function generateCanonical(program: ProgramNode): GenerateCanonicalResult
     version: "1.0.0",
     types,
     state,
+    ...(context ? { context } : {}),
     computed,
     actions,
     meta: {
@@ -312,8 +328,10 @@ export function generate(program: ProgramNode): GenerateResult {
     };
   }
 
+  const loweredSchema = lowerCanonicalSchema(canonical.schema);
+
   return {
-    schema: lowerCanonicalSchema(canonical.schema),
+    schema: withRuntimeSchemaHash(loweredSchema),
     diagnostics: canonical.diagnostics,
   };
 }
@@ -430,6 +448,41 @@ function generateState(domain: DomainNode, ctx: GeneratorContext): StateSpec {
   }
 
   return { fields, fieldTypes };
+}
+
+function generateContext(domain: DomainNode, ctx: GeneratorContext): ContextSpec | undefined {
+  const fields: Record<string, FieldSpec> = {};
+  const fieldTypes: Record<string, TypeDefinition> = {};
+  let sawContext = false;
+
+  for (const member of domain.members) {
+    if (member.kind !== "context") {
+      continue;
+    }
+
+    sawContext = true;
+    for (const field of member.fields) {
+      const typeDefinition = typeExprToDefinition(field.typeExpr);
+      fieldTypes[field.name] = typeDefinition;
+      const fieldSpec = generateContextFieldSpec(field, ctx);
+      if (fieldSpec) {
+        fields[field.name] = fieldSpec;
+      }
+    }
+  }
+
+  return sawContext ? { fields, fieldTypes } : undefined;
+}
+
+function generateContextFieldSpec(field: ContextFieldNode, ctx: GeneratorContext): FieldSpec | null {
+  const spec = typeExprToFieldSpec(field.typeExpr, ctx);
+  if (!spec) {
+    return null;
+  }
+  return {
+    ...spec,
+    required: true,
+  };
 }
 
 function generateFieldSpec(field: StateFieldNode, ctx: GeneratorContext): FieldSpec | null {
@@ -1404,15 +1457,11 @@ function generateWhen(stmt: WhenStmtNode, ctx: GeneratorContext): CompilerFlowNo
 }
 
 function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CompilerFlowNode {
-  // Desugar once(marker) { ... } to:
-  // when neq(marker, $meta.intentId) { patch marker = $meta.intentId; ... }
-  // Note: Core accesses $meta intent values via meta.*
+  const markerPath = generatePatchPath(stmt.marker, ctx);
+  const intentIdExpr: CompilerExprNode = getPathExpr("$runtime", "intent", "id");
 
-  const markerPath = generatePath(stmt.marker, ctx);
-  const intentIdExpr: CompilerExprNode = sysPathExpr("meta", "intentId");
-
-  // Condition: marker != $meta.intentId
-  let cond: CompilerExprNode = callExpr("neq", [getPathExpr(...pathToSegments(markerPath)), intentIdExpr]);
+  // Condition: marker != $runtime.intent.id
+  let cond: CompilerExprNode = callExpr("neq", [generatePathReadExpr(stmt.marker, ctx), intentIdExpr]);
 
   // Add extra condition if present
   if (stmt.condition) {
@@ -1420,11 +1469,11 @@ function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CompilerFlowNo
     cond = callExpr("and", [cond, extraCond]);
   }
 
-  // Body: patch marker = $meta.intentId, then rest
+  // Compiler-owned marker write closes the once() guard before user-authored body steps.
   const markerPatch: CompilerFlowNode = {
     kind: "patch",
     op: "set",
-    path: toPatchPath(markerPath),
+    path: markerPath,
     value: intentIdExpr,
   };
 
@@ -1446,48 +1495,37 @@ function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): Co
   ctx.onceIntentCounters.set(actionName, nextIndex + 1);
 
   const guardId = sha256Sync(`${actionName}:${nextIndex}:intent`);
-  const guardPath = `$mel.guards.intent.${guardId}`;
-  const intentIdExpr: CompilerExprNode = sysPathExpr("meta", "intentId");
-
-  let cond: CompilerExprNode = callExpr("neq", [getPathExpr(...pathToSegments(guardPath)), intentIdExpr]);
-
-  if (stmt.condition) {
-    const extraCond = generateExpr(stmt.condition, ctx);
-    cond = callExpr("and", [cond, extraCond]);
-  }
-
-  // Guard write: semantic target is guardPath, lowered as map-level merge.
-  const markerPatch: CompilerFlowNode = {
-    kind: "patch",
-    op: "merge",
-    path: toPatchPath("$mel.guards.intent"),
-    value: objExpr({ [guardId]: intentIdExpr }),
+  const bodySteps = stmt.body.map(s => generateStmt(s, ctx));
+  const guarded: CompilerFlowNode = {
+    kind: "causalGuard",
+    guardId,
+    body: {
+      kind: "seq",
+      steps: bodySteps,
+    },
   };
 
-  const bodySteps = stmt.body.map(s => generateStmt(s, ctx));
+  if (!stmt.condition) {
+    return guarded;
+  }
 
   return {
     kind: "if",
-    cond,
-    then: {
-      kind: "seq",
-      steps: [markerPatch, ...bodySteps],
-    },
+    cond: generateExpr(stmt.condition, ctx),
+    then: guarded,
   };
 }
 
 function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CompilerFlowNode {
-  const path = generatePath(stmt.path, ctx);
-
   const result: CompilerFlowNode = {
     kind: "patch",
     op: stmt.op,
-    path: toPatchPath(path),
+    path: generatePatchPath(stmt.path, ctx),
   };
 
   if (stmt.value) {
     const valueExpr = generateExpr(stmt.value, ctx);
-    (result as { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CompilerExprNode }).value = valueExpr;
+    (result as { kind: "patch"; op: "set" | "unset" | "merge"; path: CompilerFlowPatchPath; value?: CompilerExprNode }).value = valueExpr;
 
     // Track 2: validate literal patch values against the target field's declared type
     if (stmt.op === "set") {
@@ -1659,16 +1697,79 @@ function generatePath(path: PathNode, ctx: GeneratorContext): string {
   return joinPathPreserveEmptySegments(...segments);
 }
 
-function toPatchPath(path: string): PatchPath {
-  return semanticPathToPatchPath(path);
+function generatePatchPath(path: PathNode, ctx: GeneratorContext): CompilerFlowPatchPath {
+  return path.segments.map((segment) => {
+    if (segment.kind === "propertySegment") {
+      return { kind: "prop" as const, name: segment.name };
+    }
+
+    const indexExpr = generateExpr(segment.index, ctx, { preferActionParams: true });
+    if (indexExpr.kind === "lit") {
+      if (
+        typeof indexExpr.value === "number" &&
+        Number.isInteger(indexExpr.value) &&
+        indexExpr.value >= 0
+      ) {
+        return { kind: "index" as const, index: indexExpr.value };
+      }
+
+      if (typeof indexExpr.value === "string") {
+        return { kind: "prop" as const, name: indexExpr.value };
+      }
+    }
+
+    return { kind: "expr" as const, expr: indexExpr };
+  });
 }
 
 function callExpr(fn: string, args: CompilerExprNode[]): CompilerExprNode {
   return { kind: "call", fn, args };
 }
 
-function pathToSegments(path: string): string[] {
-  return path.split(/(?<!\\)\./g).map((segment) => segment.replaceAll("\\.", ".").replaceAll("\\\\", "\\"));
+function generatePathReadExpr(path: PathNode, ctx: GeneratorContext): CompilerExprNode {
+  const [first, ...rest] = path.segments;
+  if (!first || first.kind !== "propertySegment") {
+    return { kind: "lit", value: null };
+  }
+
+  let current: CompilerExprNode = resolveIdentifier(first.name, ctx, {});
+  for (const segment of rest) {
+    if (segment.kind === "propertySegment") {
+      current = appendStaticPathSegment(current, segment.name);
+      continue;
+    }
+
+    const indexExpr = generateExpr(segment.index, ctx, { preferActionParams: true });
+    if (
+      indexExpr.kind === "lit" &&
+      (typeof indexExpr.value === "number" || typeof indexExpr.value === "string")
+    ) {
+      current = appendStaticPathSegment(current, String(indexExpr.value));
+      continue;
+    }
+
+    current = callExpr("at", [current, indexExpr]);
+  }
+
+  return current;
+}
+
+function appendStaticPathSegment(
+  base: CompilerExprNode,
+  segment: string
+): CompilerExprNode {
+  if (base.kind === "get" && !base.base) {
+    return {
+      kind: "get",
+      path: [...base.path, { kind: "prop", name: segment }],
+    };
+  }
+
+  return {
+    kind: "field",
+    object: base,
+    property: segment,
+  };
 }
 
 // ============ Expression Generation ============
@@ -1723,16 +1824,26 @@ function resolveSystemIdent(path: string[], ctx: GeneratorContext): CompilerExpr
   const [namespace, ...rest] = path;
 
   switch (namespace) {
+    case "input":
+    case "runtime":
+    case "context":
+      return sysPathExpr(namespace, ...rest);
+
     case "system":
     case "meta":
-    case "input":
-      return sysPathExpr(namespace, ...rest);
+      ctx.diagnostics.push({
+        severity: "error",
+        code: "E_INVALID_SYSTEM",
+        message: `$${namespace}.* is retired in v5 MEL; use $runtime.* or declared $context.* where action-flow context is available`,
+        location: { start: { line: 0, column: 0, offset: 0 }, end: { line: 0, column: 0, offset: 0 } },
+      });
+      return { kind: "lit", value: null };
 
     default:
       ctx.diagnostics.push({
         severity: "error",
         code: "E_INVALID_SYSTEM",
-        message: `Invalid system identifier namespace '$${namespace}'`,
+        message: `Invalid dollar identifier namespace '$${namespace}'`,
         location: { start: { line: 0, column: 0, offset: 0 }, end: { line: 0, column: 0, offset: 0 } },
       });
       return { kind: "lit", value: null };
@@ -1751,4 +1862,13 @@ function computeCanonicalHash(schema: Omit<CanonicalDomainSchema, "hash">): stri
 
 function computeHash(schema: Omit<DomainSchema, "hash">): string {
   return hashSchemaSync(schema);
+}
+
+function withRuntimeSchemaHash(schema: DomainSchema): DomainSchema {
+  const { hash: _hash, ...schemaWithoutHash } = schema;
+
+  return {
+    ...schemaWithoutHash,
+    hash: computeHash(schemaWithoutHash),
+  };
 }

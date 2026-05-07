@@ -30,6 +30,7 @@ async function executeWithRetry(
       );
 
       return {
+        ok: true,
         success: true,
         patches,
         duration: Date.now() - startTime,
@@ -41,8 +42,10 @@ async function executeWithRetry(
       // Don't retry on timeout
       if (isHostError(error) && error.code === "EFFECT_TIMEOUT") {
         return {
+          ok: false,
           success: false,
           patches: [],
+          failure: { code: error.code, message: lastError.message },
           error: lastError.message,
           errorCode: error.code,
           duration: Date.now() - startTime,
@@ -52,8 +55,13 @@ async function executeWithRetry(
   }
 
   return {
+    ok: false,
     success: false,
     patches: [],
+    failure: {
+      code: lastErrorCode ?? "EFFECT_EXECUTION_FAILED",
+      message: lastError?.message ?? "Unknown error",
+    },
     error: lastError?.message ?? "Unknown error",
     errorCode: lastErrorCode ?? "EFFECT_EXECUTION_FAILED",
     duration: 0,
@@ -134,8 +142,13 @@ export class EffectExecutor {
 
     if (!handler) {
       return {
+        ok: false,
         success: false,
         patches: [],
+        failure: {
+          code: "UNKNOWN_EFFECT",
+          message: `Unknown effect type: ${requirement.type}`,
+        },
         error: `Unknown effect type: ${requirement.type}`,
         errorCode: "UNKNOWN_EFFECT",
         duration: 0,
@@ -157,8 +170,13 @@ export class EffectExecutor {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return {
+        ok: false,
         success: false,
         patches: [],
+        failure: {
+          code: isHostError(error) ? error.code : "EFFECT_EXECUTION_FAILED",
+          message,
+        },
         error: message,
         errorCode: isHostError(error) ? error.code : "EFFECT_EXECUTION_FAILED",
         duration: 0,
@@ -191,7 +209,7 @@ export class EffectExecutor {
       const result = await this.execute(requirement, snapshot);
       results.push(result);
 
-      if (result.success) {
+      if (result.ok) {
         patches.push(...result.patches);
       }
     }

@@ -174,7 +174,7 @@ describe("Golden: Trace Snapshots", () => {
     expect(jobStarts.length).toBeGreaterThanOrEqual(4);
 
     // Verify final state is correct
-    expect(stripHostState(result.finalSnapshot.data)).toEqual({
+    expect(stripHostState(result.finalSnapshot.state)).toEqual({
       count: 0,
       lastAction: "reset",
     });

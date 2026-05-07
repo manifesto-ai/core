@@ -81,7 +81,7 @@ domain ActionParameters {
         title: trim(title),
         priority: priority,
         done: false,
-        createdAt: $system.timestamp
+        createdAt: $runtime.time.timestamp
       }
     }
   }
@@ -100,10 +100,10 @@ domain ActionParameters {
 //   paramName       -> Direct reference
 //   $input.paramName -> Explicit input reference
 //
-// Intent/system values:
-//   $meta.intentId   -> Intent identifier
-//   $system.uuid     -> UUID (action only)
-//   $system.timestamp -> Timestamp (action only)
+// Runtime values:
+//   $runtime.intent.id       -> Intent identifier
+//   $runtime.random.uuid     -> Deterministic UUID (action only)
+//   $runtime.time.timestamp  -> Captured timestamp (action only)
 //
 // Anti-patterns:
 //   ❌ available when gt($input.x, 0)  // $input not allowed in available

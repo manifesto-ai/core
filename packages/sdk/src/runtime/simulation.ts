@@ -1,7 +1,9 @@
 import {
   apply,
+  applyNamespaceDeltas,
   applySystemDelta,
   computeSync,
+  type Context,
   type DomainSchema,
   type Snapshot as CoreSnapshot,
   type TraceGraph,
@@ -86,30 +88,28 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
   function withHostIntentSlot(
     snapshot: CoreSnapshot,
     intent: TypedIntent<T>,
-    context: ReturnType<HostContextProvider["createFrozenContext"]>,
   ): CoreSnapshot {
-    const hostState = getHostState(snapshot.data);
+    const hostState = getHostState(snapshot);
     const intentSlots = hostState?.intentSlots ?? {};
     const intentSlot: IntentSlot = intent.input === undefined
       ? { type: intent.type }
       : { type: intent.type, input: intent.input };
 
-    return apply(
-      schema,
+    return applyNamespaceDeltas(
       snapshot,
       [
         {
-          op: "merge",
-          path: [{ kind: "prop", name: "$host" }],
-          value: {
-            intentSlots: {
+          namespace: "host",
+          patches: [{
+            op: "set",
+            path: [{ kind: "prop", name: "intentSlots" }],
+            value: {
               ...intentSlots,
               [intent.intentId]: intentSlot,
             },
-          },
+          }],
         },
       ],
-      context,
     );
   }
 
@@ -130,6 +130,7 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
   const simulateSync: RuntimeSimulateSync<T> = (
     snapshot,
     intent,
+    options,
   ): RuntimeSimulationResult<T> => {
     const legality = evaluateIntentLegalityFor(snapshot, intent);
     if (legality.kind === "unavailable") {
@@ -143,15 +144,21 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
     }
     const enrichedIntent = legality.intent;
 
-    const context = hostContextProvider.createFrozenContext(enrichedIntent.intentId);
+    const context: Context = options?.context ?? hostContextProvider.createFrozenContext(
+      enrichedIntent.intentId,
+      options?.externalContext,
+    );
     const baseline = withHostIntentSlot(
       structuredClone(snapshot as CoreSnapshot),
       enrichedIntent,
-      context,
     );
     const result = computeSync(schema, baseline, enrichedIntent, context);
-    const afterPatches = apply(schema, baseline, result.patches, context);
-    const canonicalSimulated = applySystemDelta(afterPatches, result.systemDelta);
+    const afterPatches = apply(schema, baseline, result.patches);
+    const afterNamespaceDeltas = applyNamespaceDeltas(
+      afterPatches,
+      result.namespaceDelta ?? [],
+    );
+    const canonicalSimulated = applySystemDelta(afterNamespaceDeltas, result.systemDelta);
 
     return Object.freeze({
       snapshot: cloneAndDeepFreeze(
@@ -160,7 +167,7 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
       patches: cloneAndDeepFreeze(result.patches),
       systemDelta: cloneAndDeepFreeze(result.systemDelta),
       status: result.status,
-      requirements: cloneAndDeepFreeze(result.systemDelta.addRequirements),
+      requirements: cloneAndDeepFreeze(result.systemDelta.addRequirements ?? []),
       diagnostics: Object.freeze({
         trace: cloneAndDeepFreeze(
           createStableSimulationTrace(result.trace, snapshot.meta.timestamp),

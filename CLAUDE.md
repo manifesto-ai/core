@@ -42,7 +42,7 @@ When documents conflict, prefer higher-ranked sources.
 - Codex setup is explicit, not `postinstall`-driven: install the package, then run `npm exec manifesto-skills install-codex` or `pnpm exec manifesto-skills install-codex`.
 - Claude Code users can reference `@node_modules/@manifesto-ai/skills/SKILL.md` from their local `CLAUDE.md`.
 
-**Current contract note:** The canonical Snapshot block below reflects the current Core v4.0.0 contract. Accumulated `system.errors` and `appendErrors` are no longer part of the current Snapshot/SystemDelta surface.
+**Current contract note:** The canonical Snapshot block below reflects the ADR-025 v5 ontology hard cut. Domain state is `snapshot.state`; platform/runtime/tooling namespaces live under `snapshot.namespaces`. Accumulated `system.errors` and `appendErrors` are no longer part of the current Snapshot/SystemDelta surface. ADR-027 adds explicit `context` as the captured external environment for one compute call.
 
 ---
 
@@ -53,14 +53,19 @@ When documents conflict, prefer higher-ranked sources.
 The fundamental equation is:
 
 ```
-compute(schema, snapshot, intent) -> (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) -> ComputeResult
 ```
 
 This equation is:
-- **Pure**: Same inputs MUST always produce same outputs
+- **Pure**: Same schema + snapshot + intent + context MUST always produce same outputs
 - **Total**: MUST always return a result (never throws)
 - **Traceable**: Every step MUST be recorded
-- **Complete**: Snapshot MUST be the whole truth
+- **Complete**: Snapshot MUST be the whole persisted truth; context MUST be explicit captured environment data
+
+`ComputeResult` contains domain `patches`, optional `namespaceDelta`,
+`systemDelta`, `trace`, and terminal status. Requirements are system
+transitions (`systemDelta.addRequirements`) and become visible only after Host
+materializes the result into `snapshot.system.pendingRequirements`.
 
 ---
 
@@ -98,7 +103,7 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 - Access wall-clock time (`Date.now()` is forbidden)
 - Execute effects
 - Have mutable state
-- Know about Host, SDK runtime assembly, Lineage, or Governance
+- Know about Host, MEL, SDK runtime assembly, Lineage, or Governance
 
 **Forbidden imports:** Host, SDK runtime internals, Lineage, Governance, network libraries
 
@@ -182,7 +187,7 @@ When priorities conflict, higher-ranked priorities MUST prevail.
 
 ```typescript
 type Snapshot = {
-  data: Record<string, unknown>;     // Domain state
+  state: Record<string, unknown>;    // Domain state
   computed: Record<string, unknown>; // Derived values (recalculated, never stored)
   system: {
     status: 'idle' | 'computing' | 'pending' | 'error';
@@ -193,12 +198,31 @@ type Snapshot = {
   input: unknown;                    // Transient action input
   meta: {
     version: number;                 // Monotonically increasing
-    timestamp: number;               // Host-provided logical time
-    randomSeed: string;              // Host-provided deterministic seed
+    timestamp: number;               // Snapshot envelope timestamp, not a runtime expression source
+    randomSeed: string;              // Snapshot envelope seed, not a runtime expression source
     schemaHash: string;              // Schema hash this snapshot conforms to
   };
+  namespaces: Record<string, unknown>; // Opaque owner-partitioned platform/runtime/tooling namespaces
 };
 ```
+
+#### 4.1.1 Context Structure (Canonical)
+
+```typescript
+type Context<TExternalContext = Record<string, unknown>> = {
+  runtime: {
+    time: {
+      timestamp: number;
+    };
+    random: {
+      seed: string;
+    };
+  };
+  external: TExternalContext;
+};
+```
+
+`context` is captured external environment for the current computation. It is JSON-serializable data, not a provider, callback, promise, mutable object, or IO handle. Core never names legacy host-context aliases, runtime frame providers, `CoreIntent.frame`, Host, or MEL as part of the canonical compute input.
 
 ### 4.2 State Mutation Rules
 
@@ -213,10 +237,13 @@ type Snapshot = {
 - Array push/pop/splice (use `set` with expression)
 - Deep merge (use multiple patches)
 
-**ALL state changes MUST:**
-- Go through `apply(schema, snapshot, patches)`
-- Result in a new Snapshot (old Snapshot unchanged)
-- Increment `meta.version` by exactly 1
+**ALL state transitions MUST:**
+- Apply domain patches through `apply(schema, snapshot, patches)`
+- Apply namespace transitions through `applyNamespaceDeltas(snapshot, deltas)`
+- Apply system transitions through `applySystemDelta(snapshot, delta)`
+- Result in a new Snapshot when the addressed channel changes (old Snapshot unchanged)
+- Treat domain patch paths as rooted at `snapshot.state`
+- Treat namespace patch paths as rooted at `snapshot.namespaces[namespace]`
 
 ### 4.3 Computed Values
 
@@ -234,10 +261,10 @@ Actor submits typed Intent
 SDK runtime
       |
       v
-Host (compute loop + effect execution)
+Host / runtime assembly captures Context
       |
       v
-Core (pure computation)
+Core (pure computation over schema + snapshot + intent + context)
       |
       v
 New Snapshot (via patches)
@@ -258,7 +285,9 @@ SDK runtime -> Host -> Core -> terminal Snapshot
 Lineage (sealed immutable World record)
 ```
 
-**CRITICAL:** Information flows ONLY through Snapshot. There are no other channels.
+**CRITICAL:** Continuity between computations flows ONLY through Snapshot. The
+current computation's external environment enters only through explicit
+`context`; there are no hidden channels.
 
 ---
 
@@ -300,11 +329,11 @@ type ErrorValue = {
 async function handler(type, params): Promise<Patch[]> {
   try {
     const result = await api.call(params);
-    return [{ op: 'set', path: 'data.result', value: result }];
+    return [{ op: 'set', path: [{ kind: 'prop', name: 'result' }], value: result }];
   } catch (error) {
     return [
-      { op: 'set', path: 'data.syncStatus', value: 'error' },
-      { op: 'set', path: 'data.errorMessage', value: error.message },
+      { op: 'set', path: [{ kind: 'prop', name: 'syncStatus' }], value: 'error' },
+      { op: 'set', path: [{ kind: 'prop', name: 'errorMessage' }], value: error.message },
     ];
   }
 }
@@ -323,7 +352,7 @@ User-facing APIs MUST NOT require string paths.
 
 ```typescript
 // FORBIDDEN
-{ path: '/data/todos/0/completed' }
+{ path: '/state/todos/0/completed' }
 
 // REQUIRED
 state.todos[0].completed  // TypeScript-checked FieldRef
@@ -432,7 +461,7 @@ type ComputedRef<T> = {
 
 ### 9.1 What Tests Prove
 
-- **Core tests:** Determinism (same input -> same output)
+- **Core tests:** Determinism (same schema + snapshot + intent + context -> same output)
 - **Host tests:** Effect handler correctness, patch application
 - **Lineage/Governance tests:** continuity invariants, sealed World record integrity, legitimacy settlement
 - **Integration tests:** End-to-end flow correctness
@@ -444,8 +473,11 @@ Core is pure. Tests require NO mocking.
 ```typescript
 // CORRECT - Core test
 it('computes transition', () => {
-  const result = core.compute(schema, snapshot, intent);
-  expect(result.snapshot.data.count).toBe(1);
+  const result = core.compute(schema, snapshot, intent, context);
+  const patched = core.apply(schema, snapshot, result.patches);
+  const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+  const next = core.applySystemDelta(namespaced, result.systemDelta);
+  expect(next.state.count).toBe(1);
 });
 ```
 
@@ -460,7 +492,7 @@ it('computes transition', () => {
 ### 9.4 REQUIRED Test Patterns
 
 - Effect handlers tested with explicit return values
-- Determinism tests: run same input twice, assert identical output
+- Determinism tests: run same schema + snapshot + intent + context twice, assert identical output
 - Boundary tests: verify layer doesn't import forbidden dependencies
 - Invariant tests: verify constitutional axioms hold
 
@@ -486,12 +518,12 @@ async function executeEffect(req) {
 
 ```typescript
 // FORBIDDEN
-snapshot.data.count = 5;
+snapshot.state.count = 5;
 snapshot.meta.version++;
 
 // REQUIRED
 const newSnapshot = core.apply(schema, snapshot, [
-  { op: 'set', path: 'data.count', value: 5 }
+  { op: 'set', path: [{ kind: 'prop', name: 'count' }], value: 5 }
 ]);
 ```
 
@@ -516,7 +548,7 @@ if (effectExecutionSucceeded) {  // Core cannot know this
 }
 
 // REQUIRED - Core reads from Snapshot
-if (snapshot.data.syncStatus === 'success') {
+if (snapshot.state.syncStatus === 'success') {
   // ...
 }
 ```
@@ -543,9 +575,12 @@ flow.onceNull(state.submittedAt, ({ patch, effect }) => {
 // FORBIDDEN - Direct execution when governance is required
 host.execute(snapshot, intent);  // Bypasses Governance and Lineage!
 
-// REQUIRED - Governed intents enter through the governed runtime
-const proposal = await governed.proposeAsync(intent);
-await governed.approve(proposal.proposalId);
+// REQUIRED - Governed writes enter through the governed runtime
+const pending = await governed.action.spend.submit(1);
+if (pending.ok) {
+  await governed.approve(pending.proposal);
+  await pending.waitForSettlement();
+}
 // Governance authorizes, Host executes through the SDK runtime, Lineage seals the terminal Snapshot
 ```
 
@@ -589,7 +624,7 @@ Before producing any code change, mentally verify ALL of the following:
 
 ### Constitutional Compliance
 
-- [ ] Does this change preserve determinism? (Same input -> same output)
+- [ ] Does this change preserve determinism? (Same schema + snapshot + intent + context -> same output)
 - [ ] Does this change maintain Snapshot as sole communication medium?
 - [ ] Does this change respect sovereignty boundaries? (Core computes, Host executes, SDK exposes runtime, Lineage records continuity, Governance authorizes)
 - [ ] Are all state changes expressed as Patches?

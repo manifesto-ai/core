@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { ExprNodeSchema, type ExprNode } from "./expr.js";
-import { PatchPath } from "./patch.js";
 
 /**
  * FlowNode - Declarative state transition programs
@@ -13,6 +12,7 @@ export type FlowNode =
   | SeqFlow
   | IfFlow
   | PatchFlow
+  | CausalGuardFlow
   | EffectFlow
   | CallFlow
   | HaltFlow
@@ -23,6 +23,32 @@ export type FlowNode =
  */
 export const PatchOp = z.enum(["set", "unset", "merge"]);
 export type PatchOp = z.infer<typeof PatchOp>;
+
+/**
+ * FlowPatchSegment - Patch target segment used inside Flow evaluation.
+ *
+ * Unlike apply-time PatchPath segments, Flow patch targets may carry expression
+ * segments. Core resolves those expressions during compute() before emitting
+ * concrete Patch[].
+ */
+export const FlowPatchSegment = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("prop"),
+    name: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal("index"),
+    index: z.number().int().nonnegative(),
+  }),
+  z.object({
+    kind: z.literal("expr"),
+    expr: ExprNodeSchema,
+  }),
+]);
+export type FlowPatchSegment = z.infer<typeof FlowPatchSegment>;
+
+export const FlowPatchPath = z.array(FlowPatchSegment).min(1);
+export type FlowPatchPath = z.infer<typeof FlowPatchPath>;
 
 // ============ Flow Node Types ============
 
@@ -52,10 +78,27 @@ export type IfFlow = z.infer<typeof IfFlow>;
 export const PatchFlow = z.object({
   kind: z.literal("patch"),
   op: PatchOp,
-  path: PatchPath,
+  path: FlowPatchPath,
   value: ExprNodeSchema.optional(),
 });
 export type PatchFlow = z.infer<typeof PatchFlow>;
+
+/**
+ * causalGuard - Core-owned per-intent re-entry guard.
+ *
+ * This is a generic Flow primitive. Frontends may lower their syntax into it,
+ * but Core does not know which frontend produced it.
+ */
+export const CausalGuardFlow: z.ZodType<{
+  kind: "causalGuard";
+  guardId: string;
+  body: FlowNode;
+}> = z.object({
+  kind: z.literal("causalGuard"),
+  guardId: z.string().min(1),
+  body: z.lazy(() => FlowNodeSchema),
+});
+export type CausalGuardFlow = z.infer<typeof CausalGuardFlow>;
 
 /**
  * effect - External operation requirement declaration
@@ -105,6 +148,7 @@ export const FlowNodeSchema: z.ZodType<FlowNode> = z.union([
   SeqFlow,
   IfFlow,
   PatchFlow,
+  CausalGuardFlow,
   EffectFlow,
   CallFlow,
   HaltFlow,
@@ -114,5 +158,5 @@ export const FlowNodeSchema: z.ZodType<FlowNode> = z.union([
 /**
  * Flow node kinds enum
  */
-export const FlowKind = z.enum(["seq", "if", "patch", "effect", "call", "halt", "fail"]);
+export const FlowKind = z.enum(["seq", "if", "patch", "causalGuard", "effect", "call", "halt", "fail"]);
 export type FlowKind = z.infer<typeof FlowKind>;

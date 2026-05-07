@@ -22,6 +22,7 @@ export type ComparableSurfaceClass = "primitive" | "nonprimitive" | "unknown";
 
 export interface DomainTypeSymbols {
   stateTypes: Map<string, TypeExprNode>;
+  contextTypes: Map<string, TypeExprNode>;
   computedDecls: Map<string, ComputedNode>;
   typeDefs: Map<string, TypeDeclNode>;
   computedTypeCache: Map<string, TypeExprNode | null>;
@@ -105,6 +106,7 @@ const ENTITY_TRANSFORM_CALLS = new Set(["updateById", "removeById"]);
 
 export function collectDomainTypeSymbols(domain: DomainNode): DomainTypeSymbols {
   const stateTypes = new Map<string, TypeExprNode>();
+  const contextTypes = new Map<string, TypeExprNode>();
   const computedDecls = new Map<string, ComputedNode>();
   const typeDefs = new Map<string, TypeDeclNode>();
 
@@ -120,6 +122,13 @@ export function collectDomainTypeSymbols(domain: DomainNode): DomainTypeSymbols 
       continue;
     }
 
+    if (member.kind === "context") {
+      for (const field of member.fields) {
+        contextTypes.set(field.name, field.typeExpr);
+      }
+      continue;
+    }
+
     if (member.kind === "computed") {
       computedDecls.set(member.name, member);
     }
@@ -127,6 +136,7 @@ export function collectDomainTypeSymbols(domain: DomainNode): DomainTypeSymbols 
 
   return {
     stateTypes,
+    contextTypes,
     computedDecls,
     typeDefs,
     computedTypeCache: new Map(),
@@ -197,11 +207,78 @@ export function inferExprType(
       return inferFunctionCallType(expr, env, symbols);
 
     case "systemIdent":
-      return null;
+      return inferDollarIdentType(expr.path, symbols);
 
     case "iterationVar":
       return env.get("$item") ?? null;
   }
+}
+
+function inferDollarIdentType(path: readonly string[], symbols: DomainTypeSymbols): TypeExprNode | null {
+  const [namespace, ...rest] = path;
+
+  if (namespace === "context") {
+    return inferContextPathType(rest, symbols);
+  }
+
+  if (namespace !== "runtime") {
+    return null;
+  }
+
+  const key = rest.join(".");
+  switch (key) {
+    case "intent.id":
+    case "intent.action":
+    case "time.iso":
+    case "random.seed":
+    case "random.uuid":
+      return syntheticSimpleType("string");
+    case "time.timestamp":
+      return syntheticSimpleType("number");
+    default:
+      return null;
+  }
+}
+
+function inferContextPathType(path: readonly string[], symbols: DomainTypeSymbols): TypeExprNode | null {
+  if (path.length === 0) {
+    return {
+      kind: "objectType",
+      fields: [...symbols.contextTypes.entries()].map(([name, typeExpr]) => ({
+        kind: "typeField" as const,
+        name,
+        typeExpr,
+        optional: false,
+        location: typeExpr.location,
+      })),
+      location: syntheticLocation(),
+    };
+  }
+
+  const [head, ...rest] = path;
+  let current = symbols.contextTypes.get(head) ?? null;
+  for (const segment of rest) {
+    if (!current) {
+      return null;
+    }
+    current = getPropertyType(current, segment, symbols);
+  }
+  return current;
+}
+
+function syntheticSimpleType(name: "string" | "number" | "boolean" | "null"): TypeExprNode {
+  return {
+    kind: "simpleType",
+    name,
+    location: syntheticLocation(),
+  };
+}
+
+function syntheticLocation(): TypeExprNode["location"] {
+  return {
+    start: { line: 0, column: 0, offset: 0 },
+    end: { line: 0, column: 0, offset: 0 },
+  };
 }
 
 export function classifyComparableExpr(

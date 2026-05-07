@@ -3,7 +3,11 @@ import { createLineageComplianceAdapter } from "../lcts-adapter.js";
 import { caseTitle, LCTS_CASES } from "../lcts-coverage.js";
 import { evaluateRule, expectAllCompliance, noteEvidence } from "../lcts-assertions.js";
 import { getRuleOrThrow } from "../lcts-rules.js";
-import { createBootstrappedLineage, createTestSnapshot } from "../helpers.js";
+import {
+  createBootstrappedLineage,
+  createTestComputeEnvelope,
+  createTestSnapshot,
+} from "../helpers.js";
 
 describe("LCTS Identity Suite", () => {
   const adapter = createLineageComplianceAdapter();
@@ -14,17 +18,17 @@ describe("LCTS Identity Suite", () => {
       "Snapshot hash stays stable across platform/meta-only changes and tracks hash-visible fields only."
     ),
     async () => {
-      const base = createTestSnapshot({
-        count: 1,
-        $host: { internal: true },
-        $mel: { guard: true },
-      });
-      const onlyPlatformAndMetaChanged = createTestSnapshot(
+      const base = createTestSnapshot(
+        { count: 1 },
         {
-          count: 1,
-          $host: { internal: false, changed: true },
-          $mel: { another: "value" },
-        },
+          namespaces: {
+            host: { internal: true },
+            mel: { guards: { intent: { guard: "true" } } },
+          },
+        }
+      );
+      const onlyPlatformAndMetaChanged = createTestSnapshot(
+        { count: 1 },
         {
           computed: { derived: 99 },
           input: { transient: "ignore-me" },
@@ -34,13 +38,21 @@ describe("LCTS Identity Suite", () => {
             randomSeed: "different-seed",
             schemaHash: "different-schema-hash",
           },
+          namespaces: {
+            host: { internal: false, changed: true },
+            mel: { guards: { intent: { another: "value" } } },
+          },
         }
       );
-      const domainChanged = createTestSnapshot({
-        count: 2,
-        $host: { internal: true },
-        $mel: { guard: true },
-      });
+      const domainChanged = createTestSnapshot(
+        { count: 2 },
+        {
+          namespaces: {
+            host: { internal: true },
+            mel: { guards: { intent: { guard: "true" } } },
+          },
+        }
+      );
 
       const baseHash = await adapter.computeSnapshotHash(base);
       const onlyMetaHash = await adapter.computeSnapshotHash(onlyPlatformAndMetaChanged);
@@ -240,6 +252,7 @@ describe("LCTS Identity Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.firstFailure", "intent-first-failure"),
         terminalSnapshot: failingSnapshot,
         createdAt: 2,
       });
@@ -249,6 +262,7 @@ describe("LCTS Identity Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.secondFailure", "intent-second-failure"),
         terminalSnapshot: failingSnapshot,
         createdAt: 3,
       });

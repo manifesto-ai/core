@@ -7,6 +7,12 @@
 
 This pack locks the Week 1 deliverables required to start Week 2 implementation immediately.
 
+> **Historical Note:** Dynamic target evaluator items in this Week 1 pack are
+> non-current planning history. ADR-028 supersedes the Compiler/runtime
+> `evaluateConditionalPatchOps()` path and the invalid dynamic target
+> skip-warning policy; current v5 behavior resolves dynamic Flow patch targets in
+> Core.
+
 ## 1. Baseline Freeze
 
 ### 1.1 Governance Baseline
@@ -163,4 +169,3 @@ graph TD
 3. Week 1은 문서화/분해/우선순위 확정만 수행하며 코드 변경은 수행하지 않는다.  
 4. 우선순위는 `Core > Host/Compiler > Runtime/World > SDK`로 고정한다.  
 5. Week 2 기본 시작일은 `2026-03-09 (KST)`로 둔다.
-

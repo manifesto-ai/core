@@ -2,7 +2,7 @@ import type {
   BaseComposableLaws,
   ComposableManifesto,
   DispatchBlocker,
-  ManifestoBaseInstance,
+  ManifestoApp,
   ManifestoDomainShape,
 } from "../../index.ts";
 import type {
@@ -55,13 +55,13 @@ const metadata = kernel.getActionMetadata();
 const canonical = kernel.getCanonicalSnapshot();
 const availableFor: readonly (keyof DemoDomain["actions"])[] = kernel.getAvailableActionsFor(canonical);
 const isAvailableFor: boolean = kernel.isActionAvailableFor(canonical, "ping");
-const intent = kernel.createIntent(kernel.MEL.actions.ping);
+const intent = kernel.createIntent(kernel.refs.actions.ping);
 const isDispatchableFor: boolean = kernel.isIntentDispatchableFor(canonical, intent);
 const blockersFor: readonly DispatchBlocker[] = kernel.getIntentBlockersFor(canonical, intent);
 const simulation: SimulateResult<DemoDomain> = kernel.simulateSync(canonical, intent);
 const projectedSimulation = kernel.simulateIntent(intent);
 const simulationTrace = simulation.diagnostics?.trace;
-const baseRuntime: ManifestoBaseInstance<DemoDomain> = createBaseRuntimeInstance(kernel);
+const baseRuntime: ManifestoApp<DemoDomain, "base"> = createBaseRuntimeInstance(kernel);
 
 void activationState;
 void availableFor;

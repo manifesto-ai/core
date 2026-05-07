@@ -38,6 +38,7 @@ import {
   type SupersedeReason,
   type ErrorInfo,
 } from "../types.js";
+import { readSnapshotCurrentError } from "../snapshot-errors.js";
 
 function freeze<T>(value: T): T {
   return Object.freeze(value);
@@ -54,6 +55,10 @@ export class DefaultGovernanceService implements GovernanceService {
   ) {}
 
   createProposal(input: CreateProposalInput): Proposal {
+    if (input.computeEnvelope == null) {
+      throw new Error("GOV-REPLAY-1 violation: proposal requires a compute envelope");
+    }
+
     return freeze({
       proposalId: input.proposalId ?? createProposalId(),
       baseWorld: input.baseWorld,
@@ -61,6 +66,7 @@ export class DefaultGovernanceService implements GovernanceService {
       actorId: input.actorId,
       authorityId: input.authorityId,
       intent: freeze({ ...input.intent }),
+      computeEnvelope: structuredClone(input.computeEnvelope),
       status: "submitted" as const,
       executionKey: input.executionKey,
       submittedAt: input.submittedAt,
@@ -114,7 +120,10 @@ export class DefaultGovernanceService implements GovernanceService {
     const currentEpoch = options.currentEpoch ?? branchInfo?.epoch ?? proposal.epoch;
     const currentHead = options.currentBranchHead ?? branchInfo?.head ?? proposal.baseWorld;
 
-    if (this.shouldDiscardAuthorityResult(proposal, currentEpoch)) {
+    if (
+      this.shouldDiscardAuthorityResult(proposal, currentEpoch) &&
+      currentHead !== proposal.baseWorld
+    ) {
       return {
         proposal: this.prepareSupersede(proposal, "head_advance"),
         discarded: true,
@@ -200,7 +209,7 @@ export class DefaultGovernanceService implements GovernanceService {
   }
 
   deriveOutcome(terminalSnapshot: Snapshot): "completed" | "failed" {
-    if (terminalSnapshot.system.lastError != null) {
+    if (readSnapshotCurrentError(terminalSnapshot) != null) {
       return "failed";
     }
     if (terminalSnapshot.system.pendingRequirements.length > 0) {

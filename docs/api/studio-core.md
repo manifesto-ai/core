@@ -26,7 +26,7 @@ const runtime = createManifesto(schema, effects).activate();
 
 const session = createStudioSession({
   schema,
-  snapshot: runtime.getCanonicalSnapshot(),
+  snapshot: runtime.inspect.canonicalSnapshot(),
   trace,
   lineage,
   governance,
@@ -70,7 +70,7 @@ All of these are JSON-serializable and surface-neutral.
 
 ## Input Rules
 
-- `snapshot` must be a canonical runtime snapshot from `runtime.getCanonicalSnapshot()`
+- `snapshot` must be a canonical runtime snapshot from `runtime.inspect.canonicalSnapshot()`
 - `lineage` and `governance` accept canonical exports and widened query-like shapes
 - absent optional overlays degrade to structured `"not-provided"` results instead of failing the whole session
 - malformed optional overlays throw only when `validationMode: "strict"` is enabled

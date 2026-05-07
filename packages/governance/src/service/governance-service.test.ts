@@ -2,12 +2,29 @@ import { describe, expect, it } from "vitest";
 import type { Snapshot } from "@manifesto-ai/core";
 import {
   createInMemoryLineageStore,
+  type ComputeEnvelope,
 } from "@manifesto-ai/lineage";
 import { createLineageService } from "@manifesto-ai/lineage/provider";
 import {
   createGovernanceService,
   createInMemoryGovernanceStore,
 } from "../provider.js";
+
+function createTestComputeEnvelope(
+  type = "demo.intent",
+  intentId = "intent-1",
+): ComputeEnvelope {
+  return {
+    intent: { type, intentId },
+    context: {
+      runtime: {
+        time: { timestamp: 1 },
+        random: { seed: intentId },
+      },
+      external: {},
+    },
+  };
+}
 
 function createSnapshot(
   data: Record<string, unknown>,
@@ -66,6 +83,7 @@ describe("@manifesto-ai/governance service", () => {
       actorId: "actor-1",
       authorityId: "auth-1",
       intent: { type: "demo.occupied", intentId: "intent-1" },
+      computeEnvelope: createTestComputeEnvelope("demo.occupied", "intent-1"),
       executionKey: "key-1",
       submittedAt: 10,
       epoch: (await ctx.lineageService.getActiveBranch()).epoch,
@@ -84,6 +102,7 @@ describe("@manifesto-ai/governance service", () => {
       actorId: "actor-2",
       authorityId: "auth-2",
       intent: { type: "demo.contender", intentId: "intent-2" },
+      computeEnvelope: createTestComputeEnvelope("demo.contender", "intent-2"),
       executionKey: "key-2",
       submittedAt: 12,
       epoch: (await ctx.lineageService.getActiveBranch()).epoch,
@@ -106,6 +125,7 @@ describe("@manifesto-ai/governance service", () => {
       schemaHash: "schema-hash",
       baseWorldId: ctx.genesis.worldId,
       branchId: ctx.genesis.branchId,
+      computeEnvelope: createTestComputeEnvelope("demo.contender", "intent-2"),
       terminalSnapshot: createSnapshot({ count: 2 }),
       createdAt: 15,
     });
@@ -131,6 +151,7 @@ describe("@manifesto-ai/governance service", () => {
       actorId: "actor-3",
       authorityId: "auth-3",
       intent: { type: "demo.stale", intentId: "intent-3" },
+      computeEnvelope: createTestComputeEnvelope("demo.stale", "intent-3"),
       executionKey: "key-3",
       submittedAt: 20,
       epoch: (await ctx.lineageService.getActiveBranch()).epoch,
@@ -141,6 +162,7 @@ describe("@manifesto-ai/governance service", () => {
       schemaHash: "schema-hash",
       baseWorldId: ctx.genesis.worldId,
       branchId: ctx.genesis.branchId,
+      computeEnvelope: createTestComputeEnvelope("demo.stale", "intent-3"),
       terminalSnapshot: createSnapshot({ count: 3 }),
       createdAt: 21,
     });
@@ -166,6 +188,7 @@ describe("@manifesto-ai/governance service", () => {
       actorId: "actor-4",
       authorityId: "auth-4",
       intent: { type: "demo.finalize", intentId: "intent-4" },
+      computeEnvelope: createTestComputeEnvelope("demo.finalize", "intent-4"),
       executionKey: "key-4",
       submittedAt: 30,
       epoch: (await ctx.lineageService.getActiveBranch()).epoch,
@@ -193,6 +216,7 @@ describe("@manifesto-ai/governance service", () => {
       schemaHash: "schema-hash",
       baseWorldId: ctx.genesis.worldId,
       branchId: ctx.genesis.branchId,
+      computeEnvelope: createTestComputeEnvelope("demo.finalize", "intent-4"),
       terminalSnapshot: createSnapshot({ count: 4 }),
       createdAt: 32,
       proposalRef: executing.proposalId,

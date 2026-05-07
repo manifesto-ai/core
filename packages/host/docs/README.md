@@ -2,7 +2,7 @@
 
 > **Host** is the effect execution runtime of Manifesto. It executes effects, applies patches, and manages the compute-effect loop.
 
-> **Current Contract Note:** The current public package contract is documented in [host-SPEC.md](host-SPEC.md) through Host v4.0.0. Host-facing Snapshot references now follow the current Core v4.2.0 contract and no longer include accumulated `system.errors`.
+> **Current Contract Note:** The current public package contract is documented in [host-SPEC.md](host-SPEC.md) through the v5-aligned Host surface. Host-facing Snapshot references use `snapshot.state` for domain state and `snapshot.namespaces.host` for Host-owned operational state; accumulated `system.errors` is not part of the current contract.
 
 ---
 
@@ -68,7 +68,7 @@ const host = createHost(schema, {
 host.registerEffect("api.fetch", async (_type, params) => {
   const response = await fetch(params.url);
   const data = await response.json();
-  return [{ op: "set", path: params.targetPath, value: data }];
+  return [{ op: "set", path: [{ kind: "prop", name: "user" }], value: data }];
 });
 
 // Dispatch intent
@@ -76,7 +76,7 @@ const intent = createIntent("loadUser", { userId: "123" }, "intent-1");
 const result = await host.dispatch(intent);
 
 console.log(result.status); // -> "complete"
-console.log(result.snapshot.data.user); // -> { id: "123", name: "..." }
+console.log(result.snapshot.state.user); // -> { id: "123", name: "..." }
 ```
 
 > See [GUIDE.md](GUIDE.md) for the full tutorial.
@@ -95,7 +95,7 @@ function createHost(schema: DomainSchema, options?: HostOptions): ManifestoHost;
 class ManifestoHost {
   registerEffect(type: string, handler: EffectHandler): void;
   dispatch(intent: Intent, options?: { key?: string }): Promise<HostResult>;
-  getSnapshot(): Promise<Snapshot | null>;
+  getSnapshot(): Snapshot | null;
 }
 
 // Effect types
@@ -124,7 +124,7 @@ host.registerEffect("timer.delay", async (_type, params) => {
 
 host.registerEffect("api.post", async (_type, params) => {
   const res = await fetch(params.url, { method: "POST", body: params.body });
-  return [{ op: "set", path: "response", value: await res.json() }];
+  return [{ op: "set", path: [{ kind: "prop", name: "response" }], value: await res.json() }];
 });
 ```
 

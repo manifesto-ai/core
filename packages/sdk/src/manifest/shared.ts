@@ -11,6 +11,7 @@ import {
   ACTION_SINGLE_PARAM_OBJECT_VALUE,
 } from "../compat/runtime-symbols.js";
 import type {
+  ActionAnnotation,
   BaseComposableLaws,
   ManifestoDomainShape,
   TypedActionRef,
@@ -30,11 +31,13 @@ export type RuntimeActionRef = TypedActionRef<ManifestoDomainShape> & {
 
 export type ActionParamMetadata = readonly string[] | null;
 export type ActionSingleParamObjectValueMetadata = boolean;
+export type ActionAnnotationMap = Readonly<Record<string, ActionAnnotation>>;
 
 export type ResolvedSchema = {
   readonly schema: DomainSchema;
   readonly actionParamMetadata: Readonly<Record<string, ActionParamMetadata>>;
   readonly actionSingleParamObjectValueMetadata: Readonly<Record<string, ActionSingleParamObjectValueMetadata>>;
+  readonly actionAnnotations: ActionAnnotationMap;
   readonly projectionPlan: SnapshotProjectionPlan;
 };
 

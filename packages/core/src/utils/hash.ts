@@ -8,6 +8,10 @@ export type SchemaHashInput = {
   version: string;
   types: Record<string, unknown>;
   state: { fields: Record<string, unknown> };
+  context?: {
+    fields: Record<string, unknown>;
+    fieldTypes?: Record<string, unknown>;
+  };
   computed: {
     fields: Record<string, { deps: string[]; expr: unknown; description?: string }>;
   };

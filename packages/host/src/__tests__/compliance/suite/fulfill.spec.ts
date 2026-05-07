@@ -86,7 +86,7 @@ describe("HCTS Fulfillment Tests", () => {
       const finalSnapshot = adapter.getSnapshot(executionKey);
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
       expect(finalSnapshot.system.status).toBe("idle");
-      expect((finalSnapshot.data as Record<string, unknown>).response).toEqual({ data: "fetched" });
+      expect((finalSnapshot.state as Record<string, unknown>).response).toEqual({ data: "fetched" });
     });
 
     it("HCTS-REQ-001b: Multiple requirements are cleared in sequence", async () => {
@@ -136,8 +136,73 @@ describe("HCTS Fulfillment Tests", () => {
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
-      expect((finalSnapshot.data as Record<string, unknown>).step1Done).toBe(true);
-      expect((finalSnapshot.data as Record<string, unknown>).step2Done).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step1Done).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).step2Done).toBe(true);
+    });
+  });
+
+  describe("FULFILL-NS-1: Fulfillment namespace deltas are applied", () => {
+    it("HCTS-FULFILL-NS-001: Host applies fulfillment namespace deltas before clearing and continuing", async () => {
+      const schema = createTestSchema({
+        actions: {
+          continue: {
+            flow: {
+              kind: "patch",
+              op: "set", path: pp("continued"),
+              value: { kind: "lit", value: true },
+            },
+          },
+        },
+      });
+
+      const effectRunner = createTestEffectRunner();
+      await adapter.create({ schema, effectRunner, runtime });
+
+      const requirement = createTestRequirement("manualEffect", {}, {
+        id: "req-fulfill-ns-1",
+        actionId: "continue",
+      });
+      const snapshot = createSnapshotWithRequirements({}, schema.hash, [requirement]);
+      adapter.seedSnapshot(executionKey, snapshot);
+
+      adapter.injectEffectResult(
+        executionKey,
+        requirement.id,
+        [{ op: "set", path: pp("effectDone"), value: true }],
+        [{
+          namespace: "host",
+          patches: [{
+            op: "set",
+            path: pp("fulfillmentMarker"),
+            value: "applied-before-clear",
+          }],
+        }]
+      );
+
+      await adapter.drain(executionKey);
+
+      const finalSnapshot = adapter.getSnapshot(executionKey);
+      const hostState = getHostState(finalSnapshot);
+
+      expect((finalSnapshot.state as Record<string, unknown>).effectDone).toBe(true);
+      expect((hostState as Record<string, unknown> | undefined)?.fulfillmentMarker).toBe("applied-before-clear");
+      expect((finalSnapshot.state as Record<string, unknown>).$host).toBeUndefined();
+      expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
+
+      const trace = adapter.getTrace(executionKey);
+      const namespaceApplyIndex = trace.findIndex(
+        (event) => event.t === "core:applyNamespaceDeltas" && event.source === "effect-namespace"
+      );
+      const clearIndex = trace.findIndex(
+        (event) => event.t === "requirement:clear" && event.requirementId === requirement.id
+      );
+      const continueIndex = trace.findIndex(
+        (event) => event.t === "continue:enqueue"
+      );
+
+      expect(namespaceApplyIndex).toBeGreaterThan(-1);
+      expect(clearIndex).toBeGreaterThan(namespaceApplyIndex);
+      expect(continueIndex).toBeGreaterThan(clearIndex);
     });
   });
 
@@ -187,7 +252,7 @@ describe("HCTS Fulfillment Tests", () => {
       // Note: v1.x Host clears all pending requirements before computing new intent
       expect(effectCalled).toBe(false);
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
-      expect((finalSnapshot.data as Record<string, unknown>).checked).toBe(true);
+      expect((finalSnapshot.state as Record<string, unknown>).checked).toBe(true);
     });
   });
 
@@ -195,14 +260,14 @@ describe("HCTS Fulfillment Tests", () => {
     it("HCTS-FULFILL-002: Requirement is cleared even when effect handler throws", async () => {
       // This test verifies that when an effect handler throws, the requirement
       // is still cleared from pendingRequirements and the error is recorded.
-      // The flow uses state-guard pattern to ensure completion after error.
+      // Core-owned causalGuard prevents re-entry without letting Core read Host diagnostics.
       const schema = createTestSchema({
         actions: {
           failingEffect: {
             flow: {
-              kind: "if",
-              cond: { kind: "isNull", arg: { kind: "get", path: "$host.lastError" } },
-              then: {
+              kind: "causalGuard",
+              guardId: "hcts-fulfill-failing",
+              body: {
                 kind: "effect",
                 type: "failing",
                 params: {},
@@ -230,7 +295,7 @@ describe("HCTS Fulfillment Tests", () => {
       // Verify: Even with error, requirement should be cleared
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
 
-      const hostState = getHostState(finalSnapshot.data);
+      const hostState = getHostState(finalSnapshot);
 
       expect(hostState?.lastError).toBeDefined();
       expect(hostState?.lastError?.code).toBe("EFFECT_EXECUTION_FAILED");
@@ -242,14 +307,9 @@ describe("HCTS Fulfillment Tests", () => {
         actions: {
           unknownEffect: {
             flow: {
-              kind: "if",
-              cond: { kind: "get", path: "$host.lastError" },
-              then: {
-                kind: "patch",
-                op: "set", path: pp("errorHandled"),
-                value: { kind: "lit", value: true },
-              },
-              else: {
+              kind: "causalGuard",
+              guardId: "hcts-fulfill-unknown",
+              body: {
                 kind: "effect",
                 type: "nonexistent",
                 params: {},
@@ -274,7 +334,7 @@ describe("HCTS Fulfillment Tests", () => {
 
       // Verify: Requirement cleared even for unknown effect
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
-      const hostState = getHostState(finalSnapshot.data);
+      const hostState = getHostState(finalSnapshot);
       expect(hostState?.lastError).toBeDefined();
       expect(hostState?.lastError?.code).toBe("UNKNOWN_EFFECT");
     });

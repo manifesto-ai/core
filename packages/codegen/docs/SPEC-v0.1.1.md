@@ -4,11 +4,12 @@
 > **Version:** 0.1.1
 > **Date:** 2026-02-05
 > **Scope:** `@manifesto-ai/codegen` (build-time code generation tooling)
-> **Compatible with:** Core SPEC v2.0.x (`DomainSchema`, `TypeSpec`, `TypeDefinition`)
+> **Compatible with:** Current Core `DomainSchema`, Compiler `DomainModule` tooling sidecars, and SDK v5 domain facade surface
 > **Implements:** ADR-CODEGEN-001 v0.3.1
 > **Authors:** Manifesto Team
 > **License:** MIT
 > **Changelog:**
+> - **Current v5 alignment (2026-05-07):** ADR-025/ADR-026 in-place alignment: `snapshot.state` ontology, `state.fieldTypes` / `action.inputType` / `action.params` typing seams, generated domain facade guidance for SDK v5 `action.*`, `ActionInput`, `ActionArgs`, and reserved public action-name rejection
 > - **v0.1.1 (2026-02-05):** Critical fixes: (1) `CodegenOutput.diagnostics` field added, (2) GEN-5/GEN-8 — error diagnostics prevent all disk mutation including outDir clean, (3) TS-4 demoted MUST→SHOULD, (4) ZOD-7 — non-string record key degrade policy, (5) GEN-9 — multi-invocation pattern
 > - **v0.1.0 (2026-02-05):** Initial specification — Plugin interface, FilePatch model, Runner rules, TS/Zod plugin mapping, artifacts pipeline, generation scope
 
@@ -67,6 +68,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 | `FP-*` | FilePatch rules |
 | `TS-*` | TypeScript plugin mapping rules |
 | `ZOD-*` | Zod plugin mapping rules |
+| `FAC-*` | SDK v5 domain facade output rules |
 | `OUT-*` | Output layout rules |
 | `DET-*` | Determinism rules |
 | `SYNC-*` | DomainSchema synchronization rules |
@@ -83,6 +85,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 - Runner execution semantics (ordering, flush, clean)
 - TypeScript type generation from `TypeDefinition`
 - Zod schema generation from `TypeDefinition`
+- Canonical domain facade generation for SDK v5 consumers
 - Artifacts pipeline between plugins
 - Generated file header format
 - Determinism guarantees
@@ -96,9 +99,11 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 | Runtime validation logic | Host's responsibility (refine overlay is handwritten) |
 | Formatting/prettification | Consumer's lint/format pipeline responsibility |
 | Watch/dev mode | DomainSchema changes are infrequent; manual CLI suffices for v0.1 |
-| Computed type inference | Requires Expr-based type inference engine; deferred to future ADR |
+| Full computed type inference for legacy TS/Zod outputs | Domain facade MAY infer safe Expr cases, but legacy TS/Zod computed artifact generation is not the primary target |
 | Multi-schema codegen | Single `DomainSchema` per invocation in v0.1 |
 | Third-party plugin ecosystem | Array ordering suffices for 1st-party plugins |
+| Runtime action execution | SDK/Host/decorator responsibility; codegen only emits build-time type artifacts |
+| Authority, proposal, or lineage settlement | Governance and Lineage responsibility; codegen does not govern or seal |
 
 ---
 
@@ -117,13 +122,14 @@ Codegen operates **outside** the Manifesto runtime stack. It is a build-time too
 ┌─────────────────────────────────────────────────┐
 │             DomainSchema (Core IR)              │
 │  types · state · computed · actions · meta      │
+│  state.fieldTypes · action.inputType · params    │
 └──────┬───────────────────────────┬──────────────┘
        │                           │
        │  (runtime)                │  (build-time)
        ▼                           ▼
 ┌──────────────┐          ┌───────────────────┐
-│ Runtime/App  │          │  @manifesto-ai/   │
-│ packages     │          │  codegen           │
+│ SDK/Host/    │          │  @manifesto-ai/   │
+│ decorators   │          │  codegen           │
 │ (runtime     │          │                   │
 │  stack)      │          │  plugins:         │
 └──────────────┘          │   ├ plugin-ts     │
@@ -133,6 +139,7 @@ Codegen operates **outside** the Manifesto runtime stack. It is a build-time too
                                     ▼
                           ┌───────────────────┐
                           │  Generated Files  │
+                          │  <domain>.domain.ts│
                           │  types.ts         │
                           │  base.ts          │
                           │  actions.ts       │
@@ -143,7 +150,7 @@ Codegen operates **outside** the Manifesto runtime stack. It is a build-time too
 
 | Package | Depends On | Does NOT Depend On |
 |---------|------------|-------------------|
-| `@manifesto-ai/codegen` | `@manifesto-ai/core` (peerDep, types only) | Host, SDK, Lineage, Governance, App, Compiler impl |
+| `@manifesto-ai/codegen` | `@manifesto-ai/core` (peerDep, types only); MAY type-reference public SDK facade types in generated declarations | Host internals, SDK internals, Lineage internals, Governance internals, App, Compiler impl |
 | `@manifesto-ai/codegen-plugin-ts` | `@manifesto-ai/codegen` | Zod, any runtime library |
 | `@manifesto-ai/codegen-plugin-zod` | `@manifesto-ai/codegen`, `zod` (peerDep) | Host, any runtime library |
 
@@ -154,14 +161,21 @@ Codegen operates **outside** the Manifesto runtime stack. It is a build-time too
 | MEL syntax | Compiler | Receives `DomainSchema`, never MEL text |
 | Runtime state values | Core/Host | Receives schema structure, never runtime data |
 | Effect execution | Host | Generates types for action inputs, not effect handlers |
-| Governance/Authority | World | No interaction |
-| Semantic validation | Host (refine) | Generates structural base only |
+| Runtime action submission | SDK/Host/decorators | Generates facade types, not action execution code |
+| Governance/Authority | Governance | No policy evaluation, no implicit decisions, no proposal settlement |
+| Lineage continuity | Lineage | No sealing, restore, branch/head history, or stored snapshot lookup |
+| Semantic validation | Core/Host and consumer refine overlays | Generates structural base only |
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| FAC-1 | MUST NOT | Codegen MUST NOT generate lower-authority write backdoors such as canonical root `dispatchAsync`, `commitAsync`, or `proposeAsync` facades for the SDK v5 surface. |
+| FAC-2 | MUST NOT | Codegen MUST NOT execute effects, evaluate governance policy, seal lineage records, or apply runtime patches. |
 
 ---
 
 ## 5. Core Types
 
-### 5.1 DomainSchema (Input — from Core SPEC v2.0.x)
+### 5.1 DomainSchema (Input — from current Core SPEC)
 
 Codegen consumes `DomainSchema` as defined in Core SPEC §4. The following fields are relevant to codegen:
 
@@ -194,6 +208,28 @@ type TypeDefinition =
 ```
 
 **Normative**: Codegen MUST NOT redefine or extend these types. Codegen imports them from `@manifesto-ai/core`.
+
+Current Core and Compiler may also expose precise typing sidecars on the same
+schema objects:
+
+```typescript
+type StateSpec = {
+  readonly fields: Record<string, FieldSpec>;
+  readonly fieldTypes?: Record<string, TypeDefinition>;
+};
+
+type ActionSpec = {
+  readonly input?: FieldSpec;
+  readonly inputType?: TypeDefinition;
+  readonly params?: readonly string[];
+};
+```
+
+`state.fields` and `action.input` remain compatibility and coarse validation
+surfaces. `state.fieldTypes`, `action.inputType`, and `action.params` are the
+authoritative typing seams when present. `action.params` carries parameter names
+and declared order only. Parameter types are resolved from the object fields in
+`action.inputType`, keyed by each parameter name.
 
 ### 5.2 Diagnostic
 
@@ -440,17 +476,20 @@ if (ts) {
 
 ### 10.1 DomainSchema Field Coverage
 
-| DomainSchema Field | TS Types | Zod Schemas | Status | Notes |
-|--------------------|----------|-------------|--------|-------|
-| `types` (TypeSpec) | ✅ | ✅ | Primary target | Named types — codegen's core input |
-| `state` (StateSpec) | ⚠️ best-effort | ⚠️ best-effort | Limited | See §10.2 |
-| `computed` (ComputedSpec) | ❌ | ❌ | Deferred | Requires Expr-based type inference; out of v0.1 scope |
-| `actions` (ActionSpec) | ✅ (input types) | ✅ (input validation) | Supported | Action inputs originate externally |
-| `meta` | ❌ | ❌ | Excluded | Build metadata; no runtime use |
+| DomainSchema Field | Domain Facade | TS Types | Zod Schemas | Status | Notes |
+|--------------------|---------------|----------|-------------|--------|-------|
+| `types` (TypeSpec) | reference source | yes | yes | Primary target | Named types remain codegen's precise structural source |
+| `state.fieldTypes` | yes | yes | yes | Current primary | Precise state field typing when present |
+| `state.fields` | fallback | best-effort | best-effort | Compatibility | Coarse structural validation helper |
+| `computed` (ComputedSpec) | inferred best-effort | deferred | deferred | Limited | Domain facade MAY infer from pure Expr nodes and MUST degrade safely |
+| `actions[].inputType` | yes | yes | yes | Current primary | Precise action input object typing when present |
+| `actions[].params` | yes | yes | best-effort | Current primary | Public call-site tuple and packing names |
+| `actions[].input` | fallback | yes | yes | Compatibility | Coarse input field structure |
+| `meta` | metadata only | no | no | Excluded | Build metadata; not runtime state |
 
 ### 10.2 StateSpec Expressiveness Limitations
 
-Core SPEC's `StateSpec` / `FieldType` is intentionally simple — its concern is structural validation, not type precision:
+Core SPEC's `StateSpec` / `FieldSpec` is intentionally simple: its concern is structural validation and compatibility, not precise facade typing. Current compilers SHOULD emit `state.fieldTypes` when precise state types are known.
 
 | MEL Pattern | StateSpec Representation | Codegen Output | Problem |
 |-------------|------------------------|---------------|---------|
@@ -462,10 +501,123 @@ Core SPEC's `StateSpec` / `FieldType` is intentionally simple — its concern is
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| GEN-10 | MUST | Accurate domain structure types MUST be generated from `schema.types` (TypeSpec). |
-| GEN-11 | SHOULD | State types SHOULD be treated as "structural validation helpers" only. When a `StateSpec` field has a corresponding named type in `schema.types`, plugins SHOULD reference that TypeSpec. |
-| GEN-12 | MUST | When a `StateSpec` field's type cannot be precisely represented, plugins MUST degrade to `unknown` / `z.unknown()` and MUST emit a `Diagnostic` with level `"warn"`. |
-| GEN-13 | — | **Future path**: If the Compiler produces a synthesized `DomainState` TypeSpec for the state root, codegen SHOULD prefer it over raw `StateSpec` traversal. Out of v0.1 scope. |
+| GEN-10 | MUST | Accurate named domain structure types MUST be generated from `schema.types` (`TypeSpec`). |
+| GEN-11 | MUST | For state facade output, plugins MUST prefer `state.fieldTypes` over `state.fields` when present. |
+| GEN-12 | MUST | `state.fields` MUST remain a compatibility fallback for schemas that do not carry `state.fieldTypes`. |
+| GEN-13 | MUST | When a state field's type cannot be precisely represented, plugins MUST degrade to `unknown` / `z.unknown()` and MUST emit a `Diagnostic` with level `"warn"`. |
+| GEN-14 | MUST | Codegen MUST treat domain state as `snapshot.state`; legacy `$host` / `$mel` namespace fields, retired `$system` lexical runtime values, and other platform/runtime/tooling bookkeeping MUST NOT be generated as domain state facade fields unless explicitly requested for migration diagnostics. |
+
+### 10.4 SDK v5 Domain Facade Output
+
+The canonical domain plugin emits a build-time domain facade for SDK consumers.
+The facade is a type shape, not a runtime object:
+
+```typescript
+import type {
+  ActionArgs,
+  ActionHandle,
+  ActionInput,
+  ManifestoApp,
+  RuntimeMode,
+} from "@manifesto-ai/sdk";
+
+export interface Todo {
+  completed: boolean;
+  id: string;
+  title: string;
+}
+
+export interface TodoDomain {
+  readonly state: {
+    todos: Record<string, Todo>;
+  };
+  readonly computed: {
+    openCount: number;
+  };
+  readonly actions: {
+    addTodo(title: string): void;
+    completeTodo(id: string): void;
+  };
+}
+
+export type TodoActionInput<Name extends keyof TodoDomain["actions"] & string> =
+  ActionInput<TodoDomain, Name>;
+
+export type TodoActionArgs<Name extends keyof TodoDomain["actions"] & string> =
+  ActionArgs<TodoDomain, Name>;
+
+export type TodoActionSurface<TMode extends RuntimeMode> = {
+  readonly [Name in keyof TodoDomain["actions"] & string]:
+    ActionHandle<TodoDomain, Name, TMode>;
+};
+
+export type TodoActionSurfaceFromApp<TMode extends RuntimeMode> =
+  ManifestoApp<TodoDomain, TMode>["action"];
+
+export type TodoApp<TMode extends RuntimeMode> =
+  ManifestoApp<TodoDomain, TMode>;
+```
+
+The exact alias names MAY vary by configured interface name, but the generated
+types MUST remain assignable to SDK v5 `ManifestoDomainShape` and MUST use SDK
+public types rather than SDK internals. Generated v5 facade files that import
+SDK facade helpers introduce a consumer-side type-only dependency on
+`@manifesto-ai/sdk`; the Codegen package and plugin runtime MUST NOT depend on
+SDK internals.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| FAC-14 | MUST | Generated domain facade files MUST NOT contain unresolved TypeScript identifiers produced from `TypeDefinition.ref`. Every emitted named type reference MUST resolve to a declaration in the same generated file or to an explicit type-only import produced by the same codegen plan. |
+| FAC-15 | MUST | The default canonical domain plugin output MUST be self-contained for `schema.types`: when it emits a `TypeDefinition.ref` to a named schema type, it MUST also emit that named type declaration in the same `<source>.domain.ts` file. |
+| FAC-16 | MUST | Named type declarations emitted by the canonical domain plugin MUST follow the TypeScript mapping rules in §11, including `TS-3` named object/interface output and deterministic ordering. |
+| FAC-17 | MUST | If a `TypeDefinition.ref` cannot be resolved from `schema.types` or an explicit generated type import plan, the plugin MUST degrade that position to `unknown` and emit a `Diagnostic` with level `"warn"` instead of producing an unresolved identifier. |
+
+### 10.5 Action Argument and Input Policy
+
+`ActionArgs<TDomain, Name>` is the public call-site tuple. `ActionInput<TDomain,
+Name>` is the SDK-bound candidate input preserved on `BoundAction.input`.
+`action.params` is the only declared positional parameter-order seam. Object
+field order from `inputType` or `input` is structural, not a public tuple order.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| FAC-3 | MUST | Generated action function signatures MUST derive public parameter order from `action.params` when present and MUST resolve each parameter type by name from the object fields in `action.inputType` or compatibility `action.input`. |
+| FAC-4 | MUST | Generated action input aliases MUST use SDK `ActionInput<TDomain, Name>` or an exactly assignable equivalent. |
+| FAC-5 | MUST | Generated action argument aliases MUST use SDK `ActionArgs<TDomain, Name>` or an exactly assignable equivalent. |
+| FAC-6 | MUST NOT | Codegen MUST NOT infer SDK execution view settings structurally from action input. Context, diagnostics, and report settings belong to the SDK `with(view)` stage before action selection. |
+| FAC-7 | MUST NOT | If `action.params` is absent, Codegen MUST NOT invent positional call-site parameters from `action.inputType`, `action.input`, or object field ordering. |
+| FAC-12 | MUST | If `action.params` is absent and an action has an object-shaped `inputType` or `input`, the generated public signature MUST use one object input argument. |
+| FAC-13 | MUST | If `action.params` is absent and an action has no input carrier, the generated public signature MUST be zero-argument. |
+
+### 10.6 `action.*` and Reserved Public Action-Name Policy
+
+`action.*` is the canonical static action namespace on `ManifestoApp`.
+`actions.*` and `app.action(name)` are not canonical SDK v5 semantic action
+accessors.
+
+Generated facade output MUST model valid actions as static `action.x` handles.
+Dynamic collision-safe action access is intentionally absent. The current v5
+reserved public action-name set is exactly `then`, `constructor`, `prototype`,
+and `__proto__`; those names MUST fail before generated facade output is
+treated as valid.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| FAC-8 | MUST | Generated `action.x` types MUST map each declared valid action name to `ActionHandle<TDomain, Name, TMode>`. |
+| FAC-9 | MUST | Generated app/facade helper types MUST preserve typed static action namespace access through `ManifestoApp<TDomain, TMode>["action"]` or an exactly assignable helper. |
+| FAC-10 | MUST | Actions named `then`, `constructor`, `prototype`, or `__proto__` MUST be rejected before generated facade output is treated as valid. |
+| FAC-11 | MUST NOT | Generated output MUST NOT promise `action.x` property access or typed `action(name)` semantic access for reserved public action names. |
+
+### 10.7 ADR-025 Snapshot Ontology Consequences
+
+Codegen consumes schema structure only; it does not read Snapshots. Generated
+facades nevertheless MUST model the current Snapshot ontology:
+
+- domain fields belong to `snapshot.state`
+- derived fields belong to `snapshot.computed`
+- platform/runtime/tooling fields belong to `snapshot.namespaces`
+- generated SDK projected snapshot types MUST NOT reintroduce the retired data root
+- generated domain facade state MUST NOT include platform namespace fields by default
 
 ---
 
@@ -565,6 +717,14 @@ export const ProofNodeSchema = z.object({
 
 ### 13.1 Recommended Directory Structure
 
+**Canonical domain facade** (SDK v5 typed domain surface):
+
+```
+<project>/src/domain/
+  todo.mel
+  todo.domain.ts    ← DomainSchema → state/computed/actions facade
+```
+
 **TypeScript types** (runtime-dependency-free, shareable):
 
 ```
@@ -598,6 +758,8 @@ export const ProofNodeSchema = z.object({
 | OUT-2 | MUST | Zod schemas MUST NOT be placed in a runtime-dependency-free package. Zod output MUST reside on the Host side (or equivalent consumer-side package). |
 | OUT-3 | SHOULD | TS types package SHOULD NOT import Zod or any validation library. |
 | OUT-4 | SHOULD | Each plugin SHOULD use a distinct `outDir` to avoid cross-plugin file collision. |
+| OUT-5 | SHOULD | The canonical domain plugin SHOULD emit `<source>.domain.ts` next to the MEL source or into an equivalent generated-only facade location. |
+| OUT-6 | MUST | Generated domain facade files MUST NOT contain runtime implementation code for SDK/Host/Lineage/Governance behavior. |
 
 ---
 
@@ -685,10 +847,15 @@ If `opts.stamp` is `true`:
 ```jsonc
 {
   "peerDependencies": {
-    "@manifesto-ai/core": "~2.0.0"   // pin until TypeDefinition stabilizes
+    "@manifesto-ai/core": "<current compatible range>" // package manifest is authoritative
   }
 }
 ```
+
+The published package manifest is the source of truth for the exact Core peer
+range. The SPEC requirement is that Codegen follows the current Core
+`DomainSchema` contract and degrades safely when Core adds new `TypeDefinition`
+or schema sidecar shapes.
 
 ### 16.2 Unknown Kind Fallback
 
@@ -709,8 +876,9 @@ default: {
 |---------|-------|-------------|
 | SYNC-1 | MUST | Codegen MUST declare `@manifesto-ai/core` as a `peerDependency`. |
 | SYNC-2 | MUST | All plugins MUST handle unknown `TypeDefinition.kind` gracefully (= PLG-3). |
-| SYNC-3 | SHOULD | Cross-repo CI SHOULD detect `DomainSchema` breaking changes within 24 hours. |
-| SYNC-4 | SHOULD | `peerDependency` range SHOULD use tilde (`~`) pinning until `TypeDefinition` union is declared stable. |
+| SYNC-3 | MUST | Plugins that understand current typing sidecars MUST prefer `state.fieldTypes`, `action.inputType`, and `action.params` over compatibility `FieldSpec` fallbacks. |
+| SYNC-4 | SHOULD | Cross-repo CI SHOULD detect `DomainSchema` breaking changes within 24 hours. |
+| SYNC-5 | SHOULD | `peerDependency` range SHOULD use tilde (`~`) pinning until `TypeDefinition` union is declared stable. |
 
 ### 16.4 Reconsideration Trigger
 
@@ -750,6 +918,8 @@ If `TypeDefinition` changes cause codegen failures **two or more times per quart
 | INV-7 | **Graceful evolution.** Unknown `TypeDefinition.kind` → `unknown` + warning, never crash. | PLG-3, SYNC-2 |
 | INV-8 | **Path safety.** No generated file can escape `outDir`. | FP-1, FP-2, GEN-6 |
 | INV-9 | **Sequential execution.** Plugins execute one at a time, in declared order. | GEN-7 |
+| INV-10 | **Facade-only SDK alignment.** Generated SDK v5 facades expose type-safe action candidates without owning runtime authority. | FAC-* |
+| INV-11 | **Snapshot ontology alignment.** Generated domain state models `snapshot.state`, never the retired data root or platform namespaces. | GEN-14, FAC-* |
 
 ---
 
@@ -770,6 +940,7 @@ If `TypeDefinition` changes cause codegen failures **two or more times per quart
 | **Runner** | Plugin name uniqueness, patch collision detection, outDir clean on success, outDir preserved on error, path safety rejection, deterministic ordering, plugin diagnostics merge |
 | **TS Plugin** | TypeDefinition mapping (all known kinds + unknown fallback), named type output form, recursive union degrade, nullable semantics, diagnostics for unknown kinds |
 | **Zod Plugin** | TypeDefinition mapping (all known kinds + unknown fallback), `z.lazy()` for refs, nullable optimization, optional TS artifacts, non-string record key degrade |
+| **Domain Facade Plugin** | `state.fieldTypes` precedence, `action.params` tuple order, SDK `ActionInput` / `ActionArgs` assignability, `action.x` handle typing, reserved public action-name rejection, no retired v3 root verbs |
 | **Integration** | TS → Zod artifacts pipeline, multi-plugin collision detection, freshness check |
 
 ---
@@ -778,10 +949,14 @@ If `TypeDefinition` changes cause codegen failures **two or more times per quart
 
 | Reference | Version | Relationship |
 |-----------|---------|-------------|
-| Core SPEC | v2.0.x | `DomainSchema`, `TypeSpec`, `TypeDefinition`, `StateSpec`, `ActionSpec` |
-| MEL SPEC | v0.5.x | `compileMelDomain()` output |
-| Host Contract | v2.0.2 | Host boundary validation (refine overlay consumer) |
-| App SPEC | v2.0.0 | `$mel` namespace, platform namespace policy |
+| Core SPEC | current | `DomainSchema`, `TypeSpec`, `TypeDefinition`, `StateSpec`, `ActionSpec`, Snapshot ontology |
+| Compiler SPEC | current | `compileMelDomain()` output, `DomainModule` tooling sidecars, `state.fieldTypes`, `action.inputType`, `action.params` |
+| SDK SPEC | v5.0.0 surface | `ManifestoDomainShape`, `ManifestoApp`, `ActionHandle`, `ActionInput`, `ActionArgs`, `action.*` |
+| Host Contract | current | Host boundary validation and refine overlay consumer |
+| Lineage SPEC | v5.0.0 surface | Lineage-mode `submit()` authority boundary that codegen does not implement |
+| Governance SPEC | v5.0.0 surface | Governance-mode `submit()` and settlement authority that codegen does not implement |
+| ADR-025 | accepted | Snapshot ontology hard cut: `snapshot.state` and `snapshot.namespaces` |
+| ADR-026 | accepted | SDK v5 action-candidate surface and Codegen/domain facade guidance |
 | ADR-CODEGEN-001 | v0.3.1 | Architectural decisions governing this specification |
 | RFC 2119 | — | Normative language definitions |
 
@@ -803,8 +978,10 @@ If `TypeDefinition` changes cause codegen failures **two or more times per quart
 | GEN-8 | MUST NOT | No disk modification on error |
 | GEN-9 | MAY | Multiple generate() invocations |
 | GEN-10 | MUST | TypeSpec is primary source |
-| GEN-11 | SHOULD | StateSpec is supplementary |
-| GEN-12 | MUST | Degrade unknown StateSpec → `unknown` + warn |
+| GEN-11 | MUST | Prefer state.fieldTypes |
+| GEN-12 | MUST | Keep state.fields fallback |
+| GEN-13 | MUST | Degrade unknown StateSpec → `unknown` + warn |
+| GEN-14 | MUST | Domain state maps to snapshot.state, not platform namespaces |
 
 ### Plugin Rules (PLG-*)
 
@@ -821,6 +998,24 @@ If `TypeDefinition` changes cause codegen failures **two or more times per quart
 | PLG-9 | MUST | Frozen artifacts snapshot |
 | PLG-10 | MUST NOT | No forward artifact references |
 | PLG-11 | SHOULD | Graceful degrade on missing artifacts |
+
+### Facade Rules (FAC-*)
+
+| ID | Level | Summary |
+|----|-------|---------|
+| FAC-1 | MUST NOT | No lower-authority v3 write backdoors |
+| FAC-2 | MUST NOT | No runtime execution, governance, lineage, or patch application |
+| FAC-3 | MUST | Derive parameter order from action.params and types by name |
+| FAC-4 | MUST | Generated ActionInput aliases align with SDK |
+| FAC-5 | MUST | Generated ActionArgs aliases align with SDK |
+| FAC-6 | MUST NOT | Do not structurally infer SDK option bags |
+| FAC-7 | MUST NOT | Do not invent positional parameters when action.params is absent |
+| FAC-8 | MUST | action.x maps to ActionHandle for valid names |
+| FAC-9 | MUST | ManifestoApp["action"] static namespace remains typed |
+| FAC-10 | MUST | Reserved public action names are rejected before generated facade output is valid |
+| FAC-11 | MUST NOT | Do not promise action.x or action(name) access for reserved names |
+| FAC-12 | MUST | Use one object input argument when params is absent but input carrier exists |
+| FAC-13 | MUST | Use zero arguments when params and input carrier are absent |
 
 ### FilePatch Rules (FP-*)
 

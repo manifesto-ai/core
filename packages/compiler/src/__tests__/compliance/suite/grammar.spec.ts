@@ -73,17 +73,22 @@ describe("CCTS Grammar Suite", () => {
     ]);
   });
 
-  it(caseTitle(CCTS_CASES.GRAMMAR_INVALID_SYSTEM_REF, "(E003) invalid system references are diagnosed"), () => {
+  it(caseTitle(CCTS_CASES.GRAMMAR_INVALID_SYSTEM_REF, "(E003) invalid runtime references are diagnosed"), () => {
     const result = adapter.compile(`
       domain Demo {
-        computed value = $system.nope
+        state { value: string = "" }
+        action update() {
+          when true {
+            patch value = $runtime.nope
+          }
+        }
       }
     `);
 
     expectAllCompliance([
       evaluateRule(getRuleOrThrow("E003"), hasDiagnosticCode(result.errors, "E003"), {
-        passMessage: "Invalid $system keys are diagnosed.",
-        failMessage: "Invalid $system keys were accepted.",
+        passMessage: "Invalid $runtime keys are diagnosed.",
+        failMessage: "Invalid $runtime keys were accepted.",
         evidence: diagnosticEvidence(result.errors),
       }),
     ]);
@@ -105,7 +110,7 @@ describe("CCTS Grammar Suite", () => {
         state { onceIntent: string = "" }
         action submit() {
           once(onceIntent) {
-            patch onceIntent = $meta.intentId
+            patch onceIntent = $runtime.intent.id
           }
         }
       }

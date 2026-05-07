@@ -17,12 +17,12 @@ domain EffectsRecord {
     settings: Record<string, Setting> = {}
 
     // Results
-    taskIds: Array<string> | null = null
+    taskIds: Array<string> = []
     taskList: Array<Task> | null = null
     taskEntries: Array<Entry> | null = null
     activeTasks: Array<Task> | null = null
 
-    userIds: Array<string> | null = null
+    userIds: Array<string> = []
     userList: Array<User> | null = null
 
     settingKeys: Array<string> | null = null
@@ -38,7 +38,6 @@ domain EffectsRecord {
   // Extract all keys from a Record
   action getTaskIds() {
     once(gettingKeys) {
-      patch gettingKeys = $meta.intentId
       effect record.keys({
         source: tasks,
         into: taskIds
@@ -48,7 +47,6 @@ domain EffectsRecord {
 
   action getUserIds() {
     once(gettingKeys) {
-      patch gettingKeys = $meta.intentId
       effect record.keys({
         source: users,
         into: userIds
@@ -60,7 +58,6 @@ domain EffectsRecord {
   // Extract all values from a Record
   action getTaskList() {
     once(gettingValues) {
-      patch gettingValues = $meta.intentId
       effect record.values({
         source: tasks,
         into: taskList
@@ -70,7 +67,6 @@ domain EffectsRecord {
 
   action getUserList() {
     once(gettingValues) {
-      patch gettingValues = $meta.intentId
       effect record.values({
         source: users,
         into: userList
@@ -82,7 +78,6 @@ domain EffectsRecord {
   // Extract key-value pairs
   action getTaskEntries() {
     once(gettingEntries) {
-      patch gettingEntries = $meta.intentId
       effect record.entries({
         source: tasks,
         into: taskEntries
@@ -94,7 +89,6 @@ domain EffectsRecord {
   action processActiveTasks() {
     // Step 1: Get all task values
     once(gettingValues) {
-      patch gettingValues = $meta.intentId
       effect record.values({
         source: tasks,
         into: taskList
@@ -103,7 +97,6 @@ domain EffectsRecord {
 
     // Step 2: Filter active tasks
     once(gettingKeys) when isNotNull(taskList) {
-      patch gettingKeys = $meta.intentId
       effect array.filter({
         source: taskList,
         where: eq($item.active, true),
@@ -114,8 +107,8 @@ domain EffectsRecord {
 
   // --- Count Record Entries ---
   // Note: len() doesn't work on Records directly
-  computed taskCount = isNotNull(taskIds) ? len(taskIds) : 0
-  computed userCount = isNotNull(userIds) ? len(userIds) : 0
+  computed taskCount = len(taskIds)
+  computed userCount = len(userIds)
 
   // --- Check if Record has key ---
   computed hasTask1 = isNotNull(at(tasks, "task-1"))
@@ -128,11 +121,11 @@ domain EffectsRecord {
   // --- Reset ---
   action reset() {
     when true {
-      patch taskIds = null
+      patch taskIds = []
       patch taskList = null
       patch taskEntries = null
       patch activeTasks = null
-      patch userIds = null
+      patch userIds = []
       patch userList = null
       patch settingKeys = null
       patch settingValues = null

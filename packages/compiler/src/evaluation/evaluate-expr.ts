@@ -10,7 +10,8 @@
 
 import type { ExprNode } from "@manifesto-ai/core";
 import type { EvaluationContext } from "./context.js";
-import { parsePath } from "@manifesto-ai/core";
+import { getRuntimeAllocationState } from "./context.js";
+import { parsePath, sha256Sync, toCanonical } from "@manifesto-ai/core";
 import { compareUnicodeCodePoints } from "../utils/unicode-order.js";
 
 // ============ Main Evaluation Function ============
@@ -220,11 +221,12 @@ function evaluateNode(expr: ExprNode, ctx: EvaluationContext): unknown {
  * Resolve a path in the evaluation context.
  *
  * Path prefixes:
- * - meta.* → ctx.meta
+ * - $runtime.* → ctx.runtime
+ * - $context.* → ctx.context
  * - input.* → ctx.input
  * - $item.* → ctx.item
  * - computed.* → ctx.snapshot.computed
- * - (other) → ctx.snapshot.data
+ * - (other) → ctx.snapshot.state
  *
  * @see SPEC v0.4.0 §18.7
  */
@@ -232,8 +234,15 @@ function resolvePath(path: string, ctx: EvaluationContext): unknown {
   const parts = parsePath(path);
 
   // Special prefixes
-  if (parts[0] === "meta") {
-    return getValueAtPath(ctx.meta, parts.slice(1));
+  if (parts[0] === "$runtime") {
+    return resolveRuntimePath(parts.slice(1), ctx);
+  }
+
+  if (parts[0] === "$context") {
+    if (parts.length === 1) {
+      return ctx.context ?? null;
+    }
+    return getValueAtPath(ctx.context, parts.slice(1));
   }
 
   if (parts[0] === "input") {
@@ -251,12 +260,67 @@ function resolvePath(path: string, ctx: EvaluationContext): unknown {
   }
 
   // Computed: bare key lookup (no prefix)
-  if (path in ctx.snapshot.computed) {
+  if (Object.prototype.hasOwnProperty.call(ctx.snapshot.computed, path)) {
     return ctx.snapshot.computed[path];
   }
 
-  // Default: resolve in snapshot.data
-  return getValueAtPath(ctx.snapshot.data, parts);
+  // Default: resolve in snapshot.state
+  return getValueAtPath(ctx.snapshot.state, parts);
+}
+
+function resolveRuntimePath(parts: string[], ctx: EvaluationContext): unknown {
+  const key = parts.join(".");
+  switch (key) {
+    case "intent.id":
+      return ctx.runtime?.intent?.id ?? null;
+    case "intent.action":
+      return ctx.runtime?.intent?.action ?? null;
+    case "time.timestamp":
+      return ctx.runtime?.time?.timestamp ?? null;
+    case "time.iso": {
+      const explicit = ctx.runtime?.time?.iso;
+      if (explicit !== undefined) {
+        return explicit;
+      }
+      const timestamp = ctx.runtime?.time?.timestamp;
+      return typeof timestamp === "number" && Number.isFinite(timestamp)
+        ? new Date(timestamp).toISOString()
+        : null;
+    }
+    case "random.seed":
+      return ctx.runtime?.random?.seed ?? null;
+    case "random.uuid":
+      return deriveRuntimeUuid(ctx);
+    default:
+      return null;
+  }
+}
+
+function deriveRuntimeUuid(ctx: EvaluationContext): string {
+  const allocator = getRuntimeAllocationState(ctx);
+  const ordinal = allocator.ordinal;
+  allocator.ordinal = ordinal + 1;
+
+  const allocationSite = toCanonical({
+    expressionPath: "$runtime.random.uuid",
+    ordinal,
+  });
+  const seed = toCanonical({
+    runtimeSeed: ctx.runtime?.random?.seed ?? "",
+    intentId: ctx.runtime?.intent?.id ?? ctx.meta.intentId,
+    intentAction: ctx.runtime?.intent?.action ?? "",
+    allocationSite,
+  });
+  const hex = sha256Sync(seed).slice(0, 32).padEnd(32, "0");
+  const variant = ((Number.parseInt(hex[16] ?? "0", 16) & 0x3) | 0x8).toString(16);
+
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    `4${hex.slice(13, 16)}`,
+    `${variant}${hex.slice(17, 20)}`,
+    hex.slice(20, 32),
+  ].join("-");
 }
 
 /**
@@ -276,6 +340,9 @@ function getValueAtPath(obj: unknown, parts: string[]): unknown {
   }
 
   const [head, ...rest] = parts;
+  if (!Object.prototype.hasOwnProperty.call(obj, head)) {
+    return null;
+  }
   const next = (obj as Record<string, unknown>)[head];
 
   if (rest.length === 0) {

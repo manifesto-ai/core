@@ -2,7 +2,7 @@
 
 > Solve one concrete problem at a time.
 
-If you are still learning the basics, start with [Quick Start](/guide/quick-start) and then the [Tutorial](/tutorial/). These guides assume you already know how to dispatch intents and read Snapshots.
+If you are still learning the basics, start with [Quick Start](/guide/quick-start) and then the [Tutorial](/tutorial/). These guides assume you already know how to submit action candidates and read Snapshots.
 
 ## Build And Debug
 
@@ -34,9 +34,9 @@ If you are still learning the basics, start with [Quick Start](/guide/quick-star
 
 - You use `createManifesto()` and `activate()` for base runtime apps.
 - You add `withLineage()` and `withGovernance()` only when the app needs the advanced runtime.
-- You create intents through an activated runtime or low-level governance helpers.
+- You submit typed action candidates through an activated runtime; raw intents are advanced protocol artifacts.
 - You observe outcomes through subscriptions, runtime events, governed proposals, and lineage/governance query APIs.
-- You treat `getSnapshot()` as the default runtime read model and escalate to canonical reads only when needed.
+- You treat `snapshot()` as the default runtime read model and escalate to canonical reads only when needed.
 
 ## See Also
 

@@ -71,7 +71,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 | **Role** | Parse, validate, and lower MEL into `DomainSchema` |
 | **Primary API** | MEL plugins, compiler entrypoints, schema extraction helpers |
 | **Owns** | MEL syntax, validation, lowering, schema derivation |
-| **Does NOT Know** | Runtime execution, approval decisions, effect fulfillment |
+| **Does NOT Know** | Runtime execution, dynamic patch target resolution, approval decisions, effect fulfillment |
 
 ### Core
 
@@ -90,9 +90,9 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Execute requirements, apply patches/system delta, drive compute to terminal state |
+| **Role** | Execute requirements, apply domain patches, namespace deltas, and system deltas, drive compute to terminal state |
 | **Primary API** | `createHost()`, `dispatch()`, effect registration |
-| **Owns** | Mailbox/job model, effect execution, deterministic host context |
+| **Owns** | Mailbox/job model, effect execution, ADR-027 context materialization |
 | **Does NOT Know** | Proposal legitimacy, authority policy, branch/head history |
 
 ### SDK
@@ -101,9 +101,9 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Compose the direct-dispatch runtime and present the public app-facing API |
-| **Primary API** | `createManifesto()`, `activate()`, `createIntent()`, `dispatchAsync()` |
-| **Owns** | Direct runtime assembly, telemetry, projected reads, public instance surface |
+| **Role** | Compose the base runtime and present the public app-facing API |
+| **Primary API** | `createManifesto()`, `activate()`, `action.<name>.submit()`, `snapshot()` |
+| **Owns** | Runtime assembly, telemetry, projected reads, public action-candidate surface |
 | **Does NOT Know** | Core internals, authority policy internals, lineage storage internals |
 
 ### Lineage
@@ -113,7 +113,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 | Aspect | Definition |
 |--------|------------|
 | **Role** | Add sealing, restore, branch/head queries, and stored Lineage World snapshots |
-| **Primary API** | `withLineage()`, `commitAsync()`, `restore()`, lineage queries |
+| **Primary API** | `withLineage()`, `action.<name>.submit()`, `restore()`, lineage queries |
 | **Owns** | Lineage World history, branch/head refs, seal records, stored canonical snapshots |
 | **Does NOT Know** | Host execution micro-steps, approval policy semantics |
 
@@ -124,7 +124,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 | Aspect | Definition |
 |--------|------------|
 | **Role** | Add proposal lifecycle, approval/rejection, authority evaluation, and governed publication |
-| **Primary API** | `withGovernance()`, `proposeAsync()`, proposal queries, authority seams |
+| **Primary API** | `withGovernance()`, `action.<name>.submit()`, settlement/proposal queries, authority seams |
 | **Owns** | Proposal legitimacy, decision recording, governed execution admission |
 | **Does NOT Know** | Host execution micro-steps, Core semantic internals, implicit lineage creation |
 
@@ -134,9 +134,9 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 
 | Layer | Must Not Know |
 |-------|---------------|
-| **Compiler** | Runtime execution, effect fulfillment, governance policy |
+| **Compiler** | Runtime execution, dynamic patch target resolution, effect fulfillment, governance policy |
 | **Core** | IO, wall-clock behavior, execution loops, lineage/governance policy |
-| **Host** | Authority decisions, proposal semantics, branch/head legitimacy |
+| **Host** | Dynamic patch target resolution, authority decisions, proposal semantics, branch/head legitimacy |
 | **SDK** | Core internals, lineage storage internals, governance policy internals |
 | **Lineage** | Host execution micro-steps, authority logic |
 | **Governance** | Host execution micro-steps, implicit continuity ownership |
@@ -167,12 +167,12 @@ The important current ownership rule is that governed composition builds on the 
 
 The base activated instance lives in SDK and owns:
 
-- projected `getSnapshot()`
-- canonical `getCanonicalSnapshot()`
-- intent construction and dispatch
-- availability queries
-- projected introspection such as `getSchemaGraph()` and `simulate()`
-- execution telemetry for the direct runtime
+- projected `snapshot()`
+- canonical `inspect.canonicalSnapshot()`
+- action-candidate check, preview, and submit
+- availability queries through action handles and `inspect.availableActions()`
+- projected introspection such as `inspect.graph()`
+- execution telemetry for the base runtime
 
 ### Governed Runtime Surface
 
@@ -192,10 +192,8 @@ They do not replace Host or Core and they do not reintroduce a facade-owned exec
 ### Direct Dispatch
 
 ```typescript
-const instance = createManifesto(schema, effects).activate();
-await instance.dispatchAsync(
-  instance.createIntent(instance.MEL.actions.someAction),
-);
+const app = createManifesto(schema, effects).activate();
+await app.action.someAction.submit();
 ```
 
 ### Governed Composition

@@ -16,6 +16,7 @@ import type { ExecutionContext } from "../types/execution.js";
 import type { StartIntentJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";
 import { getHostState } from "../types/host-state.js";
+import { applyComputeResult } from "./compute-interlock.js";
 
 /**
  * Handle StartIntent job
@@ -40,7 +41,7 @@ export function handleStartIntent(
   // Get fresh snapshot (JOB-4)
   let snapshot = ctx.getSnapshot();
 
-  // Reset and freeze context for this job (CTX-1~5)
+  // Read the transition-attempt context (CTX-1~5)
   ctx.resetFrozenContext();
   const frozenContext = ctx.getFrozenContext();
 
@@ -49,12 +50,12 @@ export function handleStartIntent(
     t: "context:frozen",
     key: ctx.key,
     jobId: job.id,
-    now: frozenContext.now,
-    randomSeed: frozenContext.randomSeed,
+    now: frozenContext.runtime.time.timestamp,
+    randomSeed: frozenContext.runtime.random.seed,
   });
 
-  // Store intent slot in data.$host (HOST-NS-1)
-  const hostState = getHostState(snapshot.data);
+  // Store intent slot in namespaces.host (HOST-NS-1)
+  const hostState = getHostState(snapshot);
   const intentSlots = hostState?.intentSlots ?? {};
   const intentSlot =
     job.intent.input === undefined
@@ -64,14 +65,15 @@ export function handleStartIntent(
     ...intentSlots,
     [job.intentId]: intentSlot,
   };
-  ctx.applyPatches(
-    [
-      {
-        op: "merge",
-        path: [{ kind: "prop", name: "$host" }],
-        value: { intentSlots: nextSlots },
-      },
-    ],
+  ctx.applyNamespaceDeltas(
+    [{
+      namespace: "host",
+      patches: [{
+        op: "set",
+        path: [{ kind: "prop", name: "intentSlots" }],
+        value: nextSlots,
+      }],
+    }],
     "host-intent-slot"
   );
   snapshot = ctx.getSnapshot();
@@ -83,6 +85,7 @@ export function handleStartIntent(
     job.intent,
     frozenContext
   );
+  ctx.recordCoreTrace?.(result.trace);
 
   // Emit core:compute trace
   ctx.trace({
@@ -92,13 +95,14 @@ export function handleStartIntent(
     iteration: 1,
   });
 
-  // Interlock order: apply(patches) -> applySystemDelta(systemDelta) -> dispatch
-  ctx.applyPatches(result.patches, "compute");
-  ctx.applySystemDelta(result.systemDelta, "compute");
+  // Interlock order: apply(patches) -> applyNamespaceDeltas(namespaceDelta) -> applySystemDelta(systemDelta) -> dispatch
+  const applied = applyComputeResult(ctx, result);
 
   // Check terminal states
   if (
-    result.status === "complete"
+    applied.interlockError
+    || applied.snapshot.system.status === "error"
+    || result.status === "complete"
     || result.status === "error"
     || result.status === "halted"
   ) {

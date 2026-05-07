@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.0.0](https://github.com/manifesto-ai/core/compare/host-v2.9.1...host-v5.0.0) (2026-05-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **host:** align the public package release with canonical v5 Snapshots, namespace-owned Host diagnostics, and the concrete-patch Host/Core boundary.
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.13.0 to ^5.0.0
+
 ## [2.9.1](https://github.com/manifesto-ai/core/compare/host-v2.9.0...host-v2.9.1) (2026-04-23)
 
 

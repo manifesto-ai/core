@@ -4,31 +4,54 @@ import {
   type CounterDomain,
 } from "../helpers/schema.ts";
 
-const world = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
-const fieldName: string = world.MEL.state.count.name;
-const computedName: string = world.MEL.computed.doubled.name;
-const actionName: "increment" = world.MEL.actions.increment.name;
+const graph = app.inspect.graph();
+const incrementInfo = app.inspect.action("increment");
+const actionName: "increment" = incrementInfo.name;
+const availableActions = app.inspect.availableActions();
+const schemaHash: string = app.inspect.schemaHash();
+const canonical = app.inspect.canonicalSnapshot();
+const snapshot = app.snapshot();
+const unsubscribeState = app.observe.state(
+  (nextSnapshot) => nextSnapshot.state.count,
+  (next, prev) => {
+    const nextCount: number = next;
+    const previousCount: number = prev;
+    void nextCount;
+    void previousCount;
+  },
+);
+const unsubscribeEvent = app.observe.event("submission:settled", (payload) => {
+  const actionNameFromPayload: string = payload.action;
+  const mode: "base" | "lineage" | "governance" = payload.mode;
+  const schemaHashFromPayload: string = payload.schemaHash;
+  // @ts-expect-error observe.event payloads do not embed projected snapshots
+  payload.snapshot;
+  // @ts-expect-error observe.event payloads do not embed canonical snapshots
+  payload.canonicalSnapshot;
+  void actionNameFromPayload;
+  void mode;
+  void schemaHashFromPayload;
+});
+const preview = app.action.increment.preview();
+const changedPaths: readonly { readonly path: readonly (string | number)[]; readonly kind: "set" | "unset" | "changed" }[] = preview.admitted ? preview.changes : [];
 
-const graph = world.getSchemaGraph();
-void graph.traceDown(world.MEL.state.count);
 void graph.traceUp("state:count");
-
-const simulated = world.simulate(world.MEL.actions.increment);
-const changedPaths: readonly string[] = simulated.changedPaths;
-const available: readonly (keyof CounterDomain["actions"])[] = simulated.newAvailableActions;
-const trace = simulated.diagnostics?.trace;
-
-void fieldName;
-void computedName;
+void availableActions;
 void actionName;
+void schemaHash;
+void canonical.namespaces;
+void snapshot.state.count;
+void unsubscribeState;
+void unsubscribeEvent;
 void changedPaths;
-void available;
-void trace;
 
-// @ts-expect-error FieldRef no longer exposes path in the public type surface
-world.MEL.state.count.path;
-// @ts-expect-error ComputedRef no longer exposes path in the public type surface
-world.MEL.computed.doubled.path;
+// @ts-expect-error canonical substrate reads are inspect-only in the v5 root
+app.getCanonicalSnapshot();
+// @ts-expect-error schema graph reads are inspect-only in the v5 root
+app.getSchemaGraph();
+// @ts-expect-error legacy dispatch event names are not canonical v5 observe events
+app.observe.event("dispatch:completed", () => {});
 
 export {};

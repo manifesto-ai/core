@@ -22,19 +22,35 @@ export const SystemDelta = z.object({
   status: SystemState.shape.status.optional(),
   currentAction: z.string().nullable().optional(),
   lastError: ErrorValue.nullable().optional(),
-  addRequirements: z.array(Requirement),
-  removeRequirementIds: z.array(z.string()),
+  addRequirements: z.array(Requirement).optional(),
+  removeRequirementIds: z.array(z.string()).optional(),
 });
 export type SystemDelta = z.infer<typeof SystemDelta>;
+
+/**
+ * NamespaceDelta - Declarative namespace transition.
+ *
+ * Patch paths are rooted at snapshot.namespaces[namespace].
+ */
+export const NamespaceDelta = z.object({
+  namespace: z.string().min(1),
+  patches: z.array(Patch),
+});
+export type NamespaceDelta = z.infer<typeof NamespaceDelta>;
 
 /**
  * ComputeResult - Result of compute() call
  */
 export const ComputeResult = z.object({
   /**
-   * Domain patches rooted at snapshot.data
+   * Domain patches rooted at snapshot.state
    */
   patches: z.array(Patch),
+
+  /**
+   * Namespace transitions rooted at snapshot.namespaces[namespace].
+   */
+  namespaceDelta: z.array(NamespaceDelta).optional(),
 
   /**
    * System transition to be applied separately

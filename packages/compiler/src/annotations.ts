@@ -87,6 +87,12 @@ export function buildAnnotationIndex(
         }
         break;
 
+      case "context":
+        for (const field of member.fields) {
+          collectUnsupportedTypeFieldAnnotations(field.typeExpr, diagnostics);
+        }
+        break;
+
       case "computed":
         collectAnnotationsForTarget(member.annotations, `computed:${member.name}`, diagnostics, entries);
         break;

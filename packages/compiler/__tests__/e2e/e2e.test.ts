@@ -84,7 +84,7 @@ describe("E2E Compilation", () => {
 
         action addTask(title: string) {
           once(lastAdded) when neq(trim(title), "") {
-            patch lastAdded = $meta.intentId
+            patch lastAdded = $runtime.intent.id
           }
         }
 
@@ -221,8 +221,8 @@ describe("E2E Compilation", () => {
     });
   });
 
-  describe("System Value Lowering E2E", () => {
-    it("lowers $system.uuid correctly", () => {
+  describe("Runtime Namespace E2E", () => {
+    it("compiles $runtime values without MEL-owned state", () => {
       const result = compile(
         `
         domain IdGenerator {
@@ -233,8 +233,8 @@ describe("E2E Compilation", () => {
 
           action generate() {
             once(id) {
-              patch id = $system.uuid
-              patch createdAt = $system.timestamp
+              patch id = $runtime.random.uuid
+              patch createdAt = $runtime.time.timestamp
             }
           }
         }
@@ -244,19 +244,10 @@ describe("E2E Compilation", () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        // Should have the system value slots
-        expect(result.schema.state.fields["$mel"]?.fields?.["sys"]?.fields?.["generate"]?.fields?.["uuid"]?.fields).toMatchObject({
-          value: expect.objectContaining({ default: null }),
-          intent: expect.objectContaining({ default: null }),
-        });
-        expect(result.schema.state.fields["$mel"]?.fields?.["sys"]?.fields?.["generate"]?.fields?.["timestamp"]?.fields).toMatchObject({
-          value: expect.objectContaining({ default: null }),
-          intent: expect.objectContaining({ default: null }),
-        });
-
-        // Flow should not contain $system anymore
+        // v5 boundary: compatibility lowering must not inject MEL-owned state.
+        expect(result.schema.state.fields["$mel"]).toBeUndefined();
         const flowStr = JSON.stringify(result.schema.actions.generate.flow);
-        expect(flowStr).not.toContain("$system.");
+        expect(flowStr).toContain("$runtime.");
       }
     });
   });

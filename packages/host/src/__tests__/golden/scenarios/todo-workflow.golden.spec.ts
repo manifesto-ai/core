@@ -97,6 +97,13 @@ describe("Golden: Workflow End-to-End", () => {
           },
         },
         setTask: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              name: { type: "string", required: true },
+            },
+          },
           flow: {
             kind: "seq",
             steps: [
@@ -136,6 +143,13 @@ describe("Golden: Workflow End-to-End", () => {
           },
         },
         setPriority: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              priority: { type: "number", required: true },
+            },
+          },
           flow: {
             kind: "seq",
             steps: [
@@ -191,7 +205,7 @@ describe("Golden: Workflow End-to-End", () => {
     const result = await runner.execute(scenario);
 
     // Verify final state
-    expect(stripHostState(result.finalSnapshot.data)).toEqual({
+    expect(stripHostState(result.finalSnapshot.state)).toEqual({
       count: 2,
       taskName: "Buy groceries",
       isComplete: true,
@@ -203,19 +217,19 @@ describe("Golden: Workflow End-to-End", () => {
     expect(result.stateHistory).toHaveLength(4);
 
     // After first increment
-    expect(result.stateHistory[0].snapshot.data).toMatchObject({
+    expect(result.stateHistory[0].snapshot.state).toMatchObject({
       count: 1,
       lastAction: "increment",
     });
 
     // After second increment
-    expect(result.stateHistory[1].snapshot.data).toMatchObject({
+    expect(result.stateHistory[1].snapshot.state).toMatchObject({
       count: 2,
       lastAction: "increment",
     });
 
     // After setTask
-    expect(result.stateHistory[2].snapshot.data).toMatchObject({
+    expect(result.stateHistory[2].snapshot.state).toMatchObject({
       taskName: "Buy groceries",
       isComplete: false,
       lastAction: "setTask",
@@ -251,7 +265,7 @@ describe("Golden: Workflow End-to-End", () => {
     const result = await runner.execute(scenario);
 
     // 5 + 1 + 1 - 1 + 1 - 1 - 1 = 5
-    expect(result.finalSnapshot.data).toMatchObject({
+    expect(result.finalSnapshot.state).toMatchObject({
       count: 5,
       lastAction: "decrement",
     });
@@ -279,7 +293,7 @@ describe("Golden: Workflow End-to-End", () => {
 
     const result = await runner.execute(scenario);
 
-    expect(stripHostState(result.finalSnapshot.data)).toEqual({
+    expect(stripHostState(result.finalSnapshot.state)).toEqual({
       count: 0,
       taskName: "Important task",
       isComplete: false,
@@ -316,7 +330,7 @@ describe("Golden: Workflow End-to-End", () => {
 
     // All runs should produce the same final state
     const finalStates = verification.results.map((r) =>
-      stripHostState(r.finalSnapshot.data)
+      stripHostState(r.finalSnapshot.state)
     );
     expect(finalStates[0]).toEqual(finalStates[1]);
     expect(finalStates[1]).toEqual(finalStates[2]);
@@ -348,7 +362,7 @@ describe("Golden: Workflow End-to-End", () => {
     const result = await runner.execute(scenario);
 
     // After reset, all values should be cleared
-    expect(stripHostState(result.finalSnapshot.data)).toEqual({
+    expect(stripHostState(result.finalSnapshot.state)).toEqual({
       count: 0,
       taskName: "",
       isComplete: false,
@@ -383,15 +397,15 @@ describe("Golden: Workflow End-to-End", () => {
 
     // First: count=1, task=""
     expect(result.stateHistory[0].intentType).toBe("increment");
-    expect((result.stateHistory[0].snapshot.data as any).count).toBe(1);
+    expect((result.stateHistory[0].snapshot.state as any).count).toBe(1);
 
     // Second: count=1, task="History test", isComplete=false
     expect(result.stateHistory[1].intentType).toBe("setTask");
-    expect((result.stateHistory[1].snapshot.data as any).taskName).toBe("History test");
-    expect((result.stateHistory[1].snapshot.data as any).isComplete).toBe(false);
+    expect((result.stateHistory[1].snapshot.state as any).taskName).toBe("History test");
+    expect((result.stateHistory[1].snapshot.state as any).isComplete).toBe(false);
 
     // Third: count=1, task="History test", isComplete=true
     expect(result.stateHistory[2].intentType).toBe("completeTask");
-    expect((result.stateHistory[2].snapshot.data as any).isComplete).toBe(true);
+    expect((result.stateHistory[2].snapshot.state as any).isComplete).toBe(true);
   });
 });

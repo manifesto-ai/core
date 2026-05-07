@@ -6,10 +6,10 @@
 > **Scope:** `@manifesto-ai/compiler`, Studio tooling, external Author layer integrations
 > **Affected Packages:** Compiler, Studio/authoring tools
 > **Non-Affected Packages:** Core, Host, SDK runtime, Lineage, Governance
-> **Related:** ADR-021 Structural Annotation Sidecar, ADR-022 SourceMapIndex, Compiler SPEC v1.3.0, Current Contract
-> **Current Normative Source:** Compiler SPEC v1.3.0 (`packages/compiler/docs/SPEC-v1.2.0.md`, updated in place)
+> **Related:** ADR-021 Structural Annotation Sidecar, ADR-022 SourceMapIndex, Compiler SPEC v1.2.0, Current Contract
+> **Current Normative Source:** `packages/compiler/docs/SPEC-v1.2.0.md`
 
-This ADR is the accepted decision record for a compiler-owned, deterministic, string-first, single-fragment MEL source editing primitive. The current normative contract now lives in Compiler SPEC v1.3.0. This ADR preserves the boundary rationale: the external Author layer chooses and sequences edits while the compiler validates and materializes exactly one requested source edit.
+This ADR is the accepted decision record for a compiler-owned, deterministic, string-first, single-fragment MEL source editing primitive. The current normative contract now lives in Compiler SPEC v1.2.0. This ADR preserves the boundary rationale: the external Author layer chooses and sequences edits while the compiler validates and materializes exactly one requested source edit.
 
 ---
 

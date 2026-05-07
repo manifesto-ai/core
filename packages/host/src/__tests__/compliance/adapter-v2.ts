@@ -1,29 +1,24 @@
 /**
- * V2.0.1 Host Adapter for HCTS
+ * Host Adapter for HCTS
  *
- * Adapts the v2.0.1 ManifestoHost implementation to the
+ * Adapts the current ManifestoHost implementation to the
  * HostTestAdapter interface for compliance testing.
  *
- * @see host-SPEC-v2.0.1.md
+ * @see host-SPEC.md
  */
 
-import { semanticPathToPatchPath } from "@manifesto-ai/core";
-const pp = semanticPathToPatchPath;
-
-import type { Snapshot, Intent, Patch, DomainSchema } from "@manifesto-ai/core";
-import { createCore, type ManifestoCore } from "@manifesto-ai/core";
+import type { Snapshot, Intent, Patch, DomainSchema, NamespaceDelta } from "@manifesto-ai/core";
 import type { ExecutionKey, TraceEvent } from "./hcts-types.js";
 import type { DeterministicRuntime } from "./hcts-runtime.js";
 import type { HostTestAdapter, TestEffectRunner } from "./hcts-adapter.js";
 import { ManifestoHost } from "../../host.js";
-import type { EffectHandler } from "../../effects/types.js";
-import { getHostState } from "../../types/host-state.js";
+import { createFulfillEffectJob } from "../../types/job.js";
+import type { EffectErrorInfo } from "../../types/job.js";
 
 /**
- * V2.0.1 adapter implementation
+ * Host adapter implementation
  *
- * This adapter wraps the ManifestoHost v2.0.1 implementation
- * for HCTS compliance testing.
+ * This adapter wraps the ManifestoHost implementation for HCTS compliance testing.
  */
 export class V2HostAdapter implements HostTestAdapter {
   private host: ManifestoHost | null = null;
@@ -88,16 +83,27 @@ export class V2HostAdapter implements HostTestAdapter {
   injectEffectResult(
     key: ExecutionKey,
     requirementId: string,
-    patches: Patch[]
+    patches: Patch[],
+    namespaceDelta: readonly NamespaceDelta[] = []
   ): void {
     if (!this.host) throw new Error("Host not created");
 
-    // Get the intentId from the submitted intent (v2.0.2 HOST-NS-1)
-    // Intent slots are stored in data.$host, but we keep a local map for HCTS
+    // Get the intentId from the submitted intent (HOST-NS-1).
+    // Intent slots are stored in namespaces.host, but we keep a local map for HCTS.
     const intent = this.submittedIntents.get(key);
     const intentId = intent?.intentId ?? "";
 
-    this.host.injectEffectResult(key, requirementId, intentId, patches);
+    const mailbox = this.host.getMailbox(key);
+    mailbox.enqueue(
+      createFulfillEffectJob(
+        intentId,
+        requirementId,
+        patches,
+        intent,
+        undefined,
+        namespaceDelta
+      )
+    );
   }
 
   async drain(key: ExecutionKey): Promise<void> {
@@ -135,6 +141,7 @@ export class V2HostAdapter implements HostTestAdapter {
         if (req) {
           const handler = this.effectRunner.getHandler(req.type);
           let patches: Patch[] = [];
+          let effectError: EffectErrorInfo | undefined;
 
           if (handler) {
             try {
@@ -143,17 +150,23 @@ export class V2HostAdapter implements HostTestAdapter {
                 requirement: req,
               });
             } catch (err) {
-              // Effect failed - record error
-              const effectError = err instanceof Error ? err : new Error(String(err));
-              patches = this.createErrorPatches(effectError.message, "EFFECT_EXECUTION_FAILED", snapshot);
+              const caughtError = err instanceof Error ? err : new Error(String(err));
+              patches = [];
+              effectError = {
+                code: "EFFECT_EXECUTION_FAILED",
+                message: caughtError.message,
+              };
             }
           } else {
-            // Unknown effect type - record error
-            patches = this.createErrorPatches(`Unknown effect type: ${req.type}`, "UNKNOWN_EFFECT", snapshot);
+            patches = [];
+            effectError = {
+              code: "UNKNOWN_EFFECT",
+              message: `Unknown effect type: ${req.type}`,
+            };
           }
 
-          // Inject the result with the stored intent
-          this.host.injectEffectResult(key, req.id, intentId, patches, intent);
+          const mailbox = this.host.getMailbox(key);
+          mailbox.enqueue(createFulfillEffectJob(intentId, req.id, patches, intent, effectError));
         }
 
         // If we had pending requirements, continue processing
@@ -189,34 +202,6 @@ export class V2HostAdapter implements HostTestAdapter {
 
   clearTrace(key: ExecutionKey): void {
     this.traces.set(key, []);
-  }
-
-  /**
-   * Create error patches for recording effect execution failures
-   */
-  private createErrorPatches(
-    message: string,
-    code: string,
-    snapshot: Snapshot
-  ): Patch[] {
-    const errorValue = {
-      code,
-      message,
-      source: { actionId: "effect", nodePath: "/" },
-      timestamp: this.runtime?.now() ?? Date.now(),
-    };
-
-    const hostState = getHostState(snapshot.data);
-
-    return [
-      {
-        op: "merge", path: pp("$host"),
-        value: {
-          ...(hostState ? hostState : {}),
-          lastError: errorValue,
-        },
-      },
-    ];
   }
 
   async dispose(): Promise<void> {

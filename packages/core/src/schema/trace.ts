@@ -9,6 +9,8 @@ export const TraceNodeKind = z.enum([
   "computed", // Computed field evaluation
   "flow",     // Flow execution
   "patch",    // State mutation
+  "namespaceRead",  // Namespace read
+  "namespaceDelta", // Namespace mutation
   "effect",   // Effect declaration
   "branch",   // Conditional branch taken
   "call",     // Flow call

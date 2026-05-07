@@ -35,6 +35,13 @@ describe("ManifestoHost", () => {
           },
         },
         setName: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              name: { type: "string", required: true },
+            },
+          },
           flow: {
             kind: "patch",
             op: "set", path: pp("name"),
@@ -55,6 +62,23 @@ describe("ManifestoHost", () => {
       const host = createHost(schema, { initialData: {} });
       expect(host.getSchema()).toBe(schema);
     });
+
+    it("should accept a canonical initialSnapshot", () => {
+      const initialSnapshot = createTestSnapshot({ count: 2 }, schema.hash);
+      const host = createHost(schema, { initialSnapshot });
+
+      expect(host.getSnapshot()?.state).toEqual({ count: 2 });
+      expect(host.getSnapshot()?.meta.schemaHash).toBe(schema.hash);
+    });
+
+    it("should reject ambiguous initialSnapshot and initialData options", () => {
+      const initialSnapshot = createTestSnapshot({ count: 2 }, schema.hash);
+
+      expect(() => createHost(schema, {
+        initialSnapshot,
+        initialData: { count: 2 },
+      })).toThrow("either initialSnapshot or legacy initialData");
+    });
   });
 
   describe("dispatch", () => {
@@ -64,7 +88,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("increment"));
 
       expect(result.status).toBe("complete");
-      expect(stripHostState(result.snapshot.data)).toEqual({ count: 1 });
+      expect(stripHostState(result.snapshot.state)).toEqual({ count: 1 });
     });
 
     it("should accumulate state across dispatches", async () => {
@@ -75,7 +99,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("increment"));
 
       expect(result.status).toBe("complete");
-      expect(stripHostState(result.snapshot.data)).toEqual({ count: 3 });
+      expect(stripHostState(result.snapshot.state)).toEqual({ count: 3 });
     });
 
     it("should handle intent with input", async () => {
@@ -84,7 +108,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("setName", { name: "Alice" }));
 
       expect(result.status).toBe("complete");
-      expect(stripHostState(result.snapshot.data)).toEqual({ name: "Alice" });
+      expect(stripHostState(result.snapshot.state)).toEqual({ name: "Alice" });
     });
 
     it("should return error for unknown action", async () => {
@@ -134,7 +158,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("fetchData"));
 
       expect(result.status).toBe("complete");
-      expect(stripHostState(result.snapshot.data)).toEqual({
+      expect(stripHostState(result.snapshot.state)).toEqual({
         response: { url: "https://api.test.com" },
       });
     });
@@ -182,7 +206,7 @@ describe("ManifestoHost", () => {
 
       const snapshot = await host.getSnapshot();
 
-      expect(stripHostState(snapshot?.data ?? {})).toEqual({ count: 5 });
+      expect(stripHostState(snapshot?.state ?? {})).toEqual({ count: 5 });
     });
 
     it("should persist snapshot after dispatch", async () => {
@@ -191,7 +215,7 @@ describe("ManifestoHost", () => {
       await host.dispatch(createTestIntent("increment"));
       const snapshot = await host.getSnapshot();
 
-      expect(stripHostState(snapshot?.data ?? {})).toEqual({ count: 1 });
+      expect(stripHostState(snapshot?.state ?? {})).toEqual({ count: 1 });
       expect(snapshot?.meta.version).toBe(2);
     });
 
@@ -199,12 +223,12 @@ describe("ManifestoHost", () => {
       const host = createHost(schema, { initialData: { count: 100 } });
 
       await host.dispatch(createTestIntent("increment"));
-      expect(stripHostState((await host.getSnapshot())?.data ?? {})).toEqual({ count: 101 });
+      expect(stripHostState((await host.getSnapshot())?.state ?? {})).toEqual({ count: 101 });
 
       await host.reset(createTestSnapshot({ count: 0 }, schema.hash, DEFAULT_HOST_CONTEXT));
 
       const snapshot = await host.getSnapshot();
-      expect(stripHostState(snapshot?.data ?? {})).toEqual({ count: 0 });
+      expect(stripHostState(snapshot?.state ?? {})).toEqual({ count: 0 });
       expect(snapshot?.meta.version).toBe(0);
     });
 
@@ -219,13 +243,13 @@ describe("ManifestoHost", () => {
 
       const nextSnapshot: Snapshot = {
         ...restored,
-        data: { count: 999 },
+        state: { count: 999 },
       };
 
       host.reset(nextSnapshot);
 
       const snapshot = await host.getSnapshot();
-      expect(snapshot?.data).toEqual({ count: 999 });
+      expect(snapshot?.state).toEqual({ count: 999 });
       expect(snapshot?.meta.version).toBe(restored.meta.version);
       expect(snapshot?.meta.timestamp).toBe(restored.meta.timestamp);
       expect(snapshot?.meta.randomSeed).toBe(restored.meta.randomSeed);
@@ -248,9 +272,11 @@ describe("ManifestoHost", () => {
         { count: 7, $host: { currentIntentId: "stale-intent" } },
         schema.hash,
         {
-          ...DEFAULT_HOST_CONTEXT,
-          now,
-          randomSeed: "restored-seed",
+          runtime: {
+            time: { timestamp: now },
+            random: { seed: "restored-seed" },
+          },
+          external: {},
         }
       );
 
@@ -259,7 +285,7 @@ describe("ManifestoHost", () => {
 
       const result = await host.dispatch(createTestIntentWithId("increment", "intent-restore"));
 
-      expect(stripHostState(result.snapshot.data)).toEqual({ count: 8 });
+      expect(stripHostState(result.snapshot.state)).toEqual({ count: 8 });
       expect(result.snapshot.meta.timestamp).toBe(100);
       expect(result.snapshot.meta.randomSeed).toBe("intent-restore");
       expect(result.snapshot.input).toBeNull();
@@ -275,6 +301,45 @@ describe("ManifestoHost", () => {
 
       const snapshot = await host.getSnapshot();
       expect(snapshot).not.toBeNull();
+    });
+
+    it("should reject retired data-root snapshots on reset", async () => {
+      const host = createHost(schema, { initialData: { count: 100 } });
+      const legacySnapshot = {
+        data: { count: 0 },
+        computed: {},
+        system: {
+          status: "idle",
+          lastError: null,
+          pendingRequirements: [],
+          currentAction: null,
+        },
+        input: null,
+        meta: {
+          version: 0,
+          timestamp: 0,
+          randomSeed: "seed",
+          schemaHash: schema.hash,
+        },
+      };
+
+      expect(() => {
+        host.reset(legacySnapshot);
+      }).toThrowError();
+
+      const snapshot = await host.getSnapshot();
+      expect(snapshot?.state).toEqual({ count: 100 });
+    });
+
+    it("should reject reserved state namespace keys on reset", async () => {
+      const host = createHost(schema, { initialData: { count: 100 } });
+      const snapshot = createTestSnapshot({ count: 0, $host: { stale: true } }, schema.hash, DEFAULT_HOST_CONTEXT);
+
+      expect(() => {
+        host.reset(snapshot);
+      }).toThrowError();
+
+      expect((await host.getSnapshot())?.state).toEqual({ count: 100 });
     });
   });
 
@@ -324,6 +389,54 @@ describe("ManifestoHost", () => {
       expect(result.status).toBe("error");
       expect(result.error?.code).toBe("LOOP_MAX_ITERATIONS");
     });
+
+    it("should preserve effect execution errors instead of replacing them with loop-limit errors", async () => {
+      const schemaWithFailingEffect = createTestSchema({
+        actions: {
+          load: {
+            flow: {
+              kind: "seq",
+              steps: [
+                {
+                  kind: "patch",
+                  op: "set",
+                  path: pp("loading"),
+                  value: { kind: "lit", value: true },
+                },
+                {
+                  kind: "effect",
+                  type: "api.fetch",
+                  params: {},
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const host = createHost(schemaWithFailingEffect, {
+        initialData: { loading: false },
+        maxIterations: 3,
+      });
+
+      host.registerEffect("api.fetch", async () => {
+        throw new Error("effect exploded");
+      });
+
+      const result = await host.dispatch(createTestIntent("load"));
+      const hostLastError = (result.snapshot.namespaces.host as {
+        readonly lastError?: { readonly code?: string; readonly message?: string };
+      } | undefined)?.lastError;
+
+      expect(result.status).toBe("error");
+      expect(result.error?.code).toBe("EFFECT_EXECUTION_FAILED");
+      expect((result.snapshot.state as Record<string, unknown>).loading).toBe(true);
+      expect(result.snapshot.system.lastError).toBeNull();
+      expect(hostLastError).toMatchObject({
+        code: "EFFECT_EXECUTION_FAILED",
+        message: "effect exploded",
+      });
+    });
   });
 
   describe("Complex workflows", () => {
@@ -343,6 +456,13 @@ describe("ManifestoHost", () => {
         },
         actions: {
           addItem: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                price: { type: "number", required: true },
+              },
+            },
             flow: {
               kind: "patch",
               op: "set", path: pp("itemsTotal"),
@@ -354,6 +474,13 @@ describe("ManifestoHost", () => {
             },
           },
           setShipping: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                amount: { type: "number", required: true },
+              },
+            },
             flow: {
               kind: "patch",
               op: "set", path: pp("shipping"),
@@ -371,7 +498,7 @@ describe("ManifestoHost", () => {
 
       const snapshot = await host.getSnapshot();
 
-      expect(stripHostState(snapshot?.data ?? {})).toEqual({ itemsTotal: 150, shipping: 10 });
+      expect(stripHostState(snapshot?.state ?? {})).toEqual({ itemsTotal: 150, shipping: 10 });
       expect(snapshot?.computed["total"]).toBe(160);
     });
 
@@ -404,7 +531,7 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntent("fetchWithRetry"));
 
       expect(result.status).toBe("complete");
-      expect(stripHostState(result.snapshot.data)).toEqual({ data: "success" });
+      expect(stripHostState(result.snapshot.state)).toEqual({ data: "success" });
       expect(attempts).toBe(3);
     });
   });
@@ -428,11 +555,7 @@ describe("ManifestoHost", () => {
   });
 
   describe("Availability bypass scenarios (#134 review concern)", () => {
-    it("SCENARIO: sequential dispatch after max-iterations leaves currentAction in snapshot", async () => {
-      // This tests the reviewer's concern: can a second dispatch of the same
-      // action type skip availability because the first dispatch left
-      // currentAction set in the shared snapshot?
-      //
+    it("SCENARIO: max-iterations preserves the progressed execution snapshot", async () => {
       // Setup: action "run" with available when isNull(pending),
       // maxIterations = 1 so the first dispatch exits before ContinueCompute.
       const lifecycleSchema = createTestSchema({
@@ -457,7 +580,7 @@ describe("ManifestoHost", () => {
                   {
                     kind: "patch",
                     op: "set", path: pp("pending"),
-                    value: { kind: "get", path: "meta.intentId" },
+                    value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
                     kind: "effect",
@@ -481,37 +604,36 @@ describe("ManifestoHost", () => {
         { op: "set", path: pp("result"), value: "done" },
       ]);
 
-      // 1st dispatch: exits with LOOP_MAX_ITERATIONS, currentAction may be set
+      // 1st dispatch: exits with LOOP_MAX_ITERATIONS.
       const result1 = await host.dispatch(
         { type: "run", intentId: "intent-A", input: undefined }
       );
       expect(result1.status).toBe("error");
       expect(result1.error?.code).toBe("LOOP_MAX_ITERATIONS");
+      expect(result1.snapshot.system.status).toBe("pending");
+      expect(result1.snapshot.system.currentAction).toBe("run");
+      expect(result1.snapshot.system.pendingRequirements).toHaveLength(1);
 
-      // Check what the shared snapshot looks like after a max-iterations error
       const snapshotAfter = host.getSnapshot();
       const currentAction = snapshotAfter?.system.currentAction;
-      const pending = (snapshotAfter?.data as Record<string, unknown>)?.pending;
+      const pending = (snapshotAfter?.state as Record<string, unknown>)?.pending;
+      const hostLastError = (snapshotAfter?.namespaces.host as {
+        lastError?: { code?: string };
+      } | undefined)?.lastError;
 
-      // Log the actual state for documentation
-      // currentAction may or may not be "run" depending on Host's cleanup behavior
-      // pending should be "intent-A" (patched by the first compute)
+      expect(currentAction).toBe("run");
+      expect(pending).toBe("intent-A");
+      expect(hostLastError?.code).toBe("LOOP_MAX_ITERATIONS");
 
       // 2nd dispatch: same action type, different intentId
       const result2 = await host.dispatch(
         { type: "run", intentId: "intent-B", input: undefined }
       );
 
-      // VERIFIED: max-iterations exit DOES leak currentAction into shared snapshot.
-      // This confirms the reviewer's concern is technically reachable.
-      expect(currentAction).toBe("run");
-      expect(pending).toBe("intent-A");
-
-      // Intent B arrives on this dirty snapshot — type-only guard treats it as re-entry.
-      // Availability IS bypassed. But the flow's state guard prevents harmful side effects:
-      // pending is "intent-A" → if isNull(pending) is false → branch skipped → no-op.
-      expect(result2.snapshot.system.lastError?.code).not.toBe("ACTION_UNAVAILABLE");
-      expect((result2.snapshot.data as Record<string, unknown>).pending).toBe("intent-A");
+      expect(result2.status).toBe("error");
+      expect(result2.error?.code).toBe("LOOP_MAX_ITERATIONS");
+      expect(result2.snapshot.system.currentAction).toBeNull();
+      expect((result2.snapshot.state as Record<string, unknown>).pending).toBe("intent-A");
     });
 
     it("SCENARIO: normal sequential dispatch does NOT leak currentAction", async () => {
@@ -539,7 +661,7 @@ describe("ManifestoHost", () => {
                   {
                     kind: "patch",
                     op: "set", path: pp("pending"),
-                    value: { kind: "get", path: "meta.intentId" },
+                    value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
                     kind: "effect",

@@ -2,7 +2,7 @@
 
 > Practical guide for the current ADR-017 lineage runtime.
 
-> **Current Contract Note:** This guide follows the current v3 lineage decorator model. The canonical app-facing path is `withLineage(createManifesto(...), config).activate()`, with `commitAsync()` as the canonical write verb and `commitAsyncWithReport()` as its additive report companion.
+> **Current Contract Note:** This guide follows the current v5 lineage decorator model. The canonical app-facing path is `withLineage(createManifesto(...), config).activate()`, with `action.<name>.submit(...)` as the write verb.
 
 ## 1. Compose Lineage Before Activation
 
@@ -19,15 +19,13 @@ const lineage = withLineage(manifesto, {
 
 Lineage does not decorate a running instance. It decorates the composable manifesto and participates in the activation pipeline.
 
-## 2. Commit Means Execute And Seal
+## 2. Submit Means Execute And Seal
 
 ```ts
-await lineage.commitAsync(
-  lineage.createIntent(lineage.MEL.actions.increment),
-);
+await lineage.action.increment.submit();
 ```
 
-On a lineage runtime, `commitAsync()` means:
+On a lineage runtime, `submit()` means:
 
 1. execute the intent
 2. prepare and commit a lineage seal
@@ -38,22 +36,19 @@ If seal commit fails, the Promise rejects and the new snapshot does not become v
 ## 3. Use The Additive Report Companion When Tooling Needs More Context
 
 ```ts
-const report = await lineage.commitAsyncWithReport(
-  lineage.createIntent(lineage.MEL.actions.increment),
-);
+const result = await lineage.with({ report: "full" }).action.increment.submit();
 ```
 
-`commitAsyncWithReport()` does not replace `commitAsync()`.
-It keeps the same seal/publication law and packages the result as data.
+Execution view report settings keep the same seal/publication law and package additive result detail as data.
 
-- `completed` reports include `outcome`, `resultWorld`, `branchId`, and `headAdvanced: true`
-- `rejected` reports include the first failing admission layer plus before snapshots
-- `failed` reports always keep `published: false`; if a failed world was sealed, they may also include `resultWorld`, `branchId`, and `sealedOutcome`
+- successful lineage submissions include `outcome`, `world`, `before`, and `after`
+- rejected submissions include the first failing admission layer
+- `report: "none"` suppresses the additive report payload
 
 Failed lineage outcomes are derived from the sealed terminal Snapshot's
-`system.lastError` and pending requirements. Canonical `data.$host.lastError`
-is Host-owned diagnostic state and is not, by itself, the lineage terminal
-outcome.
+`system.lastError` and pending requirements. Canonical
+`namespaces.host.lastError` is Host-owned diagnostic state and is not, by
+itself, the lineage terminal outcome.
 
 ## 4. Read Heads, Branches, Worlds, And Lineage
 
@@ -70,9 +65,8 @@ if (latestHead) {
 ```
 
 These APIs project the backing continuity truth through the activated runtime.
-`getSnapshot()` remains the projected runtime read. `getCanonicalSnapshot()` reads the current visible canonical substrate. `getWorldSnapshot(worldId)` reads the stored sealed canonical snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
-The activated lineage runtime also keeps the inherited SDK legality queries: `getAvailableActions()`, `isActionAvailable()`, `isIntentDispatchable()`, and `getIntentBlockers()`.
-Those inherited legality queries keep the same ordering as the base SDK: availability short-circuits dispatchability, and `getIntentBlockers()` returns the first failing layer instead of stacking coarse and fine blockers together.
+`snapshot()` remains the projected runtime read. `inspect.canonicalSnapshot()` reads the current visible canonical substrate. `getWorldSnapshot(worldId)` reads the stored sealed canonical snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
+The activated lineage runtime also keeps the inherited SDK action-candidate legality queries: `action.x.available()` and `action.x.check(...)`.
 
 ## 5. Restore A Sealed Lineage World
 
@@ -82,7 +76,7 @@ if (head) {
   await lineage.restore(head.worldId);
 }
 
-console.log(lineage.getSnapshot().data);
+console.log(lineage.snapshot().state);
 ```
 
 `restore()` updates the visible runtime snapshot and resets Host execution state to the restored lineage snapshot.
@@ -99,6 +93,10 @@ Switching branches also restores that branch head into the visible runtime state
 ## 7. Low-Level Lineage Still Exists
 
 Use `@manifesto-ai/lineage/provider` when you need `LineageService`, `LineageStore`, prepared commits, or persistence tooling without the activated runtime wrapper.
+
+Low-level replay/audit tools read the recorded `computeEnvelope` from seal
+attempt metadata. Normal application code does not pass this envelope manually;
+the lineage runtime captures it from the submitted intent and ADR-027 context.
 
 ## 8. Related Docs
 

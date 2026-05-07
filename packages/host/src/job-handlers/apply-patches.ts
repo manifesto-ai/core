@@ -28,7 +28,7 @@ export function handleApplyPatches(
     jobId: job.id,
   });
 
-  // Reset and freeze context for this job (CTX-1~5)
+  // Read the transition-attempt context (CTX-1~5)
   ctx.resetFrozenContext();
   const frozenContext = ctx.getFrozenContext();
 
@@ -37,8 +37,8 @@ export function handleApplyPatches(
     t: "context:frozen",
     key: ctx.key,
     jobId: job.id,
-    now: frozenContext.now,
-    randomSeed: frozenContext.randomSeed,
+    now: frozenContext.runtime.time.timestamp,
+    randomSeed: frozenContext.runtime.random.seed,
   });
 
   // Apply patches directly

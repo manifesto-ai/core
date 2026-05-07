@@ -10,12 +10,14 @@
 
 import type {
   DomainSchema,
-  HostContext,
+  Context,
   Intent,
   ManifestoCore,
+  NamespaceDelta,
   Patch,
   SystemDelta,
   Snapshot,
+  TraceGraph,
 } from "@manifesto-ai/core";
 import type { ExecutionMailbox } from "../mailbox.js";
 import type { TraceEvent } from "./trace.js";
@@ -113,16 +115,16 @@ export interface ExecutionContext {
   setSnapshot(snapshot: Snapshot): void;
 
   /**
-   * Get the frozen HostContext for the current job.
+   * Get the materialized Context for the current transition attempt.
    *
-   * Context is frozen at job start and reused throughout the job.
+   * Context is frozen at attempt start and reused through compute re-entry.
    *
    * @see SPEC §11.3 CTX-1~5
    */
-  getFrozenContext(): HostContext;
+  getFrozenContext(): Context;
 
   /**
-   * Reset frozen context (call at job start)
+   * Compatibility hook retained for older job handlers.
    */
   resetFrozenContext(): void;
 
@@ -131,12 +133,22 @@ export interface ExecutionContext {
    *
    * This is a convenience method that:
    * 1. Gets current snapshot
-   * 2. Calls core.apply with frozen context
+   * 2. Calls core.apply with already-materialized patches
    * 3. Sets the new snapshot
    *
    * @returns The new snapshot after applying patches
    */
   applyPatches(patches: Patch[], source: string): Snapshot;
+
+  /**
+   * Apply namespace deltas to the current snapshot.
+   *
+   * This is used for Host/runtime-owned Snapshot namespaces that are outside
+   * the domain state schema.
+   *
+   * @returns The new snapshot after applying namespace deltas
+   */
+  applyNamespaceDeltas(deltas: readonly NamespaceDelta[], source: string): Snapshot;
 
   /**
    * Apply a system delta emitted by Core.compute().
@@ -149,6 +161,16 @@ export interface ExecutionContext {
    * Emit a trace event for debugging and compliance testing.
    */
   trace(event: TraceEvent): void;
+
+  /**
+   * Record the Core TraceGraph produced by a compute pass.
+   */
+  recordCoreTrace(trace: TraceGraph): void;
+
+  /**
+   * Read all Core TraceGraphs produced during this execution.
+   */
+  getCoreTraces(): readonly TraceGraph[];
 
   /**
    * Check if requirement is pending (for FULFILL-0 stale check)
@@ -197,6 +219,7 @@ export interface ExecutionContextOptions {
   mailbox: ExecutionMailbox;
   runtime: Runtime;
   initialSnapshot: Snapshot;
+  transitionContext?: Context;
   onTrace?: (event: TraceEvent) => void;
   onEffectRequest?: (
     key: ExecutionKey,

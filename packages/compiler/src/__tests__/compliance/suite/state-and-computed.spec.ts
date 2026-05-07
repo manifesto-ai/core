@@ -274,14 +274,14 @@ describe("CCTS State and Computed Suite", () => {
     const metaRefResult = adapter.compile(`
       domain Demo {
         state {
-          traceId: string = $meta.intentId
+          traceId: string = $runtime.intent.id
         }
       }
     `);
 
     const hasE042 =
       hasDiagnosticCode(stateRefResult.errors, "E042") ||
-      hasDiagnosticCode(metaRefResult.errors, "E042");
+      hasDiagnosticCode(metaRefResult.errors, "E002");
 
     expectAllCompliance([
       evaluateRule(getRuleOrThrow("COMP-DEP-5"), hasDiagnosticCode(cycleResult.errors, "E040"), {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,10 +9,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "../../../..");
 
-const EXAMPLE_FILES = [
-  "docs/mel/examples/computed/bounded-sugar.mel",
-  "docs/mel/examples/computed/selection-sugar.mel",
-] as const;
+function collectMelExamples(relativeDir: string): readonly string[] {
+  const absoluteDir = path.join(REPO_ROOT, relativeDir);
+  return readdirSync(absoluteDir, { withFileTypes: true })
+    .flatMap((entry) => {
+      const relativePath = path.posix.join(relativeDir, entry.name);
+      if (entry.isDirectory()) {
+        return [...collectMelExamples(relativePath)];
+      }
+      return entry.isFile() && entry.name.endsWith(".mel") ? [relativePath] : [];
+    })
+    .sort();
+}
+
+const EXAMPLE_FILES = collectMelExamples("docs/mel/examples");
 
 describe("docs MEL examples", () => {
   for (const relativePath of EXAMPLE_FILES) {

@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.0.0](https://github.com/manifesto-ai/core/compare/codegen-v0.2.8...codegen-v5.0.0) (2026-05-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **codegen:** align the public package release with the v5 domain facade target, static `action.*` typing, and reserved public action-name rejection.
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * peerDependencies
+    * @manifesto-ai/core bumped from ~2.13.0 to ^5.0.0
+
 ## [0.2.8](https://github.com/manifesto-ai/core/compare/codegen-v0.2.7...codegen-v0.2.8) (2026-04-23)
 
 

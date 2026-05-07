@@ -1,4 +1,5 @@
 import type {
+  Context,
   ComputeStatus,
   Patch,
   Requirement,
@@ -10,16 +11,17 @@ import type { HostResult } from "@manifesto-ai/host";
 import type {
   DispatchBlocker,
   CanonicalSnapshot,
+  DomainExternalContext,
+  DispatchExecutionOutcome,
   ExecutionDiagnostics,
   ExecutionFailureInfo,
-  ExecutionOutcome,
   IntentAdmission,
   IntentExplanation,
   ManifestoDomainShape,
   ManifestoEvent,
-  ManifestoEventMap,
+  ManifestoEventPayloadMap,
+  ProjectedSnapshot,
   SimulationDiagnostics,
-  Snapshot,
   TypedIntent,
   TypedOn,
   TypedSubscribe,
@@ -29,17 +31,17 @@ import type { ManifestoError } from "../errors.js";
 export interface RuntimeStateStore<T extends ManifestoDomainShape> {
   readonly subscribe: TypedSubscribe<T>;
   readonly on: TypedOn<T>;
-  readonly getSnapshot: () => Snapshot<T["state"]>;
+  readonly getSnapshot: () => ProjectedSnapshot<T>;
   readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
   readonly getVisibleCoreSnapshot: () => CoreSnapshot;
   readonly setVisibleSnapshot: (
     snapshot: CoreSnapshot,
     options?: { readonly notify?: boolean },
-  ) => Snapshot<T["state"]>;
+  ) => ProjectedSnapshot<T>;
   readonly restoreVisibleSnapshot: () => void;
   readonly emitEvent: <K extends ManifestoEvent>(
     event: K,
-    payload: ManifestoEventMap<T>[K],
+    payload: ManifestoEventPayloadMap[K],
   ) => void;
   readonly enqueue: <R>(task: () => Promise<R>) => Promise<R>;
   readonly dispose: () => void;
@@ -50,7 +52,7 @@ export interface RuntimeReportHelpers<T extends ManifestoDomainShape> {
   readonly deriveExecutionOutcome: (
     beforeSnapshot: CanonicalSnapshot<T["state"]>,
     afterSnapshot: CanonicalSnapshot<T["state"]>,
-  ) => ExecutionOutcome<T>;
+  ) => DispatchExecutionOutcome<T>;
   readonly classifyExecutionFailure: (
     error: unknown,
     stage: "host" | "seal",
@@ -102,6 +104,10 @@ export type RuntimeSimulateSync<
 > = (
   snapshot: CanonicalSnapshot<T["state"]>,
   intent: TypedIntent<T>,
+  options?: {
+    readonly externalContext?: DomainExternalContext<T>;
+    readonly context?: Context;
+  },
 ) => RuntimeSimulationResult<T>;
 
 export interface RuntimeAdmission<T extends ManifestoDomainShape> {
@@ -135,7 +141,7 @@ export interface RuntimeAdmission<T extends ManifestoDomainShape> {
 export type PublishedRuntimeSnapshot<
   T extends ManifestoDomainShape = ManifestoDomainShape,
 > = {
-  readonly publishedSnapshot: Snapshot<T["state"]>;
+  readonly publishedSnapshot: ProjectedSnapshot<T>;
   readonly publishedCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
 };
 
@@ -143,12 +149,9 @@ export interface RuntimePublicationHelpers<T extends ManifestoDomainShape> {
   readonly replaceVisibleSnapshot: RuntimeStateStore<T>["setVisibleSnapshot"];
   readonly restoreVisibleSnapshot: RuntimeStateStore<T>["restoreVisibleSnapshot"];
   readonly publishCompletedHostResult: (
-    intent: TypedIntent<T>,
     snapshot: CoreSnapshot,
   ) => PublishedRuntimeSnapshot<T>;
   readonly publishFailedHostResult: (
-    intent: TypedIntent<T>,
-    error: Error,
     snapshot: CoreSnapshot,
   ) => PublishedRuntimeSnapshot<T>;
 }

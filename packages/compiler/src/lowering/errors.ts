@@ -16,7 +16,7 @@ export type LoweringErrorCode =
   | "INVALID_KIND_FOR_CONTEXT"
   /** Unknown function name in call node */
   | "UNKNOWN_CALL_FN"
-  /** sys.system in Translator path */
+  /** Disallowed dollar namespace path */
   | "INVALID_SYS_PATH"
   /** get.base is not var(item) */
   | "UNSUPPORTED_BASE"
@@ -86,7 +86,7 @@ export function unknownCallFn(fn: string, path?: string[]): LoweringError {
 }
 
 /**
- * Create a lowering error for invalid sys path.
+ * Create a lowering error for invalid dollar namespace path.
  *
  * @example
  * throw invalidSysPath(["system", "uuid"]);
@@ -97,7 +97,7 @@ export function invalidSysPath(
 ): LoweringError {
   return new LoweringError(
     "INVALID_SYS_PATH",
-    `System path '${sysPath.join(".")}' is not allowed in Translator path`,
+    `Dollar namespace path '${sysPath.join(".")}' is not allowed in this lowering context`,
     { path, details: { sysPath } }
   );
 }

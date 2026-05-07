@@ -1,34 +1,36 @@
 /**
  * Common test snapshot helper
  */
-import { createSnapshot, type Snapshot, type Requirement, type HostContext } from "@manifesto-ai/core";
+import { createSnapshot, type Snapshot, type Requirement, type Context } from "@manifesto-ai/core";
 
 /**
  * Default host context for tests (deterministic)
  */
-export const DEFAULT_HOST_CONTEXT: HostContext = {
-  now: 0,
-  randomSeed: "seed",
-  durationMs: 0,
+export const DEFAULT_HOST_CONTEXT: Context = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
 };
 
 /**
- * Create a test snapshot with the given data and schema hash
+ * Create a test snapshot with the given state and schema hash
  */
 export function createTestSnapshot(
-  data: unknown,
+  state: unknown,
   schemaHash: string,
-  context: HostContext = DEFAULT_HOST_CONTEXT
+  context: Context = DEFAULT_HOST_CONTEXT
 ): Snapshot {
-  return createSnapshot(data, schemaHash, context);
+  return createSnapshot(state, schemaHash, context);
 }
 
 /**
  * Create a minimal snapshot for testing (without Core schema)
  */
-export function createMinimalSnapshot(data: unknown = {}): Snapshot {
+export function createMinimalSnapshot(state: unknown = {}): Snapshot {
   return {
-    data,
+    state,
     system: {
       status: "idle",
       pendingRequirements: [],
@@ -42,38 +44,43 @@ export function createMinimalSnapshot(data: unknown = {}): Snapshot {
       schemaHash: "test-hash",
     },
     computed: {},
-    input: null,
+    input: undefined,
+    namespaces: {},
   };
 }
 
 /**
  * Create a snapshot that mimics the Lineage v2 restore-normalized boundary.
  *
- * `$host` is cleared, `input` is reset to null, and `system.currentAction`
+ * Legacy state-root `$host` is cleared, `input` is reset, and `system.currentAction`
  * is reset to null before Host resumes a fresh job.
  */
 export function createRestoreNormalizedSnapshot(
-  data: unknown,
+  state: unknown,
   schemaHash: string,
-  context: HostContext = DEFAULT_HOST_CONTEXT
+  context: Context = DEFAULT_HOST_CONTEXT
 ): Snapshot {
-  const snapshot = createSnapshot(data, schemaHash, context);
-  const normalizedData = typeof snapshot.data === "object"
-    && snapshot.data !== null
-    && !Array.isArray(snapshot.data)
+  const snapshot = createSnapshot(state, schemaHash, context);
+  const normalizedState = typeof snapshot.state === "object"
+    && snapshot.state !== null
+    && !Array.isArray(snapshot.state)
     ? (() => {
-        const { $host: _host, ...rest } = snapshot.data as Record<string, unknown>;
+        const { $host: _host, ...rest } = snapshot.state as Record<string, unknown>;
         return rest;
       })()
-    : snapshot.data;
+    : snapshot.state;
 
   return {
     ...snapshot,
-    data: normalizedData,
-    input: null,
+    state: normalizedState,
+    input: undefined,
     system: {
       ...snapshot.system,
       currentAction: null,
+    },
+    namespaces: {
+      ...snapshot.namespaces,
+      host: {},
     },
   };
 }
@@ -82,12 +89,12 @@ export function createRestoreNormalizedSnapshot(
  * Create a test snapshot with pending requirements
  */
 export function createSnapshotWithRequirements(
-  data: unknown,
+  state: unknown,
   schemaHash: string,
   requirements: Requirement[],
-  context: HostContext = DEFAULT_HOST_CONTEXT
+  context: Context = DEFAULT_HOST_CONTEXT
 ): Snapshot {
-  const snapshot = createSnapshot(data, schemaHash, context);
+  const snapshot = createSnapshot(state, schemaHash, context);
   return {
     ...snapshot,
     system: {

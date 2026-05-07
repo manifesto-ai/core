@@ -9,7 +9,6 @@ domain Counter {
 
   action increment() {
     once(lastIntent) {
-      patch lastIntent = $meta.intentId
       patch count = add(count, 1)
     }
   }

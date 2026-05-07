@@ -138,7 +138,7 @@ describe("Lexer", () => {
     });
   });
 
-  describe("system identifiers", () => {
+  describe("dollar namespace identifiers", () => {
     // v0.3.2: $acc removed - reduce pattern deprecated
     it("tokenizes $item", () => {
       const { tokens } = tokenize("$item");
@@ -147,20 +147,20 @@ describe("Lexer", () => {
 
     it("rejects $acc (v0.3.2 deprecated)", () => {
       const { tokens, diagnostics } = tokenize("$acc");
-      // $acc is now an invalid system identifier
+      // $acc is now an invalid dollar identifier
       expect(diagnostics.length).toBeGreaterThan(0);
       expect(tokens.some((t) => t.kind === "ERROR")).toBe(true);
     });
 
-    it("tokenizes $system.* identifiers", () => {
-      const { tokens } = tokenize("$system.uuid $system.time.now");
+    it("tokenizes $runtime.* identifiers", () => {
+      const { tokens } = tokenize("$runtime.random.uuid $runtime.time.timestamp");
       expect(tokens.map((t) => t.kind)).toEqual(["SYSTEM_IDENT", "SYSTEM_IDENT", "EOF"]);
-      expect(tokens[0].lexeme).toBe("$system.uuid");
-      expect(tokens[1].lexeme).toBe("$system.time.now");
+      expect(tokens[0].lexeme).toBe("$runtime.random.uuid");
+      expect(tokens[1].lexeme).toBe("$runtime.time.timestamp");
     });
 
-    it("tokenizes $meta.* identifiers", () => {
-      const { tokens } = tokenize("$meta.intentId $meta.actor");
+    it("tokenizes $context.* identifiers", () => {
+      const { tokens } = tokenize("$context.tenantId $context.locale");
       expect(tokens.map((t) => t.kind)).toEqual(["SYSTEM_IDENT", "SYSTEM_IDENT", "EOF"]);
     });
 
@@ -234,10 +234,10 @@ describe("Lexer", () => {
       expect(diagnostics[0].message).toContain("Unterminated");
     });
 
-    it("reports invalid system identifiers", () => {
+    it("reports invalid dollar identifiers", () => {
       const { diagnostics } = tokenize("$foo");
       expect(diagnostics.length).toBeGreaterThan(0);
-      expect(diagnostics[0].message).toContain("Invalid system identifier");
+      expect(diagnostics[0].message).toContain("Invalid dollar identifier");
     });
   });
 
@@ -266,8 +266,8 @@ describe("Lexer", () => {
       const source = `
         action addTask(title: string) {
           once(adding) when isNotNull(trim(title)) {
-            patch adding = $meta.intentId
-            patch tasks[$system.uuid] = { id: $system.uuid, title: title }
+            patch adding = $runtime.intent.id
+            patch tasks[$runtime.random.uuid] = { id: $runtime.random.uuid, title: title }
           }
         }
       `;

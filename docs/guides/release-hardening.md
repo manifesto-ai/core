@@ -52,7 +52,7 @@ Representative runtime scenarios:
 
 - happy path: approved governed proposal seals and publishes
 - rejection path: legitimacy constraints block publication
-- base path: activation-first runtime still dispatches deterministically
+- base path: activation-first runtime still submits action candidates deterministically
 
 ## Known Limitations
 

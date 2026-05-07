@@ -7,14 +7,14 @@
  */
 
 /**
- * Allowed system path prefixes.
+ * Allowed dollar path prefixes.
  *
- * In Translator path, only 'meta' and 'input' are allowed.
- * 'system' is forbidden (requires Flow execution).
+ * Current v5 lowering admits direct input and bound action context/runtime
+ * reads. Retired 'meta'/'system' prefixes are rejected before lowering.
  *
- * @see FDR-MEL-071
+ * @see ADR-027
  */
-export type AllowedSysPrefix = "meta" | "input";
+export type AllowedSysPrefix = "input" | "runtime" | "context";
 
 /**
  * Context for single expression lowering.
@@ -30,8 +30,7 @@ export interface ExprLoweringContext {
   mode: "schema" | "action";
 
   /**
-   * Allowed system path prefixes.
-   * In Translator path: only ["meta", "input"]
+   * Allowed dollar path prefixes.
    *
    * @see FDR-MEL-071
    */
@@ -65,8 +64,7 @@ export interface ExprLoweringContext {
  */
 export interface PatchLoweringContext {
   /**
-   * Allowed system path prefixes.
-   * In Translator path: only ["meta", "input"]
+   * Allowed dollar path prefixes.
    *
    * @see FDR-MEL-071
    */
@@ -88,7 +86,7 @@ export interface PatchLoweringContext {
  */
 export const DEFAULT_SCHEMA_CONTEXT: ExprLoweringContext = {
   mode: "schema",
-  allowSysPaths: { prefixes: ["meta", "input"] },
+  allowSysPaths: { prefixes: [] },
   fnTableVersion: "1.0",
   allowItem: false,
 };
@@ -98,7 +96,7 @@ export const DEFAULT_SCHEMA_CONTEXT: ExprLoweringContext = {
  */
 export const DEFAULT_ACTION_CONTEXT: ExprLoweringContext = {
   mode: "action",
-  allowSysPaths: { prefixes: ["meta", "input"] },
+  allowSysPaths: { prefixes: ["input", "runtime", "context"] },
   fnTableVersion: "1.0",
   allowItem: false,
 };
@@ -108,7 +106,7 @@ export const DEFAULT_ACTION_CONTEXT: ExprLoweringContext = {
  */
 export const DEFAULT_DISPATCHABLE_CONTEXT: ExprLoweringContext = {
   mode: "action",
-  allowSysPaths: { prefixes: ["input"] },
+  allowSysPaths: { prefixes: [] },
   fnTableVersion: "1.0",
   allowItem: false,
 };
@@ -118,7 +116,7 @@ export const DEFAULT_DISPATCHABLE_CONTEXT: ExprLoweringContext = {
  */
 export const EFFECT_ARGS_CONTEXT: ExprLoweringContext = {
   mode: "action",
-  allowSysPaths: { prefixes: ["meta", "input"] },
+  allowSysPaths: { prefixes: ["input", "runtime", "context"] },
   fnTableVersion: "1.0",
   allowItem: true,
 };
@@ -127,6 +125,6 @@ export const EFFECT_ARGS_CONTEXT: ExprLoweringContext = {
  * Default patch lowering context.
  */
 export const DEFAULT_PATCH_CONTEXT: PatchLoweringContext = {
-  allowSysPaths: { prefixes: ["meta", "input"] },
+  allowSysPaths: { prefixes: ["input", "runtime", "context"] },
   fnTableVersion: "1.0",
 };

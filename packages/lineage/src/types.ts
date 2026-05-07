@@ -1,6 +1,6 @@
-import type { Patch, Snapshot } from "@manifesto-ai/core";
+import type { Context, Intent, Patch, Snapshot } from "@manifesto-ai/core";
 
-export type { Patch, Snapshot } from "@manifesto-ai/core";
+export type { Context, Intent, Patch, Snapshot } from "@manifesto-ai/core";
 
 export type WorldId = string;
 export type BranchId = string;
@@ -24,12 +24,17 @@ export interface CurrentErrorSignature {
 }
 
 export interface SnapshotHashInput {
-  readonly data: Record<string, unknown>;
+  readonly state: Record<string, unknown>;
   readonly system: {
     readonly terminalStatus: TerminalStatus;
     readonly currentError: CurrentErrorSignature | null;
     readonly pendingDigest: string;
   };
+}
+
+export interface ComputeEnvelope {
+  readonly intent: Intent;
+  readonly context: Context;
 }
 
 export interface World {
@@ -70,8 +75,10 @@ export interface SealNextInput {
   readonly schemaHash: SchemaHash;
   readonly baseWorldId: WorldId;
   readonly branchId: BranchId;
+  readonly computeEnvelope: ComputeEnvelope;
   readonly terminalSnapshot: Snapshot;
   readonly createdAt: number;
+  readonly advanceHead?: boolean;
   readonly patchDelta?: PersistedPatchDeltaV2;
   readonly proposalRef?: ProvenanceRef;
   readonly decisionRef?: ProvenanceRef;
@@ -151,6 +158,7 @@ export interface SealAttempt {
   readonly createdAt: number;
   readonly traceRef?: ArtifactRef;
   readonly patchDelta?: PersistedPatchDeltaV2;
+  readonly computeEnvelope?: ComputeEnvelope;
   readonly reused: boolean;
 }
 

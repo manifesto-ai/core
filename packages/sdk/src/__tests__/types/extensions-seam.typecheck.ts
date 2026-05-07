@@ -15,13 +15,13 @@ const session: SimulationSession<CounterDomain> = createSimulationSession(world)
 const canonical = ext.getCanonicalSnapshot();
 const available = ext.getAvailableActionsFor(canonical);
 const isAvailable = ext.isActionAvailableFor(canonical, "increment");
-const intent = ext.createIntent(ext.MEL.actions.increment);
+const intent = ext.createIntent(ext.refs.actions.increment);
 const isDispatchable = ext.isIntentDispatchableFor(canonical, intent);
 const explanation: IntentExplanation<CounterDomain> = ext.explainIntentFor(canonical, intent);
 const simulated: ExtensionSimulateResult<CounterDomain> = ext.simulateSync(canonical, intent);
 const simulatedTrace = simulated.diagnostics?.trace;
 const projected = ext.projectSnapshot(simulated.snapshot);
-const next = session.next(world.MEL.actions.increment);
+const next = session.next(ext.refs.actions.increment);
 const finished = next.finish();
 
 // @ts-expect-error root sdk entrypoint does not expose getExtensionKernel

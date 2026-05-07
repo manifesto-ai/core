@@ -12,13 +12,9 @@ import type {
   DispatchBlocker,
   IntentExplanation,
   ManifestoDomainShape,
-  ManifestoEventMap,
-  Snapshot,
+  ProjectedSnapshot,
   TypedIntent,
 } from "../types.js";
-import {
-  emitDispatchRejectedEvent,
-} from "./events.js";
 import type {
   IntentLegalityEvaluation,
   RuntimeAdmission,
@@ -44,12 +40,8 @@ type RuntimeAdmissionOptions<T extends ManifestoDomainShape> = {
   ) => boolean;
   readonly projectSnapshotFromCanonical: (
     snapshot: CoreSnapshot,
-  ) => Snapshot<T["state"]>;
+  ) => ProjectedSnapshot<T>;
   readonly getSimulateSync: () => RuntimeSimulateSync<T>;
-  readonly emitEvent: <K extends keyof ManifestoEventMap<T>>(
-    event: K,
-    payload: ManifestoEventMap<T>[K],
-  ) => void;
 };
 
 export function createRuntimeAdmission<T extends ManifestoDomainShape>({
@@ -60,7 +52,6 @@ export function createRuntimeAdmission<T extends ManifestoDomainShape>({
   isIntentDispatchableFor,
   projectSnapshotFromCanonical,
   getSimulateSync,
-  emitEvent,
 }: RuntimeAdmissionOptions<T>): RuntimeAdmission<T> {
   function buildDispatchBlocker(
     layer: DispatchBlocker["layer"],
@@ -259,8 +250,7 @@ export function createRuntimeAdmission<T extends ManifestoDomainShape>({
     }) as IntentExplanation<T>;
   }
 
-  function rejectRejectedIntent(intent: TypedIntent<T>, error: ManifestoError): never {
-    emitDispatchRejectedEvent(emitEvent, intent, error);
+  function rejectRejectedIntent(_intent: TypedIntent<T>, error: ManifestoError): never {
     throw error;
   }
 

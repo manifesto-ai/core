@@ -1,11 +1,11 @@
 # Host Guide
 
-> **Version:** Current surface (Host v4.0.0)
+> **Version:** Current v5-aligned surface
 > **Purpose:** Practical guide for using @manifesto-ai/host
 > **Prerequisites:** Basic understanding of Core
 > **Time to complete:** ~20 minutes
 
-> **Current Contract Note:** This guide follows the current Host v4.0.0 surface. Host-facing Snapshot references now follow Core v4.2.0 and no longer include accumulated `system.errors`.
+> **Current Contract Note:** This guide follows the current v5-aligned Host surface. Host-facing Snapshot references use `snapshot.state` for domain state and `snapshot.namespaces.host` for Host-owned operational state; accumulated `system.errors` is not part of the current contract.
 
 ---
 
@@ -46,15 +46,17 @@ const schema: DomainSchema = {
   version: "1.0.0",
   hash: "example-hash",
   state: {
-    count: { type: "number", default: 0 },
+    fields: {
+      count: { type: "number", required: true, default: 0 },
+    },
   },
   actions: {
     increment: {
       flow: {
         kind: "patch",
         op: "set",
-        path: "count",
-        value: { kind: "add", left: { kind: "get", path: "count" }, right: 1 },
+        path: [{ kind: "prop", name: "count" }],
+        value: { kind: "add", left: { kind: "get", path: "count" }, right: { kind: "lit", value: 1 } },
       },
     },
   },
@@ -71,7 +73,7 @@ const result = await host.dispatch(intent);
 
 // 4. Check result
 console.log(result.status);             // → "complete"
-console.log(result.snapshot.data.count); // → 1
+console.log(result.snapshot.state.count); // → 1
 ```
 
 ---
@@ -144,7 +146,7 @@ const intent = createIntent("increment", "intent-1");
 const result = await host.dispatch(intent);
 
 console.log(result.status); // → "complete"
-console.log(host.getSnapshot()?.data.count); // → 1
+console.log(host.getSnapshot()?.state.count); // → 1
 ```
 
 ### Use Case 2: Dispatching with Input
@@ -156,11 +158,17 @@ const schema: DomainSchema = {
   // ...
   actions: {
     addAmount: {
-      input: { type: "object", properties: { amount: { type: "number" } } },
+      input: {
+        type: "object",
+        required: true,
+        fields: {
+          amount: { type: "number", required: true },
+        },
+      },
       flow: {
         kind: "patch",
         op: "set",
-        path: "count",
+        path: [{ kind: "prop", name: "count" }],
         value: { kind: "add", left: { kind: "get", path: "count" }, right: { kind: "get", path: "input.amount" } },
       },
     },
@@ -173,7 +181,7 @@ const host = new ManifestoHost(schema, { initialData: { count: 0 } });
 const intent = createIntent("addAmount", { amount: 5 }, "intent-1");
 const result = await host.dispatch(intent);
 
-console.log(host.getSnapshot()?.data.count); // → 5
+console.log(host.getSnapshot()?.state.count); // → 5
 ```
 
 ### Use Case 3: Handling Multiple Intents
@@ -188,7 +196,7 @@ await host.dispatch(createIntent("increment", "intent-1"));
 await host.dispatch(createIntent("increment", "intent-2"));
 await host.dispatch(createIntent("increment", "intent-3"));
 
-console.log(host.getSnapshot()?.data.count); // → 3
+console.log(host.getSnapshot()?.state.count); // → 3
 ```
 
 ---
@@ -209,12 +217,12 @@ host.registerEffect("api.get", async (type, params, context) => {
     const data = await response.json();
 
     return [
-      { op: "set", path: params.target, value: data },
-      { op: "set", path: "error", value: null },
+      { op: "set", path: [{ kind: "prop", name: "data" }], value: data },
+      { op: "set", path: [{ kind: "prop", name: "error" }], value: null },
     ];
   } catch (e) {
     return [
-      { op: "set", path: "error", value: e.message },
+      { op: "set", path: [{ kind: "prop", name: "error" }], value: e.message },
     ];
   }
 });
@@ -234,11 +242,11 @@ host.registerEffect("api.get", async (type, params) => {
   try {
     const response = await fetch(params.url);
     if (!response.ok) {
-      return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+      return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: `HTTP ${response.status}` }];
     }
-    return [{ op: "set", path: "data", value: await response.json() }];
+    return [{ op: "set", path: [{ kind: "prop", name: "data" }], value: await response.json() }];
   } catch (e) {
-    return [{ op: "set", path: "error", value: e.message }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: e.message }];
   }
 });
 
@@ -325,7 +333,8 @@ async function handleStartIntent(job) {
 // ✅ CORRECT: request effect, terminate job
 function handleStartIntent(job) {
   const snapshot = context.getCanonicalHead();
-  const computed = Core.compute(schema, snapshot, job.intent);
+  const computeContext = context.createTransitionContext(job.intent);
+  const computed = Core.compute(schema, snapshot, job.intent, computeContext);
 
   if (computed.pendingRequirements.length > 0) {
     requestEffectExecution(job.intentId, computed.pendingRequirements);
@@ -340,26 +349,26 @@ function handleStartIntent(job) {
 
 ### Why Context Determinism Matters
 
-v2.0.1 guarantees that `HostContext` is frozen at job start:
+Host materializes one ADR-027 `Context` at the transition boundary:
 
 ```typescript
 // ❌ v1.x PROBLEM: Different timestamps within same job
 function handleStartIntent(job) {
-  const ctx1 = getContext();  // now = 1000
+  const ctx1 = getContext();  // timestamp = 1000
   Core.compute(..., ctx1);
 
-  const ctx2 = getContext();  // now = 1005 (different!)
-  Core.apply(..., ctx2);      // Non-deterministic!
+  const ctx2 = getContext();  // timestamp = 1005 (different!)
+  Core.compute(..., ctx2);    // Non-deterministic for the same transition!
 }
 
-// ✅ v2.0.1: Context frozen at job start
+// ✅ v5: Context materialized once per transition attempt
 function handleStartIntent(job) {
-  const frozenContext = createFrozenContext(job.intentId);
-  // frozenContext.now is captured once
-  // frozenContext.randomSeed = job.intentId
+  const computeContext = createFrozenContext(job.intentId);
+  // computeContext.runtime.time.timestamp is captured once
+  // computeContext.runtime.random.seed = job.intentId
 
-  Core.compute(..., frozenContext);
-  Core.apply(..., frozenContext);  // Same context!
+  Core.compute(..., computeContext);
+  Core.compute(..., computeContext);  // Same context on re-entry!
 }
 ```
 
@@ -373,7 +382,8 @@ import { ManifestoHost, type Runtime } from "@manifesto-ai/host";
 // Fixed runtime for deterministic tests
 const testRuntime: Runtime = {
   now: () => 1704067200000,  // 2024-01-01T00:00:00Z
-  randomSeed: () => "test-seed",
+  microtask: (fn) => queueMicrotask(fn),
+  yield: () => Promise.resolve(),
 };
 
 const host = new ManifestoHost(schema, {
@@ -386,12 +396,12 @@ const result = await host.dispatch(intent);
 // result.snapshot.meta.timestamp === 1704067200000
 ```
 
-### randomSeed and Determinism
+### Runtime Seed and Determinism
 
-The `randomSeed` is derived from `intentId`, ensuring deterministic randomness:
+The transition context derives `runtime.random.seed` from `intentId`, ensuring deterministic runtime values:
 
 ```typescript
-// Same intentId → same randomSeed → same computed values
+// Same intentId -> same runtime.random.seed -> same runtime values
 const intent1 = createIntent("generateRandom", "intent-123");
 const intent2 = createIntent("generateRandom", "intent-123");
 
@@ -436,15 +446,15 @@ host.registerEffect("api.post", async (type, params) => {
 
     if (!response.ok) {
       return [
-        { op: "set", path: "error", value: data.message || `HTTP ${response.status}` },
+        { op: "set", path: [{ kind: "prop", name: "error" }], value: data.message || `HTTP ${response.status}` },
       ];
     }
 
-    return params.target
-      ? [{ op: "set", path: params.target, value: data }]
+    return params.targetPath
+      ? [{ op: "set", path: params.targetPath, value: data }]
       : [];
   } catch (e) {
-    return [{ op: "set", path: "error", value: e.message }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: e.message }];
   }
 });
 ```
@@ -464,18 +474,18 @@ host.registerEffect("api.fetch", async (type, params) => {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+      return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: `HTTP ${response.status}` }];
     }
 
     return [
-      { op: "set", path: params.target, value: await response.json() },
+      { op: "set", path: params.targetPath, value: await response.json() },
     ];
   } catch (e) {
     clearTimeout(timeoutId);
     if (e.name === "AbortError") {
-      return [{ op: "set", path: "error", value: "Request timed out" }];
+      return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: "Request timed out" }];
     }
-    return [{ op: "set", path: "error", value: e.message }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: e.message }];
   }
 });
 ```
@@ -539,9 +549,9 @@ const host = new ManifestoHost(schema, {
 // { t: "runner:kick", key: "...", timestamp: ... }
 ```
 
-### Custom HostContextProvider
+### Custom Context Provider
 
-For advanced determinism control:
+For advanced Host-owned context materialization control:
 
 ```typescript
 import {
@@ -552,7 +562,8 @@ import {
 
 const runtime: Runtime = {
   now: () => Date.now(),
-  randomSeed: () => "custom-seed",
+  microtask: (fn) => queueMicrotask(fn),
+  yield: () => Promise.resolve(),
 };
 
 const contextProvider = createHostContextProvider(runtime, {
@@ -560,32 +571,43 @@ const contextProvider = createHostContextProvider(runtime, {
 });
 
 // Use contextProvider in custom execution flows
-const frozenContext = contextProvider.createFrozenContext("intent-1");
+const computeContext = contextProvider.createFrozenContext("intent-1", {
+  NODE_ENV: "production",
+});
 ```
 
-### Environment Variables
+The `HostContextProvider` naming is retained as a Host package compatibility
+surface. The canonical Core boundary type is owner-neutral `Context`, and
+current Core calls receive that materialized `Context` directly.
 
-Pass environment variables to effect handlers:
+### Operational Configuration
+
+`HostOptions.env` is retained for Host-owned provider inspection through
+`contextProvider.getEnv()`. It is not injected into Core `Context.external` or
+into effect handler context. Capture operational configuration in the handler
+closure instead:
 
 ```typescript
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+
+const apiConfig = {
+  baseUrl: "https://api.example.com",
+  apiKey: process.env.API_KEY,
+};
 const host = new ManifestoHost(schema, {
   initialData: {},
-  env: {
-    API_BASE_URL: "https://api.example.com",
-    API_KEY: process.env.API_KEY,
-  },
 });
 
-// Access in effect handler via context
-host.registerEffect("api.get", async (type, params, context) => {
-  const baseUrl = context.env?.API_BASE_URL;
-  const apiKey = context.env?.API_KEY;
-
-  const response = await fetch(`${baseUrl}${params.path}`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
+host.registerEffect("api.get", async (_type, params) => {
+  const response = await fetch(`${apiConfig.baseUrl}${String(params.path)}`, {
+    headers: { Authorization: `Bearer ${apiConfig.apiKey}` },
   });
 
-  return [{ op: "set", path: "data", value: await response.json() }];
+  return [{
+    op: "set",
+    path: semanticPathToPatchPath("data"),
+    value: await response.json(),
+  }];
 });
 ```
 
@@ -609,13 +631,13 @@ describe("API effect handler", () => {
     const handler = async (type, params) => {
       const response = await fetch(params.url);
       const data = await response.json();
-      return [{ op: "set", path: "user", value: data }];
+      return [{ op: "set", path: [{ kind: "prop", name: "user" }], value: data }];
     };
 
     const result = await handler("api.get", { url: "/users/123" });
 
     expect(result).toEqual([
-      { op: "set", path: "user", value: { id: "123", name: "Test" } },
+      { op: "set", path: [{ kind: "prop", name: "user" }], value: { id: "123", name: "Test" } },
     ]);
   });
 
@@ -628,7 +650,7 @@ describe("API effect handler", () => {
     const handler = async (type, params) => {
       const response = await fetch(params.url);
       if (!response.ok) {
-        return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+        return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: `HTTP ${response.status}` }];
       }
       return [];
     };
@@ -636,7 +658,7 @@ describe("API effect handler", () => {
     const result = await handler("api.get", { url: "/users/999" });
 
     expect(result).toEqual([
-      { op: "set", path: "error", value: "HTTP 404" },
+      { op: "set", path: [{ kind: "prop", name: "error" }], value: "HTTP 404" },
     ]);
   });
 });
@@ -657,7 +679,7 @@ describe("Counter host", () => {
     const result = await host.dispatch(createIntent("increment", "intent-1"));
 
     expect(result.status).toBe("complete");
-    expect(result.snapshot.data.count).toBe(1);
+    expect(result.snapshot.state.count).toBe(1);
   });
 
   it("handles effects", async () => {
@@ -667,13 +689,13 @@ describe("Counter host", () => {
 
     // Mock effect
     host.registerEffect("api.get", async () => {
-      return [{ op: "set", path: "user", value: { id: "1", name: "Test" } }];
+      return [{ op: "set", path: [{ kind: "prop", name: "user" }], value: { id: "1", name: "Test" } }];
     });
 
     const result = await host.dispatch(createIntent("fetchUser", { id: "1" }, "intent-1"));
 
     expect(result.status).toBe("complete");
-    expect(result.snapshot.data.user).toEqual({ id: "1", name: "Test" });
+    expect(result.snapshot.state.user).toEqual({ id: "1", name: "Test" });
   });
 });
 ```
@@ -688,7 +710,8 @@ describe("Determinism", () => {
   it("produces identical results for same input", async () => {
     const fixedRuntime: Runtime = {
       now: () => 1704067200000,
-      randomSeed: () => "fixed-seed",
+      microtask: (fn) => queueMicrotask(fn),
+      yield: () => Promise.resolve(),
     };
 
     const host1 = new ManifestoHost(schema, {
@@ -707,7 +730,7 @@ describe("Determinism", () => {
     const result2 = await host2.dispatch(intent);
 
     // Same input → same output
-    expect(result1.snapshot.data).toEqual(result2.snapshot.data);
+    expect(result1.snapshot.state).toEqual(result2.snapshot.state);
     expect(result1.snapshot.meta.timestamp).toBe(result2.snapshot.meta.timestamp);
   });
 });
@@ -733,7 +756,7 @@ host.registerEffect("api.get", async (type, params) => {
 host.registerEffect("api.get", async (type, params) => {
   const response = await fetch(params.url);
   if (!response.ok) {
-    return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: `HTTP ${response.status}` }];
   }
   return [];
 });
@@ -758,7 +781,7 @@ await host.dispatch(intent);
 // ❌ WRONG: Domain logic in handler
 host.registerEffect("purchase", async (type, params) => {
   if (params.amount > 1000) {  // Business rule in handler!
-    return [{ op: "set", path: "approval.required", value: true }];
+    return [{ op: "set", path: [{ kind: "prop", name: "approval" }, { kind: "prop", name: "required" }], value: true }];
   }
   // ...
 });
@@ -767,8 +790,13 @@ host.registerEffect("purchase", async (type, params) => {
 // Flow:
 {
   kind: "if",
-  cond: { kind: "gt", left: { kind: "get", path: "input.amount" }, right: 1000 },
-  then: { kind: "patch", op: "set", path: "approval.required", value: true },
+  cond: { kind: "gt", left: { kind: "get", path: "input.amount" }, right: { kind: "lit", value: 1000 } },
+  then: {
+    kind: "patch",
+    op: "set",
+    path: [{ kind: "prop", name: "approval" }, { kind: "prop", name: "required" }],
+    value: { kind: "lit", value: true },
+  },
   else: { kind: "effect", type: "payment.process", params: { ... } }
 }
 ```
@@ -831,7 +859,7 @@ const host = new ManifestoHost(schema, {
 2. Check for infinite loops in Flow (missing state guards):
    ```typescript
    // ❌ WRONG: Runs every iteration
-   { kind: "patch", op: "set", path: "count", value: { kind: "add", ... } }
+   { kind: "patch", op: "set", path: [{ kind: "prop", name: "count" }], value: { kind: "add", ... } }
 
    // ✅ CORRECT: State-guarded
    {
@@ -851,9 +879,9 @@ host.registerEffect("api.get", async (type, params) => {
   // Always return patches, even on failure
   try {
     const response = await fetch(params.url);
-    return [{ op: "set", path: "data", value: await response.json() }];
+    return [{ op: "set", path: [{ kind: "prop", name: "data" }], value: await response.json() }];
   } catch (e) {
-    return [{ op: "set", path: "error", value: e.message }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: e.message }];
   }
 });
 ```

@@ -32,7 +32,7 @@ domain ControlStop {
   // --- Idempotent toggle ---
   action markDone(id: string) {
     // Item doesn't exist - fail
-    when eq(at(items, id), null) {
+    when isNull(at(items, id)) {
       fail "NOT_FOUND" with concat("Item not found: ", id)
     }
 
@@ -95,7 +95,7 @@ domain ControlStop {
   // --- Combined fail and stop ---
   action updateItem(id: string, value: number) {
     // Fail: Item doesn't exist
-    when eq(at(items, id), null) {
+    when isNull(at(items, id)) {
       fail "NOT_FOUND" with concat("Item not found: ", id)
     }
 

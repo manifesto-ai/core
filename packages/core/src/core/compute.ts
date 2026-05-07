@@ -2,7 +2,7 @@ import type { DomainSchema } from "../schema/domain.js";
 import type { Snapshot } from "../schema/snapshot.js";
 import type { ErrorValue, Requirement } from "../schema/snapshot.js";
 import type { Intent, Patch } from "../schema/patch.js";
-import type { ComputeResult, ComputeStatus, SystemDelta } from "../schema/result.js";
+import type { ComputeResult, ComputeStatus, NamespaceDelta, SystemDelta } from "../schema/result.js";
 import type { TraceGraph } from "../schema/trace.js";
 import type { FieldSpec } from "../schema/field.js";
 import { createError } from "../errors.js";
@@ -10,8 +10,9 @@ import { createContext } from "../evaluator/context.js";
 import { evaluateFlowSync, createFlowState, type FlowStatus } from "../evaluator/flow.js";
 import { evaluateComputed } from "../evaluator/computed.js";
 import { isOk } from "../schema/common.js";
-import type { HostContext } from "../schema/host-context.js";
+import { Context, type Context as CoreContext } from "../schema/context.js";
 import { evaluateActionAvailability } from "./action-availability.js";
+import { validateExternalContext } from "./context-validation.js";
 import { applySystemDelta } from "./system-delta.js";
 import { validateValueAgainstTypeDefinition } from "./type-definition-utils.js";
 
@@ -25,8 +26,33 @@ export function computeSync(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
-  context: HostContext
+  context: CoreContext
 ): ComputeResult {
+  const parsedContext = parseCoreContext(context);
+  if (!parsedContext.ok) {
+    return createErrorResult(
+      snapshot,
+      intent,
+      "INVALID_INPUT",
+      parsedContext.message,
+      snapshot.meta.timestamp
+    );
+  }
+  const coreContext = parsedContext.value;
+  const timestamp = coreContext.runtime.time.timestamp;
+  const externalContextValidation = validateExternalContext(schema, coreContext.external);
+  if (!externalContextValidation.valid) {
+    return createErrorResult(
+      snapshot,
+      intent,
+      "INVALID_CONTEXT",
+      `Invalid context: ${externalContextValidation.errors.map((issue) => (
+        issue.path ? `${issue.path}: ${issue.message}` : issue.message
+      )).join("; ")}`,
+      timestamp
+    );
+  }
+
   let currentSnapshot = snapshot;
   const initialComputedResult = evaluateComputed(schema, snapshot);
   if (isOk(initialComputedResult)) {
@@ -34,6 +60,14 @@ export function computeSync(
       ...snapshot,
       computed: initialComputedResult.value,
     };
+  } else {
+    return createErrorResult(
+      snapshot,
+      intent,
+      initialComputedResult.error.code,
+      initialComputedResult.error.message,
+      timestamp
+    );
   }
 
   const action = schema.actions[intent.type];
@@ -43,7 +77,7 @@ export function computeSync(
       intent,
       "UNKNOWN_ACTION",
       `Unknown action: ${intent.type}`,
-      context
+      timestamp
     );
   }
 
@@ -54,21 +88,21 @@ export function computeSync(
       intent,
       "INVALID_INPUT",
       inputError,
-      context
+      timestamp
     );
   }
 
   const isReEntry = currentSnapshot.system.currentAction === intent.type;
 
   if (action.available && !isReEntry) {
-    const availability = evaluateActionAvailability(schema, currentSnapshot, intent.type, context.now);
+    const availability = evaluateActionAvailability(schema, currentSnapshot, intent.type, timestamp);
     if (availability.kind === "error") {
       return createErrorResult(
         currentSnapshot,
         intent,
         availability.code,
         availability.message,
-        context
+        timestamp
       );
     }
 
@@ -78,7 +112,7 @@ export function computeSync(
         intent,
         "ACTION_UNAVAILABLE",
         `Action "${intent.type}" is not available`,
-        context
+        timestamp
       );
     }
   }
@@ -93,7 +127,15 @@ export function computeSync(
     },
   };
 
-  const ctx = createContext(preparedSnapshot, schema, intent.type, `actions.${intent.type}.flow`, intent.intentId, context.now);
+  const ctx = createContext(
+    preparedSnapshot,
+    schema,
+    intent.type,
+    `actions.${intent.type}.flow`,
+    intent.intentId,
+    timestamp,
+    { context: coreContext, phase: "flow" }
+  );
   const flowState = createFlowState(preparedSnapshot);
 
   const flowResult = evaluateFlowSync(
@@ -106,19 +148,21 @@ export function computeSync(
   const status = mapFlowStatus(flowResult.state.status);
   const systemDelta = createSystemDeltaForFlow(currentSnapshot, intent, status, flowResult.state.error, flowResult.state.requirements);
   const patches = [...flowResult.state.patches];
+  const namespaceDelta: NamespaceDelta[] = [...flowResult.state.namespaceDelta];
 
   const trace: TraceGraph = {
     root: flowResult.trace,
     nodes: collectTraceNodes(flowResult.trace),
     intent: { type: intent.type, input: intent.input },
     baseVersion: currentSnapshot.meta.version,
-    resultVersion: estimateResultVersion(currentSnapshot, patches, systemDelta),
-    duration: context.durationMs ?? 0,
+    resultVersion: estimateResultVersion(currentSnapshot, patches, namespaceDelta, systemDelta),
+    duration: 0,
     terminatedBy: mapFlowStatusToTermination(flowResult.state.status),
   };
 
   return {
     patches,
+    namespaceDelta,
     systemDelta,
     trace,
     status,
@@ -132,9 +176,38 @@ export async function compute(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
-  context: HostContext
+  context: CoreContext
 ): Promise<ComputeResult> {
   return computeSync(schema, snapshot, intent, context);
+}
+
+function parseCoreContext(
+  context: CoreContext
+): { ok: true; value: CoreContext } | { ok: false; message: string } {
+  try {
+    const parsedContext = Context.safeParse(context);
+    if (!parsedContext.success) {
+      return {
+        ok: false,
+        message: `Invalid context: ${parsedContext.error.issues.map((issue) => issue.message).join("; ")}`,
+      };
+    }
+
+    return { ok: true, value: parsedContext.data };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Invalid context: ${describeContextParseFailure(error)}`,
+    };
+  }
+}
+
+function describeContextParseFailure(error: unknown): string {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
+  }
+
+  return "context validation failed";
 }
 
 /**
@@ -155,7 +228,9 @@ export function validateIntentInput(
   }
 
   if (!action.input && !action.inputType) {
-    return null;
+    return intent.input === undefined
+      ? null
+      : `Action "${intent.type}" does not accept input`;
   }
 
   return validateInput(schema, action.inputType, action.input, intent.input);
@@ -220,14 +295,14 @@ function createErrorResult(
   intent: Intent,
   code: string,
   message: string,
-  context: HostContext
+  timestamp: number
 ): ComputeResult {
   const error = createError(
     code as import("../errors.js").CoreErrorCode,
     message,
     intent.type,
     "",
-    context.now
+    timestamp
   );
 
   const systemDelta: SystemDelta = {
@@ -246,18 +321,19 @@ function createErrorResult(
       inputs: {},
       output: error,
       children: [],
-      timestamp: context.now,
+      timestamp,
     },
     nodes: {},
     intent: { type: intent.type, input: intent.input },
     baseVersion: snapshot.meta.version,
-    resultVersion: estimateResultVersion(snapshot, [], systemDelta),
-    duration: context.durationMs ?? 0,
+    resultVersion: estimateResultVersion(snapshot, [], [], systemDelta),
+    duration: 0,
     terminatedBy: "error",
   };
 
   return {
     patches: [],
+    namespaceDelta: [],
     systemDelta,
     trace,
     status: "error",
@@ -287,12 +363,21 @@ function createSystemDeltaForFlow(
   };
 }
 
-function estimateResultVersion(snapshot: Snapshot, patches: readonly Patch[], delta: SystemDelta): number {
+function estimateResultVersion(
+  snapshot: Snapshot,
+  patches: readonly Patch[],
+  namespaceDelta: readonly NamespaceDelta[],
+  delta: SystemDelta
+): number {
   let version = snapshot.meta.version;
 
   // Host interlock always executes core.apply() first, even for empty patch arrays.
   // apply() increments snapshot version by exactly 1.
   version += 1;
+
+  if (namespaceDelta.length > 0) {
+    version += 1;
+  }
 
   const applied = applySystemDelta(snapshot, delta);
   if (applied !== snapshot) {

@@ -143,14 +143,23 @@ export const SnapshotMeta = z.object({
 export type SnapshotMeta = z.infer<typeof SnapshotMeta>;
 
 /**
+ * SnapshotNamespaces - Opaque platform/runtime/tooling namespaces.
+ *
+ * Core owns only the container contract. Namespace names and nested shapes are
+ * package-owned and must not be encoded in Core's canonical Snapshot type.
+ */
+export const SnapshotNamespaces = z.record(z.string(), z.unknown());
+export type SnapshotNamespaces = z.infer<typeof SnapshotNamespaces>;
+
+/**
  * Snapshot - Immutable, point-in-time representation of world state.
  * This is the ONLY medium of communication between Core and Host.
  */
 export const Snapshot = z.object({
   /**
-   * Domain data (matches StateSpec)
+   * Domain state (matches StateSpec)
    */
-  data: z.unknown(),
+  state: z.unknown(),
 
   /**
    * Computed values (matches ComputedSpec)
@@ -171,6 +180,11 @@ export const Snapshot = z.object({
    * Snapshot metadata
    */
   meta: SnapshotMeta,
+
+  /**
+   * Platform/runtime/compiler/tooling namespaces
+   */
+  namespaces: SnapshotNamespaces,
 });
 export type Snapshot = z.infer<typeof Snapshot>;
 
@@ -184,4 +198,11 @@ export function createInitialSystemState(): SystemState {
     pendingRequirements: [],
     currentAction: null,
   };
+}
+
+/**
+ * Create initial namespace container.
+ */
+export function createInitialNamespaces(): SnapshotNamespaces {
+  return {};
 }

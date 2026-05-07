@@ -7,7 +7,7 @@ If you need a single current-surface document without version-history context, s
 :::
 
 ::: tip Single Source of Truth
-Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.2.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v3.5.0 activation-first plus `sdk/extensions`, `@manifesto-ai/compiler` v1.3.0 as the rolled-up MEL compiler contract, and `@manifesto-ai/codegen` as the normative build-time code generation baseline, with `@manifesto-ai/lineage` / `@manifesto-ai/governance` as the governed decorator packages. Draft package work that is not yet implemented is listed separately below.
+Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v5.0.0 ADR-025/ADR-027/ADR-028 semantic runtime, `@manifesto-ai/host` v5.0.0 concrete patch application boundary, `@manifesto-ai/sdk` v5.0.0 ADR-026 action-candidate surface, `@manifesto-ai/lineage` v5.0.0 continuity decorator surface, `@manifesto-ai/governance` v5.0.0 legitimacy decorator surface, `@manifesto-ai/compiler` v5.0.0 as the rolled-up MEL compiler contract aligned to ADR-025 and ADR-028, and `@manifesto-ai/codegen` v5.0.0 as the ADR-025/ADR-026-aligned build-time domain facade baseline. Draft package work that is not yet implemented is listed separately below.
 :::
 
 If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
@@ -27,20 +27,20 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/core** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (v4.2.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v4.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/core** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (v5.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v5.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
 
 ### Application and Decorator Packages
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/sdk** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (v3.x surface) | Normative (activation-first entry + legality introspection + `sdk/extensions` + `createSimulationSession()` + additive `dispatchAsyncWithReport()`) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (v3.x surface) | Normative (decorator continuity package + additive `commitAsyncWithReport()`) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (v3.x surface) | Normative (decorator legitimacy package + additive `waitForProposal()` settlement observer + additive `waitForProposalWithReport()` settlement-report helper) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/sdk** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (v5.0.0 surface) | Normative (ADR-026 action-candidate runtime grammar, projected state/computed read handles, observe/inspect, and law-aware `submit()`) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/lineage** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (v5.0.0 surface) | Normative (continuity decorator + lineage-mode `submit()` results + `WorldRecord` refs + ADR-025 restore/hash alignment) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/governance** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (v5.0.0 surface) | Normative (legitimacy decorator + governance-mode `submit()` results + durable `ProposalRef` + `waitForSettlement(ref)`) | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/VERSION-INDEX.md) |
 | **@manifesto-ai/runtime** | Retired | Superseded (ADR-010, no successor) — package removed from workspace | — |
 | **App facade (retired)** | Removed (R2) | Historical reference only | [Retired Page](/internals/retired/app) |
-| **@manifesto-ai/compiler** | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v1.3.0 in-place) | Normative full MEL compiler contract | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/codegen** | [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md) | Normative baseline for build-time code generation tooling | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/compiler** | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v5.0.0 in-place) | Normative full MEL compiler contract aligned to ADR-025 | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/codegen** | [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md) (current v5.0.0 package release, in-place contract) | Normative build-time domain facade baseline aligned to ADR-025 Snapshot ontology and ADR-026 SDK v5 action candidates | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/VERSION-INDEX.md) |
 
 > **Current Governed Direction:** `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
@@ -68,59 +68,68 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 ### Core
 
-- **Core SPEC** — [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (Living Document, current through v4.2.0)
-  - Updated directly in the living document; FDR rationale inlined
+- **Core SPEC** — [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (Living Document, current through v5.0.0)
+  - Updated directly in the living document; ADR-025 retires `Snapshot.data`, promotes `snapshot.state`, adds `snapshot.namespaces`, and makes patch roots channel-determined
 
 ### Host
 
-- **Host SPEC** — [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (Living Document, current through v4.0.0)
-  - Updated directly in the living document; FDR-H018~H025 inlined
+- **Host SPEC** — [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (Living Document, current through v5.0.0)
+  - Updated directly in the living document; ADR-025 aligns Host to canonical `snapshot.state`, `snapshot.namespaces`, and the domain patch / namespace delta / system delta interlock
   - Deprecated §9 (Compiler Integration) moved to Appendix D
 
 ### Lineage
 
-- **Lineage SPEC** — [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (Living Document, current v3.x surface with additive `commitAsyncWithReport()`)
-  - Defines `withLineage()`, `commitAsync`, `getWorldSnapshot()` stored sealed canonical snapshot lookup, restore, and branch/head runtime queries
+- **Lineage SPEC** — [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (Living Document, current v5.0.0 surface)
+  - Defines `withLineage()`, lineage-mode `submit()`, `WorldRecord` result refs, `getWorldSnapshot()` stored sealed canonical snapshot lookup, restore, and branch/head runtime queries
 
 ### Governance
 
-- **Governance SPEC** — [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (Living Document, current v3.x surface with additive `waitForProposalWithReport()`)
-  - Defines `withGovernance()`, explicit lineage prerequisite, governed `proposeAsync()` flow, pending resolution, and post-seal governance visibility
+- **Governance SPEC** — [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (Living Document, current v5.0.0 surface)
+  - Defines `withGovernance()`, explicit lineage prerequisite, governance-mode `submit()`, durable `ProposalRef`, `waitForSettlement(ref)`, control surface, and post-seal governance visibility
 
 ### SDK
 
 - **SDK SPEC** (Living Document)
   - [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md)
-  - Activation-first SDK — `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, and the current surface includes projected `SchemaGraph`, `simulate()`, dispatchability queries, and `sdk/extensions`
+  - SDK v5 action-candidate surface — `createManifesto()` returns a composable manifesto, runtime verbs appear only after `activate()`, and the current root is `snapshot()`, `context()`, `injectContext()`, `updateContext()`, `with(view)`, `action`, `state`, `computed`, `observe`, `inspect`, and `dispose()`
+  - The current action ladder is `info()`, `available()`, `check()`, `preview()`, `submit()`, and `bind()`; v3 root verbs such as `simulate()`, `dispatchAsync()`, and `createIntent()` are historical migration inputs
+  - `state.*` and `computed.*` expose typed read-only `value()` / `observe((next, prev) => ...)` handles over projected top-level fields
 
 ### Compiler (MEL)
 
-- **Compiler SPEC v1.3.0** (Current Full, in-place file path)
+- **Compiler SPEC v5.0.0** (Current Full, in-place file path)
   - [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md)
-  - Rolls up `SchemaGraph`, `dispatchable when`, `TypeDefinition`-backed schema-position lowering, pure collection builtins, object-literal spread with presence-aware object typing, and compiler-owned source-fragment editing into the current MEL compiler contract
+  - Rolls up `SchemaGraph`, `dispatchable when`, `TypeDefinition`-backed schema-position lowering, pure collection builtins, object-literal spread with presence-aware object typing, compiler-owned source-fragment editing, and ADR-025 namespace separation into the current MEL compiler contract
+
+### Codegen
+
+- **Codegen SPEC v5.0.0** (Current package release, in-place file path)
+  - [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md)
+  - Defines the deterministic build-time plugin runner, canonical domain facade generation, SDK v5 `ActionHandle` / `ActionInput` / `ActionArgs` type alignment, static `action.*` facade typing, reserved public action-name rejection, and ADR-025 `snapshot.state` / `snapshot.namespaces` separation
 
 ---
 
 ## Version History Summary
 
-### Recent Changes (2026-03)
+### Recent Changes (2026-05)
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
-| 03-31 | Core | v4.0.0 | ADR-015 current hard cut landed: accumulated `system.errors` and `appendErrors` are removed from the current Core contract |
-| 03-31 | Lineage | v2.0.0 | ADR-015 + ADR-016 lineage contract landed: current-error hash identity, parent-linked `WorldId`, `SealAttempt`, `tip`, `headAdvancedAt`, idempotent reuse, and restore normalization |
-| 03-31 | Governance | v2.0.0 | Governance v2 landed: remove accumulated-error assumptions, remap provenance to `SealAttempt`, and align governance/world seam to the current typed surface |
-| 03-31 | Host | v4.0.0 | Current Host alignment follows the Core v4 Snapshot contract and removes `system.errors` from Host-facing Snapshot references |
-| 03-31 | SDK | v2.0.0 | Historical pre-ADR-017 SDK surface aligned to the Core v4 Snapshot contract before the activation-first hard cut |
-| 03-28 | Governance | v1.1.0 | Governance living SPEC created; package version index added |
-| 03-28 | Lineage | v1.0.1 | Lineage living SPEC patch release: adds `BranchInfo.epoch`, `LineageService.getBranch()`, and public-contract epoch reads |
-| 03-24 | Compiler | v0.7.0 | Draft compiler SPEC refreshed for ADR-013a (`flow`/`include`) and ADR-013b entity collection primitives |
-| 03-02 | SDK | v1.1.0 | ADR-010 hard cut: `createManifesto()` sole entrypoint, Runtime retired |
+| 05-07 | Core/Compiler/Host | v5.0.0 | ADR-028 hard cut: Core owns dynamic Flow patch target resolution, Compiler lowers/preserves without runtime evaluation, and Host applies concrete patches only |
+| 05-07 | SDK/Lineage/Governance/Codegen | v5.0.0 | ADR-026 revision 9: canonical semantic action access is the static `action.*` namespace; `actions.*` and `app.action(name)` are removed from the current v5 SPEC surface and reserved public action names fail fast |
+| 05-07 | SDK | v5.0.0 | ADR-026 revision 8: SDK SPEC adds projected `state.*` / `computed.*` read handles with read-only `value()` and `observe((next, prev) => ...)` semantics |
 
 ### Recent Changes (2026-04)
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 04-29 | Core | v5.0.0 | ADR-025 hard cut: canonical Snapshot uses `state` and `namespaces`, retires `Snapshot.data`, and makes patch roots channel-determined |
+| 04-29 | Host | v5.0.0 | ADR-025 hard cut: Host consumes canonical v5 Snapshots and applies domain patches, namespace deltas, and system deltas through the current interlock |
+| 04-29 | SDK | v5.0.0 | ADR-026 hard cut: SDK current surface is the action-candidate ladder with `snapshot()`, `action.*`, `check()`, `preview()`, `submit()`, `observe`, and `inspect` |
+| 04-29 | Compiler | v5.0.0 | ADR-025 hard cut: MEL `state {}` maps to `snapshot.state`, `onceIntent` lowers to Core causal guards, and user-authored MEL cannot read or write `namespaces` |
+| 04-29 | Lineage | v5.0.0 | ADR-026 hard cut: lineage-mode `submit()` replaces root `commitAsync*` verbs and carries `WorldRecord` continuity refs |
+| 04-29 | Governance | v5.0.0 | ADR-026 hard cut: governance-mode `submit()` creates durable `ProposalRef` settlement handles observed through `waitForSettlement(ref)` |
+| 04-29 | Codegen | v5.0.0 | ADR-025/ADR-026 in-place spec alignment: domain facades target SDK v5 action candidates and current Snapshot ontology |
 | 04-25 | Compiler | v1.3.0 | Current full compiler spec adds `compileFragmentInContext()` as the compiler-owned authoring-time MEL source-fragment editing primitive |
 | 04-23 | Compiler | v1.2.0 | Current full compiler spec admits object-literal spread as bounded source sugar and defines presence-aware object typing / direct `merge()` parity |
 | 04-08 | Compiler | v1.1.0 | Current full compiler spec rolls up v0.7.0 + addenda and lands `TypeDefinition`-backed nullable/record schema-position lowering plus expression-level collection builtins |
@@ -136,6 +145,20 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 | 04-01 | Lineage | v3.0.0 | `withLineage(...).activate()` landed as the current seal-aware continuity runtime |
 | 04-01 | Governance | v3.0.0 | `withGovernance(...).activate()` landed as the current governed proposal runtime with an explicit lineage prerequisite |
 | 04-01 | World | Removed | `@manifesto-ai/world` removed from the active workspace and downgraded to historical tombstone status |
+
+### Recent Changes (2026-03)
+
+| Date | Package | Version | Change |
+|------|---------|---------|--------|
+| 03-31 | Core | v4.0.0 | ADR-015 hard cut landed: accumulated `system.errors` and `appendErrors` were removed from the Core contract |
+| 03-31 | Lineage | v2.0.0 | ADR-015 + ADR-016 lineage contract landed: current-error hash identity, parent-linked `WorldId`, `SealAttempt`, `tip`, `headAdvancedAt`, idempotent reuse, and restore normalization |
+| 03-31 | Governance | v2.0.0 | Governance v2 landed: remove accumulated-error assumptions, remap provenance to `SealAttempt`, and align governance/world seam to the current typed surface |
+| 03-31 | Host | v4.0.0 | Host v4 alignment followed the Core v4 Snapshot contract and removed `system.errors` from Host-facing Snapshot references |
+| 03-31 | SDK | v2.0.0 | Historical pre-ADR-017 SDK surface aligned to the Core v4 Snapshot contract before the activation-first hard cut |
+| 03-28 | Governance | v1.1.0 | Governance living SPEC created; package version index added |
+| 03-28 | Lineage | v1.0.1 | Lineage living SPEC patch release: adds `BranchInfo.epoch`, `LineageService.getBranch()`, and public-contract epoch reads |
+| 03-24 | Compiler | v0.7.0 | Draft compiler SPEC refreshed for ADR-013a (`flow`/`include`) and ADR-013b entity collection primitives |
+| 03-02 | SDK | v1.1.0 | ADR-010 hard cut: `createManifesto()` sole entrypoint, Runtime retired |
 
 ### Recent Changes (2026-02)
 

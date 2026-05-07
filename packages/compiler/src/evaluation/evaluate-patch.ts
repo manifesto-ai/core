@@ -9,6 +9,7 @@
 import type { ExprNode as CoreExprNode } from "@manifesto-ai/core";
 import type { ConditionalPatchOp, LoweredPatchOp } from "../lowering/lower-patch.js";
 import type { EvaluationContext, EvaluationSnapshot } from "./context.js";
+import { inheritRuntimeAllocationState } from "./context.js";
 import { applyPatchToWorkingSnapshot } from "./context.js";
 import { evaluateExpr } from "./evaluate-expr.js";
 
@@ -97,10 +98,10 @@ export function evaluateConditionalPatchOps(
 
   for (const op of ops) {
     // Create context with current working snapshot
-    const evalCtx: EvaluationContext = {
+    const evalCtx = inheritRuntimeAllocationState(ctx, {
       ...ctx,
       snapshot: workingSnapshot,
-    };
+    });
 
     // Evaluate condition if present
     if (op.condition !== undefined) {
@@ -176,7 +177,7 @@ export function evaluatePatches(
  * Update working snapshot based on patch operation.
  *
  * For schema operations, most don't affect the snapshot directly.
- * Only setDefaultValue affects the data model.
+ * Only setDefaultValue affects the state model.
  *
  * @see FDR-MEL-070
  */
@@ -190,7 +191,7 @@ function updateWorkingSnapshot(
 
   switch (op.kind) {
     case "setDefaultValue":
-      // Apply default value to working snapshot data
+      // Apply default value to working snapshot state.
       // This enables sequential evaluation where later ops can see the default
       return applyPatchToWorkingSnapshot(snapshot, op.path, op.value);
 
@@ -200,7 +201,7 @@ function updateWorkingSnapshot(
     case "addConstraint":
     case "addComputed":
     case "addActionAvailable":
-      // These don't affect runtime data, only schema structure
+      // These don't affect runtime state, only schema structure
       return snapshot;
   }
 }

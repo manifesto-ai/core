@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { caseTitle, LCTS_CASES } from "../lcts-coverage.js";
 import { evaluateRule, expectAllCompliance, noteEvidence } from "../lcts-assertions.js";
 import { getRuleOrThrow } from "../lcts-rules.js";
-import { createBootstrappedLineage, createTestSnapshot } from "../helpers.js";
+import {
+  createBootstrappedLineage,
+  createTestComputeEnvelope,
+  createTestSnapshot,
+} from "../helpers.js";
 
 describe("LCTS Restore Suite", () => {
   it(
@@ -16,13 +20,9 @@ describe("LCTS Restore Suite", () => {
         schemaHash: "schema-hash",
         baseWorldId: genesis.worldId,
         branchId: genesis.branchId,
+        computeEnvelope: createTestComputeEnvelope("test.failed", "intent-failed"),
         terminalSnapshot: createTestSnapshot(
-          {
-            count: 2,
-            $host: { runtime: true },
-            $mel: { guards: { intent: { stale: true } } },
-            $custom: { opaque: true },
-          },
+          { count: 2 },
           {
             computed: { derived: 2 },
             system: {
@@ -43,6 +43,11 @@ describe("LCTS Restore Suite", () => {
               randomSeed: "seed-x",
               schemaHash: "schema-hash",
             },
+            namespaces: {
+              host: { runtime: true },
+              mel: { guards: { intent: { stale: "true" } } },
+              custom: { opaque: true },
+            },
           }
         ),
         createdAt: 2,
@@ -52,10 +57,10 @@ describe("LCTS Restore Suite", () => {
       const restored = await service.restore(failed.worldId);
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("MRKL-RESTORE-1"), JSON.stringify(restored.data.$host) === "{}"
-          && JSON.stringify(restored.data.$mel) === JSON.stringify({ guards: { intent: {} } })
-          && JSON.stringify(restored.data.$custom) === "{}", {
-          passMessage: "restore() resets stored platform namespaces to clean runtime defaults.",
+        evaluateRule(getRuleOrThrow("MRKL-RESTORE-1"), JSON.stringify(restored.namespaces.host) === "{}"
+          && JSON.stringify(restored.namespaces.mel) === "{}"
+          && JSON.stringify(restored.namespaces.custom) === "{}", {
+          passMessage: "restore() resets stored platform namespaces without interpreting owner-specific shapes.",
           failMessage: "restore() did not reset one or more platform namespaces.",
         }),
         evaluateRule(getRuleOrThrow("MRKL-RESTORE-2"), restored.input === null, {
@@ -70,7 +75,7 @@ describe("LCTS Restore Suite", () => {
           passMessage: "restore() clears system.currentAction.",
           failMessage: "restore() preserved system.currentAction.",
         }),
-        evaluateRule(getRuleOrThrow("MRKL-RESTORE-4"), restored.data.count === 2
+        evaluateRule(getRuleOrThrow("MRKL-RESTORE-4"), restored.state.count === 2
           && restored.computed.derived === 2
           && restored.system.status === "error"
           && restored.system.lastError?.code === "ERR"
@@ -82,11 +87,13 @@ describe("LCTS Restore Suite", () => {
         }),
       ]);
 
-      expect(restored.data).toMatchObject({
+      expect(restored.state).toMatchObject({
         count: 2,
-        $host: {},
-        $mel: { guards: { intent: {} } },
-        $custom: {},
+      });
+      expect(restored.namespaces).toMatchObject({
+        host: {},
+        mel: {},
+        custom: {},
       });
     }
   );

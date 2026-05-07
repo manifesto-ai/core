@@ -1,6 +1,7 @@
 import { DomainSchema } from "../schema/domain.js";
 import type { ValidationResult, ValidationError } from "../schema/result.js";
 import type { TypeSpec } from "../schema/type-spec.js";
+import type { FlowNode } from "../schema/flow.js";
 import { validResult, invalidResult } from "../schema/result.js";
 import { buildDependencyGraph, topologicalSort, detectCycles } from "../evaluator/dag.js";
 import { isErr } from "../schema/common.js";
@@ -97,6 +98,8 @@ export function validate(schema: unknown): ValidationResult {
     });
   }
 
+  errors.push(...validateReservedStateIdentifiers(domainSchema));
+
   if (Object.keys(domainSchema.computed.fields).length === 0) {
     errors.push({
       code: "SCHEMA_ERROR",
@@ -118,6 +121,8 @@ export function validate(schema: unknown): ValidationResult {
   errors.push(...validateStateDefaults(domainSchema, "state.fields"));
 
   errors.push(...validateComputedDeps(domainSchema));
+
+  errors.push(...validateComputedRuntimeIsolation(domainSchema));
 
   errors.push(...validateComputedExprPaths(domainSchema));
 
@@ -158,6 +163,48 @@ export function validate(schema: unknown): ValidationResult {
   }
 
   return validResult();
+}
+
+function validateReservedStateIdentifiers(
+  schema: import("../schema/domain.js").DomainSchema,
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  const visitFields = (
+    fields: Record<string, import("../schema/field.js").FieldSpec>,
+    path: string,
+  ): void => {
+    for (const [name, field] of Object.entries(fields)) {
+      const fieldPath = `${path}.${name}`;
+      if (name.startsWith("$")) {
+        errors.push({
+          code: "SCHEMA_ERROR",
+          message: `State field "${name}" uses reserved namespace prefix "$"`,
+          path: fieldPath,
+        });
+      }
+
+      if (field.type === "object" && field.fields) {
+        visitFields(field.fields, fieldPath);
+      }
+    }
+  };
+
+  visitFields(schema.state.fields, "state.fields");
+
+  if (schema.state.fieldTypes) {
+    for (const name of Object.keys(schema.state.fieldTypes)) {
+      if (name.startsWith("$")) {
+        errors.push({
+          code: "SCHEMA_ERROR",
+          message: `state.fieldTypes.${name} uses reserved namespace prefix "$"`,
+          path: `state.fieldTypes.${name}`,
+        });
+      }
+    }
+  }
+
+  return errors;
 }
 
 /**
@@ -205,6 +252,9 @@ function collectCalls(flow: import("../schema/flow.js").FlowNode): string[] {
       if (flow.else) {
         calls.push(...collectCalls(flow.else));
       }
+      break;
+    case "causalGuard":
+      calls.push(...collectCalls(flow.body));
       break;
   }
 
@@ -282,6 +332,26 @@ function validateTypingSeams(
           schema.state.fieldTypes[name],
           schema.types,
           `state.fieldTypes.${name}`,
+        ),
+      );
+    }
+  }
+
+  if (schema.context?.fieldTypes) {
+    for (const name of Object.keys(schema.context.fieldTypes)) {
+      if (!(name in schema.context.fields)) {
+        errors.push({
+          code: "V-010",
+          message: `context.fieldTypes.${name} has no matching context.fields entry`,
+          path: `context.fieldTypes.${name}`,
+        });
+      }
+
+      errors.push(
+        ...validateTypeDefinitionRefs(
+          schema.context.fieldTypes[name],
+          schema.types,
+          `context.fieldTypes.${name}`,
         ),
       );
     }
@@ -614,6 +684,46 @@ function validateComputedExprPaths(
   return errors;
 }
 
+function validateComputedRuntimeIsolation(
+  schema: import("../schema/domain.js").DomainSchema
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  for (const [path, spec] of Object.entries(schema.computed.fields)) {
+    const exprPaths = collectGetPathsFromExpr(spec.expr);
+
+    for (const exprPath of exprPaths) {
+      if (!isForbiddenComputedRuntimePath(exprPath)) {
+        continue;
+      }
+
+      errors.push({
+        code: "V-012",
+        message: `Computed expression must not read runtime or namespace path: ${exprPath}`,
+        path: `computed.fields.${path}`,
+      });
+    }
+  }
+
+  return errors;
+}
+
+function isForbiddenComputedRuntimePath(path: string): boolean {
+  if (path === "input" || path.startsWith("input.")) {
+    return true;
+  }
+  if (path.startsWith("system.")) {
+    return true;
+  }
+  if (path.startsWith("meta.")) {
+    return true;
+  }
+  if (path.startsWith("$")) {
+    return !isAllowedLexicalPath(path);
+  }
+  return false;
+}
+
 function validateComputedDepsCoverage(
   schema: import("../schema/domain.js").DomainSchema
 ): ValidationError[] {
@@ -663,61 +773,148 @@ function validateActionExprPaths(
   const errors: ValidationError[] = [];
 
   for (const [actionName, action] of Object.entries(schema.actions)) {
-    const exprPaths = [
-      ...collectGetPathsFromFlow(action.flow),
-      ...(action.available ? collectGetPathsFromExpr(action.available) : []),
-      ...(action.dispatchable ? collectGetPathsFromExpr(action.dispatchable) : []),
-    ];
+    const flowPaths = collectGetPathsFromFlow(action.flow);
+    for (const exprPath of flowPaths) {
+      validateActionExprPath(schema, actionName, action, exprPath, "flow", errors);
+    }
 
-    for (const exprPath of exprPaths) {
-      if (exprPath.startsWith("$")) {
-        continue;
+    if (action.available) {
+      for (const exprPath of collectGetPathsFromExpr(action.available)) {
+        validateActionExprPath(schema, actionName, action, exprPath, "available", errors);
       }
+    }
 
-      if (exprPath === "input" || exprPath.startsWith("input.")) {
-        if (action.inputType) {
-          const subPath = exprPath === "input" ? "" : exprPath.slice(6);
-          if (!pathExistsInTypeDefinition(action.inputType, schema.types, subPath)) {
-            errors.push({
-              code: "V-003",
-              message: `Unknown input path: ${exprPath}`,
-              path: `actions.${actionName}`,
-            });
-          }
-        } else if (action.input) {
-          const subPath = exprPath === "input" ? "" : exprPath.slice(6);
-          if (!pathExistsInFieldSpec(action.input, subPath)) {
-            errors.push({
-              code: "V-003",
-              message: `Unknown input path: ${exprPath}`,
-              path: `actions.${actionName}`,
-            });
-          }
-        }
-        continue;
-      }
-
-      if (pathExistsInComputedSpec(schema.computed, exprPath)) {
-        continue;
-      }
-
-      if (exprPath.startsWith("system.")) {
-        continue;
-      }
-
-      if (exprPath === "meta" || exprPath.startsWith("meta.")) {
-        continue;
-      }
-
-      if (!pathExistsInStateSpec(schema.state, exprPath, schema.types)) {
-        errors.push({
-          code: "V-003",
-          message: `Unknown state path: ${exprPath}`,
-          path: `actions.${actionName}`,
-        });
+    if (action.dispatchable) {
+      for (const exprPath of collectGetPathsFromExpr(action.dispatchable)) {
+        validateActionExprPath(schema, actionName, action, exprPath, "dispatchable", errors);
       }
     }
   }
 
   return errors;
+}
+
+type ActionExprPhase = "flow" | "available" | "dispatchable";
+
+function validateActionExprPath(
+  schema: import("../schema/domain.js").DomainSchema,
+  actionName: string,
+  action: import("../schema/action.js").ActionSpec,
+  exprPath: string,
+  phase: ActionExprPhase,
+  errors: ValidationError[],
+): void {
+  if (exprPath.startsWith("$")) {
+    validateDollarActionExprPath(schema, actionName, exprPath, phase, errors);
+    return;
+  }
+
+  if (exprPath === "input" || exprPath.startsWith("input.")) {
+    if (phase !== "flow" && phase !== "dispatchable") {
+      errors.push({
+        code: "V-003",
+        message: `Input path is not allowed in ${phase} expression: ${exprPath}`,
+        path: `actions.${actionName}`,
+      });
+      return;
+    }
+
+    if (action.inputType) {
+      const subPath = exprPath === "input" ? "" : exprPath.slice(6);
+      if (!pathExistsInTypeDefinition(action.inputType, schema.types, subPath)) {
+        errors.push({
+          code: "V-003",
+          message: `Unknown input path: ${exprPath}`,
+          path: `actions.${actionName}`,
+        });
+      }
+    } else if (action.input) {
+      const subPath = exprPath === "input" ? "" : exprPath.slice(6);
+      if (!pathExistsInFieldSpec(action.input, subPath)) {
+        errors.push({
+          code: "V-003",
+          message: `Unknown input path: ${exprPath}`,
+          path: `actions.${actionName}`,
+        });
+      }
+    }
+    return;
+  }
+
+  if (pathExistsInComputedSpec(schema.computed, exprPath)) {
+    return;
+  }
+
+  if (!pathExistsInStateSpec(schema.state, exprPath, schema.types)) {
+    errors.push({
+      code: "V-003",
+      message: `Unknown state path: ${exprPath}`,
+      path: `actions.${actionName}`,
+    });
+  }
+}
+
+function isAllowedLexicalPath(path: string): boolean {
+  return path === "$item" || path.startsWith("$item.") || path === "$index" || path === "$array";
+}
+
+function validateDollarActionExprPath(
+  schema: import("../schema/domain.js").DomainSchema,
+  actionName: string,
+  exprPath: string,
+  phase: ActionExprPhase,
+  errors: ValidationError[],
+): void {
+  if (isAllowedLexicalPath(exprPath)) {
+    return;
+  }
+
+  if (exprPath === "$runtime" || exprPath.startsWith("$runtime.")) {
+    if (phase !== "flow") {
+      errors.push({
+        code: "V-003",
+        message: `$runtime is not allowed in ${phase} expression: ${exprPath}`,
+        path: `actions.${actionName}`,
+      });
+    }
+    return;
+  }
+
+  if (exprPath === "$context" || exprPath.startsWith("$context.")) {
+    if (phase !== "flow") {
+      errors.push({
+        code: "V-003",
+        message: `$context is not allowed in ${phase} expression: ${exprPath}`,
+        path: `actions.${actionName}`,
+      });
+      return;
+    }
+
+    if (!schema.context) {
+      errors.push({
+        code: "V-003",
+        message: `Schema does not declare user context path: ${exprPath}`,
+        path: `actions.${actionName}`,
+      });
+      return;
+    }
+
+    if (exprPath !== "$context") {
+      const subPath = exprPath.slice("$context.".length);
+      if (!pathExistsInStateSpec(schema.context, subPath, schema.types)) {
+        errors.push({
+          code: "V-003",
+          message: `Unknown user context path: ${exprPath}`,
+          path: `actions.${actionName}`,
+        });
+      }
+    }
+    return;
+  }
+
+  errors.push({
+    code: "V-003",
+    message: `Namespace or reserved runtime path is not allowed in action expression: ${exprPath}`,
+    path: `actions.${actionName}`,
+  });
 }
