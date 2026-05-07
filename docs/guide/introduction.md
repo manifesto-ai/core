@@ -10,17 +10,17 @@ It is not a state management library, an AI framework, a database, or a workflow
 
 ### Deterministic by design
 
-Core computation is pure. Effects are explicit declarations. Given the same schema, snapshot, and intent, Manifesto computes the same transition.
+Core computation is pure. Effects are explicit declarations. Given the same schema, snapshot, intent, and materialized context, Manifesto computes the same transition.
 
 ### Frontend, backend, and agents
 
-UI components, server routes, scripts, jobs, and agents can all submit typed intents against the same domain model.
+UI components, server routes, scripts, jobs, and agents can all submit action candidates against the same domain model.
 
 You do not need one state contract for UI, another for automation, and another for audit.
 
 ### Snapshot-first state
 
-Dispatch an intent, then observe the next Snapshot. Effect results also return as patches into Snapshot.
+Submit an action, then observe the next Snapshot. Effect results also return as patches into Snapshot.
 
 That keeps the visible result in one place.
 

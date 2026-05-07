@@ -1547,7 +1547,7 @@ transition-bound and therefore phase-restricted.
 | `$context.<name>` | Action body only | Computed, `available when`, `dispatchable when`, state init |
 | `$input.<field>` | Action body, effect sub-expressions | `available when`, `dispatchable when`, state init |
 | `$runtime.intent.id` | Action body, effect sub-expressions | Computed, `available when`, `dispatchable when`, state init |
-| `$item` | Effect `where`, `select`, `by` expressions | Computed, outside effect context |
+| `$item` | Collection callbacks and effect `where`, `select`, `by` expressions | Computed, outside callback/effect scope |
 
 Bare action parameter names are valid source syntax in action bodies and in `dispatchable when`. Direct `$input.*` remains invalid in `dispatchable when` even though the compiled schema lowers parameter reads to input paths.
 

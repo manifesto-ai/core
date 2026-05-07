@@ -35,11 +35,14 @@ Usually with `app.actions.someAction.submit(...args)` or `app.actions.someAction
 
 ### 3. Host runs the compute/execution loop
 
-Host evaluates the domain flow, fulfills declared work, and applies patches.
+Host orchestrates the loop, asks Core to compute semantic transitions, fulfills
+declared work, and applies Core-emitted concrete patches.
 
 ### 4. Core computes semantic changes
 
-Core stays pure. Given the same schema, snapshot, and intent, it computes the same result.
+Core stays pure. Given the same schema, snapshot, intent, and materialized context, it computes the same result.
+Core evaluates Flow semantics, including dynamic patch target resolution, before
+emitting concrete patches.
 
 ### 5. SDK publishes the terminal snapshot
 

@@ -52,17 +52,13 @@ _Source: `packages/compiler/src/index.ts`_
 #### Values
 
 - `analyzeScope`
-- `applyPatchToWorkingSnapshot`
 - `buildAnnotationIndex`
 - `check`
-- `classifyCondition`
 - `compile`
 - `compileFragmentInContext`
 - `compileMelDomain`
 - `compileMelModule`
-- `compileMelPatch`
 - `createError`
-- `createEvaluationContext`
 - `createInfo`
 - `createLocation`
 - `createPointLocation`
@@ -75,13 +71,6 @@ _Source: `packages/compiler/src/index.ts`_
 - `DEFAULT_SCHEMA_CONTEXT`
 - `DIAGNOSTIC_CODES`
 - `EFFECT_ARGS_CONTEXT`
-- `evaluateCondition`
-- `evaluateConditionalPatchOps`
-- `evaluateExpr`
-- `evaluatePatches`
-- `evaluatePatchExpressions`
-- `evaluateRuntimePatches`
-- `evaluateRuntimePatchesWithTrace`
 - `extractSchemaGraph`
 - `extractTypeName`
 - `filterBySeverity`
@@ -110,8 +99,6 @@ _Source: `packages/compiler/src/index.ts`_
 - `lowerExprNode`
 - `LoweringError`
 - `lowerPatchFragments`
-- `lowerRuntimePatch`
-- `lowerRuntimePatches`
 - `lowerSystemValues`
 - `mergeLocations`
 - `normalizeExpr`
@@ -165,8 +152,6 @@ _Source: `packages/compiler/src/index.ts`_
 - `CompileMelDomainResult`
 - `CompileMelModuleOptions`
 - `CompileMelModuleResult`
-- `CompileMelPatchOptions`
-- `CompileMelPatchResult`
 - `CompileOptions`
 - `CompilerActionSpec`
 - `CompilerComputedFieldSpec`
@@ -192,11 +177,6 @@ _Source: `packages/compiler/src/index.ts`_
 - `DomainSchema`
 - `EffectArgNode`
 - `EffectStmtNode`
-- `EvaluatedPatch`
-- `EvaluatedPatchOp`
-- `EvaluationContext`
-- `EvaluationMeta`
-- `EvaluationSnapshot`
 - `ExprLoweringContext`
 - `ExprNode`
 - `FailStmtNode`
@@ -215,8 +195,6 @@ _Source: `packages/compiler/src/index.ts`_
 - `IndexAccessExprNode`
 - `IndexSegmentNode`
 - `InnerStmtNode`
-- `IRPatchPath`
-- `IRPathSegment`
 - `IterationVarExprNode`
 - `JsonLiteral`
 - `LexResult`
@@ -244,8 +222,6 @@ _Source: `packages/compiler/src/index.ts`_
 - `MelEditReplaceTypeFieldOp`
 - `MelEditResult`
 - `MelExprNode`
-- `MelIRPatchPath`
-- `MelIRPathSegment`
 - `MelObjField`
 - `MelParamSource`
 - `MelPatchFragment`
@@ -253,8 +229,6 @@ _Source: `packages/compiler/src/index.ts`_
 - `MelPathNode`
 - `MelPathSegment`
 - `MelPrimitive`
-- `MelRuntimePatch`
-- `MelRuntimePatchOp`
 - `MelSystemPath`
 - `MelTextEdit`
 - `MelTypeExpr`
@@ -268,7 +242,6 @@ _Source: `packages/compiler/src/index.ts`_
 - `OnceStmtNode`
 - `ParamNode`
 - `ParseResult`
-- `PatchEvaluationResult`
 - `PatchFragment`
 - `PatchLoweringContext`
 - `PatchOp`
@@ -283,9 +256,6 @@ _Source: `packages/compiler/src/index.ts`_
 - `RelatedDiagnostic`
 - `RendererExprNode`
 - `RenderOptions`
-- `RuntimeConditionalPatchOp`
-- `RuntimePatchEvaluationResult`
-- `RuntimePatchSkipReason`
 - `SchemaConditionalPatchOp`
 - `SchemaDiff`
 - `SchemaGraph`
@@ -299,7 +269,6 @@ _Source: `packages/compiler/src/index.ts`_
 - `SetDefaultValueOp`
 - `SetFieldTypeOp`
 - `SimpleTypeNode`
-- `SkippedRuntimePatch`
 - `SourceLocation`
 - `SourceMapEmissionContext`
 - `SourceMapEntry`
@@ -506,6 +475,8 @@ _Source: `packages/core/src/index.ts`_
 - `FloorExpr`
 - `FlowKind`
 - `FlowNodeSchema`
+- `FlowPatchPath`
+- `FlowPatchSegment`
 - `FlowPosition`
 - `fromCanonical`
 - `FromEntriesExpr`
@@ -689,6 +660,8 @@ _Source: `packages/core/src/index.ts`_
 - `FloorExpr`
 - `FlowKind`
 - `FlowNode`
+- `FlowPatchPath`
+- `FlowPatchSegment`
 - `FlowPosition`
 - `FlowResult`
 - `FlowState`
@@ -794,8 +767,6 @@ _Source: `packages/governance/src/index.ts`_
 
 - `createInMemoryGovernanceStore`
 - `createNoopGovernanceEventSink`
-- `waitForProposal`
-- `waitForProposalWithReport`
 - `withGovernance`
 
 #### Types
@@ -826,15 +797,12 @@ _Source: `packages/governance/src/index.ts`_
 - `PolicyRule`
 - `Proposal`
 - `ProposalId`
-- `ProposalSettlement`
-- `ProposalSettlementReport`
 - `ProposalStatus`
 - `QuorumRule`
 - `SourceKind`
 - `SourceRef`
 - `SupersedeReason`
 - `Vote`
-- `WaitForProposalOptions`
 - `WaitingFor`
 
 ### @manifesto-ai/governance/provider
@@ -1125,11 +1093,13 @@ _Source: `packages/sdk/src/index.ts`_
 - `BaseLaws`
 - `BaseManifestoApp`
 - `BaseSubmissionResult`
+- `BaseWriteReport`
 - `Blocker`
 - `BoundAction`
 - `CanonicalNamespaces`
 - `CanonicalOutcome`
 - `CanonicalSnapshot`
+- `ChangedPath`
 - `CompileDiagnostic`
 - `ComposableManifesto`
 - `ComputedRef`
@@ -1168,17 +1138,15 @@ _Source: `packages/sdk/src/index.ts`_
 - `LineageSubmissionResult`
 - `LineageWriteReport`
 - `ManifestoApp`
-- `ManifestoBaseInstance`
 - `ManifestoDecoratedRuntimeByLaws`
-- `ManifestoDispatchRuntime`
 - `ManifestoDomainShape`
 - `ManifestoEvent`
 - `ManifestoEventName`
 - `ManifestoEventPayload`
 - `ManifestoEventPayloadMap`
-- `ManifestoLegalityRuntime`
 - `ManifestoRuntimeByLaws`
 - `Patch`
+- `PathSegment`
 - `PreviewDiagnosticsMode`
 - `PreviewResult`
 - `ProjectedDiff`
@@ -1202,17 +1170,13 @@ _Source: `packages/sdk/src/index.ts`_
 - `SubmitResultFor`
 - `TypedActionMetadata`
 - `TypedActionRef`
-- `TypedCommitAsync`
 - `TypedCreateIntent`
-- `TypedDispatchAsync`
 - `TypedGetActionMetadata`
 - `TypedGetIntentBlockers`
 - `TypedIntent`
 - `TypedIsIntentDispatchable`
 - `TypedMEL`
 - `TypedOn`
-- `TypedSimulate`
-- `TypedSimulateIntent`
 - `TypedSubscribe`
 - `Unsubscribe`
 - `WorldRecord`

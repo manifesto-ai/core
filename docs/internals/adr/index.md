@@ -58,6 +58,7 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-025](./025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation) | Snapshot Ontology Hard Cut — `data` Retirement and Namespace Separation | Accepted | 2026-04-29 | Core, Host, SDK, Compiler, Lineage, Governance, Studio, Agent tooling, Constitution, Docs |
 | [ADR-026](./026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress) | SDK v5 Action Candidate Surface and Law-Aware `submit()` Ingress | Accepted | 2026-04-29 | SDK, Lineage, Governance, Studio, Agent tooling, Codegen, Docs |
 | [ADR-027](./027-context-and-runtime-namespace-semantics) | Context and Runtime Namespace Semantics | Accepted | 2026-05-03 | Core, Compiler, Host, SDK, Lineage, Governance, Constitution, Docs |
+| [ADR-028](./028-core-owned-dynamic-patch-target-semantics) | Core-Owned Dynamic Patch Target Semantics | Accepted | 2026-05-07 | Core, Compiler, Host, Docs, CTS |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -179,6 +180,14 @@ These ADRs affect multiple packages across the monorepo:
 - ADR-027 requires Lineage replay records to include the intent and exact context value used for the transition.
 - ADR-027 preserves `snapshot.namespaces` as owner bookkeeping only; Core MUST NOT know Host/MEL namespace shapes or use owner namespaces as semantic expression inputs.
 - ADR-027 is the compute-input layer of the same v5 release train as ADR-025's Snapshot substrate and ADR-026's SDK surface hard cuts.
+
+### ADR-028 Companion Notes
+
+- ADR-028 is accepted as the v5 semantic-boundary hard-cut decision for dynamic patch targets.
+- ADR-028 preserves ADR-009's structured concrete `PatchPath`, but supersedes ADR-009's Compiler/runtime `evaluateConditionalPatchOps()` contract and `skip + warning` invalid dynamic target policy.
+- Core owns dynamic Flow patch target resolution during `compute()`; emitted patches and `core.apply()` remain concrete-only.
+- Compiler lowers and preserves dynamic target expressions but does not evaluate them, allocate runtime values, or produce runtime patches from runtime data.
+- Host never resolves dynamic patch targets; it applies Core-emitted concrete domain patches, namespace deltas, and system deltas.
 
 ### ADR-017 Version Notes
 

@@ -71,7 +71,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 | **Role** | Parse, validate, and lower MEL into `DomainSchema` |
 | **Primary API** | MEL plugins, compiler entrypoints, schema extraction helpers |
 | **Owns** | MEL syntax, validation, lowering, schema derivation |
-| **Does NOT Know** | Runtime execution, approval decisions, effect fulfillment |
+| **Does NOT Know** | Runtime execution, dynamic patch target resolution, approval decisions, effect fulfillment |
 
 ### Core
 
@@ -134,9 +134,9 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 
 | Layer | Must Not Know |
 |-------|---------------|
-| **Compiler** | Runtime execution, effect fulfillment, governance policy |
+| **Compiler** | Runtime execution, dynamic patch target resolution, effect fulfillment, governance policy |
 | **Core** | IO, wall-clock behavior, execution loops, lineage/governance policy |
-| **Host** | Authority decisions, proposal semantics, branch/head legitimacy |
+| **Host** | Dynamic patch target resolution, authority decisions, proposal semantics, branch/head legitimacy |
 | **SDK** | Core internals, lineage storage internals, governance policy internals |
 | **Lineage** | Host execution micro-steps, authority logic |
 | **Governance** | Host execution micro-steps, implicit continuity ownership |

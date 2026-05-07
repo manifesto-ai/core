@@ -7,7 +7,7 @@ If you need a single current-surface document without version-history context, s
 :::
 
 ::: tip Single Source of Truth
-Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v4.2.0, `@manifesto-ai/host` v4.0.0, `@manifesto-ai/sdk` v5.0.0 ADR-026 action-candidate surface, `@manifesto-ai/lineage` v5.0.0 continuity decorator surface, `@manifesto-ai/governance` v5.0.0 legitimacy decorator surface, `@manifesto-ai/compiler` v5.0.0 as the rolled-up MEL compiler contract aligned to ADR-025, and `@manifesto-ai/codegen` v0.2.8 as the ADR-025/ADR-026-aligned build-time domain facade baseline. Draft package work that is not yet implemented is listed separately below.
+Specifications are maintained in canonical package docs with version indexes. The current hard-cut surface is: `@manifesto-ai/core` v5.0.0 ADR-025/ADR-027/ADR-028 semantic runtime, `@manifesto-ai/host` v5.0.0 concrete patch application boundary, `@manifesto-ai/sdk` v5.0.0 ADR-026 action-candidate surface, `@manifesto-ai/lineage` v5.0.0 continuity decorator surface, `@manifesto-ai/governance` v5.0.0 legitimacy decorator surface, `@manifesto-ai/compiler` v5.0.0 as the rolled-up MEL compiler contract aligned to ADR-025 and ADR-028, and `@manifesto-ai/codegen` v0.2.8 as the ADR-025/ADR-026-aligned build-time domain facade baseline. Draft package work that is not yet implemented is listed separately below.
 :::
 
 If you want the governing documentation rules, see [Documentation Governance](../documentation-governance.md).
@@ -27,8 +27,8 @@ If an older ADR conflicts with a current package SPEC on runtime surface details
 
 | Package | SPEC | Status | Package Docs |
 |---------|------|--------|--------------|
-| **@manifesto-ai/core** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (v4.2.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
-| **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v4.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/core** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (v5.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/VERSION-INDEX.md) |
+| **@manifesto-ai/host** | [Living Document](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (v5.0.0) | Normative | [VERSION-INDEX](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/VERSION-INDEX.md) |
 
 ### Application and Decorator Packages
 
@@ -128,10 +128,11 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 05-07 | Core/Compiler/Host | v5.0.0 | ADR-028 hard cut: Core owns dynamic Flow patch target resolution, Compiler lowers/preserves without runtime evaluation, and Host applies concrete patches only |
 | 04-29 | Core | v5.0.0 | ADR-025 hard cut: canonical Snapshot uses `state` and `namespaces`, retires `Snapshot.data`, and makes patch roots channel-determined |
 | 04-29 | Host | v5.0.0 | ADR-025 hard cut: Host consumes canonical v5 Snapshots and applies domain patches, namespace deltas, and system deltas through the current interlock |
 | 04-29 | SDK | v5.0.0 | ADR-026 hard cut: SDK current surface is the action-candidate ladder with `snapshot()`, `actions.*`, `action(name)`, `check()`, `preview()`, `submit()`, `observe`, and `inspect` |
-| 04-29 | Compiler | v5.0.0 | ADR-025 hard cut: MEL `state {}` maps to `snapshot.state`, `onceIntent` uses `namespaces.mel`, and compiler-owned namespace writes use `NamespaceDelta` |
+| 04-29 | Compiler | v5.0.0 | ADR-025 hard cut: MEL `state {}` maps to `snapshot.state`, `onceIntent` lowers to Core causal guards, and user-authored MEL cannot read or write `namespaces` |
 | 04-29 | Lineage | v5.0.0 | ADR-026 hard cut: lineage-mode `submit()` replaces root `commitAsync*` verbs and carries `WorldRecord` continuity refs |
 | 04-29 | Governance | v5.0.0 | ADR-026 hard cut: governance-mode `submit()` creates durable `ProposalRef` settlement handles observed through `waitForSettlement(ref)` |
 | 04-29 | Codegen | v0.2.8 | ADR-025/ADR-026 in-place spec alignment: domain facades target SDK v5 action candidates and current Snapshot ontology |

@@ -374,7 +374,8 @@ import { ManifestoHost, type Runtime } from "@manifesto-ai/host";
 // Fixed runtime for deterministic tests
 const testRuntime: Runtime = {
   now: () => 1704067200000,  // 2024-01-01T00:00:00Z
-  randomSeed: () => "test-seed",
+  microtask: (fn) => queueMicrotask(fn),
+  yield: () => Promise.resolve(),
 };
 
 const host = new ManifestoHost(schema, {
@@ -387,12 +388,12 @@ const result = await host.dispatch(intent);
 // result.snapshot.meta.timestamp === 1704067200000
 ```
 
-### randomSeed and Determinism
+### Runtime Seed and Determinism
 
-The `randomSeed` is derived from `intentId`, ensuring deterministic randomness:
+The transition context derives `runtime.random.seed` from `intentId`, ensuring deterministic runtime values:
 
 ```typescript
-// Same intentId → same randomSeed → same computed values
+// Same intentId -> same runtime.random.seed -> same runtime values
 const intent1 = createIntent("generateRandom", "intent-123");
 const intent2 = createIntent("generateRandom", "intent-123");
 
@@ -553,7 +554,8 @@ import {
 
 const runtime: Runtime = {
   now: () => Date.now(),
-  randomSeed: () => "custom-seed",
+  microtask: (fn) => queueMicrotask(fn),
+  yield: () => Promise.resolve(),
 };
 
 const contextProvider = createHostContextProvider(runtime, {
@@ -561,36 +563,43 @@ const contextProvider = createHostContextProvider(runtime, {
 });
 
 // Use contextProvider in custom execution flows
-const computeContext = contextProvider.createFrozenContext("intent-1");
+const computeContext = contextProvider.createFrozenContext("intent-1", {
+  NODE_ENV: "production",
+});
 ```
 
 The `HostContextProvider` naming is retained as a Host package compatibility
 surface. The canonical Core boundary type is owner-neutral `Context`, and
 current Core calls receive that materialized `Context` directly.
 
-### Environment Variables
+### Operational Configuration
 
-Pass environment variables to effect handlers:
+`HostOptions.env` is retained for Host-owned provider inspection through
+`contextProvider.getEnv()`. It is not injected into Core `Context.external` or
+into effect handler context. Capture operational configuration in the handler
+closure instead:
 
 ```typescript
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
+
+const apiConfig = {
+  baseUrl: "https://api.example.com",
+  apiKey: process.env.API_KEY,
+};
 const host = new ManifestoHost(schema, {
   initialData: {},
-  env: {
-    API_BASE_URL: "https://api.example.com",
-    API_KEY: process.env.API_KEY,
-  },
 });
 
-// Access in effect handler via context
-host.registerEffect("api.get", async (type, params, context) => {
-  const baseUrl = context.env?.API_BASE_URL;
-  const apiKey = context.env?.API_KEY;
-
-  const response = await fetch(`${baseUrl}${params.path}`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
+host.registerEffect("api.get", async (_type, params) => {
+  const response = await fetch(`${apiConfig.baseUrl}${String(params.path)}`, {
+    headers: { Authorization: `Bearer ${apiConfig.apiKey}` },
   });
 
-  return [{ op: "set", path: "data", value: await response.json() }];
+  return [{
+    op: "set",
+    path: semanticPathToPatchPath("data"),
+    value: await response.json(),
+  }];
 });
 ```
 
@@ -693,7 +702,8 @@ describe("Determinism", () => {
   it("produces identical results for same input", async () => {
     const fixedRuntime: Runtime = {
       now: () => 1704067200000,
-      randomSeed: () => "fixed-seed",
+      microtask: (fn) => queueMicrotask(fn),
+      yield: () => Promise.resolve(),
     };
 
     const host1 = new ManifestoHost(schema, {

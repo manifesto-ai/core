@@ -8,7 +8,14 @@
 > **Authors:** Manifesto Team
 > **License:** MIT
 
-> **Historical Draft Note:** This file is retained as the pre-landing Host v4.0.0 draft aligned to ADR-015 and ADR-016. The current normative package contract now lives in [host-SPEC.md](host-SPEC.md) at v4.0.0.
+> **Historical Draft Note:** This file is retained as the pre-landing Host
+> v4.0.0 draft aligned to ADR-015 and ADR-016. The current normative package
+> contract now lives in [host-SPEC.md](host-SPEC.md).
+>
+> **ADR-028 Note:** Any compiler/runtime evaluator examples in this historical
+> draft are non-current. Current v5 Host receives only Core-emitted concrete
+> patches and never calls `evaluateConditionalPatchOps()` or resolves dynamic
+> Flow patch targets.
 
 ---
 
@@ -1762,25 +1769,26 @@ interface ApplyPatches {
 
 | Rule ID | Description | Status |
 |---------|-------------|--------|
-| COMP-1 | Host MUST import from `@manifesto-ai/compiler` | DEPRECATED |
-| COMP-2 | Host MUST call `lowerPatchFragments()` first | DEPRECATED |
-| COMP-3 | Host MUST call `evaluateConditionalPatchOps()` second | DEPRECATED |
-| COMP-6 | `$system.*` MUST be excluded from Translator path `allowSysPaths` | DEPRECATED |
-| TRANS-1 | LLM translate call is treated as Host-level async operation | DEPRECATED |
-| TRANS-2 | Translator fragments MUST be processed via `ApplyTranslatorOutput` job | DEPRECATED |
-| TRANS-3 | Lower -> Evaluate -> Apply MUST run synchronously in ONE job | DEPRECATED |
-| TRANS-4 | Splitting Lower/Evaluate/Apply into separate jobs is FORBIDDEN | DEPRECATED |
+| COMP-1 | Former Host obligation to import from `@manifesto-ai/compiler` | DEPRECATED |
+| COMP-2 | Former Host obligation to call `lowerPatchFragments()` first | DEPRECATED |
+| COMP-3 | Former Host obligation to call `evaluateConditionalPatchOps()` second | DEPRECATED |
+| COMP-6 | Former Translator path rule excluding `$system.*` from `allowSysPaths` | DEPRECATED |
+| TRANS-1 | Former treatment of LLM translate calls as Host-level async operations | DEPRECATED |
+| TRANS-2 | Former `ApplyTranslatorOutput` job for Translator fragments | DEPRECATED |
+| TRANS-3 | Former synchronous Lower -> Evaluate -> Apply job rule | DEPRECATED |
+| TRANS-4 | Former prohibition against splitting Lower/Evaluate/Apply jobs | DEPRECATED |
 
 ### D.3 Migration
 
-If Translator integration is needed, implement a `TranslatorAdapter` at the App layer:
+This historical draft described Translator integration through a
+`TranslatorAdapter` at the App layer:
 
 ```
 App layer (optional TranslatorAdapter, outside Host)
   - Depends on @manifesto-ai/compiler (if used)
   - Translator.translate() -> TranslatorFragment[]
   - lowerPatchFragments()
-  - evaluateConditionalPatchOps()
+  - evaluateConditionalPatchOps() [historical ADR-009 evaluator, non-current]
   - Submits concrete Patch[] to Host
 
 Host (compiler-free, translator-free)
@@ -1788,6 +1796,10 @@ Host (compiler-free, translator-free)
   - No @manifesto-ai/compiler dependency
   - Single responsibility: execution orchestration
 ```
+
+Current ADR-028 behavior does not use this evaluator route. If source/tooling
+translation is needed in v5, recompile a full domain or enter a Core-owned
+runtime path; Host still receives only concrete patches.
 
 ---
 

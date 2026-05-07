@@ -1,7 +1,7 @@
 # Host Documentation Index
 
 > **Package:** `@manifesto-ai/host`
-> **Last Updated:** 2026-04-29
+> **Last Updated:** 2026-05-07
 
 ---
 
@@ -10,6 +10,8 @@
 - **SPEC (Living Document):** [host-SPEC.md](host-SPEC.md) — Normative, current through v5.0.0
   - Consolidated from v2.x living document + ADR-009 hard-cut updates
   - ADR-025 hard cut landed: Host consumes canonical v5 Snapshots with `snapshot.state` and `snapshot.namespaces`
+  - ADR-027 hard cut landed: Host materializes and reuses owner-neutral Core `Context` per transition attempt
+  - ADR-028 hard cut landed: Host applies Core-emitted concrete patches only and never resolves dynamic Flow patch targets
   - Host-owned execution diagnostics and bookkeeping live under `namespaces.host`, not domain state
   - Host interlock applies domain patches, namespace deltas, then system deltas against the canonical Core substrate
   - ADR-015 hard cut landed: Host-facing Snapshot references no longer include accumulated `system.errors`
@@ -47,5 +49,6 @@ Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/
 
 - [host-SPEC.md](host-SPEC.md) is the current living contract.
 - Host current Snapshot references now follow Core v5 current shape: domain state is `snapshot.state`, Host-owned state is `snapshot.namespaces.host`, `lastError` remains the semantic current error surface, and accumulated `system.errors` is removed.
+- Host current patch responsibility follows ADR-028: dynamic target resolution is Core Flow semantics; Host receives concrete domain patches and optional Host-owned namespace deltas.
 - The retained host v4 draft file is historical drafting context for the landed alignment and restore-boundary wording.
 - Host v1.0.0 and v1.1.0 SPEC/FDR documents predate the v2.0 rewrite and are not included in this repo.

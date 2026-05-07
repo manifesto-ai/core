@@ -1,7 +1,7 @@
 # Current Contract
 
 > **Status:** Living Document
-> **Last Updated:** 2026-04-29
+> **Last Updated:** 2026-05-07
 > **Purpose:** Single-source current contract for external consumers, canonical-doc exports, and current-surface onboarding
 
 This document is the current-only contract summary for the active Manifesto workspace.
@@ -35,10 +35,10 @@ This is the canonical entry story for new integrations.
 
 | Package | Current Contract | Role |
 |---------|------------------|------|
-| `@manifesto-ai/core` | [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (current through v5.0.0 ADR-025/ADR-027 baseline) | Pure semantic runtime, schema validation, patch/apply semantics |
-| `@manifesto-ai/host` | [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (current through v5.0.0 ADR-025/ADR-027 alignment) | Effect execution, context materialization, compute loop orchestration, canonical snapshot substrate |
+| `@manifesto-ai/core` | [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md) (current through v5.0.0 ADR-025/ADR-027/ADR-028 baseline) | Pure semantic runtime, schema validation, patch/apply semantics, dynamic Flow patch target resolution |
+| `@manifesto-ai/host` | [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md) (current through v5.0.0 ADR-025/ADR-027/ADR-028 alignment) | Effect execution, context materialization, compute loop orchestration, canonical snapshot substrate, concrete patch application |
 | `@manifesto-ai/sdk` | [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md) (current v5.0.0 ADR-026/ADR-027 surface) | Action-candidate application surface, projected reads, observe/inspect, law-aware `submit()` ingress |
-| `@manifesto-ai/compiler` | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v1.3.0 in-place) | Full current MEL compiler contract |
+| `@manifesto-ai/compiler` | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v5.0.0 in-place) | Full current MEL compiler contract; source-to-schema/source-to-IR lowering |
 | `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v5.0.0 ADR-026/ADR-027 surface) | Seal-aware continuity, lineage-mode `submit()` results, canonical snapshot persistence, replay envelope, restore |
 | `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v5.0.0 ADR-026/ADR-027 surface) | Proposal legitimacy, submitted compute envelope preservation, governance-mode `submit()` results, durable `ProposalRef`, settlement observation, and control surface |
 | `@manifesto-ai/codegen` | [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md) (current v0.2.8, v5 facade alignment in-place) | Build-time domain facade generation aligned to ADR-025 ontology and ADR-026 SDK v5 action candidates |
@@ -81,9 +81,29 @@ The v5 branch adopts ADR-026 as the current SDK public-surface baseline:
 - Canonical v3 root runtime verbs such as `createIntent()`, `dispatchAsync()`,
   `simulate()`, `subscribe()`, and `on()` are retired from the v5 public root.
 
-ADR-025, ADR-026, and ADR-027 are the three required layers of the same v5 hard
-cut: ADR-025 defines the canonical Snapshot substrate, ADR-026 defines the SDK
-surface, and ADR-027 defines the explicit compute input model.
+ADR-025, ADR-026, ADR-027, and ADR-028 are the four required layers of the same
+v5 hard cut: ADR-025 defines the canonical Snapshot substrate, ADR-026 defines
+the SDK surface, ADR-027 defines the explicit compute input model, and ADR-028
+defines dynamic patch target ownership.
+
+## ADR-028 v5 Dynamic Patch Target Boundary
+
+The v5 branch adopts ADR-028 as the current ownership boundary for dynamic patch
+targets:
+
+- Core Flow may carry dynamic patch targets and Core resolves them during
+  `compute()`.
+- `ComputeResult.patches` and `core.apply()` remain concrete-only.
+- Compiler lowers and preserves dynamic target expressions, but does not
+  evaluate them, allocate runtime values, or emit placeholder targets.
+- Preserved dynamic target Flow IR participates in `DomainSchema.hash`; emitted
+  runtime schema hashes are computed from the final runtime `DomainSchema`.
+- Host never resolves dynamic patch targets and never evaluates Flow/MEL
+  expressions.
+- Invalid dynamic target values are Core semantic failures, not
+  skip-and-warning compiler/runtime events.
+- Effect handlers still return concrete `Patch[]`; dynamic effect-returned
+  targets are outside the current contract.
 
 ## Core Runtime Contract
 
@@ -95,6 +115,7 @@ Current contract highlights:
 - Determinism is over the full `schema + snapshot + intent + context` tuple.
 - `snapshot` is schema-driven existence information; `context` is captured external environment for the current computation.
 - `apply(schema, snapshot, patches)` applies domain patches rooted at `snapshot.state`.
+- Core resolves dynamic Flow patch targets during `compute()` before emitting concrete `Patch[]`.
 - Namespace transitions are separate from domain patches and are rooted at `snapshot.namespaces[namespace]`; Core validates structural safety only.
 - Core does not expose general `$namespace.*` expression reads and does not know Host or MEL namespace names/shapes.
 - Core canonical APIs do not expose Host-owned context types, intent frame fields, runtime providers, callbacks, or owner-specific context shapes.
@@ -124,6 +145,7 @@ Current contract highlights:
 - Host consumes the canonical Core snapshot substrate.
 - Host materializes ADR-027 `Context` before Core execution and reuses the same context across compute re-entry for one transition attempt.
 - Host executes effect requirements and applies the resulting patches.
+- Host applies only concrete patches and never resolves dynamic Flow patch targets.
 - Host does not reinterpret domain legality or policy.
 - Host remains aligned to the current Core snapshot contract and does not use accumulated `system.errors`.
 - Host-owned execution diagnostics live under canonical `namespaces.host.*`. In particular, `namespaces.host.lastError` is a canonical-only diagnostic, not the semantic Snapshot error surface.
@@ -176,7 +198,7 @@ Current extension seam:
 `@manifesto-ai/compiler` is now described by one current full contract:
 
 - [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md)
-  (current v1.3.0 in-place)
+  (current v5.0.0 in-place)
 
 Current MEL/compiler highlights:
 
@@ -196,6 +218,10 @@ Current MEL/compiler highlights:
 - object-literal spread is the sole bounded parser-level shorthand in current MEL
 - spread results and direct `merge()` now share a presence-aware object typing model
 - optional fields introduced through spread are observed as `T | null` at the read boundary and require explicit normalization for non-null sinks
+- dynamic patch targets are preserved for Core Flow evaluation
+- emitted compiler `DomainSchema.hash` values are final runtime schema hashes, not compiler-internal canonical IR hashes
+- compiler-owned runtime patch evaluation APIs such as `compileMelPatch()` and `evaluateConditionalPatchOps()` are retired from the current v5 contract
+- the generated public-surface inventory no longer lists retired compiler runtime evaluator APIs
 
 Current expression support includes:
 

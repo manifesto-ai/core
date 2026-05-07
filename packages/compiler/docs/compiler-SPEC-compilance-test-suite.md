@@ -49,7 +49,7 @@ packages/compiler/src/__tests__/compliance/
 
 The suite mirrors the Host HCTS shape, but adds explicit inventory and coverage layers:
 
-- spec inventory (SPEC v1.3.0, stored in the current in-place `SPEC-v1.2.0.md` file)
+- spec inventory (SPEC v5.0.0, stored in the current in-place `SPEC-v1.2.0.md` file)
 - shared rule registry
 - case/rule coverage map
 - test adapter wrapping exported APIs
@@ -145,7 +145,7 @@ Those are valid future extensions once the registry and suite skeleton are stabl
 
 ## 7. Current Residual Gap Audit
 
-As of the SPEC v1.3.0 source-editing baseline:
+As of the current SPEC v5.0.0 baseline:
 
 - `blocking`: concrete current-contract feature families already enforced in compiler + CCTS
 - `pending`: none

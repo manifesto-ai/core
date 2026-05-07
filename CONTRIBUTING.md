@@ -161,7 +161,7 @@ Avoid these common violations (see [CLAUDE.md Section 10](./CLAUDE.md#10-anti-pa
 
 | Anti-Pattern | Why It's Wrong | Correct Approach |
 |--------------|----------------|------------------|
-| Direct state mutation (`snapshot.data.x = 5`) | Violates immutability | Use `apply()` with patches |
+| Direct state mutation (`snapshot.state.x = 5`) | Violates immutability | Use `apply()` with patches |
 | String paths in Builder API | No type safety | Use `FieldRef` (e.g., `state.todos[0].title`) |
 | Re-entry unsafe Flows | Executes multiple times | Use state guards (`onceNull`, `onceTrue`) |
 | Returning values from effects | Violates Snapshot-only rule | Write to Snapshot via patches |

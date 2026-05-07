@@ -64,7 +64,7 @@ import { readAgentContext } from "./agent-context";
 
 function unavailable(actionName: "addTodo" | "clearCompleted") {
   return {
-    status: "blocked" as const,
+    status: "admission_blocked" as const,
     reason: `${actionName} is not available in the current Snapshot.`,
     context: readAgentContext(),
   };
@@ -89,8 +89,11 @@ export const todoTools = {
       const result = await app.with({ report: "none" }).actions.addTodo.submit(title);
 
       return {
-        status: result.ok ? "submitted" as const : "blocked" as const,
+        status: result.ok
+          ? result.outcome.kind === "ok" ? "settled" as const : result.outcome.kind
+          : "admission_blocked" as const,
         admission: result.ok ? undefined : result.admission,
+        outcome: result.ok ? result.outcome : undefined,
         context: readAgentContext(),
       };
     },
@@ -108,8 +111,11 @@ export const todoTools = {
       const result = await app.with({ report: "none" }).actions.clearCompleted.submit();
 
       return {
-        status: result.ok ? "submitted" as const : "blocked" as const,
+        status: result.ok
+          ? result.outcome.kind === "ok" ? "settled" as const : result.outcome.kind
+          : "admission_blocked" as const,
         admission: result.ok ? undefined : result.admission,
+        outcome: result.ok ? result.outcome : undefined,
         context: readAgentContext(),
       };
     },
@@ -137,7 +143,8 @@ if (!result.ok) {
 }
 
 return {
-  status: "submitted" as const,
+  status: result.outcome.kind === "ok" ? "settled" as const : result.outcome.kind,
+  outcome: result.outcome,
   changedPaths: result.report?.changes,
   context: readAgentContext(),
 };
@@ -166,7 +173,8 @@ export async function runTodoAgent(prompt: string) {
       "You are a Todo agent. Use the provided context and tools. " +
       "Tool results include fresh Manifesto context. " +
       "Check availableActions after each write. " +
-      "Do not claim a write happened unless a tool returns status='submitted'.",
+      "Do not claim a write succeeded unless a tool returns status='settled' with an ok outcome. " +
+      "Treat stop, fail, and admission_blocked outcomes as non-success.",
     prompt: JSON.stringify({
       userRequest: prompt,
       manifestoContext: context,
@@ -236,7 +244,7 @@ const addTodoForReview = tool({
 
     if (!pending.ok) {
       return {
-        status: "blocked" as const,
+        status: "admission_blocked" as const,
         admission: pending.admission,
         context: readAgentContext(),
       };

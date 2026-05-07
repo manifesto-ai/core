@@ -6,6 +6,7 @@
 > **Scope:** Core, Compiler, Host, Runtime, World
 > **Resolves:** [#108](https://github.com/manifesto-ai/core/issues/108), [#189](https://github.com/manifesto-ai/core/issues/189)
 > **Supersedes:** None
+> **Partially Superseded By:** [ADR-025](./025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation.md) for `snapshot.data` root anchoring; [ADR-028](./028-core-owned-dynamic-patch-target-semantics.md) for compiler/runtime dynamic target evaluation and invalid-target skip-warning behavior
 > **Implemented-by:** [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [Compiler current contract (SPEC-v1.2.0)](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md), [host-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/host/docs/host-SPEC.md), and concrete code in `packages/core/src/schema/patch.ts`, `packages/core/src/core/apply.ts`, `packages/compiler/src/lowering/lower-runtime-patch.ts`, plus historical pre-split world/store code paths
 > **Strengthens:** FDR-015 (Static Patch Paths), FDR-MEL-032 (Dynamic Path Segments)
 > **Breaking:** Yes — Major version bump required for Core, Compiler
@@ -168,6 +169,8 @@ type ConditionalPatchOp = {
 
 **Resolution contract:** `evaluateConditionalPatchOps()` MUST resolve all `expr` segments to concrete values, producing `Patch[]` with `PatchPath` (no expressions). If an `expr` segment evaluates to a string, it becomes `{ kind: "prop", name: <string> }`. If it evaluates to a non-negative integer, it becomes `{ kind: "index", index: <number> }`. If it evaluates to any other type (null, boolean, object, negative number, non-integer), the **entire PatchOp is skipped** and a warning is emitted. This follows the TOTAL evaluation principle (Compiler SPEC §18.2): evaluation never throws on runtime data — invalid results cause the operation to be dropped, not the pipeline to crash.
 
+> **ADR-028 supersession:** The structured concrete `PatchPath` decision remains current. The Compiler/runtime `evaluateConditionalPatchOps()` resolution contract and invalid dynamic target skip-warning policy in this paragraph are superseded for v5 current behavior. Dynamic Flow patch target resolution is Core-owned and invalid dynamic targets are semantic failures.
+
 **Note on numeric-string Record keys:** If a Record uses string keys that happen to be numeric (e.g., `"0"`, `"42"`), the MEL expression providing the key value **must** evaluate to a string, not a number. A MEL expression that evaluates to the number `0` will produce `{ kind: "index", index: 0 }` (Array access), not `{ kind: "prop", name: "0" }` (Record key). This is correct behavior — the type distinction between `string` and `number` is the disambiguation signal. MEL's type checker ensures Record key expressions are string-typed; if a user coerces an integer to use as a Record key, they must use an explicit string conversion.
 
 ### 2.4 Patch Path Lowering Changes
@@ -268,6 +271,12 @@ The schema-walk validator MUST NOT reject paths into these namespaces simply bec
 **FDR-MEL-048 (Index Access IR Normalization):** The existing `at()` call mechanism for expression-level index access is unchanged. This ADR addresses **patch target paths**, not expression read paths. In patch context, `items[id]` generates an `IRPathSegment` with kind `expr`; in expression context, it still generates `{ kind: 'call', fn: 'at', args: [...] }`.
 
 ### 2.8 PatchPath Root Anchor
+
+> **ADR-025 supersession:** This section is historical for the ADR-009
+> implementation epoch. Current v5 behavior no longer roots all patch paths at
+> `snapshot.data`. Domain patches are rooted at `snapshot.state`; namespace
+> patches are carried through `NamespaceDelta` and rooted at
+> `snapshot.namespaces[namespace]`.
 
 **PatchPath is ALWAYS rooted at `snapshot.data`.** This is a normative rule.
 
@@ -625,6 +634,8 @@ This defense is invisible to correct programs: Record keys `"__proto__"`, `"cons
 
 ## 5. Evaluation Pipeline Update
 
+> **ADR-028 supersession:** This section is historical for the ADR-009 implementation epoch. Current v5 behavior no longer assigns dynamic patch target resolution to a Compiler/runtime evaluator. Core resolves dynamic `FlowPatchPath` targets during `compute()` and emits concrete `Patch[]`.
+
 ### 5.1 evaluateConditionalPatchOps() Contract
 
 ```typescript
@@ -664,6 +675,11 @@ function evaluateConditionalPatchOps(
 ```
 
 ### 5.2 resolveIRPath() — TOTAL Semantics
+
+> **ADR-028 supersession:** The resolver contract below is historical. Current
+> v5 Flow evaluation resolves dynamic patch target expressions inside Core and
+> reports invalid target values as semantic failures instead of null/skip warning
+> results.
 
 Path resolution follows the same TOTAL principle as expression evaluation (Compiler SPEC §18.2): **invalid runtime data produces null, never throws.** The caller (`evaluateConditionalPatchOps`) skips the entire PatchOp when resolution fails, identical to how a false condition skips a PatchOp.
 
@@ -737,7 +753,7 @@ This is acceptable because:
 
 To prevent silent data corruption if old-format data is loaded, the **serialization layer** (WorldStore) MUST tag persisted patches with a format version.
 
-**Important:** The version tag exists only in the **serialization envelope**, not in the in-memory `Patch` type. In-memory patches produced by Host effect handlers, `evaluateConditionalPatchOps()`, and other runtime code use the bare `Patch` type (§2.2) without version tags. This keeps the runtime API clean — version detection is a persistence concern, not an execution concern.
+**Important:** The version tag exists only in the **serialization envelope**, not in the in-memory `Patch` type. In-memory patches produced by Host effect handlers and other runtime code use the bare `Patch` type (§2.2) without version tags. In the ADR-009 historical epoch, `evaluateConditionalPatchOps()` also produced bare patches; in current v5 behavior, ADR-028 removes that compiler/runtime evaluator from the runtime path. This keeps the runtime API clean — version detection is a persistence concern, not an execution concern.
 
 ```typescript
 // Serialization envelope (WorldStore/Trace persistence only)
@@ -772,7 +788,7 @@ The guard is enforced at the **WorldStore.restore()** boundary — the earliest 
 - **MEL source code**: Unchanged. `patch user.name = "Alice"` and `patch items[id] = { ... }` work identically. The change is in the compiled output.
 - **Expression-level paths** (`get`, `at`, `field` in CoreExprNode): Unchanged. The existing `PathNode[] → string` lowering for `get.path` in expressions remains (§2.4). Only **patch target paths** adopt segments.
 - **Host effect handlers**: If they produce `Patch[]`, they must produce `PatchPath` segments instead of strings. This is a code change in effect handler implementations.
-- **Core.compute() / Flow evaluation**: Unchanged. This ADR only affects **patch target paths**, not the expression evaluator.
+- **Core.compute() / Flow evaluation**: Unchanged by ADR-009 at the time. ADR-028 later changes current v5 behavior by making dynamic Flow patch target resolution Core-owned during `compute()`.
 
 ---
 
@@ -801,6 +817,11 @@ The guard is enforced at the **WorldStore.restore()** boundary — the earliest 
 | §17.5 ConditionalPatchOp | `path: string` → `path: IRPatchPath` | **SPEC change** |
 
 **Version:** Major bump (v1.0.0).
+
+> **ADR-028 supersession:** The `ConditionalPatchOp.path` / `IRPatchPath` /
+> `evaluateConditionalPatchOps()` compiler runtime evaluator entries above are
+> historical ADR-009 impact records. Current v5 compiler behavior preserves
+> dynamic Flow patch targets for Core and does not own runtime patch evaluation.
 
 ### 7.3 Host (@manifesto-ai/host)
 
@@ -1122,6 +1143,10 @@ test("PatchPath is always rooted at snapshot.data", () => {
 
 ### 9.8 TOTAL Path Resolution
 
+> **ADR-028 supersession:** This test captures ADR-009 historical evaluator
+> behavior. Current v5 Core tests cover invalid dynamic Flow patch targets as
+> semantic failures rather than skipped Compiler/runtime patch operations.
+
 ```typescript
 test("unresolvable path expr skips PatchOp instead of throwing", () => {
   const ops: ConditionalPatchOp[] = [
@@ -1216,6 +1241,10 @@ test("unresolvable path expr skips PatchOp instead of throwing", () => {
 ## 12. Implementation Order
 
 The recommended implementation sequence:
+
+> **ADR-028 supersession:** Phase 2 below is historical. Current v5 Compiler
+> implementation lowers and preserves dynamic Flow patch targets, while Core owns
+> runtime dynamic target resolution.
 
 | Phase | Package | Work | Gate |
 |-------|---------|------|------|

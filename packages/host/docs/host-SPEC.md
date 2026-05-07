@@ -4,7 +4,7 @@
 > **Package:** `@manifesto-ai/host`
 > **Scope:** Manifesto Host Implementations
 > **Compatible with:** Core SPEC v5.0.0, ARCHITECTURE v2.0
-> **Hard-cut Alignment:** ADR-011, ADR-015, ADR-025
+> **Hard-cut Alignment:** ADR-011, ADR-015, ADR-025, ADR-027, ADR-028
 > **Authors:** Manifesto Team
 > **License:** MIT
 
@@ -14,6 +14,7 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
+| v5.0.0 | ADR-028 boundary — Host applies Core-emitted concrete patches and never resolves dynamic Flow patch targets | ADR-028 |
 | v5.0.0 | ADR-025 hard cut — Host aligns to `Snapshot.state`, `Snapshot.namespaces`, and `NamespaceDelta` application interlock | FDR-H025 |
 | v4.0.0 | ADR-015 hard cut — Host-facing Snapshot references remove accumulated `system.errors` and follow Core current contract | FDR-H025 |
 | v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()` interlock | FDR-H025 |
@@ -322,6 +323,7 @@ Host executes reality.
 | CORE-HOST-3 | Core MUST remain pure: same schema + snapshot + intent + context -> same output |
 | CORE-HOST-4 | Host MUST handle all IO, network, and persistence |
 | CORE-HOST-5 | Host MUST receive a full canonical Snapshot at reset/bootstrap boundary |
+| CORE-HOST-6 | Host MUST NOT inspect Flow IR, evaluate expressions, or resolve dynamic patch targets |
 
 ### 4.3 Diagram
 
@@ -1825,7 +1827,7 @@ interface ApplyPatches {
 > **Deprecated as of v2.0.1.** Host is decoupled from Compiler and Translator.
 > Formerly §9 in SPEC v2.0.0. Preserved here for historical reference.
 
-> **Rationale (FDR-H024):** Host MUST NOT depend on `@manifesto-ai/compiler`. Host receives only concrete domain `Patch[]` values and explicit `NamespaceDelta[]` values; it never receives compiler fragments or expressions. Host's single responsibility is execution orchestration (mailbox serialization, effect coordination, patch/namespace/system application). Translator output processing (MEL IR lowering, expression evaluation) belongs to the Compiler/App domain.
+> **Rationale (FDR-H024, ADR-028):** Host MUST NOT depend on `@manifesto-ai/compiler`. Host receives only concrete domain `Patch[]` values and explicit `NamespaceDelta[]` values; it never receives compiler fragments, Flow target expressions, or unresolved dynamic patch targets. Host's single responsibility is execution orchestration (mailbox serialization, effect coordination, patch/namespace/system application). Dynamic Flow patch target resolution belongs to Core `compute()`.
 > **Alternatives rejected:** Host imports Compiler (unnecessary coupling, larger bundle); Host processes fragments (wrong responsibility boundary).
 > **Consequences:** Host decoupled from Compiler/Translator; Bridge/App layer handles Translator processing if needed; simpler Host with fewer dependencies.
 
@@ -1835,35 +1837,37 @@ interface ApplyPatches {
 |---------|-------------|--------|
 | COMP-4 | Host MUST pass only concrete domain `Patch[]` to `Core.apply()` | **RETAINED** |
 | COMP-5 | Passing expressions to `Core.apply()` is SPEC VIOLATION | **RETAINED** |
+| COMP-7 | Host MUST NOT resolve dynamic patch targets or evaluate Flow/MEL expressions | **RETAINED** |
 
 ### D.2 Deprecated Rules
 
 | Rule ID | Description | Status |
 |---------|-------------|--------|
-| COMP-1 | Host MUST import from `@manifesto-ai/compiler` | DEPRECATED |
-| COMP-2 | Host MUST call `lowerPatchFragments()` first | DEPRECATED |
-| COMP-3 | Host MUST call `evaluateConditionalPatchOps()` second | DEPRECATED |
-| COMP-6 | `$system.*` MUST be excluded from Translator path `allowSysPaths` | DEPRECATED |
-| TRANS-1 | LLM translate call is treated as Host-level async operation | DEPRECATED |
-| TRANS-2 | Translator fragments MUST be processed via `ApplyTranslatorOutput` job | DEPRECATED |
-| TRANS-3 | Lower -> Evaluate -> Apply MUST run synchronously in ONE job | DEPRECATED |
-| TRANS-4 | Splitting Lower/Evaluate/Apply into separate jobs is FORBIDDEN | DEPRECATED |
+| COMP-1 | Former Host obligation to import from `@manifesto-ai/compiler` | DEPRECATED |
+| COMP-2 | Former Host obligation to call `lowerPatchFragments()` first | DEPRECATED |
+| COMP-3 | Former Host obligation to call `evaluateConditionalPatchOps()` second | DEPRECATED |
+| COMP-6 | Former Translator path rule excluding `$system.*` from `allowSysPaths` | DEPRECATED |
+| TRANS-1 | Former treatment of LLM translate calls as Host-level async operations | DEPRECATED |
+| TRANS-2 | Former `ApplyTranslatorOutput` job for Translator fragments | DEPRECATED |
+| TRANS-3 | Former synchronous Lower -> Evaluate -> Apply job rule | DEPRECATED |
+| TRANS-4 | Former prohibition against splitting Lower/Evaluate/Apply jobs | DEPRECATED |
 
 ### D.3 Migration
 
-If Translator integration is needed, implement a `TranslatorAdapter` at the App layer:
+If historical Translator integration is encountered, keep it outside Host and
+do not route unresolved targets through Host:
 
 ```
 App layer (optional TranslatorAdapter, outside Host)
   - Depends on @manifesto-ai/compiler (if used)
-  - Translator.translate() -> TranslatorFragment[]
-  - lowerPatchFragments()
-  - evaluateConditionalPatchOps()
-  - Submits concrete domain Patch[] and explicit NamespaceDelta[] to Host
+  - Translator.translate() -> source/tooling artifacts
+  - Recompile a full domain or enter Core-owned runtime paths
+  - Submits only concrete domain Patch[] and explicit NamespaceDelta[] to Host
 
 Host (compiler-free, translator-free)
   - Receives only concrete domain Patch[] and explicit NamespaceDelta[]
   - No @manifesto-ai/compiler dependency
+  - No Flow IR inspection or dynamic target resolution
   - Single responsibility: execution orchestration
 ```
 

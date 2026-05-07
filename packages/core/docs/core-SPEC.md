@@ -11,7 +11,7 @@
 
 | Version | Summary | Key FDRs |
 |---------|---------|----------|
-| v5.0.0 | ADR-025/ADR-027 hard cut — retire `Snapshot.data`, promote `Snapshot.state`, add `Snapshot.namespaces`, make PatchPath root channel-determined, and define explicit compute `Context` | FDR-002, FDR-012, FDR-015 |
+| v5.0.0 | ADR-025/ADR-027/ADR-028 hard cut — retire `Snapshot.data`, promote `Snapshot.state`, add `Snapshot.namespaces`, make PatchPath root channel-determined, define explicit compute `Context`, and assign dynamic Flow patch target resolution to Core | FDR-002, FDR-012, FDR-015 |
 | v4.2.0 | TypeDefinition-backed runtime typing seam — `StateSpec.fieldTypes`, `ActionSpec.inputType`, and `ActionSpec.params` become normative when present | — |
 | v4.1.0 | Add intent dispatchability query API — `ActionSpec.dispatchable`, `isIntentDispatchable()` | — |
 | v4.0.0 | ADR-015 hard cut — remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface | FDR-002, FDR-005 |
@@ -664,6 +664,13 @@ FlowSpec defines **state transition programs**. A Flow is a declarative descript
 ### 8.3 Node Types
 
 ```typescript
+type FlowPatchSegment =
+  | { readonly kind: "prop"; readonly name: string }
+  | { readonly kind: "index"; readonly index: number }
+  | { readonly kind: "expr"; readonly expr: ExprNode };
+
+type FlowPatchPath = readonly FlowPatchSegment[];
+
 type FlowNode =
   // Sequencing
   | { kind: 'seq'; steps: readonly FlowNode[] }
@@ -672,7 +679,7 @@ type FlowNode =
   | { kind: 'if'; cond: ExprNode; then: FlowNode; else?: FlowNode }
   
   // State mutation
-  | { kind: 'patch'; op: 'set' | 'unset' | 'merge'; path: PatchPath; value?: ExprNode }
+  | { kind: 'patch'; op: 'set' | 'unset' | 'merge'; path: FlowPatchPath; value?: ExprNode }
   
   // Requirement declaration
   | { kind: 'effect'; type: string; params: Record<string, ExprNode> }
@@ -697,8 +704,8 @@ Executes steps in order. Each step sees the Snapshot as modified by previous ste
 {
   "kind": "seq",
   "steps": [
-    { "kind": "patch", "op": "set", "path": "a", "value": { "kind": "lit", "value": 1 } },
-    { "kind": "patch", "op": "set", "path": "b", "value": { "kind": "get", "path": "a" } }
+    { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "a" }], "value": { "kind": "lit", "value": 1 } },
+    { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "b" }], "value": { "kind": "get", "path": "a" } }
   ]
 }
 // Result: a = 1, b = 1
@@ -764,32 +771,73 @@ type NamespaceDelta = {
 
 **CRITICAL: Patch Path Resolution**
 
-Patch paths MUST be concrete `PatchPath` values at apply-time. Dynamic path expressions are NOT evaluated by `core.apply()`.
-Compiler/runtime evaluation MUST resolve dynamic segments before calling Core.
+Core distinguishes Flow-level patch targets from apply-time patches.
+
+- `FlowNode.patch.path` is a `FlowPatchPath` and MAY contain `expr` segments.
+- `Patch.path` is a concrete `PatchPath` and MUST contain only `prop` and
+  `index` segments.
+- `core.apply()` accepts only concrete `Patch[]`; it never evaluates
+  `FlowPatchPath`, `ExprNode`, or any dynamic target expression.
+- `ComputeResult.patches` contains only concrete `Patch[]` rooted at
+  `snapshot.state`.
+
+During `compute()`, Core resolves every `FlowPatchPath` to a concrete
+`PatchPath` before emitting a `Patch`.
+
+Resolution rules:
+
+1. `prop` and `index` segments pass through unchanged.
+2. `expr` segments are evaluated with the same expression evaluator and the
+   same explicit `Context` input as the surrounding Flow.
+3. An expression resolving to a non-empty string becomes
+   `{ kind: "prop", name }`.
+4. An expression resolving to a non-negative integer becomes
+   `{ kind: "index", index }`.
+5. Any other value is a semantic failure.
 
 ```
 ALLOWED:
-  patch todos = ...              // lowered to concrete PatchPath
-  patch user.profile.name = ...  // lowered to concrete PatchPath
+  patch todos = ...              // FlowPatchPath with concrete segments
+  patch user.profile.name = ...  // FlowPatchPath with concrete segments
+  patch items[$runtime.random.uuid] = ... // FlowPatchPath with expr segment
 
 NOT ALLOWED at apply-time:
   patch items[$runtime.random.uuid] = ... // unresolved expr segment
   patch records[activeId] = ...     // unresolved expr segment
 ```
 
-When MEL source contains a dynamic path like `patch items[$runtime.random.uuid] = value`, lower/evaluate stages MUST:
+Invalid target resolution is not skip-and-warning behavior. Core MUST report:
 
-1. Parse as valid MEL syntax.
-2. Resolve expression segments to concrete runtime values.
-3. Produce `PatchPath` with only `prop` and `index` segments.
-4. Skip invalid path resolutions (TOTAL rule) with warnings, never throw.
+- invalid dynamic segment value: `INVALID_PATCH_PATH`
+- resolved path not admitted by schema: `PATH_NOT_FOUND`
+- invalid merge target or invalid value: `TYPE_MISMATCH`
+
+Those failures are expressed through the normal Core error path and become
+visible as `snapshot.system.lastError` after the Host/Core boundary applies the
+`SystemDelta`.
+
+Flow patch evaluation is sequential. Later patch values and later dynamic target
+expressions observe the working Snapshot produced by earlier patches in the same
+Flow evaluation.
+
+If a dynamic target expression uses `$runtime.random.uuid`, allocation is
+deterministic over the explicit Core input tuple:
+
+```text
+schema + snapshot + intent + context
+```
+
+Compiler MAY lower and preserve dynamic target expressions into `FlowPatchPath`,
+but it MUST NOT evaluate them, allocate runtime values, emit placeholder targets
+such as `"*"`, or produce runtime patches from runtime data. Host MUST NOT
+resolve dynamic targets; Host applies Core-emitted concrete patches only.
 
 **Rationale:**
 
-| Concern | Why Dynamic Paths Violate It |
+| Concern | Why unresolved apply-time targets violate it |
 |---------|------------------------------|
 | **Determinism** | Unresolved paths would depend on external runtime state |
-| **Purity** | Core would need expression execution in `apply()` |
+| **Purity** | Dynamic target expression execution belongs to `compute()`, never `apply()` |
 | **Reproducibility** | Same patch payload could map to different fields |
 | **Traceability** | String encoding/escaping loses structural intent |
 
@@ -1734,6 +1782,8 @@ type ComputeStatus =
 - `compute()` is the only Core API in this section that accepts `Context`.
 - `apply()` and `applyNamespaceDeltas()` MUST NOT accept `Context`; they apply already-materialized patch data.
 - `PatchPath` is root-relative and MUST NOT carry root information.
+- `FlowPatchPath` is a Flow target representation only and MUST NOT cross the apply-time boundary.
+- Core resolves dynamic Flow patch targets during `compute()` before emitting `Patch[]`.
 - Domain patches in `ComputeResult.patches` are rooted at `snapshot.state`.
 - Namespace patches in `NamespaceDelta.patches` are rooted at `snapshot.namespaces[namespace]`.
 - Domain patches MUST NOT target `system/input/computed/meta/namespaces`.
@@ -1744,6 +1794,7 @@ type ComputeStatus =
 - `applyNamespaceDeltas()` MUST NOT mutate `snapshot.state`, `snapshot.computed`, `snapshot.input`, or `snapshot.system` except to record namespace-delta validation failures as error values in `system.lastError`.
 - `applyNamespaceDeltas()` MUST preserve computed values; namespace transitions are operational and MUST NOT trigger computed recomputation.
 - Core MAY materialize `namespaceDelta` only for registered Core-owned generic constructs. It MUST NOT materialize Host-owned, Compiler-owned, or MEL-owned namespace deltas.
+- Dynamic target failures MUST be expressed through Core's normal error path, not through warnings or skipped patch output.
 - `patchPathToDisplayString(path)` is display-only and MUST NOT be used as parse input.
 
 ### 16.3 Host Responsibilities
@@ -2178,7 +2229,7 @@ For unbounded iteration, Host controls the loop by repeatedly calling `compute()
 | FDR-012 | Patch Operations Limited to Three | §8.4.3 |
 | FDR-013 | Host Responsibility Boundary | §16 |
 | FDR-014 | Browser Compatibility | §4 |
-| FDR-015 | Static Patch Paths | §8.4.3 |
+| FDR-015 | Concrete Apply-Time Patch Paths | §8.4.3 |
 | FDR-016 | Expression Semantic Heads | §7 |
 
 ---

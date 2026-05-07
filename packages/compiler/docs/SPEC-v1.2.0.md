@@ -22,6 +22,9 @@
 - add MEL `context {}` as a shape declaration for direct-injected `context.external`
 - define the current compiler-owned runtime construct registry with `onceIntent` as its only entry
 - clarify that user-authored MEL cannot read or write namespaces
+- align dynamic patch target ownership to ADR-028: Compiler lowers and preserves target expressions while Core resolves them during Flow computation
+- retire compiler-owned runtime patch evaluation APIs from the current v5 public contract
+- prohibit dynamic patch target placeholders such as `"*"` in compiler output
 - remove current `SchemaGraph` reliance on `$*` substrate filtering or tainted computed filtering
 - record that compiler-owned namespace bookkeeping MUST NOT participate in `DomainSchema.hash`
 
@@ -223,6 +226,60 @@ Normative rules:
 - The Core `causalGuard` primitive owns any runtime bookkeeping it needs.
 - Adding another compiler-owned runtime construct requires a new ADR before it
   becomes current SPEC behavior.
+
+### 2.4 ADR-028 Dynamic Patch Target Boundary
+
+Compiler parses MEL patch target syntax, type-checks statically invalid target
+forms where possible, and lowers valid targets into Core Flow representation.
+
+Compiler MUST:
+
+- preserve dynamic target expressions for Core Flow evaluation
+- preserve static property and index segments without string flattening
+- keep user-authored MEL patch paths root-free
+- reject statically invalid target syntax where the source and schema make the
+  failure knowable at compile time
+
+Compiler MUST NOT:
+
+- evaluate dynamic target expressions
+- allocate `$runtime.*` values
+- emit placeholder target segments such as `"*"`
+- turn runtime data into concrete `Patch[]`
+- own skip-and-warning behavior for invalid runtime target values
+
+Core owns dynamic target resolution during `compute()`. `core.apply()` and Host
+receive only concrete `Patch[]` emitted by Core.
+
+Because Flow IR is part of runtime `DomainSchema` content, preserved
+`FlowPatchPath` values participate in `DomainSchema.hash`. The compiler MUST
+compute emitted runtime `DomainSchema.hash` from the final runtime
+`DomainSchema` after lowering. Compiler-internal canonical MEL IR hashes MUST
+NOT be reused as runtime schema hashes when lowering changes serialized schema
+content.
+
+The following runtime patch evaluation surface is removed from the current v5
+compiler contract:
+
+- `compileMelPatch()`
+- `createEvaluationContext`
+- `evaluateExpr`
+- `evaluateConditionalPatchOps`
+- `evaluateRuntimePatches`
+- `evaluateRuntimePatchesWithTrace`
+- `EvaluationContext`
+- `IRPathSegment`
+- `IRPatchPath`
+- `MelIRPathSegment`
+- `MelIRPatchPath`
+- `MelRuntimePatch`
+- `MelRuntimePatchOp`
+- `lowerRuntimePatch`
+- `lowerRuntimePatches`
+- `RuntimeConditionalPatchOp`
+
+The generated public-surface inventory is code-current and no longer lists the
+retired runtime patch evaluation surface.
 
 ---
 
@@ -1173,6 +1230,9 @@ The current compiler contract is:
 - MEL `state {}` corresponds to runtime `snapshot.state`
 - compiler-owned runtime constructs lower to Core primitives without adding domain state
 - `onceIntent` lowers to Core `causalGuard`
+- dynamic patch targets are preserved for Core Flow evaluation
+- Compiler does not evaluate dynamic patch targets or emit placeholder target segments
+- compiler-owned runtime patch evaluation APIs are retired from the current v5 public contract
 - user-authored MEL cannot read or write namespaces
 - domain patch paths remain root-free and are interpreted at `snapshot.state` by the Core domain patch channel
 - `dispatchable when` is part of the full action contract
