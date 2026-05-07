@@ -22,8 +22,8 @@ export const SystemDelta = z.object({
   status: SystemState.shape.status.optional(),
   currentAction: z.string().nullable().optional(),
   lastError: ErrorValue.nullable().optional(),
-  addRequirements: z.array(Requirement),
-  removeRequirementIds: z.array(z.string()),
+  addRequirements: z.array(Requirement).optional(),
+  removeRequirementIds: z.array(z.string()).optional(),
 });
 export type SystemDelta = z.infer<typeof SystemDelta>;
 

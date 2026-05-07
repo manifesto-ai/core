@@ -5,6 +5,10 @@ import { type TraceContext, createTraceContext } from "../schema/trace.js";
 
 export type EvalPhase = "flow" | "computed" | "availability" | "dispatchability" | "snapshot";
 
+type RuntimeAllocationState = {
+  ordinal: number;
+};
+
 /**
  * Evaluation context for expressions and flows
  */
@@ -50,6 +54,16 @@ export type EvalContext = {
   runtimeOrdinal?: number;
 
   /**
+   * Shared deterministic runtime allocator for cloned nested evaluation contexts.
+   */
+  runtimeAllocator?: RuntimeAllocationState;
+
+  /**
+   * Current expression allocation path for deterministic runtime values.
+   */
+  expressionPath?: string;
+
+  /**
    * Trace context for deterministic trace ID generation
    */
   readonly trace: TraceContext;
@@ -89,6 +103,7 @@ export function createContext(
     context: options.context,
     phase: options.phase ?? (options.context ? "flow" : "snapshot"),
     runtimeOrdinal: 0,
+    runtimeAllocator: { ordinal: 0 },
     trace: typeof timestampOrTrace === "object"
       ? timestampOrTrace
       : createTraceContext(timestampOrTrace),

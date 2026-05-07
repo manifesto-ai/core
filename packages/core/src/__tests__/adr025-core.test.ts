@@ -147,6 +147,18 @@ describe("ADR-025 core acceptance", () => {
       });
     });
 
+    it("treats prototype-named namespaces as ordinary namespace roots", () => {
+      const snapshot = createSnapshot({ count: 1 }, "test-hash", HOST_CONTEXT);
+      const result = applyNamespaceDeltas(
+        snapshot,
+        [{ namespace: "toString", patches: [{ op: "set", path: pp("requestId"), value: "req-1" }] }]
+      );
+
+      expect(result.system.status).toBe(snapshot.system.status);
+      expect(result.namespaces.toString).toEqual({ requestId: "req-1" });
+      expect(Object.getPrototypeOf(result.namespaces)).toBeNull();
+    });
+
     it("rejects empty namespace identifiers without mutating domain state", () => {
       const snapshot = createSnapshot({ count: 1 }, "test-hash", HOST_CONTEXT);
       const result = applyNamespaceDeltas(
@@ -240,6 +252,31 @@ describe("ADR-025 core acceptance", () => {
       const result = await compute(schema, snapshot, createIntent("missing", "intent-1"), NEXT_CONTEXT);
 
       expect(result.status).toBe("error");
+      expect(result.namespaceDelta).toEqual([]);
+    });
+
+    it("blocks unchecked computed expressions from reading transient input", async () => {
+      const schema = createSchema(
+        { value: { type: "string", required: true } },
+        { noop: { flow: { kind: "halt", reason: "noop" } } },
+        {
+          fromInput: {
+            expr: { kind: "get", path: "input.value" },
+            deps: [],
+          },
+        }
+      );
+      const snapshot = createSnapshot({ value: "state" }, schema.hash, HOST_CONTEXT);
+
+      const result = await compute(
+        schema,
+        snapshot,
+        createIntent("noop", { value: "input" }, "intent-1"),
+        NEXT_CONTEXT,
+      );
+
+      expect(result.status).toBe("error");
+      expect(result.systemDelta.lastError?.code).toBe("PATH_NOT_FOUND");
       expect(result.namespaceDelta).toEqual([]);
     });
 

@@ -1,4 +1,4 @@
-import type { FlowNode } from "../schema/flow.js";
+import type { FlowNode, FlowPatchPath } from "../schema/flow.js";
 import type { Snapshot, Requirement, ErrorValue } from "../schema/snapshot.js";
 import type { Patch, PatchPath, PatchSegment } from "../schema/patch.js";
 import type { NamespaceDelta } from "../schema/result.js";
@@ -151,49 +151,50 @@ export function evaluateFlowSync(
   state: FlowState,
   nodePath: string
 ): FlowResult {
+  const flowCtx = ctx.phase === "flow" ? ctx : { ...ctx, phase: "flow" as const };
   // Stop if already terminated
   if (state.status !== "running") {
     return {
       state,
-      trace: createTraceNode(ctx.trace, "flow", nodePath, {}, null, []),
+      trace: createTraceNode(flowCtx.trace, "flow", nodePath, {}, null, []),
     };
   }
 
   switch (flow.kind) {
     case "seq":
-      return evaluateSeq(flow.steps, ctx, state, nodePath);
+      return evaluateSeq(flow.steps, flowCtx, state, nodePath);
 
     case "if":
-      return evaluateIf(flow, ctx, state, nodePath);
+      return evaluateIf(flow, flowCtx, state, nodePath);
 
     case "patch":
-      return evaluatePatch(flow, ctx, state, nodePath);
+      return evaluatePatch(flow, flowCtx, state, nodePath);
 
     case "causalGuard":
-      return evaluateCausalGuard(flow, ctx, state, nodePath);
+      return evaluateCausalGuard(flow, flowCtx, state, nodePath);
 
     case "effect":
-      return evaluateEffect(flow, ctx, state, nodePath);
+      return evaluateEffect(flow, flowCtx, state, nodePath);
 
     case "call":
-      return evaluateCall(flow.flow, ctx, state, nodePath);
+      return evaluateCall(flow.flow, flowCtx, state, nodePath);
 
     case "halt":
-      return evaluateHalt(flow.reason, ctx, state, nodePath);
+      return evaluateHalt(flow.reason, flowCtx, state, nodePath);
 
     case "fail":
-      return evaluateFail(flow, ctx, state, nodePath);
+      return evaluateFail(flow, flowCtx, state, nodePath);
 
     default:
       return {
         state: setError(state, createError(
           "INTERNAL_ERROR",
           `Unknown flow kind: ${(flow as FlowNode).kind}`,
-          ctx.currentAction ?? "",
+          flowCtx.currentAction ?? "",
           nodePath,
-          ctx.trace.timestamp
+          flowCtx.trace.timestamp
         )),
-        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+        trace: createTraceNode(flowCtx.trace, "error", nodePath, {}, null, []),
       };
   }
 }
@@ -276,28 +277,25 @@ function evaluateIf(
 }
 
 function evaluatePatch(
-  flow: { op: "set" | "unset" | "merge"; path: PatchPath; value?: import("../schema/expr.js").ExprNode },
+  flow: { op: "set" | "unset" | "merge"; path: FlowPatchPath; value?: import("../schema/expr.js").ExprNode },
   ctx: EvalContext,
   state: FlowState,
   nodePath: string
 ): FlowResult {
-  let patchValue: unknown = undefined;
-
-  if (flow.value) {
-    const valueResult = evaluateExpr(flow.value, ctx);
-    if (!valueResult.ok) {
-      return {
-        state: setError(state, valueResult.error),
-        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
-      };
-    }
-    patchValue = valueResult.value;
+  const currentCtx = withSnapshot(ctx, state.snapshot);
+  const pathResult = resolveFlowPatchPath(flow.path, currentCtx, nodePath);
+  if (!pathResult.ok) {
+    return {
+      state: setError(state, pathResult.error),
+      trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+    };
   }
 
+  const resolvedPath = pathResult.path;
+  const displayPath = patchPathToDisplayString(resolvedPath);
   const rootSpec: FieldSpec = { type: "object", required: true, fields: ctx.schema.state.fields };
-  const typeDefinition = getStateTypeDefinitionAtSegments(ctx.schema.state, ctx.schema.types, flow.path);
-  const fieldSpec = typeDefinition ? null : getFieldSpecAtSegments(rootSpec, flow.path);
-  const displayPath = patchPathToDisplayString(flow.path);
+  const typeDefinition = getStateTypeDefinitionAtSegments(ctx.schema.state, ctx.schema.types, resolvedPath);
+  const fieldSpec = typeDefinition ? null : getFieldSpecAtSegments(rootSpec, resolvedPath);
   if (!typeDefinition && !fieldSpec) {
     return {
       state: setError(state, createError(
@@ -309,6 +307,32 @@ function evaluatePatch(
       )),
       trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
     };
+  }
+
+  if (flow.op === "merge" && !isMergeTargetCompatible(state.snapshot.state, resolvedPath)) {
+    return {
+      state: setError(state, createError(
+        "TYPE_MISMATCH",
+        `Invalid merge target at ${displayPath}: target path must be an object or absent`,
+        ctx.currentAction ?? "",
+        nodePath,
+        ctx.trace.timestamp
+      )),
+      trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+    };
+  }
+
+  let patchValue: unknown = undefined;
+
+  if (flow.value) {
+    const valueResult = evaluateExpr(flow.value, withNodePath(currentCtx, `${nodePath}.value`));
+    if (!valueResult.ok) {
+      return {
+        state: setError(state, valueResult.error),
+        trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
+      };
+    }
+    patchValue = valueResult.value;
   }
 
   if (flow.op !== "unset") {
@@ -336,10 +360,10 @@ function evaluatePatch(
   }
 
   const patch: Patch = flow.op === "unset"
-    ? { op: "unset", path: flow.path }
+    ? { op: "unset", path: resolvedPath }
     : flow.op === "merge"
-      ? { op: "merge", path: flow.path, value: patchValue as Record<string, unknown> }
-      : { op: "set", path: flow.path, value: patchValue };
+      ? { op: "merge", path: resolvedPath, value: patchValue as Record<string, unknown> }
+      : { op: "set", path: resolvedPath, value: patchValue };
 
   const newState = applyPatchToState(state, patch);
 
@@ -347,6 +371,90 @@ function evaluatePatch(
     state: newState,
     trace: createTraceNode(ctx.trace, "patch", nodePath, { op: flow.op, path: displayPath }, patchValue, []),
   };
+}
+
+function resolveFlowPatchPath(
+  path: FlowPatchPath,
+  ctx: EvalContext,
+  nodePath: string
+): { ok: true; path: PatchPath } | { ok: false; error: ErrorValue } {
+  const resolved: PatchSegment[] = [];
+
+  for (const [index, segment] of path.entries()) {
+    if (segment.kind === "prop" || segment.kind === "index") {
+      resolved.push(segment);
+      continue;
+    }
+
+    const exprCtx = withNodePath(ctx, `${nodePath}.path[${index}]`);
+    const result = evaluateExpr(segment.expr, exprCtx);
+    if (!result.ok) {
+      return result;
+    }
+
+    const value = result.value;
+    if (typeof value === "string" && value.length > 0) {
+      resolved.push({ kind: "prop", name: value });
+      continue;
+    }
+
+    if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+      resolved.push({ kind: "index", index: value });
+      continue;
+    }
+
+    return {
+      ok: false,
+      error: createError(
+        "INVALID_PATCH_PATH",
+        `Invalid dynamic patch path segment at index ${index}: expected non-empty string or non-negative integer, got ${describeDynamicPathValue(value)}`,
+        ctx.currentAction ?? "",
+        `${nodePath}.path[${index}]`,
+        ctx.trace.timestamp,
+        { segmentIndex: index, resolvedType: describeDynamicPathValue(value) }
+      ),
+    };
+  }
+
+  return { ok: true, path: resolved };
+}
+
+function describeDynamicPathValue(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (Array.isArray(value)) {
+    return "array";
+  }
+  return typeof value;
+}
+
+function isMergeTargetCompatible(root: unknown, path: PatchPath): boolean {
+  let current: unknown = root;
+
+  for (const segment of path) {
+    if (current === undefined) {
+      return true;
+    }
+
+    if (segment.kind === "prop") {
+      if (!isObjectRecord(current)) {
+        return false;
+      }
+      current = current[segment.name];
+      continue;
+    }
+
+    if (!Array.isArray(current)) {
+      return false;
+    }
+    current = current[segment.index];
+  }
+
+  if (current === undefined) {
+    return true;
+  }
+  return isObjectRecord(current);
 }
 
 function evaluateCausalGuard(
@@ -410,6 +518,20 @@ function evaluateCausalGuard(
     nextCoreRoot,
     patch
   );
+  const namespaceTrace = createTraceNode(
+    ctx.trace,
+    "namespaceDelta",
+    `${nodePath}.namespaceDelta`,
+    {
+      namespace: CORE_NAMESPACE,
+      patchCount: 1,
+    },
+    {
+      namespace: CORE_NAMESPACE,
+      patches: [patch],
+    },
+    []
+  );
   const bodyPath = `${nodePath}.body`;
   const bodyCtx = withNodePath(withSnapshot(ctx, guardedState.snapshot), bodyPath);
   const bodyResult = evaluateFlowSync(flow.body, bodyCtx, guardedState, bodyPath);
@@ -422,7 +544,7 @@ function evaluateCausalGuard(
       nodePath,
       { kind: "causalGuard", guardId: flow.guardId, skipped: false },
       null,
-      [bodyResult.trace]
+      [namespaceTrace, bodyResult.trace]
     ),
   };
 }

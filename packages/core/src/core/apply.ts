@@ -212,7 +212,7 @@ export function applyNamespaceDeltas(
     return snapshot;
   }
 
-  let newNamespaces: Record<string, unknown> = { ...snapshot.namespaces };
+  let newNamespaces: Record<string, unknown> = cloneNamespaceRecord(snapshot.namespaces);
   let newSystem: SystemState = snapshot.system;
   const validationErrors: ErrorValue[] = [];
   const errorTimestamp = snapshot.meta.timestamp;
@@ -230,7 +230,9 @@ export function applyNamespaceDeltas(
       continue;
     }
 
-    const existingRoot = newNamespaces[delta.namespace];
+    const existingRoot = Object.prototype.hasOwnProperty.call(newNamespaces, delta.namespace)
+      ? newNamespaces[delta.namespace]
+      : undefined;
     if (existingRoot !== undefined && !isObjectRecord(existingRoot)) {
       validationErrors.push(createError(
         "TYPE_MISMATCH",
@@ -282,10 +284,8 @@ export function applyNamespaceDeltas(
       continue;
     }
 
-    newNamespaces = {
-      ...newNamespaces,
-      [delta.namespace]: namespaceRoot,
-    };
+    newNamespaces = cloneNamespaceRecord(newNamespaces);
+    newNamespaces[delta.namespace] = namespaceRoot;
   }
 
   if (validationErrors.length > 0) {
@@ -306,4 +306,10 @@ export function applyNamespaceDeltas(
       version: snapshot.meta.version + 1,
     },
   };
+}
+
+function cloneNamespaceRecord(
+  namespaces: Snapshot["namespaces"] | Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.assign(Object.create(null) as Record<string, unknown>, namespaces);
 }

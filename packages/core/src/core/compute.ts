@@ -12,6 +12,7 @@ import { evaluateComputed } from "../evaluator/computed.js";
 import { isOk } from "../schema/common.js";
 import { Context, type Context as CoreContext } from "../schema/context.js";
 import { evaluateActionAvailability } from "./action-availability.js";
+import { validateExternalContext } from "./context-validation.js";
 import { applySystemDelta } from "./system-delta.js";
 import { validateValueAgainstTypeDefinition } from "./type-definition-utils.js";
 
@@ -39,6 +40,18 @@ export function computeSync(
   }
   const coreContext = parsedContext.data;
   const timestamp = coreContext.runtime.time.timestamp;
+  const externalContextValidation = validateExternalContext(schema, coreContext.external);
+  if (!externalContextValidation.valid) {
+    return createErrorResult(
+      snapshot,
+      intent,
+      "INVALID_CONTEXT",
+      `Invalid context: ${externalContextValidation.errors.map((issue) => (
+        issue.path ? `${issue.path}: ${issue.message}` : issue.message
+      )).join("; ")}`,
+      timestamp
+    );
+  }
 
   let currentSnapshot = snapshot;
   const initialComputedResult = evaluateComputed(schema, snapshot);
@@ -47,6 +60,14 @@ export function computeSync(
       ...snapshot,
       computed: initialComputedResult.value,
     };
+  } else {
+    return createErrorResult(
+      snapshot,
+      intent,
+      initialComputedResult.error.code,
+      initialComputedResult.error.message,
+      timestamp
+    );
   }
 
   const action = schema.actions[intent.type];

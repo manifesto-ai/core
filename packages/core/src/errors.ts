@@ -6,6 +6,7 @@ import type { ErrorValue } from "./schema/snapshot.js";
  */
 export const CoreErrorCode = z.enum([
   "VALIDATION_ERROR",
+  "INVALID_PATCH_PATH",
   "PATH_NOT_FOUND",
   "TYPE_MISMATCH",
   "DIVISION_BY_ZERO",
@@ -13,6 +14,7 @@ export const CoreErrorCode = z.enum([
   "UNKNOWN_ACTION",
   "ACTION_UNAVAILABLE",
   "INVALID_INPUT",
+  "INVALID_CONTEXT",
   "CYCLIC_DEPENDENCY",
   "UNKNOWN_FLOW",
   "CYCLIC_CALL",

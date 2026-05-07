@@ -810,6 +810,15 @@ function validateActionExprPath(
   }
 
   if (exprPath === "input" || exprPath.startsWith("input.")) {
+    if (phase !== "flow" && phase !== "dispatchable") {
+      errors.push({
+        code: "V-003",
+        message: `Input path is not allowed in ${phase} expression: ${exprPath}`,
+        path: `actions.${actionName}`,
+      });
+      return;
+    }
+
     if (action.inputType) {
       const subPath = exprPath === "input" ? "" : exprPath.slice(6);
       if (!pathExistsInTypeDefinition(action.inputType, schema.types, subPath)) {
@@ -833,14 +842,6 @@ function validateActionExprPath(
   }
 
   if (pathExistsInComputedSpec(schema.computed, exprPath)) {
-    return;
-  }
-
-  if (exprPath.startsWith("system.")) {
-    return;
-  }
-
-  if (exprPath === "meta" || exprPath.startsWith("meta.")) {
     return;
   }
 

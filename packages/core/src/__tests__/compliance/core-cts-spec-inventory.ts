@@ -36,6 +36,11 @@ export const CORE_SPEC_INVENTORY: readonly CoreComplianceInventoryItem[] = [
 
   inventory("R-001", "Core SPEC §14.2", "MUST", "compute-and-flow"),
   inventory("R-002", "Core SPEC §14.2", "MUST", "compute-and-flow"),
+  inventory("FLOW-PATH-1", "Core SPEC §8.4.3", "MUST", "compute-and-flow", "Flow patch paths may contain dynamic expression segments."),
+  inventory("FLOW-PATH-2", "Core SPEC §8.4.3", "MUST", "compute-and-flow", "Core resolves FlowPatchPath to concrete PatchPath during compute()."),
+  inventory("FLOW-PATH-3", "Core SPEC §8.4.3", "MUST", "compute-and-flow", "Invalid dynamic target values are semantic failures, not skipped warnings."),
+  inventory("FLOW-PATH-4", "Core SPEC §8.4.3", "MUST", "compute-and-flow", "Same-flow dynamic targets and values observe prior patch effects."),
+  inventory("FLOW-PATH-5", "Core SPEC §8.4.3", "MUST_NOT", "compute-and-flow", "Apply-time Patch values must remain concrete-only."),
   inventory("R-003", "Core SPEC §14.2", "MUST", "patch-and-system"),
   inventory("R-004", "Core SPEC §14.2", "MUST", "patch-and-system"),
   inventory("R-005", "Core SPEC §14.2", "MUST", "snapshot"),

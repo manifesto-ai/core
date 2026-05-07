@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { ExprNodeSchema, type ExprNode } from "./expr.js";
-import { PatchPath } from "./patch.js";
 
 /**
  * FlowNode - Declarative state transition programs
@@ -24,6 +23,32 @@ export type FlowNode =
  */
 export const PatchOp = z.enum(["set", "unset", "merge"]);
 export type PatchOp = z.infer<typeof PatchOp>;
+
+/**
+ * FlowPatchSegment - Patch target segment used inside Flow evaluation.
+ *
+ * Unlike apply-time PatchPath segments, Flow patch targets may carry expression
+ * segments. Core resolves those expressions during compute() before emitting
+ * concrete Patch[].
+ */
+export const FlowPatchSegment = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("prop"),
+    name: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal("index"),
+    index: z.number().int().nonnegative(),
+  }),
+  z.object({
+    kind: z.literal("expr"),
+    expr: ExprNodeSchema,
+  }),
+]);
+export type FlowPatchSegment = z.infer<typeof FlowPatchSegment>;
+
+export const FlowPatchPath = z.array(FlowPatchSegment).min(1);
+export type FlowPatchPath = z.infer<typeof FlowPatchPath>;
 
 // ============ Flow Node Types ============
 
@@ -53,7 +78,7 @@ export type IfFlow = z.infer<typeof IfFlow>;
 export const PatchFlow = z.object({
   kind: z.literal("patch"),
   op: PatchOp,
-  path: PatchPath,
+  path: FlowPatchPath,
   value: ExprNodeSchema.optional(),
 });
 export type PatchFlow = z.infer<typeof PatchFlow>;

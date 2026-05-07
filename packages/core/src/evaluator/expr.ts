@@ -22,7 +22,7 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return ok(expr.value);
 
     case "get":
-      return evaluateGet(expr.path, ctx);
+      return evaluateGetExpression(expr.path, ctx);
 
     // Comparison
     case "eq":
@@ -218,6 +218,16 @@ function toString(value: unknown): string {
 
 // ============ Get ============
 
+function evaluateGetExpression(path: string, ctx: EvalContext): ExprResult {
+  const previousExpressionPath = ctx.expressionPath;
+  ctx.expressionPath = path;
+  try {
+    return evaluateGet(path, ctx);
+  } finally {
+    ctx.expressionPath = previousExpressionPath;
+  }
+}
+
 function evaluateGet(path: string, ctx: EvalContext): ExprResult {
   // Handle collection context variables
   if (path.startsWith("$item")) {
@@ -260,14 +270,18 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
     ));
   }
 
-  // Handle meta path (snapshot metadata)
-  if (path.startsWith("meta.")) {
-    const metaPath = path.slice(5); // Remove "meta."
-    return ok(normalizeMissingPathValue(getByPath(ctx.snapshot.meta, metaPath)));
-  }
-
   // Handle input path
   if (path.startsWith("input.") || path === "input") {
+    if (ctx.phase !== "flow" && ctx.phase !== "dispatchability") {
+      return err(createError(
+        "PATH_NOT_FOUND",
+        `Input path is not available during ${ctx.phase} expression evaluation: ${path}`,
+        ctx.currentAction ?? "",
+        ctx.nodePath,
+        ctx.trace.timestamp
+      ));
+    }
+
     const subPath = path === "input" ? "" : path.slice(6);
     return ok(subPath ? normalizeMissingPathValue(getByPath(ctx.snapshot.input, subPath)) : ctx.snapshot.input);
   }
@@ -275,12 +289,6 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
   // Handle computed path (schema lookup, no prefix)
   if (Object.prototype.hasOwnProperty.call(ctx.schema.computed.fields, path)) {
     return ok(normalizeMissingPathValue(ctx.snapshot.computed[path]));
-  }
-
-  // Handle system path (snapshot.system, not $system)
-  if (path.startsWith("system.")) {
-    const subPath = path.slice(7);
-    return ok(normalizeMissingPathValue(getByPath(ctx.snapshot.system, subPath)));
   }
 
   // Default: get from domain state
@@ -375,11 +383,15 @@ function timestampToIso(timestamp: number): string | null {
 }
 
 function deriveRuntimeUuid(ctx: EvalContext): string {
-  const ordinal = ctx.runtimeOrdinal ?? 0;
-  ctx.runtimeOrdinal = ordinal + 1;
+  const allocator = ctx.runtimeAllocator ?? { ordinal: ctx.runtimeOrdinal ?? 0 };
+  ctx.runtimeAllocator = allocator;
+  const ordinal = allocator.ordinal;
+  allocator.ordinal = ordinal + 1;
+  ctx.runtimeOrdinal = allocator.ordinal;
 
   const allocationSite = toCanonical({
     nodePath: ctx.nodePath,
+    expressionPath: ctx.expressionPath ?? "$runtime.random.uuid",
     collectionStack: ctx.collectionStack ?? [],
     ordinal,
   });

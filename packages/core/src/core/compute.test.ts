@@ -6,6 +6,7 @@ import { createSnapshot, createIntent } from "../factories.js";
 import { hashSchemaSync } from "../utils/hash.js";
 import { semanticPathToPatchPath } from "../utils/patch-path.js";
 import type { DomainSchema } from "../schema/domain.js";
+import type { Context } from "../schema/context.js";
 import type { ComputeResult } from "../schema/result.js";
 
 const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
@@ -114,7 +115,7 @@ const computeSync = (
   schema: DomainSchema,
   snapshot: SnapshotType,
   intent: ReturnType<typeof createIntent>,
-  context: typeof HOST_CONTEXT = HOST_CONTEXT
+  context: Context = HOST_CONTEXT
 ): ComputeResultWithSnapshot => {
   const result = computeSyncRaw(schema, snapshot, intent, context);
   return {
@@ -127,7 +128,7 @@ const compute = async (
   schema: DomainSchema,
   snapshot: SnapshotType,
   intent: ReturnType<typeof createIntent>,
-  context: typeof HOST_CONTEXT = HOST_CONTEXT
+  context: Context = HOST_CONTEXT
 ): Promise<ComputeResultWithSnapshot> => {
   const result = await computeRaw(schema, snapshot, intent, context);
   return {
@@ -144,6 +145,45 @@ const computeWithContext = (
 
 describe("compute", () => {
   describe("Basic Intent Processing", () => {
+    it("rejects external context that does not match schema.context", async () => {
+      const schema = createTestSchema({
+        context: {
+          fields: {
+            locale: { type: "string", required: true },
+          },
+          fieldTypes: {
+            locale: { kind: "primitive", type: "string" },
+          },
+        },
+        actions: {
+          capture: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: pp("value"),
+              value: { kind: "get", path: "$context.locale" },
+            },
+          },
+        },
+      });
+      const snapshot = createTestSnapshot({ value: "" }, schema.hash);
+      const intent = createTestIntent("capture");
+
+      const result = await compute(schema, snapshot, intent, {
+        runtime: {
+          time: { timestamp: 123 },
+          random: { seed: "seed" },
+        },
+        external: { locale: 42 },
+      });
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError).toMatchObject({
+        code: "INVALID_CONTEXT",
+      });
+      expect(result.snapshot.state).toEqual({ value: "" });
+    });
+
     it("should process a simple action", async () => {
       const schema = createTestSchema({
         actions: {

@@ -195,6 +195,11 @@ export function collectGetPathsFromFlow(flow: FlowNode): string[] {
         if (node.else) visitFlow(node.else);
         return;
       case "patch":
+        for (const segment of node.path) {
+          if (segment.kind === "expr") {
+            paths.push(...collectGetPathsFromExpr(segment.expr));
+          }
+        }
         if (node.op !== "unset" && node.value) {
           paths.push(...collectGetPathsFromExpr(node.value));
         }
