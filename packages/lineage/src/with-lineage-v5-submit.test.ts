@@ -94,6 +94,18 @@ type MultiArgDomain = {
   computed: {};
 };
 
+type GuardedBoundDomain = {
+  actions: {
+    record: (label: string) => void;
+  };
+  state: {
+    count: number;
+    label: string;
+    lastIntentId: string;
+  };
+  computed: {};
+};
+
 type V5SubmitResult = {
   readonly ok: boolean;
   readonly mode: string;
@@ -217,6 +229,10 @@ type V5ObjectInputLineageRuntime = V5LineageRuntime<{
 
 type V5MultiArgLineageRuntime = V5LineageRuntime<{
   readonly rename: V5ActionHandle;
+}>;
+
+type V5GuardedBoundLineageRuntime = V5LineageRuntime<{
+  readonly record: V5ActionHandle;
 }>;
 
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
@@ -485,6 +501,65 @@ function createMultiArgSchema(): DomainSchema {
   });
 }
 
+function createGuardedBoundSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:lineage-v5-guarded-bound",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: false, default: 0 },
+        label: { type: "string", required: false, default: "" },
+        lastIntentId: { type: "string", required: false, default: "" },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      record: {
+        params: ["label"],
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            label: { type: "string", required: true },
+          },
+        },
+        flow: {
+          kind: "causalGuard",
+          guardId: "record-bound-submit",
+          body: {
+            kind: "seq",
+            steps: [
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("count"),
+                value: {
+                  kind: "add",
+                  left: { kind: "get", path: "count" },
+                  right: { kind: "lit", value: 1 },
+                },
+              },
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("label"),
+                value: { kind: "get", path: "input.label" },
+              },
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("lastIntentId"),
+                value: { kind: "get", path: "$runtime.intent.id" },
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
+}
+
 function proxyLineageService(
   realService: LineageService,
   overrides: Partial<LineageService>,
@@ -567,6 +642,13 @@ function activateMultiArgLineage(): V5MultiArgLineageRuntime {
   ).activate() as unknown as V5MultiArgLineageRuntime;
 }
 
+function activateGuardedBoundLineage(): V5GuardedBoundLineageRuntime {
+  return withLineage(
+    createManifesto<GuardedBoundDomain>(createGuardedBoundSchema(), {}),
+    { store: createInMemoryLineageStore() },
+  ).activate() as unknown as V5GuardedBoundLineageRuntime;
+}
+
 function withHostIntentSlot(
   snapshot: CoreSnapshot,
   intent: { readonly type: string; readonly intentId: string; readonly input?: unknown },
@@ -632,6 +714,25 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
       ok: true,
       after: { state: { selectedId: "before" } },
     });
+
+    app.dispose();
+  });
+
+  it("creates a fresh intent for each lineage bound submit while preserving bound input", async () => {
+    const app = activateGuardedBoundLineage();
+    const bound = app.action.record.bind("same");
+
+    const first = await bound.submit();
+    const second = await bound.submit();
+
+    if (!first.ok || !second.ok) {
+      throw new Error("expected both lineage bound submissions to settle");
+    }
+    expect(bound.input).toBe("same");
+    expect(first.after?.state.count).toBe(1);
+    expect(second.after?.state.count).toBe(2);
+    expect(first.after?.state.lastIntentId).not.toBe(second.after?.state.lastIntentId);
+    expect(second.after?.state.label).toBe("same");
 
     app.dispose();
   });

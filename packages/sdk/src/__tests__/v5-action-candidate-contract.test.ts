@@ -87,6 +87,18 @@ type MultiArgDomain = {
   computed: {};
 };
 
+type GuardedBoundDomain = {
+  actions: {
+    record: (label: string) => void;
+  };
+  state: {
+    count: number;
+    label: string;
+    lastIntentId: string;
+  };
+  computed: {};
+};
+
 type ObjectOnlyOptionsDomain = {
   actions: {
     configure: (input: { retries: number; label?: string }) => void;
@@ -278,6 +290,65 @@ function createMultiArgSchema(): DomainSchema {
               value: { kind: "get", path: "input.force" },
             },
           ],
+        },
+      },
+    },
+  });
+}
+
+function createGuardedBoundSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:sdk-v5-guarded-bound",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: false, default: 0 },
+        label: { type: "string", required: false, default: "" },
+        lastIntentId: { type: "string", required: false, default: "" },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      record: {
+        params: ["label"],
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            label: { type: "string", required: true },
+          },
+        },
+        flow: {
+          kind: "causalGuard",
+          guardId: "record-bound-submit",
+          body: {
+            kind: "seq",
+            steps: [
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("count"),
+                value: {
+                  kind: "add",
+                  left: { kind: "get", path: "count" },
+                  right: { kind: "lit", value: 1 },
+                },
+              },
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("label"),
+                value: { kind: "get", path: "input.label" },
+              },
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("lastIntentId"),
+                value: { kind: "get", path: "$runtime.intent.id" },
+              },
+            ],
+          },
         },
       },
     },
@@ -808,6 +879,23 @@ describe("SDK v5 action-candidate contract", () => {
       type: "toggleTodo",
       input: { input: { id: "todo-2" } },
     });
+  });
+
+  it("creates a fresh intent for each bound submit while preserving bound input", async () => {
+    const app = createManifesto<GuardedBoundDomain>(createGuardedBoundSchema(), {}).activate();
+    const bound = app.action.record.bind("same");
+
+    const first = await bound.submit();
+    const second = await bound.submit();
+
+    if (!first.ok || !second.ok) {
+      throw new Error("expected both bound submissions to settle");
+    }
+    expect(bound.input).toBe("same");
+    expect(first.after.state.count).toBe(1);
+    expect(second.after.state.count).toBe(2);
+    expect(first.after.state.lastIntentId).not.toBe(second.after.state.lastIntentId);
+    expect(second.after.state.label).toBe("same");
   });
 
   it("treats option-shaped values as domain input when declared by action arity", async () => {

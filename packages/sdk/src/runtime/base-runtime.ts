@@ -276,13 +276,20 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     args: ActionArgs<T, Name>,
   ): BoundAction<T, Name, BaseMode> {
     const candidate = createCandidate(name, args);
+    const stableArgs = tryCloneAndFreezeActionPayload<readonly unknown[]>([...args]);
+    const createFreshCandidate = (): Candidate<T, Name> => stableArgs.ok
+      ? createCandidate(name, stableArgs.value as ActionArgs<T, Name>)
+      : candidate;
     return Object.freeze({
       action: name,
       input: candidate.input,
-      check: () => checkCandidate(candidate),
-      preview: () => previewCandidate(candidate),
-      submit: () => submitCandidate(candidate),
-      intent: () => candidate.inputError ? null : candidate.intent as Intent | null,
+      check: () => checkCandidate(createFreshCandidate()),
+      preview: () => previewCandidate(createFreshCandidate()),
+      submit: () => submitCandidate(createFreshCandidate()),
+      intent: () => {
+        const fresh = createFreshCandidate();
+        return fresh.inputError ? null : fresh.intent as Intent | null;
+      },
     });
   }
 

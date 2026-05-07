@@ -124,6 +124,18 @@ type MultiArgDomain = {
   computed: {};
 };
 
+type GuardedBoundDomain = {
+  actions: {
+    record: (label: string) => void;
+  };
+  state: {
+    count: number;
+    label: string;
+    lastIntentId: string;
+  };
+  computed: {};
+};
+
 type DomainFailureDomain = {
   actions: {
     fail: () => void;
@@ -349,6 +361,65 @@ function createObjectInputSchema(): DomainSchema {
           op: "set",
           path: pp("selectedId"),
           value: { kind: "get", path: "input.input.id" },
+        },
+      },
+    },
+  });
+}
+
+function createGuardedBoundSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:governance-v5-guarded-bound",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: false, default: 0 },
+        label: { type: "string", required: false, default: "" },
+        lastIntentId: { type: "string", required: false, default: "" },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      record: {
+        params: ["label"],
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            label: { type: "string", required: true },
+          },
+        },
+        flow: {
+          kind: "causalGuard",
+          guardId: "record-bound-submit",
+          body: {
+            kind: "seq",
+            steps: [
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("count"),
+                value: {
+                  kind: "add",
+                  left: { kind: "get", path: "count" },
+                  right: { kind: "lit", value: 1 },
+                },
+              },
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("label"),
+                value: { kind: "get", path: "input.label" },
+              },
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("lastIntentId"),
+                value: { kind: "get", path: "$runtime.intent.id" },
+              },
+            ],
+          },
         },
       },
     },
@@ -664,6 +735,48 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       status: "settled",
       after: { state: { selectedId: "before" } },
     });
+  });
+
+  it("creates a fresh intent for each governed bound submit while preserving bound input", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<GuardedBoundDomain>(createGuardedBoundSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:guarded-bound",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:guarded-bound",
+          }),
+        },
+      },
+    ).activate();
+    const bound = governed.action.record.bind("same");
+
+    const firstPending = await bound.submit();
+    if (!firstPending.ok) {
+      throw new Error("expected first governed bound submission to be accepted");
+    }
+    const first = await firstPending.waitForSettlement();
+    const secondPending = await bound.submit();
+    if (!secondPending.ok) {
+      throw new Error("expected second governed bound submission to be accepted");
+    }
+    const second = await secondPending.waitForSettlement();
+
+    expect(bound.input).toBe("same");
+    expect(first.after.state.count).toBe(1);
+    expect(second.after.state.count).toBe(2);
+    expect(first.after.state.lastIntentId).not.toBe(second.after.state.lastIntentId);
+    expect(second.after.state.label).toBe("same");
   });
 
   it("treats non-structured-clone governed inputs as input admission failures", async () => {
