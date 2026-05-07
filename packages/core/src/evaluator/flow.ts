@@ -7,6 +7,7 @@ import type { FieldSpec } from "../schema/field.js";
 import { createTraceNode } from "../schema/trace.js";
 import { createError } from "../errors.js";
 import {
+  isSafePatchPath,
   mergeAtPatchPath,
   patchPathToDisplayString,
   semanticPathToPatchPath,
@@ -382,6 +383,10 @@ function resolveFlowPatchPath(
 
   for (const [index, segment] of path.entries()) {
     if (segment.kind === "prop" || segment.kind === "index") {
+      const safety = validateResolvedPatchSegment([...resolved, segment], ctx, nodePath, index);
+      if (!safety.ok) {
+        return safety;
+      }
       resolved.push(segment);
       continue;
     }
@@ -394,12 +399,22 @@ function resolveFlowPatchPath(
 
     const value = result.value;
     if (typeof value === "string" && value.length > 0) {
-      resolved.push({ kind: "prop", name: value });
+      const resolvedSegment: PatchSegment = { kind: "prop", name: value };
+      const safety = validateResolvedPatchSegment([...resolved, resolvedSegment], ctx, nodePath, index);
+      if (!safety.ok) {
+        return safety;
+      }
+      resolved.push(resolvedSegment);
       continue;
     }
 
     if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
-      resolved.push({ kind: "index", index: value });
+      const resolvedSegment: PatchSegment = { kind: "index", index: value };
+      const safety = validateResolvedPatchSegment([...resolved, resolvedSegment], ctx, nodePath, index);
+      if (!safety.ok) {
+        return safety;
+      }
+      resolved.push(resolvedSegment);
       continue;
     }
 
@@ -417,6 +432,29 @@ function resolveFlowPatchPath(
   }
 
   return { ok: true, path: resolved };
+}
+
+function validateResolvedPatchSegment(
+  path: PatchPath,
+  ctx: EvalContext,
+  nodePath: string,
+  index: number
+): { ok: true } | { ok: false; error: ErrorValue } {
+  if (isSafePatchPath(path)) {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    error: createError(
+      "INVALID_PATCH_PATH",
+      `Unsafe patch path segment at index ${index}: ${patchPathToDisplayString(path)}`,
+      ctx.currentAction ?? "",
+      `${nodePath}.path[${index}]`,
+      ctx.trace.timestamp,
+      { segmentIndex: index, path: patchPathToDisplayString(path) }
+    ),
+  };
 }
 
 function describeDynamicPathValue(value: unknown): string {

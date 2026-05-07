@@ -366,6 +366,72 @@ describe("Core CTS compute and flow rules", () => {
     });
   }
 
+  it(caseTitle(CORE_CTS_CASES.DYNAMIC_FLOW_PATCH_TARGETS, "rejects unsafe dynamic target values before emitting patches"), () => {
+    const schema = createComplianceSchema({
+      state: {
+        fields: {
+          records: { type: "object", required: true, default: {} },
+        },
+        fieldTypes: {
+          records: {
+            kind: "record",
+            key: { kind: "primitive", type: "string" },
+            value: { kind: "primitive", type: "string" },
+          },
+        },
+      },
+      actions: {
+        unsafeTarget: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              target: { type: "string", required: true },
+            },
+          },
+          flow: {
+            kind: "seq",
+            steps: [
+              {
+                kind: "patch",
+                op: "set",
+                path: [
+                  { kind: "prop", name: "records" },
+                  { kind: "expr", expr: { kind: "get", path: "input.target" } },
+                ],
+                value: { kind: "lit", value: "bad" },
+              },
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("done"),
+                value: { kind: "lit", value: true },
+              },
+            ],
+          },
+        },
+      },
+    });
+    const snapshot = createComplianceSnapshot({ records: {}, done: false }, schema.hash);
+
+    const { result, snapshot: finalSnapshot } = computeAndMaterialize(
+      schema,
+      snapshot,
+      createComplianceIntent("unsafeTarget", { target: "__proto__" }),
+    );
+
+    expect(result.status).toBe("error");
+    expect(result.patches).toEqual([]);
+    expect(finalSnapshot.system.lastError).toMatchObject({
+      code: "INVALID_PATCH_PATH",
+      source: {
+        actionId: "unsafeTarget",
+        nodePath: "actions.unsafeTarget.flow.steps[0].path[1]",
+      },
+    });
+    expect(finalSnapshot.state).toEqual({ records: {}, done: false });
+  });
+
   it(caseTitle(CORE_CTS_CASES.DYNAMIC_FLOW_PATCH_TARGETS, "evaluates dynamic targets before patch values"), () => {
     const schema = createComplianceSchema({
       state: {
