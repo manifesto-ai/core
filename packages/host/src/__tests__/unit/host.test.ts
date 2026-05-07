@@ -389,6 +389,54 @@ describe("ManifestoHost", () => {
       expect(result.status).toBe("error");
       expect(result.error?.code).toBe("LOOP_MAX_ITERATIONS");
     });
+
+    it("should preserve effect execution errors instead of replacing them with loop-limit errors", async () => {
+      const schemaWithFailingEffect = createTestSchema({
+        actions: {
+          load: {
+            flow: {
+              kind: "seq",
+              steps: [
+                {
+                  kind: "patch",
+                  op: "set",
+                  path: pp("loading"),
+                  value: { kind: "lit", value: true },
+                },
+                {
+                  kind: "effect",
+                  type: "api.fetch",
+                  params: {},
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const host = createHost(schemaWithFailingEffect, {
+        initialData: { loading: false },
+        maxIterations: 3,
+      });
+
+      host.registerEffect("api.fetch", async () => {
+        throw new Error("effect exploded");
+      });
+
+      const result = await host.dispatch(createTestIntent("load"));
+      const hostLastError = (result.snapshot.namespaces.host as {
+        readonly lastError?: { readonly code?: string; readonly message?: string };
+      } | undefined)?.lastError;
+
+      expect(result.status).toBe("error");
+      expect(result.error?.code).toBe("EFFECT_EXECUTION_FAILED");
+      expect((result.snapshot.state as Record<string, unknown>).loading).toBe(true);
+      expect(result.snapshot.system.lastError).toBeNull();
+      expect(hostLastError).toMatchObject({
+        code: "EFFECT_EXECUTION_FAILED",
+        message: "effect exploded",
+      });
+    });
   });
 
   describe("Complex workflows", () => {
@@ -507,7 +555,7 @@ describe("ManifestoHost", () => {
   });
 
   describe("Availability bypass scenarios (#134 review concern)", () => {
-    it("SCENARIO: max-iterations preserves stable head and does not leak currentAction", async () => {
+    it("SCENARIO: max-iterations preserves the progressed execution snapshot", async () => {
       // Setup: action "run" with available when isNull(pending),
       // maxIterations = 1 so the first dispatch exits before ContinueCompute.
       const lifecycleSchema = createTestSchema({
@@ -562,7 +610,9 @@ describe("ManifestoHost", () => {
       );
       expect(result1.status).toBe("error");
       expect(result1.error?.code).toBe("LOOP_MAX_ITERATIONS");
-      expect(result1.snapshot.system.currentAction).toBeNull();
+      expect(result1.snapshot.system.status).toBe("pending");
+      expect(result1.snapshot.system.currentAction).toBe("run");
+      expect(result1.snapshot.system.pendingRequirements).toHaveLength(1);
 
       const snapshotAfter = host.getSnapshot();
       const currentAction = snapshotAfter?.system.currentAction;
@@ -571,8 +621,8 @@ describe("ManifestoHost", () => {
         lastError?: { code?: string };
       } | undefined)?.lastError;
 
-      expect(currentAction).toBeNull();
-      expect(pending).toBeNull();
+      expect(currentAction).toBe("run");
+      expect(pending).toBe("intent-A");
       expect(hostLastError?.code).toBe("LOOP_MAX_ITERATIONS");
 
       // 2nd dispatch: same action type, different intentId
@@ -583,7 +633,7 @@ describe("ManifestoHost", () => {
       expect(result2.status).toBe("error");
       expect(result2.error?.code).toBe("LOOP_MAX_ITERATIONS");
       expect(result2.snapshot.system.currentAction).toBeNull();
-      expect((result2.snapshot.state as Record<string, unknown>).pending).toBeNull();
+      expect((result2.snapshot.state as Record<string, unknown>).pending).toBe("intent-A");
     });
 
     it("SCENARIO: normal sequential dispatch does NOT leak currentAction", async () => {

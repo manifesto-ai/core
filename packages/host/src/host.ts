@@ -424,6 +424,7 @@ export class ManifestoHost {
     let traces: TraceGraph[] = [];
 
     let fatalError: HostError | undefined;
+    let hostOperationalError: ErrorValue | null = null;
 
     while (iterations < this.maxIterations) {
       iterations++;
@@ -433,6 +434,12 @@ export class ManifestoHost {
 
       if (this.fatalErrors.has(key)) {
         fatalError = this.fatalErrors.get(key);
+        break;
+      }
+
+      const currentHostLastError = getHostState(ctx.getSnapshot())?.lastError ?? null;
+      if (currentHostLastError && !isSameErrorValue(initialHostLastError, currentHostLastError)) {
+        hostOperationalError = currentHostLastError;
         break;
       }
 
@@ -467,13 +474,28 @@ export class ManifestoHost {
       };
     }
 
+    if (hostOperationalError) {
+      this.currentSnapshot = finalSnapshot;
+      return {
+        status: "error",
+        snapshot: finalSnapshot,
+        traces,
+        context: transitionContext,
+        error: createHostError(
+          "EFFECT_EXECUTION_FAILED",
+          hostOperationalError.message,
+          { lastError: hostOperationalError }
+        ),
+      };
+    }
+
     if (iterations >= this.maxIterations) {
       const hostError = createHostError(
         "LOOP_MAX_ITERATIONS",
         `Host loop exceeded maximum iterations (${this.maxIterations})`,
         { maxIterations: this.maxIterations }
       );
-      const snapshot = this.recordHostLastError(stableSnapshot, {
+      const snapshot = this.recordHostLastError(finalSnapshot, {
         code: "LOOP_MAX_ITERATIONS",
         message: hostError.message,
         source: {
