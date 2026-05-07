@@ -386,8 +386,8 @@ describe("HCTS Snapshot Ownership Tests", () => {
       expect((finalSnapshot.state as Record<string, unknown>).processed).toBe(true);
       expect(finalSnapshot.input).toBeUndefined();
       expect(finalSnapshot.system.currentAction).toBeNull();
-      expect(finalSnapshot.meta.timestamp).toBe(5);
-      expect(finalSnapshot.meta.randomSeed).toBe("restored-seed");
+      expect(finalSnapshot.meta.timestamp).toBe(100);
+      expect(finalSnapshot.meta.randomSeed).toBe("intent-restore");
       expect((finalSnapshot.state as Record<string, unknown>).$host).toBeUndefined();
       expect(hostState?.intentSlots?.["intent-restore"]).toEqual({
         type: "resume",

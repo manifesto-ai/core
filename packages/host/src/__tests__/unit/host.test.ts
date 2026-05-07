@@ -286,8 +286,8 @@ describe("ManifestoHost", () => {
       const result = await host.dispatch(createTestIntentWithId("increment", "intent-restore"));
 
       expect(stripHostState(result.snapshot.state)).toEqual({ count: 8 });
-      expect(result.snapshot.meta.timestamp).toBe(5);
-      expect(result.snapshot.meta.randomSeed).toBe("restored-seed");
+      expect(result.snapshot.meta.timestamp).toBe(100);
+      expect(result.snapshot.meta.randomSeed).toBe("intent-restore");
       expect(result.snapshot.input).toBeNull();
       expect(result.snapshot.system.currentAction).toBeNull();
     });

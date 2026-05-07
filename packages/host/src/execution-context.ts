@@ -187,15 +187,38 @@ export class ExecutionContextImpl implements ExecutionContext {
     return;
   }
 
+  private stampTransitionMeta(snapshot: Snapshot): Snapshot {
+    const frozenContext = this.getFrozenContext();
+    const timestamp = frozenContext.runtime.time.timestamp;
+    const randomSeed = frozenContext.runtime.random.seed;
+
+    if (
+      snapshot.meta.timestamp === timestamp
+      && snapshot.meta.randomSeed === randomSeed
+    ) {
+      return snapshot;
+    }
+
+    return {
+      ...snapshot,
+      meta: {
+        ...snapshot.meta,
+        timestamp,
+        randomSeed,
+      },
+    };
+  }
+
   /**
    * Apply patches to the current snapshot
    */
   applyPatches(patches: Patch[], source: string): Snapshot {
-    const newSnapshot = this.core.apply(
+    const appliedSnapshot = this.core.apply(
       this.schema,
       this.snapshot,
       patches
     );
+    const newSnapshot = this.stampTransitionMeta(appliedSnapshot);
     this.snapshot = newSnapshot;
 
     // Emit core:apply trace
@@ -217,10 +240,11 @@ export class ExecutionContextImpl implements ExecutionContext {
       return this.snapshot;
     }
 
-    const newSnapshot = this.core.applyNamespaceDeltas(
+    const appliedSnapshot = this.core.applyNamespaceDeltas(
       this.snapshot,
       deltas
     );
+    const newSnapshot = this.stampTransitionMeta(appliedSnapshot);
     this.snapshot = newSnapshot;
 
     this.trace({
@@ -238,7 +262,10 @@ export class ExecutionContextImpl implements ExecutionContext {
    * Apply a system delta to the current snapshot
    */
   applySystemDelta(delta: SystemDelta, source: string): Snapshot {
-    const newSnapshot = this.core.applySystemDelta(this.snapshot, delta);
+    const appliedSnapshot = this.core.applySystemDelta(this.snapshot, delta);
+    const newSnapshot = appliedSnapshot === this.snapshot
+      ? appliedSnapshot
+      : this.stampTransitionMeta(appliedSnapshot);
     this.snapshot = newSnapshot;
 
     this.trace({
