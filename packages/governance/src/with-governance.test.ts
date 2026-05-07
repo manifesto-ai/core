@@ -1753,12 +1753,34 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const proposal = await settledLoadProposal(governed);
+    const pending = await submitLoad(governed);
+    const settled = await pending.waitForSettlement();
+
+    expect(settled).toMatchObject({
+      ok: true,
+      status: "settled",
+      outcome: {
+        kind: "fail",
+        error: { code: "EFFECT_EXECUTION_FAILED" },
+      },
+    });
+
+    const proposal = await getStoredProposal(governed, pending.proposal);
 
     expect(proposal.status).toBe("failed");
     expect(proposal.resultWorld).toBeDefined();
     expect(governed.snapshot().state.status).toBe("idle");
     expect(events.some((event) => event.type === "execution:failed")).toBe(true);
+
+    const world = await governed.getWorld(proposal.resultWorld!);
+    const snapshot = await governed.getWorldSnapshot(proposal.resultWorld!);
+    const hostNamespace = snapshot?.namespaces.host as {
+      readonly lastError?: { readonly code?: string };
+    } | undefined;
+
+    expect(world?.terminalStatus).toBe("failed");
+    expect(snapshot?.system.lastError).toBeNull();
+    expect(hostNamespace?.lastError?.code).toBe("EFFECT_EXECUTION_FAILED");
 
     const decision = await governed.getDecisionRecord(proposal.decisionId!);
     expect(decision?.decision.kind).toBe("approved");
@@ -1834,7 +1856,8 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       kind: "failed",
       resultWorld: proposal.resultWorld,
       error: {
-        summary: "Execution failed with 1 pending requirement(s)",
+        summary: "Execution failed with 1 error(s) and 1 pending requirement(s)",
+        currentError: { code: "EFFECT_EXECUTION_FAILED" },
         pendingRequirements: [expect.any(String)],
       },
     });
@@ -1880,7 +1903,8 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       resultWorld: proposal.resultWorld,
       published: false,
       error: {
-        summary: "Execution failed with 1 pending requirement(s)",
+        summary: "Execution failed with 1 error(s) and 1 pending requirement(s)",
+        currentError: { code: "EFFECT_EXECUTION_FAILED" },
       },
     });
     if (report.kind !== "failed" || !report.resultWorld || !report.sealedOutcome) {

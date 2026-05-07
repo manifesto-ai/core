@@ -106,6 +106,16 @@ type GuardedBoundDomain = {
   computed: {};
 };
 
+type EffectFailureDomain = {
+  actions: {
+    load: () => void;
+  };
+  state: {
+    status: string;
+  };
+  computed: {};
+};
+
 type V5SubmitResult = {
   readonly ok: boolean;
   readonly mode: string;
@@ -233,6 +243,10 @@ type V5MultiArgLineageRuntime = V5LineageRuntime<{
 
 type V5GuardedBoundLineageRuntime = V5LineageRuntime<{
   readonly record: V5ActionHandle;
+}>;
+
+type V5EffectFailureLineageRuntime = V5LineageRuntime<{
+  readonly load: V5ActionHandle;
 }>;
 
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
@@ -560,6 +574,44 @@ function createGuardedBoundSchema(): DomainSchema {
   });
 }
 
+function createEffectFailureSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:lineage-v5-effect-failure",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        status: { type: "string", required: false, default: "idle" },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      load: {
+        flow: {
+          kind: "seq",
+          steps: [
+            {
+              kind: "patch",
+              op: "set",
+              path: pp("status"),
+              value: { kind: "lit", value: "loading" },
+            },
+            {
+              kind: "causalGuard",
+              guardId: "lineage-effect-failure",
+              body: {
+                kind: "effect",
+                type: "api.fetch",
+                params: {},
+              },
+            },
+          ],
+        },
+      },
+    },
+  });
+}
+
 function proxyLineageService(
   realService: LineageService,
   overrides: Partial<LineageService>,
@@ -647,6 +699,17 @@ function activateGuardedBoundLineage(): V5GuardedBoundLineageRuntime {
     createManifesto<GuardedBoundDomain>(createGuardedBoundSchema(), {}),
     { store: createInMemoryLineageStore() },
   ).activate() as unknown as V5GuardedBoundLineageRuntime;
+}
+
+function activateEffectFailureLineage(): V5EffectFailureLineageRuntime {
+  return withLineage(
+    createManifesto<EffectFailureDomain>(createEffectFailureSchema(), {
+      "api.fetch": async () => {
+        throw new Error("boom");
+      },
+    }),
+    { store: createInMemoryLineageStore() },
+  ).activate() as unknown as V5EffectFailureLineageRuntime;
 }
 
 function withHostIntentSlot(
@@ -1010,6 +1073,47 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
     const activeBranch = await app.getActiveBranch();
     expect(activeBranch.head).not.toBe(result.world?.worldId);
     expect(activeBranch.tip).toBe(result.world?.worldId);
+
+    app.dispose();
+  });
+
+  it("surfaces host namespace failures as failed lineage outcomes", async () => {
+    const app = activateEffectFailureLineage();
+
+    const result = await app.action.load.submit();
+
+    expect(result).toMatchObject({
+      ok: true,
+      mode: "lineage",
+      status: "settled",
+      action: "load",
+      outcome: {
+        kind: "fail",
+        error: { code: "EFFECT_EXECUTION_FAILED" },
+      },
+      report: {
+        mode: "lineage",
+        headAdvanced: false,
+        published: false,
+        outcome: {
+          kind: "fail",
+          error: { code: "EFFECT_EXECUTION_FAILED" },
+        },
+      },
+    });
+    if (!result.ok || !result.world?.worldId) {
+      throw new Error("expected failed host dispatch to seal a lineage world");
+    }
+    expect(result.world.terminalStatus).toBe("failed");
+    expect(app.snapshot().state.status).toBe("idle");
+
+    const stored = await app.getWorldSnapshot(result.world.worldId);
+    const hostNamespace = stored?.namespaces.host as {
+      readonly lastError?: { readonly code?: string };
+    } | undefined;
+
+    expect(stored?.system.lastError).toBeNull();
+    expect(hostNamespace?.lastError?.code).toBe("EFFECT_EXECUTION_FAILED");
 
     app.dispose();
   });

@@ -58,6 +58,7 @@ import {
   cloneAndFreezeActionPayload,
   tryCloneAndFreezeActionPayload,
 } from "./action-payload.js";
+import { readSnapshotCurrentError } from "./snapshot-errors.js";
 import type { LineageInstance } from "./runtime-types.js";
 
 type Candidate<
@@ -862,10 +863,11 @@ function toExecutionOutcome<T extends ManifestoDomainShape>(
   }
 
   const after = dispatchOutcome.canonical.afterCanonicalSnapshot;
-  if (after.system.lastError) {
+  const currentError = readSnapshotCurrentError(after);
+  if (currentError) {
     return Object.freeze({
       kind: "fail",
-      error: after.system.lastError,
+      error: currentError,
     }) as ExecutionOutcome;
   }
 

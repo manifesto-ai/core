@@ -4,6 +4,7 @@ import {
   computeHash,
   computeSnapshotHash,
   computeWorldId,
+  createSnapshotHashInput,
   deriveTerminalStatus,
 } from "./hash.js";
 
@@ -136,6 +137,38 @@ describe("@manifesto-ai/lineage hash", () => {
         currentAction: null,
       },
     }))).toBe("failed");
+  });
+
+  it("treats host namespace lastError as current terminal error without hashing unrelated host state", () => {
+    const hostError = {
+      code: "EFFECT_EXECUTION_FAILED",
+      message: "boom",
+      source: { actionId: "intent-1", nodePath: "host.fulfill" },
+      timestamp: 123,
+    };
+    const hostFailed = createTestSnapshot({}, {
+      namespaces: {
+        host: { internal: true, lastError: hostError },
+        mel: { guards: { intent: {} } },
+      },
+    });
+    const hostChanged = createTestSnapshot({}, {
+      namespaces: {
+        host: { internal: false, changed: true },
+        mel: { guards: { intent: {} } },
+      },
+    });
+
+    expect(deriveTerminalStatus(hostFailed)).toBe("failed");
+    expect(createSnapshotHashInput(hostFailed).system).toMatchObject({
+      terminalStatus: "failed",
+      currentError: {
+        code: "EFFECT_EXECUTION_FAILED",
+        source: { actionId: "intent-1", nodePath: "host.fulfill" },
+      },
+    });
+    expect(computeSnapshotHash(hostChanged)).toBe(computeSnapshotHash(createTestSnapshot({})));
+    expect(computeSnapshotHash(hostFailed)).not.toBe(computeSnapshotHash(hostChanged));
   });
 
   it("computes deterministic world ids", () => {

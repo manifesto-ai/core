@@ -1,9 +1,10 @@
 import type { Snapshot } from "@manifesto-ai/core";
 
 import type { ErrorInfo } from "./types.js";
+import { readSnapshotCurrentError } from "./snapshot-errors.js";
 
 export function deriveErrorInfo(snapshot: Snapshot): ErrorInfo {
-  const currentError = snapshot.system.lastError ?? undefined;
+  const currentError = readSnapshotCurrentError(snapshot) ?? undefined;
   const pendingRequirements = snapshot.system.pendingRequirements.map(
     (requirement) => requirement.id,
   );

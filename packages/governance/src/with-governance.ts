@@ -44,6 +44,7 @@ import { createGovernanceEventDispatcher } from "./event-dispatcher.js";
 import { createGovernanceRuntimeInstance } from "./governance-runtime.js";
 import { createIntentInstance } from "./intent-instance.js";
 import { createGovernanceService } from "./service/governance-service.js";
+import { readSnapshotCurrentError } from "./snapshot-errors.js";
 import { createInMemoryGovernanceStore } from "./store/in-memory-governance-store.js";
 import { attachWaitForProposalRuntime } from "./wait-for-proposal.js";
 import type {
@@ -939,8 +940,11 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
   async function loadSettlementError(proposal: Proposal): Promise<ErrorValue> {
     if (proposal.resultWorld) {
       const snapshot = await lineage.getWorldSnapshot(proposal.resultWorld);
-      if (snapshot?.system.lastError) {
-        return snapshot.system.lastError;
+      if (snapshot) {
+        const currentError = readSnapshotCurrentError(snapshot);
+        if (currentError) {
+          return currentError;
+        }
       }
     }
 
@@ -1026,10 +1030,11 @@ function toSettlementOutcome<T extends ManifestoDomainShape>(
   proposal: Proposal,
 ): ExecutionOutcome {
   const after = dispatchOutcome.canonical.afterCanonicalSnapshot;
-  if (after.system.lastError) {
+  const currentError = readSnapshotCurrentError(after);
+  if (currentError) {
     return Object.freeze({
       kind: "fail",
-      error: after.system.lastError,
+      error: currentError,
     }) as ExecutionOutcome;
   }
 
@@ -1064,10 +1069,11 @@ function toTerminalOutcome<T extends ManifestoDomainShape>(
     }) as ExecutionOutcome;
   }
 
-  if (terminalSnapshot.system.lastError) {
+  const currentError = readSnapshotCurrentError(terminalSnapshot);
+  if (currentError) {
     return Object.freeze({
       kind: "fail",
-      error: terminalSnapshot.system.lastError,
+      error: currentError,
     }) as ExecutionOutcome;
   }
 

@@ -38,6 +38,7 @@ import {
   type SupersedeReason,
   type ErrorInfo,
 } from "../types.js";
+import { readSnapshotCurrentError } from "../snapshot-errors.js";
 
 function freeze<T>(value: T): T {
   return Object.freeze(value);
@@ -208,7 +209,7 @@ export class DefaultGovernanceService implements GovernanceService {
   }
 
   deriveOutcome(terminalSnapshot: Snapshot): "completed" | "failed" {
-    if (terminalSnapshot.system.lastError != null) {
+    if (readSnapshotCurrentError(terminalSnapshot) != null) {
       return "failed";
     }
     if (terminalSnapshot.system.pendingRequirements.length > 0) {
