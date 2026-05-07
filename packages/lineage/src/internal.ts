@@ -304,12 +304,28 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
       const previousVisibleSnapshot = scopedSealTarget
         ? kernel.getVisibleCoreSnapshot()
         : null;
+      let sealViewRestored = false;
       const restoreSealView = (): void => {
+        if (sealViewRestored) {
+          return;
+        }
+        sealViewRestored = true;
+
         if (previousVisibleSnapshot) {
           kernel.setVisibleSnapshot(previousVisibleSnapshot, { notify: false });
           return;
         }
         kernel.restoreVisibleSnapshot();
+      };
+      const restoreScopedSealViewOnThrow = <Result>(operation: () => Result): Result => {
+        try {
+          return operation();
+        } catch (error) {
+          if (scopedSealTarget) {
+            restoreSealView();
+          }
+          throw error;
+        }
       };
 
       if (scopedSealTarget) {
@@ -339,32 +355,36 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         });
       }
 
-      if (!kernel.isActionAvailable(enrichedIntent.type as keyof T["actions"])) {
-        const rejected = kernel.rejectUnavailable(enrichedIntent);
+      const actionAvailable = restoreScopedSealViewOnThrow(() =>
+        kernel.isActionAvailable(enrichedIntent.type as keyof T["actions"]));
+      if (!actionAvailable) {
         if (scopedSealTarget) {
           restoreSealView();
         }
-        return rejected;
+        return kernel.rejectUnavailable(enrichedIntent);
       }
-      const invalidInput = kernel.validateIntentInputFor(kernel.getCanonicalSnapshot(), enrichedIntent);
+      const invalidInput = restoreScopedSealViewOnThrow(() =>
+        kernel.validateIntentInputFor(kernel.getCanonicalSnapshot(), enrichedIntent));
       if (invalidInput) {
-        const rejected = kernel.rejectInvalidInput(enrichedIntent, invalidInput.message);
         if (scopedSealTarget) {
           restoreSealView();
         }
-        return rejected;
+        return kernel.rejectInvalidInput(enrichedIntent, invalidInput.message);
       }
-      if (!kernel.isIntentDispatchableFor(kernel.getCanonicalSnapshot(), enrichedIntent)) {
-        const rejected = kernel.rejectNotDispatchable(enrichedIntent);
+      const intentDispatchable = restoreScopedSealViewOnThrow(() =>
+        kernel.isIntentDispatchableFor(kernel.getCanonicalSnapshot(), enrichedIntent));
+      if (!intentDispatchable) {
         if (scopedSealTarget) {
           restoreSealView();
         }
-        return rejected;
+        return kernel.rejectNotDispatchable(enrichedIntent);
       }
 
-      const transitionContext = options?.context ?? kernel.createComputeContext(
-        enrichedIntent,
-        options?.externalContext,
+      const transitionContext = options?.context ?? restoreScopedSealViewOnThrow(() =>
+        kernel.createComputeContext(
+          enrichedIntent,
+          options?.externalContext,
+        ),
       );
 
       let result: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>;

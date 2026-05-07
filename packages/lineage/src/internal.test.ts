@@ -21,6 +21,7 @@ const pp = semanticPathToPatchPath;
 type CounterDomain = {
   actions: {
     increment: () => void;
+    requiresPositive: () => void;
   };
   state: {
     count: number;
@@ -59,6 +60,17 @@ function createCounterSchema(): DomainSchema {
             left: { kind: "get", path: "count" },
             right: { kind: "lit", value: 1 },
           },
+        },
+      },
+      requiresPositive: {
+        available: {
+          kind: "gt",
+          left: { kind: "get", path: "count" },
+          right: { kind: "lit", value: 0 },
+        },
+        flow: {
+          kind: "halt",
+          reason: "noop",
         },
       },
     },
@@ -139,6 +151,29 @@ describe("@manifesto-ai/lineage internal runtime controller", () => {
     });
 
     expect(receivedOptions?.key).toBe("branch:serialized");
+  });
+
+  it("restores the visible snapshot when scoped sealing rejects before dispatch", async () => {
+    const base = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(base)();
+    const service = createLineageService(createInMemoryLineageStore());
+    const lineage = createLineageRuntimeController(kernel, service, { service });
+
+    const genesisWorldId = await lineage.getCurrentCompletedWorldId();
+    await lineage.sealIntent(createIntent("increment", "intent-1"));
+    const forkBranchId = await lineage.createBranch("fork", genesisWorldId);
+
+    expect(kernel.getVisibleCoreSnapshot().state.count).toBe(1);
+
+    await expect(lineage.sealIntent(
+      createIntent("requiresPositive", "intent-blocked"),
+      {
+        branchId: forkBranchId,
+        baseWorldId: genesisWorldId,
+      },
+    )).rejects.toThrow();
+
+    expect(kernel.getVisibleCoreSnapshot().state.count).toBe(1);
   });
 
   it("rejects pending host results before preparing or committing a next seal", async () => {
