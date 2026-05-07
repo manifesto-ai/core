@@ -1,5 +1,46 @@
 # Changelog
 
+## [5.1.0](https://github.com/manifesto-ai/core/compare/lineage-v5.0.0...lineage-v5.1.0) (2026-05-07)
+
+
+### Features
+
+* add sdk intent explanation reads and hard-cut docs flow ([6a0b528](https://github.com/manifesto-ai/core/commit/6a0b5280081b7bfc0af5be2720468663a0944fa0))
+* align consumers for phase 5 facade rollout ([7c59041](https://github.com/manifesto-ai/core/commit/7c590412d9b16c52270c62ed35140d1f7ef0ecb0))
+* **decorators:** inherit legality query surface ([5ddc9e2](https://github.com/manifesto-ai/core/commit/5ddc9e25178b504f2cec131b20c7fdbd10ec31ed))
+* implement lineage wave 1 split ([4449046](https://github.com/manifesto-ai/core/commit/4449046857fd804e962198a5ba1c872e6af9e136))
+* land core v4 cleanup and action availability queries ([#331](https://github.com/manifesto-ai/core/issues/331)) ([30ec2b4](https://github.com/manifesto-ai/core/commit/30ec2b481cebbf2a2640fe21fd7909d6b033a1b4))
+* roll up ADR-020 dispatchability and schema typing ([e85ec08](https://github.com/manifesto-ai/core/commit/e85ec082f61c117ee1b22707739f7528979b15fd))
+* **runtime:** add family reports and narrow provider seams ([693d669](https://github.com/manifesto-ai/core/commit/693d66946530f7986631d9665c703b1b61418f96))
+* **runtime:** add family reports and narrow provider seams ([27277ec](https://github.com/manifesto-ai/core/commit/27277ec190b365abd8248b7e74b84f7995618db4))
+* **runtime:** add schema graph introspection and align docs ([79fce9c](https://github.com/manifesto-ai/core/commit/79fce9ceec6885a1925e6017f1e3b97e8a9208f1))
+* **runtime:** add schema graph introspection and sync docs ([b00c053](https://github.com/manifesto-ai/core/commit/b00c05337f929785763479fd0b3161309849a326))
+* **sdk:** add bound intent dry-run surface ([#455](https://github.com/manifesto-ai/core/issues/455)) ([4851c0d](https://github.com/manifesto-ai/core/commit/4851c0d83729db6df94d02364cd65c5aa7fc8e0b))
+* **sdk:** implement adr-018 public snapshot boundary ([47d05ad](https://github.com/manifesto-ai/core/commit/47d05ad702282f44331db4aa322697b3debeeaa4))
+* ship Manifesto v5 runtime surface ([#472](https://github.com/manifesto-ai/core/issues/472)) ([b77b56f](https://github.com/manifesto-ai/core/commit/b77b56f3aec6b63d874e923d02b441e2a5fe4cd0))
+
+
+### Bug Fixes
+
+* **docs:** align clean urls and favicon links ([0db1df5](https://github.com/manifesto-ai/core/commit/0db1df54599619026f41bb14317a27ca21498644))
+* enforce lineage dispatchability admission ([2a0b2f6](https://github.com/manifesto-ai/core/commit/2a0b2f6239854ee51a0f74cd536d4254f63f099e))
+* harden lineage config and finalize recovery ([1742398](https://github.com/manifesto-ai/core/commit/1742398121fefce13ff534d2ffaafd124f7e445a))
+* preserve governed seal outcomes and execution keys ([dc40be6](https://github.com/manifesto-ai/core/commit/dc40be6ebd1a5ed2dfdd194693e3efd240f54019))
+* **runtime:** propagate explanation reads to decorators ([469aeae](https://github.com/manifesto-ai/core/commit/469aeae0860f0443557fa76ae9ee08a1ef1c7ff7))
+* **sdk:** codify helper-safe runtime boundaries ([#451](https://github.com/manifesto-ai/core/issues/451)) ([12bed45](https://github.com/manifesto-ai/core/commit/12bed45c29d47945b87e0f16b0184b51448b529d))
+* tighten governance post-commit events ([7a9404f](https://github.com/manifesto-ai/core/commit/7a9404f47d54dbaf8984cd1851c404a4743412a8))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/sdk bumped to 5.1.0
+  * devDependencies
+    * @manifesto-ai/core bumped to 5.1.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^5.0.0 to ^5.1.0
+
 ## [5.0.0](https://github.com/manifesto-ai/core/compare/lineage-v3.12.1...lineage-v5.0.0) (2026-05-07)
 
 

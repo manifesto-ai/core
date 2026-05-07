@@ -1,5 +1,36 @@
 # Changelog
 
+## [5.1.0](https://github.com/manifesto-ai/core/compare/codegen-v5.0.0...codegen-v5.1.0) (2026-05-07)
+
+
+### Features
+
+* add canonical domain codegen plugin ([b9017aa](https://github.com/manifesto-ai/core/commit/b9017aa17a6d014172249d352c1bf0354f6724c9))
+* add canonical domain codegen plugin ([dfb12fc](https://github.com/manifesto-ai/core/commit/dfb12fcd73416dd10767dff3c0aa40d484f9b384))
+* align consumers for phase 5 facade rollout ([7c59041](https://github.com/manifesto-ai/core/commit/7c590412d9b16c52270c62ed35140d1f7ef0ecb0))
+* **compiler:** emit codegen during dev and rename domain output ([fee61e3](https://github.com/manifesto-ai/core/commit/fee61e35681268e941914f6be2c0374ec98c63c4))
+* **compiler:** emit codegen during dev and rename domain output ([a67b3c0](https://github.com/manifesto-ai/core/commit/a67b3c082923191d3e46c7bbaab7bd117d318c5f))
+* **runtime:** add family reports and narrow provider seams ([693d669](https://github.com/manifesto-ai/core/commit/693d66946530f7986631d9665c703b1b61418f96))
+* **runtime:** add family reports and narrow provider seams ([27277ec](https://github.com/manifesto-ai/core/commit/27277ec190b365abd8248b7e74b84f7995618db4))
+* **runtime:** add schema graph introspection and align docs ([79fce9c](https://github.com/manifesto-ai/core/commit/79fce9ceec6885a1925e6017f1e3b97e8a9208f1))
+* **runtime:** add schema graph introspection and sync docs ([b00c053](https://github.com/manifesto-ai/core/commit/b00c05337f929785763479fd0b3161309849a326))
+* ship Manifesto v5 runtime surface ([#472](https://github.com/manifesto-ai/core/issues/472)) ([b77b56f](https://github.com/manifesto-ai/core/commit/b77b56f3aec6b63d874e923d02b441e2a5fe4cd0))
+
+
+### Bug Fixes
+
+* **docs:** align clean urls and favicon links ([0db1df5](https://github.com/manifesto-ai/core/commit/0db1df54599619026f41bb14317a27ca21498644))
+* **test:** pin local vite runtimes for package vitest ([2da24f8](https://github.com/manifesto-ai/core/commit/2da24f89da7f618da3bd58f13a5c3d565b29251c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 5.1.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^5.0.0 to ^5.1.0
+
 ## [5.0.0](https://github.com/manifesto-ai/core/compare/codegen-v0.2.8...codegen-v5.0.0) (2026-05-07)
 
 

@@ -1,5 +1,51 @@
 # Changelog
 
+## [5.1.0](https://github.com/manifesto-ai/core/compare/core-v5.0.0...core-v5.1.0) (2026-05-07)
+
+
+### Features
+
+* **app:** add Snapshot DX aliases (App SPEC v2.3.2) ([#142](https://github.com/manifesto-ai/core/issues/142)) ([9bde2eb](https://github.com/manifesto-ai/core/commit/9bde2eb008d151574ac48e440d2fa6c93bac2e7b))
+* **compiler:** add MEL object spread sugar ([#449](https://github.com/manifesto-ai/core/issues/449)) ([dc77aa6](https://github.com/manifesto-ai/core/commit/dc77aa67535fe5444330732227b8331c0ae983d6))
+* **compiler:** implement SPEC v0.7.0 compiler baseline ([#289](https://github.com/manifesto-ai/core/issues/289)) ([35f1f00](https://github.com/manifesto-ai/core/commit/35f1f00550af700dfafe0283d777f71f68aa0dc5))
+* **core:** add type-safe defineOps&lt;T&gt;() for typed PatchOps creation ([f4dc2cf](https://github.com/manifesto-ai/core/commit/f4dc2cfc024a2695c5c215a82c32ea008e160c0e))
+* implement 27 new expression kinds in Core evaluator ([b67f96b](https://github.com/manifesto-ai/core/commit/b67f96b54f099dbc999eb6830ad1e64b2aa90515))
+* implement ADR-020 dispatchability ([606fe7b](https://github.com/manifesto-ai/core/commit/606fe7b3b5e1679e918f5b24fb1e0233f8c24660))
+* land core v4 cleanup and action availability queries ([#331](https://github.com/manifesto-ai/core/issues/331)) ([30ec2b4](https://github.com/manifesto-ai/core/commit/30ec2b481cebbf2a2640fe21fd7909d6b033a1b4))
+* roll up ADR-020 dispatchability and schema typing ([e85ec08](https://github.com/manifesto-ai/core/commit/e85ec082f61c117ee1b22707739f7528979b15fd))
+* **runtime:** add family reports and narrow provider seams ([693d669](https://github.com/manifesto-ai/core/commit/693d66946530f7986631d9665c703b1b61418f96))
+* **runtime:** add family reports and narrow provider seams ([27277ec](https://github.com/manifesto-ai/core/commit/27277ec190b365abd8248b7e74b84f7995618db4))
+* **runtime:** add schema graph introspection and align docs ([79fce9c](https://github.com/manifesto-ai/core/commit/79fce9ceec6885a1925e6017f1e3b97e8a9208f1))
+* **runtime:** add schema graph introspection and sync docs ([b00c053](https://github.com/manifesto-ai/core/commit/b00c05337f929785763479fd0b3161309849a326))
+* **schema:** support record and nullable schema positions ([59a0cfa](https://github.com/manifesto-ai/core/commit/59a0cfaf5b0117e6a7f143ce90e67964f8d37618))
+* **sdk:** implement adr-018 public snapshot boundary ([47d05ad](https://github.com/manifesto-ai/core/commit/47d05ad702282f44331db4aa322697b3debeeaa4))
+* ship Manifesto v5 runtime surface ([#472](https://github.com/manifesto-ai/core/issues/472)) ([b77b56f](https://github.com/manifesto-ai/core/commit/b77b56f3aec6b63d874e923d02b441e2a5fe4cd0))
+
+
+### Bug Fixes
+
+* add field IR kind for static property access and fix at() record lookup ([#135](https://github.com/manifesto-ai/core/issues/135)) ([#140](https://github.com/manifesto-ai/core/issues/140)) ([2f88a17](https://github.com/manifesto-ai/core/commit/2f88a17ed6d2541ab00102d134bb77324b51b023))
+* address ADR-020 review feedback ([029a3b6](https://github.com/manifesto-ai/core/commit/029a3b6832aae04f23309dfe428e2cb22bb1fdcc))
+* address escaped path and ref input review feedback ([2541a6e](https://github.com/manifesto-ai/core/commit/2541a6e649502d09e0ab5ef360ed000c01b21c3b))
+* address follow-up ADR-020 review feedback ([c0e6244](https://github.com/manifesto-ai/core/commit/c0e6244063ba666b459c1fd049c4d00a5c6f2a86))
+* address PR [#193](https://github.com/manifesto-ai/core/issues/193) review — path collection for new ExprNode kinds and split edge case ([2cb0808](https://github.com/manifesto-ai/core/commit/2cb08084074dfeb2e4f7a168efce8e1cc4a5b276))
+* address typing seam and input validation feedback ([aa0903a](https://github.com/manifesto-ai/core/commit/aa0903ab8c705c3774d710f45f4e838547804154))
+* align input preflight and governance rejection events ([8fcca8e](https://github.com/manifesto-ai/core/commit/8fcca8e37a9c85b6e006f1911650f90af4742030))
+* **compiler,core:** add literal type validation for MEL state initializers and patches ([#282](https://github.com/manifesto-ai/core/issues/282)) ([fc4d2da](https://github.com/manifesto-ai/core/commit/fc4d2dad734bd02d5388b95cd0de1755bd992478))
+* **core,sdk:** pin local vitest runtime dependencies ([f67885d](https://github.com/manifesto-ai/core/commit/f67885d44699281c816367ae71451c8bfdd708f1))
+* **core:** skip availability check on re-entry to prevent self-invalidation ([#134](https://github.com/manifesto-ai/core/issues/134)) ([#137](https://github.com/manifesto-ai/core/issues/137)) ([591edae](https://github.com/manifesto-ai/core/commit/591edaea6e8d2b61c31a225256b8c38e0bec2314))
+* **docs:** align clean urls and favicon links ([0db1df5](https://github.com/manifesto-ai/core/commit/0db1df54599619026f41bb14317a27ca21498644))
+* guard cyclic nullable input aliases ([83896f3](https://github.com/manifesto-ai/core/commit/83896f35948a4284d35d05d8d1380afc33a66faf))
+* preserve empty segments when computing parent path ([aaed5be](https://github.com/manifesto-ai/core/commit/aaed5bef3d81aa80b7555e352d6d412c2820a1b5))
+* preserve numeric object keys in type paths ([ea0e499](https://github.com/manifesto-ai/core/commit/ea0e499d2904cc4dc70a30826696af39efeede41))
+* tighten action params typing validation ([1e42328](https://github.com/manifesto-ai/core/commit/1e42328c95adc5773ce55e281636a6a347eb64c0))
+* validate params and record key typing seams ([ac1120a](https://github.com/manifesto-ai/core/commit/ac1120a3dd165dedab41885bbeaa001c452a32bd))
+
+
+### Performance Improvements
+
+* reuse prepared snapshots in availability queries ([2599bc8](https://github.com/manifesto-ai/core/commit/2599bc877fe846eeaaa9ea3b2dd64e7989824b97))
+
 ## [5.0.0](https://github.com/manifesto-ai/core/compare/core-v2.13.0...core-v5.0.0) (2026-05-07)
 
 
