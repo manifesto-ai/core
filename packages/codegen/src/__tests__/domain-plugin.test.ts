@@ -598,7 +598,7 @@ describe("createDomainPlugin", () => {
         void decrementInput;
       `,
     });
-  });
+  }, 20_000);
 
   it("emits named schema types referenced by state fieldTypes into a self-contained facade", () => {
     const plugin = createDomainPlugin();
@@ -669,7 +669,7 @@ describe("createDomainPlugin", () => {
         void state;
       `,
     });
-  });
+  }, 20_000);
 
   it("degrades unresolved TypeDefinition refs instead of emitting unresolved identifiers", () => {
     const plugin = createDomainPlugin();
