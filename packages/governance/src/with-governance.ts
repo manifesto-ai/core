@@ -1,4 +1,5 @@
 import type {
+  Context,
   ErrorValue,
 } from "@manifesto-ai/core";
 import type {
@@ -10,7 +11,6 @@ import type {
   ExecutionOutcome,
   GovernanceSettlementResult,
   GovernanceLaws,
-  DomainExternalContext,
   ManifestoDomainShape,
   ProposalRef,
   TypedIntent,
@@ -134,6 +134,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
   let runtime!: GovernanceInstance<T>;
 
   let bindingsReady: Promise<void> | null = null;
+  const proposalSubmissionBindings = new Map<ProposalId, ActorAuthorityBinding>();
 
   async function ensureBindings(): Promise<void> {
     if (bindingsReady) {
@@ -249,7 +250,6 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
 
       await governanceStore.putProposal(terminalProposal);
       proposalPersisted = true;
-      await governanceStore.putDecisionRecord(governanceCommit.decisionRecord);
       eventDispatcher.emitSealCompleted(governanceCommitWithOutcome, sealed.preparedCommit);
 
       if (sealed.preparedCommit.branchChange.headAdvanced) {
@@ -321,7 +321,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
 
   async function createSubmission(
     intent: TypedIntent<T>,
-    externalContext: DomainExternalContext<T>,
+    context: Context,
   ): Promise<Proposal> {
     await ensureReady();
 
@@ -369,7 +369,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
       intent: proposalIntent,
       computeEnvelope: {
         intent: computeIntent,
-        context: kernel.createComputeContext(computeIntent as TypedIntent<T>, externalContext),
+        context,
       },
       executionKey: defaultExecutionKeyPolicy({
         proposalId,
@@ -386,6 +386,7 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
 
     const evaluatingProposal = governanceService.beginEvaluating(proposal);
     await governanceStore.putProposal(evaluatingProposal);
+    proposalSubmissionBindings.set(proposalId, binding);
 
     return evaluatingProposal;
   }
@@ -402,13 +403,16 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     }
 
     const evaluatingProposal = proposal as Proposal & { readonly status: "evaluating" };
-    const binding = await resolveBinding(evaluatingProposal.actorId);
-    const response = await evaluateProposal(evaluatingProposal, binding, evaluator);
-    if (response.kind === "pending") {
-      return;
-    }
+    const binding = proposalSubmissionBindings.get(proposalId)
+      ?? await resolveBinding(evaluatingProposal.actorId);
+    proposalSubmissionBindings.delete(proposalId);
 
     try {
+      const response = await evaluateProposal(evaluatingProposal, binding, evaluator);
+      if (response.kind === "pending") {
+        return;
+      }
+
       await applyAuthorityDecision(evaluatingProposal, response);
     } catch {
       await compensateSettlementFailure(proposalId, evaluatingProposal);

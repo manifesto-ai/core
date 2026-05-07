@@ -22,12 +22,14 @@ import {
 } from "../../../../lineage/src/index.ts";
 import {
   createInMemoryGovernanceStore,
+  withGovernance,
+} from "../../index.ts";
+import {
   type ProposalSettlement,
   type ProposalSettlementReport,
   waitForProposal,
   waitForProposalWithReport,
-  withGovernance,
-} from "../../index.ts";
+} from "../../wait-for-proposal.ts";
 
 const base = createManifesto<CounterDomain>(createCounterSchema(), {});
 

@@ -58,9 +58,9 @@ describe("LCTS Restore Suite", () => {
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("MRKL-RESTORE-1"), JSON.stringify(restored.namespaces.host) === "{}"
-          && JSON.stringify(restored.namespaces.mel) === JSON.stringify({ guards: { intent: {} } })
+          && JSON.stringify(restored.namespaces.mel) === "{}"
           && JSON.stringify(restored.namespaces.custom) === "{}", {
-          passMessage: "restore() resets stored platform namespaces to clean runtime defaults.",
+          passMessage: "restore() resets stored platform namespaces without interpreting owner-specific shapes.",
           failMessage: "restore() did not reset one or more platform namespaces.",
         }),
         evaluateRule(getRuleOrThrow("MRKL-RESTORE-2"), restored.input === null, {
@@ -92,7 +92,7 @@ describe("LCTS Restore Suite", () => {
       });
       expect(restored.namespaces).toMatchObject({
         host: {},
-        mel: { guards: { intent: {} } },
+        mel: {},
         custom: {},
       });
     }

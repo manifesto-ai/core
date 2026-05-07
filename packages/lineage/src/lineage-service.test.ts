@@ -303,7 +303,7 @@ describe("@manifesto-ai/lineage service", () => {
       },
       namespaces: {
         host: {},
-        mel: { guards: { intent: {} } },
+        mel: {},
       },
     });
   });

@@ -73,6 +73,16 @@ type CyclicComputedDomain = {
   };
 };
 
+type ObjectInputDomain = {
+  actions: {
+    choose: (input: { id: string }) => void;
+  };
+  state: {
+    selectedId: string;
+  };
+  computed: {};
+};
+
 type V5SubmitResult = {
   readonly ok: boolean;
   readonly mode: string;
@@ -161,6 +171,10 @@ type V5ComputedLineageRuntime = V5LineageRuntime<{
 
 type V5CyclicComputedLineageRuntime = V5LineageRuntime<{
   readonly noop: V5ActionHandle;
+}>;
+
+type V5ObjectInputLineageRuntime = V5LineageRuntime<{
+  readonly choose: V5ActionHandle;
 }>;
 
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
@@ -341,6 +355,44 @@ function createCyclicComputedSchema(): DomainSchema {
   });
 }
 
+function createObjectInputSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:lineage-v5-object-input",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        selectedId: { type: "string", required: false, default: "" },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      choose: {
+        params: ["input"],
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                id: { type: "string", required: true },
+              },
+            },
+          },
+        },
+        flow: {
+          kind: "patch",
+          op: "set",
+          path: pp("selectedId"),
+          value: { kind: "get", path: "input.input.id" },
+        },
+      },
+    },
+  });
+}
+
 function proxyLineageService(
   realService: LineageService,
   overrides: Partial<LineageService>,
@@ -409,6 +461,13 @@ function activateCyclicComputedLineage(
   };
 }
 
+function activateObjectInputLineage(): V5ObjectInputLineageRuntime {
+  return withLineage(
+    createManifesto<ObjectInputDomain>(createObjectInputSchema(), {}),
+    { store: createInMemoryLineageStore() },
+  ).activate() as unknown as V5ObjectInputLineageRuntime;
+}
+
 function withHostIntentSlot(
   snapshot: CoreSnapshot,
   intent: { readonly type: string; readonly intentId: string; readonly input?: unknown },
@@ -451,6 +510,29 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
     expect("commitAsyncWithReport" in app).toBe(false);
     expect("dispatchAsync" in app).toBe(false);
     expect("dispatchAsyncWithReport" in app).toBe(false);
+
+    app.dispose();
+  });
+
+  it("captures object-valued bound input immutably before lineage submission", async () => {
+    const app = activateObjectInputLineage();
+    const original = { id: "before" };
+
+    const bound = app.actions.choose.bind(original);
+    original.id = "after";
+
+    const result = await bound.submit();
+
+    expect(bound.input).toEqual({ id: "before" });
+    expect(Object.isFrozen(bound.input)).toBe(true);
+    expect(bound.intent()).toMatchObject({
+      type: "choose",
+      input: { input: { id: "before" } },
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      after: { state: { selectedId: "before" } },
+    });
 
     app.dispose();
   });

@@ -88,13 +88,9 @@ function normalizeNamespaces(namespaces: Snapshot["namespaces"] | null | undefin
   const normalized: Record<string, unknown> = {};
 
   for (const key of Object.keys(namespaces ?? {})) {
-    normalized[key] = key === "mel"
-      ? { guards: { intent: {} } }
-      : {};
+    normalized[key] = {};
   }
 
-  normalized.host = {};
-  normalized.mel = { guards: { intent: {} } };
   return normalized;
 }
 

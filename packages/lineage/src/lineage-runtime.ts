@@ -1,6 +1,7 @@
 import type {
   ErrorValue,
   Intent,
+  Requirement,
 } from "@manifesto-ai/core";
 import {
   DisposedError,
@@ -18,6 +19,7 @@ import {
   type Blocker,
   type BoundAction,
   type CanonicalSnapshot,
+  type ChangedPath,
   type DispatchBlocker,
   type DispatchExecutionOutcome,
   type ExecutionDiagnostics,
@@ -45,6 +47,9 @@ import {
   toLineageSealRuntimeFailure,
   type ResolvedLineageConfig,
 } from "./internal.js";
+import {
+  cloneAndFreezeActionPayload,
+} from "./action-payload.js";
 import type { LineageInstance } from "./runtime-types.js";
 
 type Candidate<
@@ -235,7 +240,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
       check: () => checkCandidate(candidate),
       preview: () => previewCandidate(candidate),
       submit: () => submitCandidate(candidate),
-      intent: () => candidate.intent as Intent | null,
+      intent: () => candidate.inputError ? null : candidate.intent as Intent | null,
     });
   }
 
@@ -246,12 +251,17 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
     const actionRef = kernel.MEL.actions[name] as TypedActionRef<T, Name>;
     const publicInput = toPublicInput(args);
     try {
-      const intent = kernel.createIntent(actionRef, ...args);
+      const stableInput = cloneAndFreezeActionPayload(publicInput);
+      const intent = cloneAndFreezeActionPayload(kernel.createIntent(actionRef, ...args));
+      const inputError = kernel.validateIntentInputFor(
+        kernel.getCanonicalSnapshot(),
+        intent,
+      );
       return Object.freeze({
         actionName: name,
-        input: publicInput,
+        input: stableInput,
         intent,
-        inputError: null,
+        inputError,
       });
     } catch (error) {
       if (!(error instanceof ManifestoError)) {
@@ -260,7 +270,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
 
       return Object.freeze({
         actionName: name,
-        input: publicInput,
+        input: cloneAndFreezeActionPayload(publicInput),
         intent: null,
         inputError: error,
       });
@@ -290,7 +300,6 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
   function previewCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
   ): PreviewResult<T, Name> {
-    const externalContext = captureViewExternalContext();
     const beforeCanonical = kernel.getCanonicalSnapshot();
     const admission = admitCandidate(candidate, beforeCanonical);
     if (!admission.admission.ok || admission.intent === null) {
@@ -301,8 +310,9 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
     }
 
     const intent = admission.intent;
+    const context = kernel.createComputeContext(intent, captureViewExternalContext());
     const simulated = kernel.simulateSync(beforeCanonical, intent, {
-      externalContext,
+      context,
     });
     const outcome = kernel.deriveExecutionOutcome(beforeCanonical, simulated.snapshot);
 
@@ -323,10 +333,12 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
   async function submitCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
   ): Promise<LineageSubmissionResult<T, Name>> {
-    const externalContext = captureViewExternalContext();
     if (kernel.isDisposed()) {
       throw new DisposedError();
     }
+    const context = candidate.intent
+      ? kernel.createComputeContext(candidate.intent, captureViewExternalContext())
+      : null;
 
     return kernel.enqueue(async () => {
       if (kernel.isDisposed()) {
@@ -362,7 +374,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
           publishOnCompleted: true,
           assumeEnqueued: true,
           rejectPendingBeforeSeal: true,
-          externalContext,
+          context: context ?? kernel.createComputeContext(admittedIntent, captureViewExternalContext()),
         });
       } catch (error) {
         const failure = toError(error);
@@ -417,6 +429,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
               headAdvanced,
               published,
               outcome,
+              sealed.preparedCommit.world.snapshotHash,
               dispatchOutcome.projected.changedPaths,
               dispatchOutcome.canonical.pendingRequirements,
               diagnostics,
@@ -742,8 +755,9 @@ function createLineageReport(
   headAdvanced: boolean,
   published: boolean,
   outcome: ExecutionOutcome,
-  changes: readonly string[],
-  requirements: readonly unknown[],
+  sealedSnapshotHash: string,
+  changes: readonly ChangedPath[],
+  requirements: readonly Requirement[],
   diagnostics: ExecutionDiagnostics,
 ): LineageWriteReport {
   return Object.freeze({
@@ -754,6 +768,7 @@ function createLineageReport(
     headAdvanced,
     published,
     outcome,
+    sealedSnapshotHash,
     changes,
     requirements,
     diagnostics,

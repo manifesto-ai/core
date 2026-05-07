@@ -1,4 +1,5 @@
 import type {
+  Context,
   ErrorValue,
   Intent,
 } from "@manifesto-ai/core";
@@ -20,6 +21,7 @@ import {
   type CanonicalSnapshot,
   type DispatchBlocker,
   type ExecutionView,
+  type ExecutionOutcome,
   type GovernanceSettlementResult,
   type GovernanceSubmissionResult,
   type ManifestoDomainShape,
@@ -40,6 +42,9 @@ import type {
   LineageRuntimeController,
 } from "@manifesto-ai/lineage/provider";
 
+import {
+  cloneAndFreezeActionPayload,
+} from "./action-payload.js";
 import type { GovernanceInstance } from "./runtime-types.js";
 import type {
   ActorAuthorityBinding,
@@ -73,7 +78,7 @@ export type GovernanceRuntimeServices<T extends ManifestoDomainShape> = {
   readonly ensureReady: () => Promise<void>;
   readonly createSubmission: (
     intent: TypedIntent<T>,
-    externalContext: ReturnType<GovernanceRuntimeKernel<T>["captureExternalContext"]>,
+    context: Context,
   ) => Promise<Proposal>;
   readonly settleSubmission: (proposalId: ProposalId) => Promise<void>;
   readonly waitForSettlement: <Name extends ActionName<T>>(
@@ -227,8 +232,8 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     getActiveBranch: services.lineage.getActiveBranch,
     switchActiveBranch: services.lineage.switchActiveBranch,
     createBranch: services.lineage.createBranch,
-    approve: services.approve,
-    reject: services.reject,
+    approve: approveAndEmit,
+    reject: rejectAndEmit,
     getProposal: services.getProposal,
     getProposals: services.getProposals,
     bindActor: services.bindActor,
@@ -271,7 +276,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       check: () => checkCandidate(candidate),
       preview: () => previewCandidate(candidate),
       submit: () => submitCandidate(candidate),
-      intent: () => candidate.intent as Intent | null,
+      intent: () => candidate.inputError ? null : candidate.intent as Intent | null,
     });
   }
 
@@ -282,12 +287,17 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     const actionRef = kernel.MEL.actions[name] as TypedActionRef<T, Name>;
     const publicInput = toPublicInput(args);
     try {
-      const intent = kernel.createIntent(actionRef, ...args);
+      const stableInput = cloneAndFreezeActionPayload(publicInput);
+      const intent = cloneAndFreezeActionPayload(kernel.createIntent(actionRef, ...args));
+      const inputError = kernel.validateIntentInputFor(
+        kernel.getCanonicalSnapshot(),
+        intent,
+      );
       return Object.freeze({
         actionName: name,
-        input: publicInput,
+        input: stableInput,
         intent,
-        inputError: null,
+        inputError,
       });
     } catch (error) {
       if (!(error instanceof ManifestoError)) {
@@ -296,7 +306,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
 
       return Object.freeze({
         actionName: name,
-        input: publicInput,
+        input: cloneAndFreezeActionPayload(publicInput),
         intent: null,
         inputError: error,
       });
@@ -326,7 +336,6 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
   function previewCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
   ): PreviewResult<T, Name> {
-    const externalContext = captureViewExternalContext();
     const beforeCanonical = kernel.getCanonicalSnapshot();
     const admission = admitCandidate(candidate, beforeCanonical);
     if (!admission.admission.ok || admission.intent === null) {
@@ -337,8 +346,9 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     }
 
     const intent = admission.intent;
+    const context = kernel.createComputeContext(intent, captureViewExternalContext());
     const simulated = kernel.simulateSync(beforeCanonical, intent, {
-      externalContext,
+      context,
     });
     const outcome = kernel.deriveExecutionOutcome(beforeCanonical, simulated.snapshot);
 
@@ -359,10 +369,12 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
   async function submitCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
   ): Promise<GovernanceSubmissionResult<T, Name>> {
-    const externalContext = captureViewExternalContext();
     if (kernel.isDisposed()) {
       throw new DisposedError();
     }
+    const context = candidate.intent
+      ? kernel.createComputeContext(candidate.intent, captureViewExternalContext())
+      : null;
 
     return kernel.enqueue(async () => {
       if (kernel.isDisposed()) {
@@ -394,7 +406,10 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
 
       let proposal: Proposal;
       try {
-        proposal = await services.createSubmission(admittedIntent, externalContext);
+        proposal = await services.createSubmission(
+          admittedIntent,
+          context ?? kernel.createComputeContext(admittedIntent, captureViewExternalContext()),
+        );
       } catch (error) {
         const failure = toError(error);
         const failedSnapshot = kernel.getCanonicalSnapshot();
@@ -407,7 +422,74 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       emitProposalCreated(candidate.actionName, proposalRef, beforeCanonical);
       emitSubmissionPending(candidate.actionName, admittedIntent, proposalRef, beforeCanonical);
 
-      await services.settleSubmission(proposalRef);
+      void kernel.enqueue(async () => {
+        await services.settleSubmission(proposalRef);
+        const finalProposal = await services.getProposal(proposalRef);
+        if (
+          !finalProposal
+          || finalProposal.status === "evaluating"
+          || finalProposal.status === "approved"
+          || finalProposal.status === "executing"
+        ) {
+          return;
+        }
+
+        const settledSnapshot = kernel.getCanonicalSnapshot();
+        const decision = finalProposal?.decisionId
+          ? await services.getDecisionRecord(finalProposal.decisionId)
+          : null;
+        if (decision) {
+          emitProposalDecided(
+            candidate.actionName,
+            proposalRef,
+            decision,
+            settledSnapshot,
+          );
+        }
+
+        const settlement = await services.waitForSettlement(
+          proposalRef,
+          candidate.actionName,
+        );
+        if (settlement.status === "settled") {
+          emitSubmissionSettled(
+            candidate.actionName,
+            admittedIntent,
+            settlement.outcome,
+            settledSnapshot,
+            proposalRef,
+            settlement.world.worldId,
+          );
+        } else if (settlement.status === "settlement_failed") {
+          emitSubmissionFailed(
+            candidate.actionName,
+            admittedIntent,
+            settlement.error,
+            settledSnapshot,
+            "settlement",
+            proposalRef,
+          );
+        } else if (!decision && settlement.decision) {
+          emitProposalDecided(
+            candidate.actionName,
+            proposalRef,
+            settlement.decision,
+            settledSnapshot,
+          );
+        }
+      }).catch((error) => {
+        const failure = toError(error);
+        const failedSnapshot = kernel.getCanonicalSnapshot();
+        const errorValue = toErrorValue(failure, admittedIntent, failedSnapshot);
+        emitSubmissionFailed(
+          candidate.actionName,
+          admittedIntent,
+          errorValue,
+          failedSnapshot,
+          "settlement",
+          proposalRef,
+        );
+      });
 
       return Object.freeze({
         ok: true,
@@ -501,6 +583,61 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       ),
       intent: null,
     };
+  }
+
+  async function approveAndEmit(
+    proposalId: ProposalId,
+    approvedScope?: IntentScope | null,
+  ): Promise<Proposal> {
+    const proposal = await services.approve(proposalId, approvedScope);
+    await emitProposalLifecycleEvents(proposal);
+    return proposal;
+  }
+
+  async function rejectAndEmit(proposalId: ProposalId, reason?: string): Promise<Proposal> {
+    const proposal = await services.reject(proposalId, reason);
+    await emitProposalLifecycleEvents(proposal);
+    return proposal;
+  }
+
+  async function emitProposalLifecycleEvents(proposal: Proposal): Promise<void> {
+    const action = proposal.intent.type as ActionName<T>;
+    const snapshot = kernel.getCanonicalSnapshot();
+    if (proposal.decisionId) {
+      const decision = await services.getDecisionRecord(proposal.decisionId);
+      if (decision) {
+        emitProposalDecided(action, proposal.proposalId, decision, snapshot);
+      }
+    }
+
+    if (proposal.status === "completed") {
+      const settlement = await services.waitForSettlement(proposal.proposalId, action);
+      if (settlement.status === "settled") {
+        emitSubmissionSettled(
+          action,
+          proposal.intent as TypedIntent<T>,
+          settlement.outcome,
+          snapshot,
+          proposal.proposalId,
+          settlement.world.worldId,
+        );
+      }
+      return;
+    }
+
+    if (proposal.status === "failed") {
+      const settlement = await services.waitForSettlement(proposal.proposalId, action);
+      if (settlement.status === "settlement_failed") {
+        emitSubmissionFailed(
+          action,
+          proposal.intent as TypedIntent<T>,
+          settlement.error,
+          snapshot,
+          "settlement",
+          proposal.proposalId,
+        );
+      }
+    }
   }
 
   function mapBlockedAdmission<Name extends ActionName<T>>(
@@ -629,11 +766,29 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     error: ErrorValue,
     snapshot: CanonicalSnapshot<T["state"]>,
     stage: "runtime" | "settlement",
+    proposal?: ProposalRef,
   ): void {
     kernel.emitEvent("submission:failed", {
       ...eventBase(actionName, intent, snapshot),
       stage,
       error,
+      ...(proposal !== undefined ? { proposal } : {}),
+    });
+  }
+
+  function emitSubmissionSettled<Name extends ActionName<T>>(
+    actionName: Name,
+    intent: TypedIntent<T>,
+    outcome: ExecutionOutcome,
+    snapshot: CanonicalSnapshot<T["state"]>,
+    proposal: ProposalRef,
+    worldId: string,
+  ): void {
+    kernel.emitEvent("submission:settled", {
+      ...eventBase(actionName, intent, snapshot),
+      outcome,
+      proposal,
+      worldId,
     });
   }
 
@@ -646,6 +801,20 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       proposal,
       action: actionName,
       schemaHash: snapshot.meta.schemaHash,
+    });
+  }
+
+  function emitProposalDecided<Name extends ActionName<T>>(
+    actionName: Name,
+    proposal: ProposalRef,
+    decision: DecisionRecord | Readonly<Record<string, unknown>>,
+    snapshot: CanonicalSnapshot<T["state"]>,
+  ): void {
+    kernel.emitEvent("proposal:decided", {
+      proposal,
+      action: actionName,
+      schemaHash: snapshot.meta.schemaHash,
+      decision: Object.freeze({ ...(decision as Record<string, unknown>) }),
     });
   }
 

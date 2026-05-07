@@ -19,11 +19,12 @@ import {
   createLineageService,
   type LineageService,
 } from "@manifesto-ai/lineage/provider";
+import {
+  createAuthorityEvaluator,
+} from "./provider.js";
 
 import {
   createInMemoryGovernanceStore,
-  waitForProposal,
-  waitForProposalWithReport,
   withGovernance,
   type ActorAuthorityBinding,
   type GovernanceEvent,
@@ -31,6 +32,10 @@ import {
   type GovernanceStore,
   type Proposal,
 } from "./index.js";
+import {
+  waitForProposal,
+  waitForProposalWithReport,
+} from "./wait-for-proposal.js";
 
 const lineageSealCalls = vi.hoisted(() => [] as Array<{
   executionKey?: string;
@@ -95,6 +100,16 @@ type DispatchabilityDomain = {
   state: {
     balance: number;
     enabled: boolean;
+  };
+  computed: {};
+};
+
+type ObjectInputDomain = {
+  actions: {
+    choose: (input: { id: string }) => void;
+  };
+  state: {
+    selectedId: string;
   };
   computed: {};
 };
@@ -245,6 +260,43 @@ function createDispatchabilitySchema(): DomainSchema {
         dispatchable: { kind: "lit", value: "not-a-boolean" },
         description: "Frozen while disabled",
         flow: { kind: "halt", reason: "frozenSpend" },
+      },
+    },
+  });
+}
+
+function createObjectInputSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:governance-v3-object-input",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        selectedId: { type: "string", required: false, default: "" },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      choose: {
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                id: { type: "string", required: true },
+              },
+            },
+          },
+        },
+        flow: {
+          kind: "patch",
+          op: "set",
+          path: pp("selectedId"),
+          value: { kind: "get", path: "input.input.id" },
+        },
       },
     },
   });
@@ -412,6 +464,106 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     expect(head).not.toBeNull();
     expect(sealedSnapshot?.state.count).toBe(1);
+  });
+
+  it("captures object-valued bound input immutably before governed settlement", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<ObjectInputDomain>(createObjectInputSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:object-input",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:object-input",
+          }),
+        },
+      },
+    ).activate();
+    const original = { id: "before" };
+
+    const bound = governed.actions.choose.bind(original);
+    original.id = "after";
+    const pending = await bound.submit();
+    if (!pending.ok) {
+      throw new Error(pending.admission.message);
+    }
+    const settled = await pending.waitForSettlement();
+
+    expect(bound.input).toEqual({ id: "before" });
+    expect(Object.isFrozen(bound.input)).toBe(true);
+    expect(bound.intent()).toMatchObject({
+      type: "choose",
+      input: { input: { id: "before" } },
+    });
+    expect(settled).toMatchObject({
+      ok: true,
+      status: "settled",
+      after: { state: { selectedId: "before" } },
+    });
+  });
+
+  it("returns pending before auto-approved settlement finishes", async () => {
+    const deferred = createDeferred();
+    const evaluator = createAuthorityEvaluator();
+    evaluator.registerHandler("auto_approve", {
+      async evaluate(proposal) {
+        await deferred.promise;
+        return {
+          kind: "approved",
+          approvedScope: proposal.intent.scopeProposal ?? null,
+        };
+      },
+    });
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        bindings: [createAutoBinding()],
+        evaluator,
+        execution: {
+          projectionId: "proj:auto-pending-first",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:auto-pending-first",
+          }),
+        },
+      },
+    ).activate();
+
+    const pending = await governed.actions.increment.submit();
+
+    expect(pending).toMatchObject({
+      ok: true,
+      status: "pending",
+    });
+    expect(governed.snapshot().state.status).toBe("idle");
+    if (!pending.ok) {
+      throw new Error("expected pending governance submission");
+    }
+    await expect(getStoredProposal(governed, pending.proposal)).resolves.toMatchObject({
+      status: "evaluating",
+    });
+    deferred.resolve();
+    await expect(pending.waitForSettlement()).resolves.toMatchObject({
+      ok: true,
+      status: "settled",
+    });
+    expect(governed.snapshot().state.count).toBe(1);
   });
 
   it("returns evaluating proposals for HITL and resolves them through approve/reject", async () => {
@@ -1188,6 +1340,53 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }
     expect(report.resultWorld).toBeUndefined();
     expect(report.sealedOutcome).toBeUndefined();
+  });
+
+  it("persists terminal failure when automatic authority evaluation throws", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+    const evaluator = createAuthorityEvaluator();
+    evaluator.registerHandler("auto_approve", {
+      async evaluate() {
+        throw new Error("authority unavailable");
+      },
+    });
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore,
+        bindings: [createAutoBinding()],
+        evaluator,
+        execution: {
+          projectionId: "proj:authority-evaluation-failure",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:authority-evaluation-failure",
+          }),
+        },
+      },
+    ).activate();
+
+    const submission = await submitIncrement(governed);
+    await expect(submission.waitForSettlement()).resolves.toMatchObject({
+      ok: true,
+      status: "superseded",
+    });
+
+    const activeBranch = await governed.getActiveBranch();
+    const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.status).toBe("superseded");
+    expect(stored[0]?.supersededReason).toBe("manual_cancel");
+    expect(stored[0]?.resultWorld).toBeUndefined();
+    expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
   });
 
   it("compensates to failed when decision record persistence fails after approval", async () => {
