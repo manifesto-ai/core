@@ -394,7 +394,7 @@ computed now = $runtime.time.timestamp          // Error: Runtime context is tra
 
 ## Action
 
-Actions define state transitions. All mutations must be inside guards (`when` or `once`).
+Actions define state transitions. All mutations must be inside guards (`when`, `once`, or `onceIntent`).
 
 ### Basic Action
 
@@ -456,7 +456,6 @@ action decrement() available when count > 0 {
 
 action submit() available when email != null && submittedAt == null {
   once(submitIntent) {
-    patch submitIntent = $runtime.intent.id
     effect api.submit({ data: formData, into: result })
   }
 }
@@ -546,7 +545,7 @@ state { id: string = $runtime.random.uuid } // Not allowed in state defaults
 ```mel
 // ❌ COMPILE ERROR: Unguarded patch
 action bad() {
-  patch count = 1    // Error: Must be inside when or once
+  patch count = 1    // Error: Must be inside when, once, or onceIntent
 }
 
 // ❌ COMPILE ERROR: Unguarded effect
@@ -619,12 +618,12 @@ when neq(count, 0) { ... }
 
 ### once (Per-Intent Idempotency)
 
-`once(marker)` ensures a block runs only once per intent. Must include marker patch as first statement.
+`once(marker)` ensures a block runs only once per intent. The compiler inserts
+the marker patch before the user-authored body.
 
 ```mel
 action increment() {
   once(lastIntent) {
-    patch lastIntent = $runtime.intent.id    // MUST be first!
     patch count = add(count, 1)
   }
 }
@@ -635,7 +634,6 @@ action increment() {
 ```mel
 action addTask(id: string, title: string) {
   once(addingTask) when neq(trim(title), "") {
-    patch addingTask = $runtime.intent.id
     patch tasks[id] = { id: id, title: title, done: false }
   }
 }
@@ -646,12 +644,10 @@ action addTask(id: string, title: string) {
 ```mel
 action processData() {
   once(step1) {
-    patch step1 = $runtime.intent.id
     effect array.map({ source: items, select: $item.value, into: mapped })
   }
 
   once(step2) when isNotNull(mapped) {
-    patch step2 = $runtime.intent.id
     effect array.filter({ source: mapped, where: gt($item, 0), into: filtered })
   }
 }
@@ -706,7 +702,6 @@ action createUser(email: string) {
 
   // Success path
   once(creating) when eq(at(users, email), null) {
-    patch creating = $runtime.intent.id
     patch users[email] = { email: email, createdAt: $runtime.time.timestamp }
   }
 }
@@ -821,13 +816,11 @@ effect record.entries({ source: tasks, into: taskEntries })
 ```mel
 action loadTasks() {
   once(loading) {
-    patch loading = $runtime.intent.id
     patch status = "loading"
     effect api.fetch({ url: "/tasks", into: tasks })
   }
 
   once(filtering) when isNotNull(tasks) {
-    patch filtering = $runtime.intent.id
     effect array.filter({
       source: tasks,
       where: eq($item.completed, false),
@@ -859,12 +852,10 @@ effect array.map({
 // ✅ CORRECT: Sequential composition
 action process() {
   once(step1) {
-    patch step1 = $runtime.intent.id
     effect array.flatMap({ source: teams, select: $item.members, into: allMembers })
   }
 
   once(step2) when isNotNull(allMembers) {
-    patch step2 = $runtime.intent.id
     effect array.filter({ source: allMembers, where: $item.active, into: activeMembers })
   }
 }

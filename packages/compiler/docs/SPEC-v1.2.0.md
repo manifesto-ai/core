@@ -18,7 +18,7 @@
 - specify that user patch paths lower to root-free `PatchPath` values carried through the state-rooted domain patch channel
 - move `onceIntent` lowering from retired MEL namespace storage to Core's generic `causalGuard` Flow primitive
 - require `onceIntent` to preserve per-intent semantics without requiring Core to know MEL namespace shape
-- align runtime expression lowering to ADR-027: `$runtime.*` and `$context.*`, with `$meta.*` and `$system.*` retired
+- align runtime expression lowering to ADR-027: `$runtime.*` and `$context.*`, with legacy meta/system dollar namespaces retired
 - add MEL `context {}` as a shape declaration for direct-injected `context.external`
 - define the current compiler-owned runtime construct registry with `onceIntent` as its only entry
 - clarify that user-authored MEL cannot read or write namespaces
@@ -197,7 +197,7 @@ Compiler responsibilities:
   including patch values, effect params, and guarded action-body expressions.
 - `$runtime.*` and `$context.*` MUST be rejected in state initializers,
   computed values, `available when`, and `dispatchable when`.
-- `$meta.*` and `$system.*` are retired in current v5 MEL and MUST be rejected,
+- Legacy meta/system dollar namespaces are retired in current v5 MEL and MUST be rejected,
   not lowered as compatibility aliases.
 - User-defined context generators, resolvers, providers, lazy getters,
   callbacks, promises, and function-valued context fields are not representable
@@ -552,11 +552,11 @@ Compatibility note:
 
 - it MAY reference state, computed values, and bare action parameter names
 - it MUST NOT allow direct `$input.*` syntax in source
-- it MUST NOT allow `$runtime.*`, `$context.*`, `$meta.*`, `$system.*`, namespace reads, namespace writes, or effects
+- it MUST NOT allow `$runtime.*`, `$context.*`, legacy meta/system dollar namespaces, namespace reads, namespace writes, or effects
 - it MUST lower to `ActionSpec.dispatchable`
 
 `available when` remains state/computed-only. It MUST NOT read action
-parameters, `$input.*`, `$runtime.*`, `$context.*`, `$meta.*`, `$system.*`,
+parameters, `$input.*`, `$runtime.*`, `$context.*`, legacy meta/system dollar namespaces,
 namespaces, or effects.
 
 If both clauses are present, ordering is fixed:

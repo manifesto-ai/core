@@ -46,7 +46,9 @@ const schema: DomainSchema = {
   version: "1.0.0",
   hash: "example-hash",
   state: {
-    count: { type: "number", default: 0 },
+    fields: {
+      count: { type: "number", required: true, default: 0 },
+    },
   },
   actions: {
     increment: {
@@ -54,7 +56,7 @@ const schema: DomainSchema = {
         kind: "patch",
         op: "set",
         path: [{ kind: "prop", name: "count" }],
-        value: { kind: "add", left: { kind: "get", path: "count" }, right: 1 },
+        value: { kind: "add", left: { kind: "get", path: "count" }, right: { kind: "lit", value: 1 } },
       },
     },
   },
@@ -156,7 +158,13 @@ const schema: DomainSchema = {
   // ...
   actions: {
     addAmount: {
-      input: { type: "object", properties: { amount: { type: "number" } } },
+      input: {
+        type: "object",
+        required: true,
+        fields: {
+          amount: { type: "number", required: true },
+        },
+      },
       flow: {
         kind: "patch",
         op: "set",
@@ -209,12 +217,12 @@ host.registerEffect("api.get", async (type, params, context) => {
     const data = await response.json();
 
     return [
-      { op: "set", path: params.target, value: data },
-      { op: "set", path: "error", value: null },
+      { op: "set", path: [{ kind: "prop", name: "data" }], value: data },
+      { op: "set", path: [{ kind: "prop", name: "error" }], value: null },
     ];
   } catch (e) {
     return [
-      { op: "set", path: "error", value: e.message },
+      { op: "set", path: [{ kind: "prop", name: "error" }], value: e.message },
     ];
   }
 });
@@ -234,11 +242,11 @@ host.registerEffect("api.get", async (type, params) => {
   try {
     const response = await fetch(params.url);
     if (!response.ok) {
-      return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+      return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: `HTTP ${response.status}` }];
     }
-    return [{ op: "set", path: "data", value: await response.json() }];
+    return [{ op: "set", path: [{ kind: "prop", name: "data" }], value: await response.json() }];
   } catch (e) {
-    return [{ op: "set", path: "error", value: e.message }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: e.message }];
   }
 });
 
@@ -438,15 +446,15 @@ host.registerEffect("api.post", async (type, params) => {
 
     if (!response.ok) {
       return [
-        { op: "set", path: "error", value: data.message || `HTTP ${response.status}` },
+        { op: "set", path: [{ kind: "prop", name: "error" }], value: data.message || `HTTP ${response.status}` },
       ];
     }
 
-    return params.target
-      ? [{ op: "set", path: params.target, value: data }]
+    return params.targetPath
+      ? [{ op: "set", path: params.targetPath, value: data }]
       : [];
   } catch (e) {
-    return [{ op: "set", path: "error", value: e.message }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: e.message }];
   }
 });
 ```
@@ -466,18 +474,18 @@ host.registerEffect("api.fetch", async (type, params) => {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+      return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: `HTTP ${response.status}` }];
     }
 
     return [
-      { op: "set", path: params.target, value: await response.json() },
+      { op: "set", path: params.targetPath, value: await response.json() },
     ];
   } catch (e) {
     clearTimeout(timeoutId);
     if (e.name === "AbortError") {
-      return [{ op: "set", path: "error", value: "Request timed out" }];
+      return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: "Request timed out" }];
     }
-    return [{ op: "set", path: "error", value: e.message }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: e.message }];
   }
 });
 ```
@@ -623,13 +631,13 @@ describe("API effect handler", () => {
     const handler = async (type, params) => {
       const response = await fetch(params.url);
       const data = await response.json();
-      return [{ op: "set", path: "user", value: data }];
+      return [{ op: "set", path: [{ kind: "prop", name: "user" }], value: data }];
     };
 
     const result = await handler("api.get", { url: "/users/123" });
 
     expect(result).toEqual([
-      { op: "set", path: "user", value: { id: "123", name: "Test" } },
+      { op: "set", path: [{ kind: "prop", name: "user" }], value: { id: "123", name: "Test" } },
     ]);
   });
 
@@ -642,7 +650,7 @@ describe("API effect handler", () => {
     const handler = async (type, params) => {
       const response = await fetch(params.url);
       if (!response.ok) {
-        return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+        return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: `HTTP ${response.status}` }];
       }
       return [];
     };
@@ -650,7 +658,7 @@ describe("API effect handler", () => {
     const result = await handler("api.get", { url: "/users/999" });
 
     expect(result).toEqual([
-      { op: "set", path: "error", value: "HTTP 404" },
+      { op: "set", path: [{ kind: "prop", name: "error" }], value: "HTTP 404" },
     ]);
   });
 });
@@ -681,7 +689,7 @@ describe("Counter host", () => {
 
     // Mock effect
     host.registerEffect("api.get", async () => {
-      return [{ op: "set", path: "user", value: { id: "1", name: "Test" } }];
+      return [{ op: "set", path: [{ kind: "prop", name: "user" }], value: { id: "1", name: "Test" } }];
     });
 
     const result = await host.dispatch(createIntent("fetchUser", { id: "1" }, "intent-1"));
@@ -748,7 +756,7 @@ host.registerEffect("api.get", async (type, params) => {
 host.registerEffect("api.get", async (type, params) => {
   const response = await fetch(params.url);
   if (!response.ok) {
-    return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: `HTTP ${response.status}` }];
   }
   return [];
 });
@@ -773,7 +781,7 @@ await host.dispatch(intent);
 // ❌ WRONG: Domain logic in handler
 host.registerEffect("purchase", async (type, params) => {
   if (params.amount > 1000) {  // Business rule in handler!
-    return [{ op: "set", path: "approval.required", value: true }];
+    return [{ op: "set", path: [{ kind: "prop", name: "approval" }, { kind: "prop", name: "required" }], value: true }];
   }
   // ...
 });
@@ -782,8 +790,13 @@ host.registerEffect("purchase", async (type, params) => {
 // Flow:
 {
   kind: "if",
-  cond: { kind: "gt", left: { kind: "get", path: "input.amount" }, right: 1000 },
-  then: { kind: "patch", op: "set", path: "approval.required", value: true },
+  cond: { kind: "gt", left: { kind: "get", path: "input.amount" }, right: { kind: "lit", value: 1000 } },
+  then: {
+    kind: "patch",
+    op: "set",
+    path: [{ kind: "prop", name: "approval" }, { kind: "prop", name: "required" }],
+    value: { kind: "lit", value: true },
+  },
   else: { kind: "effect", type: "payment.process", params: { ... } }
 }
 ```
@@ -866,9 +879,9 @@ host.registerEffect("api.get", async (type, params) => {
   // Always return patches, even on failure
   try {
     const response = await fetch(params.url);
-    return [{ op: "set", path: "data", value: await response.json() }];
+    return [{ op: "set", path: [{ kind: "prop", name: "data" }], value: await response.json() }];
   } catch (e) {
-    return [{ op: "set", path: "error", value: e.message }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: e.message }];
   }
 });
 ```

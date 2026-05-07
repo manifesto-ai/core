@@ -8,7 +8,7 @@
 
 - How to write a tiny MEL domain
 - How to activate a manifesto runtime
-- How to submit typed actions from `actions.*`
+- How to submit typed actions from `action.*`
 - How to observe state through `observe.state()` and `snapshot()`
 - Why `onceIntent` matters
 
@@ -76,9 +76,9 @@ app.observe.state(
 async function run() {
   console.log("Initial count:", app.snapshot().state.count);
 
-  await app.actions.increment.submit();
-  await app.actions.increment.submit();
-  await app.actions.decrement.submit();
+  await app.action.increment.submit();
+  await app.action.increment.submit();
+  await app.action.decrement.submit();
 
   const snapshot = app.snapshot();
   console.log("Final count:", snapshot.state.count);
@@ -105,7 +105,7 @@ npx tsx main.ts
 
 - `createManifesto()` built a composable manifesto from your domain
 - `activate()` opened the runtime surface
-- `actions.*.submit()` gave you a typed, app-facing write path
+- `action.*.submit()` gave you a typed, app-facing write path
 - `submit()` resolved after each terminal snapshot was published
 - `observe.state()` fired after each published change
 - `snapshot()` let you read the latest terminal state directly
@@ -136,7 +136,7 @@ That action is unsafe. It describes an unconditional state change with no marker
 
 ### Reaching for raw string action names in app code
 
-The preferred app-facing path is `app.actions.someAction.submit(...args)` or `app.actions.someAction.submit({ ...params })`, not stringly-typed action names.
+The preferred app-facing path is `app.action.someAction.submit(...args)` or `app.action.someAction.submit({ ...params })`, not stringly-typed action names.
 
 ### Reading stale state without awaiting execution
 

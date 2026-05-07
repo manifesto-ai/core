@@ -90,7 +90,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Execute requirements, apply patches/system delta, drive compute to terminal state |
+| **Role** | Execute requirements, apply domain patches, namespace deltas, and system deltas, drive compute to terminal state |
 | **Primary API** | `createHost()`, `dispatch()`, effect registration |
 | **Owns** | Mailbox/job model, effect execution, ADR-027 context materialization |
 | **Does NOT Know** | Proposal legitimacy, authority policy, branch/head history |
@@ -102,7 +102,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 | Aspect | Definition |
 |--------|------------|
 | **Role** | Compose the base runtime and present the public app-facing API |
-| **Primary API** | `createManifesto()`, `activate()`, `actions.<name>.submit()`, `snapshot()` |
+| **Primary API** | `createManifesto()`, `activate()`, `action.<name>.submit()`, `snapshot()` |
 | **Owns** | Runtime assembly, telemetry, projected reads, public action-candidate surface |
 | **Does NOT Know** | Core internals, authority policy internals, lineage storage internals |
 
@@ -113,7 +113,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 | Aspect | Definition |
 |--------|------------|
 | **Role** | Add sealing, restore, branch/head queries, and stored Lineage World snapshots |
-| **Primary API** | `withLineage()`, `actions.<name>.submit()`, `restore()`, lineage queries |
+| **Primary API** | `withLineage()`, `action.<name>.submit()`, `restore()`, lineage queries |
 | **Owns** | Lineage World history, branch/head refs, seal records, stored canonical snapshots |
 | **Does NOT Know** | Host execution micro-steps, approval policy semantics |
 
@@ -124,7 +124,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 | Aspect | Definition |
 |--------|------------|
 | **Role** | Add proposal lifecycle, approval/rejection, authority evaluation, and governed publication |
-| **Primary API** | `withGovernance()`, `actions.<name>.submit()`, settlement/proposal queries, authority seams |
+| **Primary API** | `withGovernance()`, `action.<name>.submit()`, settlement/proposal queries, authority seams |
 | **Owns** | Proposal legitimacy, decision recording, governed execution admission |
 | **Does NOT Know** | Host execution micro-steps, Core semantic internals, implicit lineage creation |
 
@@ -193,7 +193,7 @@ They do not replace Host or Core and they do not reintroduce a facade-owned exec
 
 ```typescript
 const app = createManifesto(schema, effects).activate();
-await app.actions.someAction.submit();
+await app.action.someAction.submit();
 ```
 
 ### Governed Composition

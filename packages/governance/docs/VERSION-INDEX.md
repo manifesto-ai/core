@@ -31,7 +31,7 @@
 
 ## Notes
 
-- The current contract surface is the v5 governance-mode decorator model with `actions.x.submit()` / `action(name).submit()` as the canonical governed write ingress.
+- The current contract surface is the v5 governance-mode decorator model with `action.x.submit()` as the canonical governed write ingress.
 - `ProposalRef` is the durable settlement handle and must survive process boundaries.
 - `pending.waitForSettlement()` and `app.waitForSettlement(ref)` observe settlement; they do not approve, reject, execute, seal, or publish by themselves.
 - `approve()`, `reject()`, proposal lookup, decision lookup, and actor binding remain governance-owned control surface methods, not action submission verbs.

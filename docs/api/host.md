@@ -122,8 +122,8 @@ The Host effect-handler context carries the canonical snapshot substrate. The SD
 
 ## Interlock Requirements
 
-- Apply order MUST be: `core.apply(patches)` then `core.applySystemDelta(systemDelta)`.
-- Effect dispatch list SHOULD be read from `snapshot.system.pendingRequirements` after both applies.
+- Apply order MUST be: `core.apply(patches)`, then `core.applyNamespaceDeltas(namespaceDelta)`, then `core.applySystemDelta(systemDelta)`.
+- Effect dispatch list SHOULD be read from `snapshot.system.pendingRequirements` after all three apply stages.
 - Fulfillment clear MUST use `applySystemDelta({ removeRequirementIds })`.
 - Error patches MUST NOT target `system.*`.
 

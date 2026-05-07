@@ -17,7 +17,7 @@
 ## 1. Create The Reviewable Request
 
 ```typescript
-const candidate = governed.actions.addTodo.bind("Ship the history tutorial");
+const candidate = governed.action.addTodo.bind("Ship the history tutorial");
 ```
 
 This is still a typed action candidate. Governance adds legitimacy and proposal semantics when the runtime receives it.

@@ -21,7 +21,7 @@
 | v1.0 | Initial release — Core-Host boundary, Snapshot communication, Effect handlers | FDR-H001 ~ H010 |
 | v1.x | Compiler Integration — Translator pipeline, Expression evaluation | FDR-H011 ~ H017 |
 | v2.0 | Event-Loop Execution Model — Mailbox, Job model, Single-runner | FDR-H018 ~ H022 |
-| v2.0.1 | Historical Context Determinism — pre-v5 HostContext frozen per job; Compiler/Translator Decoupling | FDR-H023, FDR-H024 |
+| v2.0.1 | Historical Context Determinism — pre-v5 host context frozen per job; Compiler/Translator Decoupling | FDR-H023, FDR-H024 |
 | v5.0.0 | ADR-027 context materialization — Host passes owner-neutral Core `Context` and `apply()` no longer accepts context | ADR-027 |
 | v2.0.2 | Snapshot Type Alignment — Core Snapshot canonical reference; Snapshot Ownership | FDR-H025 |
 | v2.0.3 | Baseline snapshot completeness at boundary entry (ADR-011 migration, data-only reset rejected) | FDR-H025 |
@@ -213,7 +213,7 @@ const hostState = snapshot.namespaces.host as HostOwnedState | undefined;
 
 const hostDelta: NamespaceDelta = {
   namespace: 'host',
-  patches: [{ op: 'set', path: ['lastError'], value: errorValue }],
+  patches: [{ op: 'set', path: [{ kind: 'prop', name: 'lastError' }], value: errorValue }],
 };
 ```
 
@@ -1235,7 +1235,7 @@ function handleStartIntent(job) {
 | CTX-4 | `context.runtime.random.seed` MUST be materialized once and remain stable during the attempt |
 | CTX-5 | Context MUST be captured once per transition attempt, not per operation |
 | CTX-6 | Host MUST NOT transport runtime values through `snapshot.namespaces.host` or `snapshot.namespaces.mel` for Core to read |
-| CTX-7 | Host MUST NOT expose `HostContext` as the canonical Core boundary type |
+| CTX-7 | Host MUST NOT expose a legacy host-context alias as the canonical Core boundary type |
 
 ### 10.3 Materialized Context Pattern
 
@@ -1392,7 +1392,7 @@ const context = materializer.materialize(intentId, { locale: "ko-KR" });
 | INV-EX-14 | **Apply failure does NOT exempt from clear obligation** |
 | INV-EX-15 | **Compute result patches, namespace deltas, and system delta MUST be applied before effect dispatch** |
 | INV-EX-16 | **Timeout/cancel MUST produce fulfillment outcome for ordering (ORD-PARALLEL)** |
-| INV-EX-17 | **Error diagnostic recording is best-effort; failure MUST NOT block continue** |
+| INV-EX-17 | **Error diagnostic recording failure MUST be observable and MUST NOT silently continue** |
 
 ### 11.5 Context Determinism Invariants
 
@@ -1430,9 +1430,11 @@ Host-generated execution diagnostics MUST target `namespaces.host` via
 outcome.
 `system.*` is structurally non-patchable at Core boundary. Host MUST use `core.applySystemDelta()` for system transitions.
 
-Host-generated `namespaces.host.lastError` records are best-effort Host execution
+Host-generated `namespaces.host.lastError` records are Host execution
 diagnostics. They help canonical-substrate debugging for effect handler
-failure, unknown effects, or fulfillment/apply failure. They do not by
+failure, unknown effects, or fulfillment/apply failure. If Host cannot persist
+the diagnostic after clearing the requirement, it MUST escalate the execution to
+a fatal error instead of silently continuing. Host diagnostics do not by
 themselves make a terminal Snapshot semantically failed; semantic failure is
 represented by `system.lastError` or domain state through Core-owned
 transitions.
@@ -1520,13 +1522,14 @@ function handleFulfillEffect(job: FulfillEffect) {
     return;
   }
 
-  // Step 3: Record error diagnostic if apply failed (best-effort), then continue
+  // Step 3: Record error diagnostic if apply failed
   if (applyError) {
     try {
       applyHostErrorNamespaceDelta(job.intentId, job.requirementId, applyError); // not system.*
     } catch (patchError) {
-      // ERR-FE-5: Error diagnostic failure is logged but does NOT block continue
-      logErrorPatchFailure(job, patchError);
+      // ERR-FE-5: visibility failure is fatal after clear
+      escalateToFatal(job.intentId, patchError);
+      return;
     }
   }
 
@@ -1539,20 +1542,20 @@ function handleFulfillEffect(job: FulfillEffect) {
 
 | Rule ID | Description |
 |---------|-------------|
-| ERR-FE-5 | Error diagnostic recording is best-effort; failure MUST NOT block ContinueCompute |
+| ERR-FE-5 | Error diagnostic recording failure MUST escalate to ExecutionKey-level fatal after the requirement is cleared |
 
 Error diagnostics MUST NOT target `system.*`. Use `namespaces.host` via
 `NamespaceDelta`, or use domain-owned paths when the error is a domain outcome.
 
 **Rationale:** The priority order is:
 1. **Clear** (non-negotiable - prevents infinite loop)
-2. **Continue** (non-negotiable - execution must proceed)
-3. **Error diagnostic** (best-effort - useful for debugging)
+2. **Error diagnostic or fatal escalation** (non-negotiable visibility)
+3. **Continue** (only when the diagnostic was persisted)
 
 If error diagnostic recording fails:
 - Log the failure for debugging
-- Continue anyway (ContinueCompute MUST be enqueued)
-- Alternatively, escalate to fatal if error visibility is critical for domain
+- Escalate to ExecutionKey-level fatal
+- Do not enqueue ContinueCompute
 
 #### 12.4.5 Why "Clear Before Error Diagnostic"?
 
@@ -1636,7 +1639,7 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 | Liveness | LIVE-1~4: Enqueue -> eventually processed, **blocked kick retry** |
 | Order | ORD-1~4: **Deterministic order**; **ORD-TIMEOUT-1~3** (buffer timeout handling) |
 | FulfillEffect | **FULFILL-0~4, FULFILL-NS-1**: Stale check, atomic lifecycle |
-| Error | ERR-FE-1~5: FulfillEffect must guarantee clear, error diagnostic best-effort |
+| Error | ERR-FE-1~5: FulfillEffect must guarantee clear, failed error diagnostic escalates fatal |
 | Context | CTX-1~7: Materialized once per transition attempt, stable runtime values |
 | Snapshot | HOST-SNAP-1~4, HOST-NS-1~8, HOST-RESTORE-1~4: Core canonical type, `namespaces.host` |
 
@@ -1672,7 +1675,7 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 - [ ] FulfillEffect checks pendingRequirements before apply (FULFILL-0)
 - [ ] FulfillEffect performs Apply + Clear + Continue atomically
 - [ ] **FulfillEffect guarantees clear even on apply failure (ERR-FE-2)**
-- [ ] **Error diagnostic recording is best-effort, does not block continue (ERR-FE-5)**
+- [ ] **Error diagnostic recording failure escalates fatal after clear (ERR-FE-5)**
 - [ ] **Compute domain patches, namespace deltas, and system delta applied BEFORE effect dispatch (COMP-REQ-INTERLOCK-1)**
 - [ ] **Effect dispatch list read from snapshot after apply (COMP-REQ-INTERLOCK-2, SHOULD)**
 - [ ] **Omitted namespaceDelta treated as empty (COMP-REQ-INTERLOCK-1b)**
@@ -1712,7 +1715,7 @@ This SPEC (v2.0) provides the **mechanism** for single-writer serialization, whi
 
 | Requirement | Rule ID |
 |-------------|---------|
-| **Pre-v5 HostContext frozen at job start** | **CTX-1** |
+| **Pre-v5 host context frozen at job start** | **CTX-1** |
 | **Same pre-v5 context for all operations in job** | **CTX-2** |
 | **Pre-v5 now value immutable during job** | **CTX-3** |
 | **Pre-v5 randomSeed from intentId** | **CTX-4** |
@@ -1754,7 +1757,7 @@ v5.0.0 **hard-cuts** Host-facing Snapshot structure to Core SPEC v5:
 | Effect handlers | No change |
 | Intent processing | Restructure as job queue; apply patches/namespace deltas/system delta before effect dispatch; read requirements from snapshot |
 | Requirement lifecycle | Ensure atomic Clear step; **stale check before apply**; apply Host namespace deltas before clear |
-| Error handling | **Clear even on apply failure**; **error diagnostic is best-effort** |
+| Error handling | **Clear even on apply failure**; **error diagnostic failure escalates fatal** |
 | ORD-PARALLEL users | **Timeout/cancel must produce fulfillment outcome** |
 | **Context handling (v2.0.1)** | **Freeze context at job start; use same context throughout job** |
 | **Snapshot handling (v5.0.0)** | **Use `state` and `namespaces`; migrate legacy data-root snapshots only through explicit compatibility normalization** |
@@ -1846,7 +1849,7 @@ interface ApplyPatches {
 | COMP-1 | Former Host obligation to import from `@manifesto-ai/compiler` | DEPRECATED |
 | COMP-2 | Former Host obligation to call `lowerPatchFragments()` first | DEPRECATED |
 | COMP-3 | Former Host obligation to call `evaluateConditionalPatchOps()` second | DEPRECATED |
-| COMP-6 | Former Translator path rule excluding `$system.*` from `allowSysPaths` | DEPRECATED |
+| COMP-6 | Former Translator path rule excluding legacy system dollar paths from `allowSysPaths` | DEPRECATED |
 | TRANS-1 | Former treatment of LLM translate calls as Host-level async operations | DEPRECATED |
 | TRANS-2 | Former `ApplyTranslatorOutput` job for Translator fragments | DEPRECATED |
 | TRANS-3 | Former synchronous Lower -> Evaluate -> Apply job rule | DEPRECATED |

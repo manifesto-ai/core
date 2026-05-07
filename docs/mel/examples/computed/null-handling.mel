@@ -40,7 +40,7 @@ domain ComputedNullHandling {
     : "Hello, Guest"
 
   computed status = isNotNull(score)
-    ? (gte(score, threshold) ? "pass" : "fail")
+    ? (gte(safeScore, threshold) ? "pass" : "fail")
     : "pending"
 
   computed label = eq(len(items), 0)
@@ -61,7 +61,7 @@ domain ComputedNullHandling {
 
   // --- Combined patterns ---
   computed displayScore = isNotNull(score)
-    ? concat("Score: ", score)
+    ? concat("Score: ", safeScore)
     : "No score yet"
 
   computed actionLabel = and(isNotNull(selectedId), gt(len(items), 0))

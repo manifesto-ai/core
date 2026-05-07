@@ -55,10 +55,10 @@ These ADRs affect multiple packages across the monorepo:
 | [ADR-022](./022-compiler-owned-source-location-sidecar-source-map-index) | Compiler-Owned Source Location Sidecar (`SourceMapIndex`) | Accepted | 2026-04-16 | Compiler, Tooling, Docs |
 | [ADR-023](./023-object-spread-sugar-in-mel) | Object Spread Sugar in MEL | Accepted | 2026-04-23 | Compiler, Docs |
 | [ADR-024](./024-compiler-owned-mel-source-fragment-editing-primitive) | Compiler-Owned MEL Source Fragment Editing Primitive | Accepted | 2026-04-25 | Compiler, Studio/authoring tools |
-| [ADR-025](./025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation) | Snapshot Ontology Hard Cut — `data` Retirement and Namespace Separation | Accepted | 2026-04-29 | Core, Host, SDK, Compiler, Lineage, Governance, Studio, Agent tooling, Constitution, Docs |
-| [ADR-026](./026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress) | SDK v5 Action Candidate Surface and Law-Aware `submit()` Ingress | Accepted | 2026-04-29 | SDK, Lineage, Governance, Studio, Agent tooling, Codegen, Docs |
-| [ADR-027](./027-context-and-runtime-namespace-semantics) | Context and Runtime Namespace Semantics | Accepted | 2026-05-03 | Core, Compiler, Host, SDK, Lineage, Governance, Constitution, Docs |
-| [ADR-028](./028-core-owned-dynamic-patch-target-semantics) | Core-Owned Dynamic Patch Target Semantics | Accepted | 2026-05-07 | Core, Compiler, Host, Docs, CTS |
+| [ADR-025](./025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation) | Snapshot Ontology Hard Cut — `data` Retirement and Namespace Separation | Implemented | 2026-04-29 | Core, Host, SDK, Compiler, Lineage, Governance, Studio, Agent tooling, Constitution, Docs |
+| [ADR-026](./026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress) | SDK v5 Action Candidate Surface and Law-Aware `submit()` Ingress | Implemented | 2026-04-29 | SDK, Lineage, Governance, Studio, Agent tooling, Codegen, Docs |
+| [ADR-027](./027-context-and-runtime-namespace-semantics) | Context and Runtime Namespace Semantics | Implemented | 2026-05-03 | Core, Compiler, Host, SDK, Lineage, Governance, Constitution, Docs |
+| [ADR-028](./028-core-owned-dynamic-patch-target-semantics) | Core-Owned Dynamic Patch Target Semantics | Implemented | 2026-05-07 | Core, Compiler, Host, Docs, CTS |
 
 ### ADR-006 Companion Evidence (Non-Normative)
 
@@ -153,25 +153,26 @@ These ADRs affect multiple packages across the monorepo:
 
 - ADR-024 is accepted as the compiler-owned source-fragment editing primitive decision for Studio and external Author layer integrations.
 - The accepted boundary is narrow: compiler validates and materializes exactly one source edit; the Author layer owns request interpretation, sequencing, retries, acceptance policy, and edit-attempt lineage.
-- ADR-024 is reflected in the current Compiler SPEC v1.3.0 contract, updated in place at `packages/compiler/docs/SPEC-v1.2.0.md`.
+- ADR-024 is reflected in the current Compiler SPEC v1.2.0 contract at `packages/compiler/docs/SPEC-v1.2.0.md`.
 
 ### ADR-025 Companion Notes
 
-- ADR-025 is accepted as the v5 Snapshot ontology hard-cut decision: domain state moves from `Snapshot.data` to `Snapshot.state`, and platform/runtime/tooling namespaces move under `Snapshot.namespaces`.
-- ADR-025 retracts the prior `Snapshot.data` normative commitments in SPEC §13.3, the Constitution/`CLAUDE.md` canonical Snapshot block, and ADR-009 §2.8; those follow-up edits are part of the PR-1 implementation work described in ADR-025.
-- The non-normative ADR-025 roadmap is currently maintained as a temporary working checklist in `temp/025-roadmap.md`.
-- ADR-025 implementation is tracked on `feature/v5`; package-specific source cuts land through the PR series described in the roadmap.
+- ADR-025 is implemented as the v5 Snapshot ontology hard-cut decision: domain state moves from `Snapshot.data` to `Snapshot.state`, and platform/runtime/tooling namespaces move under `Snapshot.namespaces`.
+- ADR-025 retracts the prior `Snapshot.data` normative commitments in SPEC §13.3, the Constitution/`CLAUDE.md` canonical Snapshot block, and ADR-009 §2.8.
+- Current package SPECs, docs gates, and public API inventory now treat ADR-025 as landed v5 surface.
 
 ### ADR-026 Companion Notes
 
-- ADR-026 is accepted as the v5 SDK surface hard-cut decision: the public runtime moves from the v3 intent/dispatch/simulate ladder to action-candidate handles with `info()`, `available()`, `check()`, `preview()`, `submit()`, and `bind()`.
+- ADR-026 is implemented as the v5 SDK surface hard-cut decision: the public runtime moves from the v3 intent/dispatch/simulate ladder to action-candidate handles with `info()`, `available()`, `check()`, `preview()`, `submit()`, and `bind()`.
 - ADR-026 supersedes `createIntent()` + `dispatchAsync()` as the primary app-facing path, public `simulate()` / `simulateIntent()` naming, and the public write-verb fork between `dispatchAsync`, `commitAsync`, and `proposeAsync`.
+- ADR-026 revision 8 adds projected read handles under `app.state.*` and `app.computed.*`; these are typed read-only aliases over `snapshot()` / `observe.state()`, not mutation or canonical-substrate surfaces.
+- ADR-026 revision 9 replaces the split plural action namespace and callable semantic action entrypoint with a single static `app.action.*` namespace; dynamic collision-safe semantic action access is removed and reserved public action names fail fast.
 - ADR-026 is the SDK surface layer of the same v5 release train as ADR-025's Snapshot substrate hard cut.
-- ADR-026 implementation begins with SDK, Lineage, and Governance SPEC finalization before source changes; package-specific source cuts land through the PR series described in ADR-026.
+- ADR-026 is reflected in SDK, Lineage, Governance, Codegen, and maintained docs as the current action-candidate ingress.
 
 ### ADR-027 Companion Notes
 
-- ADR-027 is accepted as the v5 compute-input hard-cut decision: canonical Core compute is `compute(schema, snapshot, intent, context)`.
+- ADR-027 is implemented as the v5 compute-input hard-cut decision: canonical Core compute is `compute(schema, snapshot, intent, context)`.
 - ADR-027 defines `snapshot` as schema-driven existence information and `context` as captured external environment; determinism is over the full four-input tuple.
 - ADR-027 keeps `context` owner-neutral. It supersedes `HostContext` and rejects the interim `CoreIntent.frame` plan as the canonical API.
 - ADR-027 limits user-defined context to schema-declared direct-injected JSON data under `context.external`; user-defined context generators/resolvers/providers remain out of scope.
@@ -183,7 +184,7 @@ These ADRs affect multiple packages across the monorepo:
 
 ### ADR-028 Companion Notes
 
-- ADR-028 is accepted as the v5 semantic-boundary hard-cut decision for dynamic patch targets.
+- ADR-028 is implemented as the v5 semantic-boundary hard-cut decision for dynamic patch targets.
 - ADR-028 preserves ADR-009's structured concrete `PatchPath`, but supersedes ADR-009's Compiler/runtime `evaluateConditionalPatchOps()` contract and `skip + warning` invalid dynamic target policy.
 - Core owns dynamic Flow patch target resolution during `compute()`; emitted patches and `core.apply()` remain concrete-only.
 - Compiler lowers and preserves dynamic target expressions but does not evaluate them, allocate runtime values, or produce runtime patches from runtime data.
@@ -192,7 +193,7 @@ These ADRs affect multiple packages across the monorepo:
 ### ADR-017 Version Notes
 
 - The canonical implemented record is [ADR-017 v3.1](./017-capability-decorator-pattern), which lands the activation boundary, one-shot `activate()`, and Governance/Lineage config precedence rules.
-- The earlier [ADR-017 v2 archived draft](./archive/017-capability-decorator-pattern-v2-cross-model-review-consensus) is retained for traceability. It preserves the cross-model review consensus phase before the activation-boundary rewrite and before the final `dispatchAsync -> commitAsync -> proposeAsync` verb chain stabilized.
+- The earlier [ADR-017 v2 archived draft](./archive/017-capability-decorator-pattern-v2-cross-model-review-consensus) is retained for traceability. It preserves the cross-model review consensus phase before the activation-boundary rewrite. ADR-026 later supersedes root verb-chain wording with the v5 `action.<name>.check/preview/submit` surface.
 
 ---
 

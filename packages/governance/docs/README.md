@@ -5,7 +5,7 @@
 
 > **Current Contract Note:** The current governance contract is
 > [governance-SPEC.md](governance-SPEC.md). The canonical v5 governed write
-> ingress is `actions.x.submit()` / `action(name).submit()`, and settlement is
+> ingress is `action.x.submit()`, and settlement is
 > observed through `pending.waitForSettlement()` or `app.waitForSettlement(ref)`.
 > The v2.0.0 and v1.0.0 specs remain as historical references.
 

@@ -8,12 +8,15 @@ const repoRoot = path.resolve(__dirname, "..");
 
 const maintainedDocRoots = [
   "README.md",
+  "CLAUDE.md",
+  "AGENTS.md",
   "docs/index.md",
   "docs/start-here.md",
   "docs/quickstart.md",
   "docs/api",
   "docs/architecture",
   "docs/concepts",
+  "docs/guide",
   "docs/guides",
   "docs/integration",
   "docs/mel",
@@ -23,6 +26,13 @@ const maintainedDocRoots = [
   "docs/internals/index.md",
   "docs/internals/spec/current-contract.md",
   "docs/internals/test-conventions.md",
+  "packages/codegen/docs/SPEC-v0.1.1.md",
+  "packages/compiler/docs/SPEC-v1.2.0.md",
+  "packages/core/docs/core-SPEC.md",
+  "packages/governance/docs/governance-SPEC.md",
+  "packages/host/docs/host-SPEC.md",
+  "packages/lineage/docs/lineage-SPEC.md",
+  "packages/sdk/docs/sdk-SPEC.md",
 ];
 
 const excludedMaintainedPaths = new Set([
@@ -73,6 +83,50 @@ const globalForbiddenPatterns = [
     pattern: /\bcompute(?:Sync)?\(\s*schema\s*,\s*snapshot\s*,\s*intent\s*\)/g,
   },
   {
+    label: "retired compute equation wording",
+    pattern: /compute\(schema, snapshot, intent\)/g,
+  },
+  {
+    label: "retired compute snapshot tuple equation",
+    pattern: /compute\(schema, snapshot[^\n)]*, intent, context\)\s*(?:->|→)\s*\(snapshot/g,
+  },
+  {
+    label: "retired compute snapshot tuple return wording",
+    pattern: /Returns:\s+\(snapshot'/g,
+  },
+  {
+    label: "retired data.$ namespace wording",
+    pattern: /\bdata\.\$\*/g,
+  },
+  {
+    label: "retired missing once marker error",
+    pattern: /Missing marker patch in once|Wrong marker in once|must have 'patch .* = \$runtime\.intent\.id'/g,
+  },
+  {
+    label: "retired manual once marker wording",
+    pattern: /Marker patch MUST be first|once\(\) has marker patch as FIRST statement|patch .*=\s*\$runtime\.intent\.id\s*\/\/\s*MUST/g,
+  },
+  {
+    label: "retired SPEC-v1.3.0 reference",
+    pattern: /\bSPEC-v1\.3\.0\b/g,
+  },
+  {
+    label: "retired .mel.ts file extension",
+    pattern: /\.mel\.ts\b/g,
+  },
+  {
+    label: "bare result.ok submit success check",
+    pattern: /if\s*\(\s*result\.ok\s*\)/g,
+  },
+  {
+    label: "retired inline submit options bag",
+    pattern: /\bsubmit\([^)\n]*\{\s*(?:context|diagnostics|report)\s*:/g,
+  },
+  {
+    label: "retired inline preview options bag",
+    pattern: /\bpreview\([^)\n]*\{\s*(?:context|diagnostics|report)\s*:/g,
+  },
+  {
     label: "retired $meta runtime namespace",
     pattern: /\$meta\./g,
   },
@@ -87,6 +141,10 @@ const globalForbiddenPatterns = [
   {
     label: "retired SDK root getSnapshot read",
     pattern: /\b(?:app|instance|lineage|governed)\.getSnapshot\(/g,
+  },
+  {
+    label: "retired SDK root getCanonicalSnapshot read",
+    pattern: /\b(?:app|instance|lineage|governed|runtime)\.getCanonicalSnapshot\(/g,
   },
   {
     label: "retired SDK root subscribe call",
@@ -107,6 +165,10 @@ const globalForbiddenPatterns = [
   {
     label: "retired governance root proposeAsync call",
     pattern: /\bgoverned\.proposeAsync\(/g,
+  },
+  {
+    label: "retired SDK actions namespace",
+    pattern: /\b(?:app|runtime|lineage|governed|tenantApp)\.actions\./g,
   },
 ];
 

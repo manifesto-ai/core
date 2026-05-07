@@ -40,7 +40,7 @@ view settings are selected before action handle use:
 
 ```ts
 app.with({ context, report: "full", diagnostics: "trace" })
-  .actions.addTodo
+  .action.addTodo
   .bind({ title: "Ship v5" })
   .submit();
 ```
@@ -143,12 +143,14 @@ const app = createManifesto<TodoDomain>(todoMel, effects).activate();
 
 app.snapshot();
 
-app.actions.addTodo.info();
-app.actions.addTodo.available();
-app.actions.addTodo.check({ title: "Ship v5" });
-app.actions.addTodo.preview({ title: "Ship v5" });
-await app.actions.addTodo.submit({ title: "Ship v5" });
+app.action.addTodo.info();
+app.action.addTodo.available();
+app.action.addTodo.check({ title: "Ship v5" });
+app.action.addTodo.preview({ title: "Ship v5" });
+await app.action.addTodo.submit({ title: "Ship v5" });
 
+app.state.todos.observe(listener);
+app.computed.activeCount.observe(listener);
 app.observe.state((s) => s.state.todos, listener);
 app.observe.event("submission:settled", handler);
 
@@ -158,13 +160,14 @@ app.inspect.action("addTodo");
 app.inspect.canonicalSnapshot();
 ```
 
-The runtime root partitions into four surfaces:
+The runtime root partitions into six surfaces:
 
 ```text
 runtime
-  ├─ snapshot()       // projected visible world read
-  ├─ actions.*        // typed action candidate handles
-  ├─ action(name)     // collision-safe handle accessor
+  ├─ snapshot()       // whole projected visible world read
+  ├─ action.*         // typed action candidate handles
+  ├─ state.*          // projected state read handles
+  ├─ computed.*       // projected computed read handles
   ├─ observe.*        // state/event observation
   └─ inspect.*        // advanced introspection / debug / tooling
 ```
@@ -258,6 +261,8 @@ This principle has the following normative consequences:
 - Governance is **never** represented as direct execution.
 - A decorated runtime **never** regains lower-authority backdoors through `submit()`.
 - Authority is encoded in **return types** and **decorator-owned implementations**, not in verb selection.
+- `state.*` and `computed.*` are read handles only; mutation remains
+  exclusively action-candidate submission.
 
 This principle resolves the v3 tension between "users want one verb" and "decorators need different authority semantics." V5 gives users one verb *and* makes decorators expose their authority through the result type — both at once.
 
@@ -277,7 +282,9 @@ export type BaseManifestoApp<
   TDomain extends ManifestoDomainShape,
   TMode extends RuntimeMode,
 > = {
-  readonly actions: ActionSurface<TDomain, TMode>;
+  readonly action: ActionSurface<TDomain, TMode>;
+  readonly state: StateReadSurface<TDomain>;
+  readonly computed: ComputedReadSurface<TDomain>;
   readonly observe: ObserveSurface<TDomain>;
   readonly inspect: InspectSurface<TDomain>;
 
@@ -286,15 +293,6 @@ export type BaseManifestoApp<
    * This is the app-facing read boundary (see ADR-025 §4.2).
    */
   snapshot(): ProjectedSnapshot<TDomain>;
-
-  /**
-   * Collision-safe action handle accessor.
-   * Required for action names that collide with JS object properties
-   * or reserved surface names.
-   */
-  action<Name extends ActionName<TDomain>>(
-    name: Name,
-  ): ActionHandle<TDomain, Name, TMode>;
 
   dispose(): void;
 };
@@ -367,25 +365,132 @@ export type ActionSurface<
 };
 ```
 
-`actions.*` is the ergonomic property accessor.
+`action.*` is the canonical action candidate namespace. It is deliberately
+the only public action-candidate entrypoint in v5, matching the static
+namespace rhythm of `state.*` and `computed.*`.
 
-`action(name)` is the normative collision-safe accessor (rules below).
+`app.action(name)` is not part of the canonical surface. Dynamic string-based
+action lookup is intentionally dropped from the default runtime grammar. Tools
+that need action discovery use `inspect.availableActions()` and
+`inspect.action(name)` for read-only metadata; semantic writes remain routed
+through statically typed `action.*` handles.
+
+Because the collision-safe dynamic accessor is removed, action names that
+cannot be safely or clearly exposed as `action.<name>` are invalid public SDK
+action names. The SDK SPEC MUST define the exact reserved-name set and SDK
+activation/codegen MUST fail fast for those names. The minimum reserved set
+includes JavaScript prototype / thenable hazards such as `then`, `constructor`,
+`prototype`, and `__proto__`, plus any SDK-owned action namespace members
+introduced in the future.
+
+### 4.3 Projected read handle surfaces
+
+`state.*` and `computed.*` are ergonomic projected read handles. They are
+field-level aliases over `snapshot()` and `observe.state()`, not mutation
+surfaces and not canonical substrate reads.
+
+```ts
+export type ProjectedReadHandle<TValue, TRef> = {
+  readonly name: string;
+  readonly ref: TRef;
+
+  /**
+   * Read the current projected value for this field.
+   */
+  value(): TValue;
+
+  /**
+   * Observe this projected field. The listener receives the same next/prev
+   * semantics as observe.state(selector, listener).
+   */
+  observe(
+    listener: (next: TValue, prev: TValue) => void,
+  ): Unsubscribe;
+};
+
+export type StateReadSurface<TDomain extends ManifestoDomainShape> = {
+  readonly [Name in keyof TDomain["state"]]:
+    ProjectedReadHandle<
+      TDomain["state"][Name],
+      FieldRef<TDomain["state"][Name]>
+    >;
+};
+
+export type ComputedReadSurface<TDomain extends ManifestoDomainShape> = {
+  readonly [Name in keyof TDomain["computed"]]:
+    ProjectedReadHandle<
+      TDomain["computed"][Name],
+      ComputedRef<TDomain["computed"][Name]>
+    >;
+};
+```
+
+Example:
+
+```ts
+const mode = app.state.filterMode.value();
+
+const stopMode = app.state.filterMode.observe((next, prev) => {
+  console.log(prev, "->", next);
+});
+
+const stopActive = app.computed.activeCount.observe((next, prev) => {
+  console.log(prev, "->", next);
+});
+```
+
+These handles are deliberately top-level only in v5. Deep/dynamic paths such
+as `app.state.todos[0].title.observe(...)` are out of scope because they
+introduce index stability, collection identity, and path-lifetime semantics
+that are not needed for the current ergonomic gap.
+
+```text
+SDK-READ-1 (MUST):
+state.*.value() MUST return the corresponding value from snapshot().state.
+
+SDK-READ-2 (MUST):
+computed.*.value() MUST return the corresponding value from
+snapshot().computed.
+
+SDK-READ-3 (MUST):
+state.*.observe(listener) and computed.*.observe(listener) MUST be
+semantically equivalent to observe.state(selector, listener) for the
+corresponding projected field.
+
+SDK-READ-4 (MUST):
+Read handle observe() listeners MUST receive (next, prev) with the same
+registration, publication, and Object.is change semantics as observe.state().
+
+SDK-READ-5 (MUST NOT):
+Projected read handles MUST NOT expose write verbs such as set, merge, patch,
+submit, dispatch, commit, or propose. All semantic mutation remains routed
+through action.*.submit() at the active runtime law boundary.
+
+SDK-READ-6 (MUST NOT):
+Projected read handles MUST NOT expose canonical-only substrate fields such
+as namespaces, input, pendingRequirements, currentAction, meta.version,
+meta.timestamp, or meta.randomSeed.
+
+SDK-READ-7 (MUST):
+Projected read handles MUST be limited to top-level declared state and
+computed fields for v5.
+```
 
 ```text
 SDK-ROOT-1 (MUST):
-ManifestoApp implementations MUST ensure that user-defined action names
-cannot override runtime methods such as `then`, `constructor`, `bind`,
-`inspect`, `snapshot`, `dispose`, or `action`.
+ManifestoApp implementations MUST expose exactly one public action candidate
+namespace: `action.*`. `actions.*` and `app.action(name)` MUST NOT be part of
+the canonical v5 runtime surface.
 
 SDK-ROOT-2 (MUST):
-For any action name that conflicts with a reserved root method or property,
-`actions.*` access MAY shadow safely (return the action handle) ONLY when
-implementation can guarantee no runtime corruption. Otherwise, only
-`action(name)` is required to work.
+Action names that collide with reserved public action namespace members or
+JavaScript prototype / thenable hazards MUST be rejected before runtime
+activation, or before generated SDK facade output is treated as valid. They
+MUST NOT be repaired by a dynamic collision-safe accessor.
 
 SDK-ROOT-3 (MUST):
-`action(name)` MUST work for every declared action name regardless of
-collision with JS reserved or runtime-reserved identifiers.
+For every valid action name, `app.action.<name>` MUST expose an ActionHandle
+and remain the only semantic write entrypoint for that action.
 
 SDK-ROOT-4 (MUST):
 GovernanceSettlementSurface methods MUST be type-level reachable only on
@@ -494,7 +599,7 @@ export type BoundAction<
 If `intent` were an always-present property, invalid input would still produce an `Intent` object — silently misleading callers into believing the protocol object is dispatchable. The method-with-null contract makes the failure surface explicit:
 
 ```ts
-const candidate = app.actions.spend.bind({ amount: "invalid" });
+const candidate = app.action.spend.bind({ amount: "invalid" });
 
 candidate.check();
 // { ok: false, layer: "input", code: "INVALID_INPUT", ... }
@@ -642,7 +747,7 @@ The distinction between admission failure and Core status failure is load-bearin
 `submit()` is the v5 law-aware ingress verb.
 
 ```ts
-await app.actions.addTodo.submit({ title: "Ship v5" });
+await app.action.addTodo.submit({ title: "Ship v5" });
 ```
 
 It supersedes the public verb fork between `dispatchAsync()`, `commitAsync()`, and `proposeAsync()`.
@@ -989,10 +1094,17 @@ that ProposalRef can survive a process boundary and be passed to
 
 ## 10. Snapshot Boundary
 
-The v5 public root exposes one Snapshot read method:
+The v5 public root exposes one whole-Snapshot read method:
 
 ```ts
 app.snapshot();
+```
+
+Field-level projected reads MAY use the read-handle surface:
+
+```ts
+app.state.filterMode.value();
+app.computed.activeCount.value();
 ```
 
 Canonical/debug substrate reads live under `inspect`:
@@ -1007,8 +1119,10 @@ snapshot() MUST return the projected app-facing Snapshot
 (ProjectedSnapshot per ADR-025 §4.2).
 
 SDK-SNAPSHOT-2 (MUST):
-snapshot() MUST be the only root-level Snapshot read method
-in the canonical v5 public surface.
+snapshot() MUST be the only root-level method that returns the whole
+projected Snapshot in the canonical v5 public surface. state.*.value()
+and computed.*.value() are field-level projected reads, not whole-Snapshot
+read methods.
 
 SDK-SNAPSHOT-3 (MUST):
 Canonical substrate reads MUST live under inspect.
@@ -1058,6 +1172,10 @@ v5 event taxonomy MUST align with submission lifecycle, not only base
 dispatch lifecycle.
 ```
 
+Projected read-handle observers (`app.state.*.observe()` and
+`app.computed.*.observe()`) are convenience wrappers over `observe.state()`;
+they do not create a third observation channel.
+
 ### 11.1 Event taxonomy
 
 V5 adopts the `submission:*` namespace as the primary lifecycle taxonomy. The `action:*` alternative was considered and rejected because it reinforces the v3 mental model ("an action fires") rather than the v5 model ("a candidate is submitted").
@@ -1101,17 +1219,17 @@ SDK-INSPECT-2 (MUST):
 v3 getSchemaGraph() maps to inspect.graph().
 
 SDK-INSPECT-3 (MUST):
-v3 getActionMetadata(name) maps to inspect.action(name) or actions.x.info().
+v3 getActionMetadata(name) maps to inspect.action(name) or action.x.info().
 
 SDK-INSPECT-4 (MUST):
 v3 getAvailableActions() maps to inspect.availableActions().
 
 SDK-INSPECT-5 (MUST NOT):
-actions.$available() MUST NOT be introduced. Action-namespace and
+action.$available() MUST NOT be introduced. Action-namespace and
 inspect-namespace are distinct surfaces.
 
 SDK-INSPECT-6 (MUST):
-actions MUST remain an action namespace, not a mixed meta namespace.
+action MUST remain an action namespace, not a mixed meta namespace.
 ```
 
 ---
@@ -1143,10 +1261,10 @@ The extension kernel operates on **static schemas** and **hypothetical snapshots
 
 Placing kernel APIs at the root (`app.kernel.*`) would visually conflate two surfaces with fundamentally different authority models:
 
-- `app.actions.*`, `app.observe.*`, `app.inspect.*`, `app.snapshot()` all operate against the **active runtime**, subject to the runtime mode's law boundary.
+- `app.action.*`, `app.state.*`, `app.computed.*`, `app.observe.*`, `app.inspect.*`, `app.snapshot()` all operate against the **active runtime**, subject to the runtime mode's law boundary.
 - Extension kernel operations are **runtime-independent** — a simulation session against a static schema does not flow through any runtime mode.
 
-A user who sees `app.kernel` next to `app.actions` would reasonably assume both surfaces respect the same authority. They do not. The naming proximity would hide a real architectural separation.
+A user who sees `app.kernel` next to `app.action` would reasonably assume both surfaces respect the same authority. They do not. The naming proximity would hide a real architectural separation.
 
 The explicit `@manifesto-ai/sdk/extensions` import signals "you are now leaving the active runtime's law boundary and operating on hypothetical state." This is the correct cognitive break.
 
@@ -1159,22 +1277,22 @@ The explicit `@manifesto-ai/sdk/extensions` import signals "you are now leaving 
 | `getSnapshot()`                       | `snapshot()`                                               |
 | `getCanonicalSnapshot()`              | `inspect.canonicalSnapshot()`                              |
 | `getSchemaGraph()`                    | `inspect.graph()`                                          |
-| `getActionMetadata(name)`             | `inspect.action(name)` or `actions.x.info()`               |
+| `getActionMetadata(name)`             | `inspect.action(name)` or `action.x.info()`                |
 | `getAvailableActions()`               | `inspect.availableActions()`                               |
-| `isActionAvailable(name)`             | `actions.x.available()`                                    |
-| `createIntent(MEL.actions.x, input)`  | `actions.x.bind(input).intent()`                           |
-| `getIntentBlockers(intent)`           | `actions.x.check(input).blockers`                          |
-| `isIntentDispatchable(intent)`        | `actions.x.check(input).ok`                                |
-| `whyNot(intent)`                      | `actions.x.check(input)`                                   |
-| `why(intent)`                         | `actions.x.check(input)` or future `explain()`             |
+| `isActionAvailable(name)`             | `action.x.available()`                                     |
+| `createIntent(MEL.actions.x, input)`  | `action.x.bind(input).intent()`                            |
+| `getIntentBlockers(intent)`           | `action.x.check(input).blockers`                           |
+| `isIntentDispatchable(intent)`        | `action.x.check(input).ok`                                 |
+| `whyNot(intent)`                      | `action.x.check(input)`                                    |
+| `why(intent)`                         | `action.x.check(input)` or future `explain()`              |
 | `explainIntent(intent)`               | Deferred — see §21 Open Question 1                         |
-| `simulate(action, ...args)`           | `actions.x.preview(...args)`                               |
-| `simulateIntent(intent)`              | `actions.x.bind(input).preview()`                          |
-| `dispatchAsync(intent)`               | `actions.x.submit(input)` on base runtime                  |
-| `dispatchAsyncWithReport(intent)`     | `actions.x.submit(input)` result `report` field            |
-| `commitAsync(intent)`                 | `actions.x.submit(input)` on lineage runtime               |
-| `commitAsyncWithReport(intent)`       | `actions.x.submit(input)` result `report` field            |
-| `proposeAsync(intent)`                | `actions.x.submit(input)` on governed runtime              |
+| `simulate(action, ...args)`           | `action.x.preview(...args)`                                |
+| `simulateIntent(intent)`              | `action.x.bind(input).preview()`                           |
+| `dispatchAsync(intent)`               | `action.x.submit(input)` on base runtime                   |
+| `dispatchAsyncWithReport(intent)`     | `action.x.submit(input)` result `report` field             |
+| `commitAsync(intent)`                 | `action.x.submit(input)` on lineage runtime                |
+| `commitAsyncWithReport(intent)`       | `action.x.submit(input)` result `report` field             |
+| `proposeAsync(intent)`                | `action.x.submit(input)` on governed runtime               |
 | `waitForProposal(id)`                 | `submission.waitForSettlement()`                           |
 | `waitForProposalWithReport(id)`       | `submission.waitForSettlement()` result `report` field     |
 | `subscribe(selector, listener)`       | `observe.state(selector, listener)`                        |
@@ -1234,11 +1352,11 @@ This ADR does NOT:
 | `preview()` hides Core failure | SDK-PREVIEW-5 / 6; `admitted: true` does NOT imply success |
 | `check()` over-evaluates dispatchability | SDK-ADMISSION-1~4 enforce first-failing-layer ordering |
 | Invalid input still exposes an `Intent` | `BoundAction.intent()` returns `null` on invalid input (§6.1) |
-| Action name collision in `actions.*` | SDK-ROOT-1~3; `action(name)` collision-safe accessor |
+| Reserved or hazardous action name reaches runtime | SDK-ROOT-1~3; reserved public action names fail fast before activation |
 | Result union too wide for callers | `SubmitResultFor<TMode>` narrows by mode; SDK-SUBMIT-11 enforces narrowing on generic-mode callers |
 | Event naming drifts by runtime mode | §11.1 fixes `submission:*` taxonomy as primary |
 | `inspect` becomes a dumping ground | Root minimal; new inspect APIs require named subsections + SPEC ownership |
-| Codegen does not match v5 surface | PR-3 codegen update specifically generates `actions.x` typed handles |
+| Codegen does not match v5 surface | PR-3 codegen update specifically generates `action.x` typed handles |
 | Long-running agents use stale capability tokens | SDK-SUBMIT-2 / 3 require re-check; agent skills reframed accordingly |
 | `result.ok` misread as domain success | SDK-RESULT-1~3 + §9.1.1; PR-8 docs review warns on single-step `if (result.ok)` patterns lacking explicit rationale |
 | ProposalRef lost across process restart / agent handoff | SDK-SUBMIT-15 / 16; ProposalRef is string-serializable and re-attachable through `waitForSettlement(ref)` |
@@ -1261,7 +1379,7 @@ This ADR is NOT a multi-phase deployable rollout. It is a **single coordinated P
 ### PR-2 — Core SDK shape
 
 - `ManifestoApp` v5 root surface.
-- `actions.*` typed property accessor + `action(name)` collision-safe accessor.
+- `action.*` typed property namespace.
 - `ActionHandle` with `info / available / check / preview / submit / bind`.
 - `BoundAction` with method-style `intent()`.
 - `Admission` discriminated union.
@@ -1270,7 +1388,7 @@ This ADR is NOT a multi-phase deployable rollout. It is a **single coordinated P
 
 ### PR-3 — Codegen update
 
-- Codegen emits typed `actions.x` handles (not just action ref symbols).
+- Codegen emits typed `action.x` handles (not just action ref symbols).
 - `ActionInput<TDomain, Name>` and `ActionArgs<TDomain, Name>` types match handle signatures.
 - Domain facade type (`ManifestoDomainShape`) updated to support the new handle surface.
 
@@ -1366,16 +1484,18 @@ This ADR is NOT a multi-phase deployable rollout. It is a **single coordinated P
 - **Type-level governance scoping:** `app.waitForSettlement(ref)` MUST be a compile error on base and lineage runtimes (SDK-ROOT-4).
 - **ProposalRef serialization:** ProposalRef survives a string-serialization round trip and is accepted by `app.waitForSettlement(ref)` after deserialization (SDK-SUBMIT-16). Exact format determined in PR-1 SPEC.
 
-### 19.4 Action collision tests
+### 19.4 Reserved action-name tests
 
-Domains with actions named `then`, `bind`, `constructor`, `inspect`, `snapshot`, `dispose`, or `action` must:
-- Remain accessible through `app.action("then")`.
-- Not corrupt runtime behavior.
-- Not shadow runtime methods on `actions.*` in ways that break `dispose()` or other root operations.
+Domains declaring reserved or hazardous public action names such as `then`,
+`constructor`, `prototype`, `__proto__`, or any SDK-owned action namespace
+member must fail before activation/codegen output is treated as valid. Valid
+action names remain accessible through `app.action.<name>`. No
+`app.action(name)` semantic fallback exists.
 
 ### 19.5 Observe tests
 
 - `observe.state()` receives terminal projected Snapshot changes only.
+- `state.*.observe()` and `computed.*.observe()` deliver `(next, prev)` with the same semantics as `observe.state()`.
 - `observe.event()` receives lifecycle events.
 - Telemetry does not affect Snapshot identity (referential equality preserved when only telemetry fires).
 - State publish and event telemetry remain on separate channels.
@@ -1389,10 +1509,12 @@ Domains with actions named `then`, `bind`, `constructor`, `inspect`, `snapshot`,
 - `BoundAction.intent()` is nullable.
 - `Admission` discriminated union narrows correctly with `if (result.ok)`.
 - `SubmissionResult` (generic mode) requires narrowing by `mode` field before mode-specific access (SDK-SUBMIT-11).
-- `ManifestoApp<TDomain, "base">` is satisfiable: a concrete object with `actions / observe / inspect / snapshot / action / dispose` properties type-checks against this type. (Regression test against `Record<string, never>` index-signature collision; SDK-ROOT-7.)
+- `ManifestoApp<TDomain, "base">` is satisfiable: a concrete object with `action / state / computed / observe / inspect / snapshot / dispose` properties type-checks against this type. (Regression test against `Record<string, never>` index-signature collision; SDK-ROOT-7.)
 - `ManifestoApp<TDomain, "governance">` exposes `waitForSettlement(ref)`.
 - `ManifestoApp<TDomain, "base">` and `ManifestoApp<TDomain, "lineage">` do NOT expose `waitForSettlement(ref)` at the type level (SDK-ROOT-4).
 - A generic helper `<TMode>(app: ManifestoApp<TDomain, TMode>)` with `TMode = "base" | "governance"` does NOT see `waitForSettlement(ref)` on `app` without first narrowing TMode to literal `"governance"` (SDK-ROOT-6 non-distributive intersection).
+- `state.*.value()` and `computed.*.value()` infer exact field value types.
+- `state.*` and `computed.*` handles do NOT expose write verbs at the type level (SDK-READ-5).
 
 ### 19.7 Cross-decorator authority tests
 
@@ -1419,7 +1541,7 @@ Domains with actions named `then`, `bind`, `constructor`, `inspect`, `snapshot`,
 
 This ADR is implemented when ALL of the following hold:
 
-1. `ManifestoApp` v5 root surface exists with `snapshot()`, `actions.*`, `action(name)`, `observe.*`, `inspect.*`, `dispose()`.
+1. `ManifestoApp` v5 root surface exists with `snapshot()`, `action.*`, `state.*`, `computed.*`, `observe.*`, `inspect.*`, `dispose()`.
 2. `ActionHandle` exposes `info`, `available`, `check`, `preview`, `submit`, `bind`.
 3. `BoundAction` exposes `check`, `preview`, `submit`, and method-style `intent()` returning nullable `Intent`.
 4. `check()` returns the `Admission` discriminated union with first-failing-layer semantics (SDK-ADMISSION-1~4).
@@ -1434,8 +1556,8 @@ This ADR is implemented when ALL of the following hold:
 13. `submission:*` and `proposal:*` event taxonomies are implemented.
 14. `inspect.canonicalSnapshot()`, `inspect.graph()`, `inspect.action()`, `inspect.availableActions()`, `inspect.schemaHash()` are implemented.
 15. Extension kernel remains under `@manifesto-ai/sdk/extensions` (SDK-EXT-1~4).
-16. Action-name collision tests pass for reserved JS names and runtime-reserved names (SDK-ROOT-1~3).
-17. Codegen emits typed `actions.x` handles matching `ActionHandle` shape.
+16. Reserved action-name tests fail fast for JavaScript prototype / thenable hazards and SDK-owned action namespace members (SDK-ROOT-1~3).
+17. Codegen emits typed `action.x` handles matching `ActionHandle` shape.
 18. v3 public APIs `getSnapshot`, `getCanonicalSnapshot`, `getSchemaGraph`, `getActionMetadata`, `getAvailableActions`, `isActionAvailable`, `isIntentDispatchable`, `getIntentBlockers`, `why`, `whyNot`, `explainIntent`, `simulate`, `simulateIntent`, `dispatchAsync*`, `commitAsync*`, `proposeAsync`, `waitForProposal*`, `subscribe`, `on` are removed from the canonical public surface (compat treatment per PR-1 policy).
 19. AST codemod handles the §14 mapping table.
 20. Migration guide published.
@@ -1446,6 +1568,7 @@ This ADR is implemented when ALL of the following hold:
 25. Core compute status → `ExecutionOutcome.kind` mapping is implemented per SDK-OUTCOME-1~3 (`complete → ok`, `halted → stop`, `error → fail`). Pending status is handled exclusively through `GovernanceSubmissionResult.status: "pending"` (§9.2.2), not through `ExecutionOutcome`.
 26. ProposalRef durability is implemented via GovernanceSettlementSurface (§4.1): `app.waitForSettlement(ref)` works on governance runtimes after process restart and agent handoff (SDK-SUBMIT-15, SDK-ROOT-5). Base and lineage runtimes do NOT expose this method at the type level (SDK-ROOT-4).
 27. ProposalRef survives a string-serialization round trip and is stable across runtime restarts (SDK-SUBMIT-16). Exact serialization format resolved in PR-1 SPEC.
+28. Projected read handles exist for top-level state and computed fields; `value()` and `observe((next, prev) => ...)` are typed and read-only (SDK-READ-1~7).
 
 ---
 
@@ -1469,11 +1592,14 @@ Are v3 APIs removed entirely in v5, or moved to `@manifesto-ai/sdk/compat-v4`?
 
 **Disposition:** Resolved in PR-1. Default position: full removal at v5, no compat package, given bus factor = 1 and Codex as sole material external user. If compat is required, it lives at `@manifesto-ai/sdk/compat-v4` and is documented as deprecated-on-arrival.
 
-### 21.4 Codegen output for both `actions.x` and `action("x")`
+### 21.4 Codegen output for static `action.x` only
 
-Should codegen generate both property-accessor paths (`actions.x`) and typed-helper paths (`action("x")` typed return)?
+Should codegen generate dynamic helper paths in addition to static
+property-accessor paths (`action.x`)?
 
-**Disposition:** Yes. Both must work for non-colliding names; only `action("x")` is required to work for colliding names.
+**Disposition:** No. Codegen emits only static `action.x` handles for semantic
+action use. Reserved public action names fail before activation/codegen output
+is treated as valid; there is no dynamic collision-safe semantic helper.
 
 ### 21.5 Re-check cadence guidance
 
@@ -1582,6 +1708,17 @@ The grammar — `info / available / check / preview / submit` — is the surface
   - **Added SDK-ROOT-6** (mandates the non-distributive conditional form) and **SDK-ROOT-7** (forbids `Record<string, never>` in the empty-surface position).
   - **Added §19.6 type tests** for: (a) `ManifestoApp<TDomain, "base">` satisfiability — regression test against the `Record<string, never>` collision; (b) base/lineage NOT exposing `waitForSettlement(ref)`; (c) generic-helper safety — union-mode `TMode` does not see governance methods without explicit literal-narrowing.
   - **Lesson recorded:** the revision-by-revision evolution of this ADR has surfaced a consistent pattern. Each revision tightened one layer but left a deeper layer unchecked: r4 added rules without scenario walk-through; r5 corrected scenario reachability but didn't propagate to type definitions; r6 added type definitions but didn't walk through TypeScript semantics; r7 corrected TypeScript semantics. The general principle: when integrating any normative change, the integration MUST walk through (a) the scenario it defends against, (b) reachability from concrete code, AND (c) the language-level semantics of the types/syntax used. Skipping any of these layers leaves a silent gap detectable only by external cross-review. This is normal evolution of a non-trivial spec; the pattern is recorded here so future revisions can pre-empt it.
+- **revision 8 (2026-05-07):** Projected read handle surface amendment.
+  - **Added `state.*` and `computed.*` read handles** to the activated `ManifestoApp` root surface. These handles provide typed `value()` and `observe((next, prev) => ...)` methods for top-level projected state and computed fields.
+  - **Added §4.3 and SDK-READ-1~7** to keep the new surface read-only, projected-only, top-level-only, and semantically equivalent to `snapshot()` / `observe.state()` for field reads.
+  - **Clarified SDK-SNAPSHOT-2**: `snapshot()` remains the only root-level method that returns the whole projected Snapshot; field-level `state.*.value()` and `computed.*.value()` are not whole-Snapshot read methods.
+  - **Updated §19 / §20 tests and acceptance criteria** to cover read handle type inference, `(next, prev)` observer semantics, and absence of write verbs.
+- **revision 9 (2026-05-07):** Static action namespace hard cut.
+  - **Replaced split action entrypoints** (`actions.*` + `action(name)`) with a single static `action.*` namespace, parallel to `state.*` and `computed.*`.
+  - **Removed dynamic/collision-safe semantic action access** from the canonical v5 runtime grammar. Tooling discovery remains under `inspect.*`; semantic writes remain routed through typed `action.*` handles.
+  - **Added reserved public action-name rejection**: action names that cannot be safely or clearly exposed as `action.<name>` fail before runtime activation/codegen output is treated as valid.
+  - **Updated tests, acceptance criteria, and codegen guidance** from collision access to reserved-name rejection.
+  - **Boundary recorded:** this amendment does not create `app.state.*.set()`, deep dynamic path observers, or any canonical-substrate read. All semantic mutation continues through `action.*.submit()` at the active runtime law boundary.
 
 ## Appendix B — Codex M0–M3 Usage Report Cross-Reference
 

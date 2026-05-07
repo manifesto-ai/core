@@ -233,7 +233,6 @@ computed filtered = effect array.filter({ source: items, where: $item.active, in
 // ✅ FIXED: Move to action
 action filterItems() {
   once(filtering) {
-    patch filtering = $runtime.intent.id
     effect array.filter({
       source: items,
       where: eq($item.active, true),
@@ -274,7 +273,6 @@ effect array.map({
 action loadTeamData() {
   // Step 1: Flatten all members
   once(step1) {
-    patch step1 = $runtime.intent.id
     effect array.flatMap({
       source: teams,
       select: $item.members,
@@ -284,7 +282,6 @@ action loadTeamData() {
 
   // Step 2: Filter active members
   once(step2) when isNotNull(allMembers) {
-    patch step2 = $runtime.intent.id
     effect array.filter({
       source: allMembers,
       where: eq($item.active, true),
@@ -305,7 +302,7 @@ action fetchData() {
 }
 ```
 
-**Error:** `SemanticError: Effect must be inside 'when' or 'once' guard.`
+**Error:** `SemanticError: Effect must be inside a guard (when, once, or onceIntent).`
 
 **Rule violated:** All effects must be guarded for re-entry safety.
 
@@ -313,7 +310,6 @@ action fetchData() {
 // ✅ FIXED: Add guard
 action fetchData() {
   once(fetching) {
-    patch fetching = $runtime.intent.id
     effect api.fetch({ url: "/data", into: result })
   }
 }
@@ -345,26 +341,28 @@ when neq(count, 0) { ... }
 
 ---
 
-### Error: Missing marker patch in once
+### Error: Manually writing the `once()` marker
 
 ```mel
 // ❌ BROKEN
 action increment() {
   once(lastIntent) {
-    patch count = add(count, 1)    // Missing marker patch!
+    patch count = add(count, 1)
   }
 }
 ```
 
-**Error:** `SemanticError: once() block must have 'patch lastIntent = $runtime.intent.id' as first statement.`
+**Problem:** The compiler inserts the marker write for `once(lastIntent)` before
+the user-authored body. Writing the same marker manually is redundant and can
+make the action harder to reason about.
 
-**Rule violated:** `once(marker)` requires marker patch as first statement.
+**Rule violated:** `once(marker)` owns the marker write. Use `onceIntent` when
+you do not need a domain marker field at all.
 
 ```mel
-// ✅ FIXED: Add marker patch first
+// ✅ FIXED: Let once() insert the marker write
 action increment() {
   once(lastIntent) {
-    patch lastIntent = $runtime.intent.id    // MUST be first
     patch count = add(count, 1)
   }
 }
@@ -372,27 +370,28 @@ action increment() {
 
 ---
 
-### Error: Wrong marker in once
+### Error: Domain guard reimplements `once()`
 
 ```mel
 // ❌ BROKEN
 action increment() {
-  once(lastIntent) {
-    patch differentMarker = $runtime.intent.id   // Wrong marker!
+  when neq(lastIntent, $runtime.intent.id) {
     patch count = add(count, 1)
   }
 }
 ```
 
-**Error:** `SemanticError: once(lastIntent) block must patch 'lastIntent', not 'differentMarker'.`
+**Problem:** This hand-written guard is valid syntax, but it duplicates the
+`once(lastIntent)` lowering and makes the idempotency convention easy to get
+wrong.
 
-**Rule violated:** The patched marker must match the `once()` parameter.
+**Rule violated:** prefer the declarative guard construct over manually spelling
+out the same runtime intent comparison.
 
 ```mel
-// ✅ FIXED: Patch the correct marker
+// ✅ FIXED: Use once() for per-intent marker semantics
 action increment() {
   once(lastIntent) {
-    patch lastIntent = $runtime.intent.id    // Same as once() parameter
     patch count = add(count, 1)
   }
 }
@@ -409,7 +408,7 @@ action reset() {
 }
 ```
 
-**Error:** `SemanticError: Patch must be inside 'when' or 'once' guard.`
+**Error:** `SemanticError: Patch must be inside a guard (when, once, or onceIntent).`
 
 **Rule violated:** All mutations must be guarded.
 
@@ -433,7 +432,7 @@ action validate() {
 }
 ```
 
-**Error:** `SemanticError: fail must be inside 'when' or 'once' guard.`
+**Error:** `SemanticError: fail must be inside a guard (when, once, or onceIntent).`
 
 **Rule violated:** `fail` and `stop` must be guarded.
 
@@ -468,7 +467,6 @@ when eq(len(items), 0) { ... }           // Check length
 
 action loadTaskIds() {
   once(loadingKeys) {
-    patch loadingKeys = $runtime.intent.id
     effect record.keys({ source: tasks, into: taskIds })
   }
 }
@@ -654,7 +652,6 @@ state {
 
 action initialize() {
   once(init) {
-    patch init = $runtime.intent.id
     patch id = $runtime.random.uuid
     patch createdAt = $runtime.time.timestamp
   }
@@ -858,7 +855,6 @@ computed now = Date.now()
 // ✅ FIXED: Use MEL builtins or effects
 action loadKeys() {
   once(loading) {
-    patch loading = $runtime.intent.id
     effect record.keys({ source: user, into: userKeys })
   }
 }
@@ -949,7 +945,6 @@ action processAll() {
 // ✅ FIXED: Use effect for iteration
 action processAll() {
   once(processing) {
-    patch processing = $runtime.intent.id
     effect array.map({
       source: items,
       select: { processed: true, value: $item },
@@ -991,7 +986,7 @@ computed safeName = coalesce(profile.name, "unknown")
 | Aggregation | Nested calls in sum/min/max | Prepare data with effect first |
 | Bounded sugar shape | Wrong arity or malformed `match` / `argmax` / `argmin` | Use the fixed function forms with inline tuple literals |
 | Effect in computed | Thinking computed can do IO | Move to action |
-| Unguarded statement | Missing when/once | Add guard |
+| Unguarded statement | Missing `when`, `once`, or `onceIntent` | Add guard |
 | Non-boolean condition | Truthy coercion assumption | Use explicit comparison |
 | Collection comparison | Using eq on arrays/records | Check len() or properties |
 | Method call | JavaScript habits | Use function calls |

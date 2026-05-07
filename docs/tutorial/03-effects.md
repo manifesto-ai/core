@@ -78,7 +78,7 @@ Create `effects.ts`:
 import { defineEffects } from "@manifesto-ai/sdk/effects";
 import type { UserProfileDomain } from "./user-profile-types";
 
-export const effects = defineEffects<UserProfileDomain>(({ set, unset }, MEL) => ({
+export const effects = defineEffects<UserProfileDomain>(({ set, unset }, refs) => ({
   "api.fetchUser": async (params, ctx) => {
     const { id } = params as { id: string };
 
@@ -91,15 +91,15 @@ export const effects = defineEffects<UserProfileDomain>(({ set, unset }, MEL) =>
       const user = (await response.json()) as { id: string; name: string };
 
       return [
-        set(MEL.state.user, user),
-        set(MEL.state.loading, false),
-        unset(MEL.state.error),
+        set(refs.state.user, user),
+        set(refs.state.loading, false),
+        unset(refs.state.error),
       ];
     } catch (error) {
       return [
-        set(MEL.state.loading, false),
+        set(refs.state.loading, false),
         set(
-          MEL.state.error,
+          refs.state.error,
           error instanceof Error ? error.message : "Unknown error",
         ),
       ];
@@ -140,7 +140,7 @@ app.observe.state(
 );
 
 async function run() {
-  await app.actions.fetchUser.submit("123");
+  await app.action.fetchUser.submit("123");
 
   const snapshot = app.snapshot();
   console.log("Has user:", snapshot.computed["hasUser"]);

@@ -34,7 +34,7 @@ If you only need Snapshot reads and direct action submission, stay on the SDK pa
 ## The Default Shape
 
 ```text
-External system -> activate() -> actions.x.submit()
+External system -> activate() -> action.x.submit()
                                      -> observe.state()/observe.event()/snapshot()
 ```
 

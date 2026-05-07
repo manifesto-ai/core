@@ -4,39 +4,40 @@
 
 ## Action Candidates
 
-Use typed action handles from `app.actions.*`:
+Use typed action handles from `app.action.*`:
 
 ```typescript
-const addTodo = app.actions.addTodo;
+const addTodo = app.action.addTodo;
 ```
 
 Do not use raw action-name strings as your app-facing write contract. Use
-`app.action(name)` only when you need dynamic lookup from a known action name.
+`inspect.action(name)` and `inspect.availableActions()` only for read-only
+metadata or discovery. Semantic writes stay on `app.action.*`.
 
 ## Binding Forms
 
 Zero-parameter action:
 
 ```typescript
-const result = await app.actions.clearCompleted.submit();
+const result = await app.action.clearCompleted.submit();
 ```
 
 Single-parameter action:
 
 ```typescript
-const result = await app.actions.addTodo.submit("Write API docs");
+const result = await app.action.addTodo.submit("Write API docs");
 ```
 
 Multi-parameter action:
 
 ```typescript
-const result = await app.actions.moveTodo.submit("todo-1", "done");
+const result = await app.action.moveTodo.submit("todo-1", "done");
 ```
 
 Object-shaped action input:
 
 ```typescript
-const result = await app.actions.moveTodo.submit({
+const result = await app.action.moveTodo.submit({
   id: "todo-1",
   column: "done",
 });
@@ -46,7 +47,7 @@ const result = await app.actions.moveTodo.submit({
 previews, or submission:
 
 ```typescript
-const candidate = app.actions.addTodo.bind("Write API docs");
+const candidate = app.action.addTodo.bind("Write API docs");
 
 const admission = candidate.check();
 const preview = candidate.preview();
@@ -58,7 +59,7 @@ const result = await candidate.submit();
 `submit()` resolves with a mode-specific result union.
 
 ```typescript
-const result = await app.actions.addTodo.submit("Write API docs");
+const result = await app.action.addTodo.submit("Write API docs");
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.todos);
@@ -71,13 +72,13 @@ value from the action.
 Use an execution view when tooling does not need the additive report payload:
 
 ```typescript
-const result = await app.with({ report: "none" }).actions.addTodo.submit("Write API docs");
+const result = await app.with({ report: "none" }).action.addTodo.submit("Write API docs");
 ```
 
 ## Before Submit
 
 ```typescript
-const candidate = app.actions.addTodo.bind("");
+const candidate = app.action.addTodo.bind("");
 const admission = candidate.check();
 
 if (!admission.ok) {
@@ -85,7 +86,7 @@ if (!admission.ok) {
 } else {
   const preview = app
     .with({ diagnostics: "summary" })
-    .actions.addTodo
+    .action.addTodo
     .bind("")
     .preview();
   console.log(preview.admitted ? preview.changes : preview.admission.code);
@@ -99,7 +100,7 @@ if (!admission.ok) {
 bridges. It is not the primary app path.
 
 ```typescript
-const rawIntent = app.actions.addTodo.bind("Write API docs").intent();
+const rawIntent = app.action.addTodo.bind("Write API docs").intent();
 ```
 
 Reach for this only when an extension, protocol bridge, or test needs the

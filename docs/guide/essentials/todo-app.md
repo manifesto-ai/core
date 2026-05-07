@@ -37,7 +37,7 @@ domain TodoApp {
 ```typescript
 export const app = createManifesto(TodoAppSchema, {}).activate();
 
-await app.actions.addTodo.submit("Write a domain", crypto.randomUUID());
+await app.action.addTodo.submit("Write a domain", crypto.randomUUID());
 ```
 
 ## Presentation

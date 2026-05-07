@@ -69,8 +69,9 @@ The v5 branch adopts ADR-026 as the current SDK public-surface baseline:
 - `createManifesto(schema, effects)` remains the base SDK entrypoint and returns
   a composable manifesto, not a live runtime.
 - `activate()` opens the runtime and returns a `ManifestoApp`.
-- The canonical root surface is `snapshot()`, `actions`, `action(name)`,
-  `observe`, `inspect`, and `dispose()`.
+- The canonical root surface is `snapshot()`, `context()`, `injectContext()`,
+  `updateContext()`, `with(view)`, `action`, `state`, `computed`, `observe`,
+  `inspect`, and `dispose()`.
 - The canonical action ladder is `info()`, `available()`, `check()`,
   `preview()`, `submit()`, and `bind()`.
 - `submit()` is a law-aware ingress verb, not a promise of direct execution.
@@ -160,8 +161,11 @@ Current contract highlights:
 - `createManifesto()` returns a composable manifesto, not an already-running instance.
 - Runtime verbs appear only after `activate()`.
 - `snapshot()` is the projected app-facing read surface.
-- `actions.*` exposes typed action-candidate handles.
-- `action(name)` is the collision-safe accessor for every declared action name.
+- `action.*` exposes typed action-candidate handles.
+- `actions.*` and `app.action(name)` are not canonical v5 semantic action
+  accessors.
+- Action names `then`, `constructor`, `prototype`, and `__proto__` are rejected
+  before activation/codegen output is treated as valid.
 - `ActionHandle.info()` returns static action metadata and resolved annotations.
 - `ActionHandle.available()` is the input-free coarse action-family query.
 - `ActionHandle.check(input)` returns first-failing admission state.
@@ -264,8 +268,10 @@ Current contract highlights:
 - Generated facades MUST keep platform/tooling bookkeeping and runtime expression facts out of domain state by default; owner bookkeeping belongs under `snapshot.namespaces`, while ADR-027 runtime facts come from `Context`.
 - `state.fieldTypes`, `action.inputType`, and `action.params` are the preferred current typing seams when present.
 - `state.fields` and `action.input` remain compatibility fallbacks.
-- SDK v5 facade types align with `ManifestoDomainShape`, `ActionHandle`, `ActionInput`, `ActionArgs`, `actions.*`, and collision-safe `action(name)`.
-- Actions named `then`, `bind`, `constructor`, `inspect`, `snapshot`, `dispose`, or `action` must remain typed through `action(name)`.
+- SDK v5 facade types align with `ManifestoDomainShape`, `ActionHandle`,
+  `ActionInput`, `ActionArgs`, and `action.*`.
+- Actions named `then`, `constructor`, `prototype`, or `__proto__` must be
+  rejected before generated facade output is treated as valid.
 - Codegen does not own runtime authority, execute effects, evaluate governance policy, seal lineage records, or generate canonical v5 lower-authority write backdoors such as root `dispatchAsync`, `commitAsync`, or `proposeAsync`.
 
 ## Lineage and Governance Contract

@@ -5,7 +5,7 @@
 > **Current Contract Note:** This guide follows the current SDK v5 living
 > contract. `createManifesto()` returns a composable manifesto, runtime verbs
 > appear only after `activate()`, and the app-facing write path is
-> `actions.<name>.submit(...)`.
+> `action.<name>.submit(...)`.
 
 ## 1. Build The Activation Lifecycle
 
@@ -15,13 +15,13 @@ import { createManifesto } from "@manifesto-ai/sdk";
 const manifesto = createManifesto<CounterDomain>(domainSchema, {});
 const app = manifesto.activate();
 
-const admission = app.actions.increment.check();
-const preview = app.actions.increment.preview();
-const result = await app.actions.increment.submit();
+const admission = app.action.increment.check();
+const preview = app.action.increment.preview();
+const result = await app.action.increment.submit();
 
-const canIncrement = app.actions.increment.available();
+const canIncrement = app.action.increment.available();
 const available = app.inspect.availableActions();
-const metadata = app.actions.increment.info();
+const metadata = app.action.increment.info();
 const snapshot = app.snapshot();
 const canonical = app.inspect.canonicalSnapshot();
 const graph = app.inspect.graph();
@@ -31,7 +31,7 @@ This is the normal SDK lifecycle:
 
 1. create one composable manifesto
 2. activate it once
-3. submit typed action candidates from `actions.*`
+3. submit typed action candidates from `action.*`
 4. optionally query admission, availability, metadata, or preview
 5. read the next terminal Snapshot
 
@@ -47,18 +47,18 @@ persistence-aware or infrastructure-aware debugging.
 ## 2. Bind Typed Action Candidates
 
 ```typescript
-await app.actions.increment.submit();
-await app.actions.add.submit(3);
-await app.actions.addTodo.submit("Review docs", "todo-1");
-await app.actions.configure.submit({ enabled: true, label: "Review" });
+await app.action.increment.submit();
+await app.action.add.submit(3);
+await app.action.addTodo.submit("Review docs", "todo-1");
+await app.action.configure.submit({ enabled: true, label: "Review" });
 ```
 
-`actions.*` is typed from the activated runtime's domain surface.
+`action.*` is typed from the activated runtime's domain surface.
 
 Use `bind(...input)` when a tool or UI wants to reuse the same candidate:
 
 ```typescript
-const candidate = app.actions.addTodo.bind("Review docs", "todo-1");
+const candidate = app.action.addTodo.bind("Review docs", "todo-1");
 
 candidate.check();
 candidate.preview();
@@ -79,7 +79,7 @@ Treat that as a low-level escape hatch, not as the ordinary app path.
 
 ```typescript
 const allAvailable = app.inspect.availableActions();
-const addTodo = app.actions.addTodo.info();
+const addTodo = app.action.addTodo.info();
 const same = app.inspect.action("addTodo");
 
 console.log(addTodo.parameters);
@@ -90,15 +90,15 @@ console.log(same.annotations);
 Use `info()` or `inspect.action()` when an adapter, model-facing tool, or UI
 needs the public action contract without maintaining a parallel registry.
 
-`actions.x.available()` answers “what is legal right now?”
-`actions.x.check(input)` answers “is this bound candidate admitted?”
+`action.x.available()` answers “what is legal right now?”
+`action.x.check(input)` answers “is this bound candidate admitted?”
 
 ---
 
 ## 4. Preview Outcomes
 
 ```typescript
-const preview = app.with({ diagnostics: "summary" }).actions.increment.preview();
+const preview = app.with({ diagnostics: "summary" }).action.increment.preview();
 
 if (preview.admitted) {
   console.log(preview.after);
@@ -123,7 +123,7 @@ const tenantApp = app.with({
   report: "full",
 });
 
-const result = await tenantApp.actions.increment.submit();
+const result = await tenantApp.action.increment.submit();
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state);
@@ -203,7 +203,7 @@ import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
 
 const ext = getExtensionKernel(app);
 const root = ext.getCanonicalSnapshot();
-const intent = app.actions.increment.bind().intent();
+const intent = app.action.increment.bind().intent();
 
 if (intent) {
   const simulated = ext.simulateSync(root, intent);

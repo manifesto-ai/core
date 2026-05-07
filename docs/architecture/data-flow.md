@@ -12,7 +12,7 @@ In the default path, a caller submits an action candidate through the SDK:
 caller
   -> createManifesto()
   -> activate()
-  -> app.actions.<name>.submit(input?)
+  -> app.action.<name>.submit(input?)
   -> Host
   -> Core
   -> terminal Snapshot
@@ -27,7 +27,7 @@ That is the core loop a new developer should keep in mind.
 
 ### 1. The caller activates the runtime and binds an action candidate
 
-Usually with `app.actions.someAction.submit(...args)` or `app.actions.someAction.submit({ ...params })`, depending on the action shape.
+Usually with `app.action.someAction.submit(...args)` or `app.action.someAction.submit({ ...params })`, depending on the action shape.
 
 ### 2. SDK submits the work
 
@@ -82,7 +82,7 @@ participant
   -> withLineage()
   -> withGovernance()
   -> activate()
-  -> actions.<name>.submit(input?)
+  -> action.<name>.submit(input?)
   -> governance proposal / authority flow
   -> Host
   -> Core
@@ -97,7 +97,7 @@ That is a deliberate deployment choice, not an implicit part of the basic SDK on
 
 ## What New Developers Should Remember
 
-- `actions.<name>.submit()` submits runtime work
+- `action.<name>.submit()` submits runtime work
 - Snapshot is the visible result
 - Effects still resolve through patches
 - governed composition is optional and explicit

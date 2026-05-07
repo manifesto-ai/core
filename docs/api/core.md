@@ -153,7 +153,6 @@ interface ComputeResult {
   systemDelta: SystemDelta;
   trace: TraceGraph;
   status: "complete" | "pending" | "halted" | "error";
-  requirements?: readonly Requirement[];
 }
 ```
 
@@ -164,6 +163,7 @@ interface ComputeResult {
 - Domain patch paths are rooted at `snapshot.state`.
 - Namespace transitions are rooted at `snapshot.namespaces[namespace]` and are not domain patches.
 - `system/input/computed/meta` are not patch targets.
+- Requirements are declared through `systemDelta.addRequirements`, then read from `snapshot.system.pendingRequirements` after materialization.
 - Hosts apply transition channels in order: domain patches, namespace deltas, then system delta.
 
 ## Direct Compute Fixtures

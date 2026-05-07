@@ -104,12 +104,12 @@ app.observe.state(
 );
 
 async function run() {
-  await app.actions.addTodo.submit(
+  await app.action.addTodo.submit(
     "Learn Manifesto",
     crypto.randomUUID(),
   );
 
-  await app.actions.addTodo.submit(
+  await app.action.addTodo.submit(
     "Ship the first tutorial rewrite",
     crypto.randomUUID(),
   );
@@ -119,12 +119,12 @@ async function run() {
   console.log("Has todos:", snapshot.computed["hasTodos"]);
 
   const firstTodoId = (snapshot.state.todos as Array<{ id: string }>)[0].id;
-  await app.actions.toggleTodo.submit(firstTodoId);
+  await app.action.toggleTodo.submit(firstTodoId);
 
   snapshot = app.snapshot();
   console.log("Completed state:", snapshot.state.todos);
 
-  await app.actions.clearCompleted.submit();
+  await app.action.clearCompleted.submit();
 
   snapshot = app.snapshot();
   console.log("Todos after clearCompleted:", snapshot.state.todos);
@@ -152,7 +152,7 @@ This tutorial subscribes to `totalCount`, not the full snapshot. That keeps the 
 
 ### Action inputs can be positional or object-shaped in app code
 
-`app.actions.addTodo.submit(title, id)` is typed from the MEL action signature. Object-shaped actions use one object argument. The runtime still owns canonical input packing.
+`app.action.addTodo.submit(title, id)` is typed from the MEL action signature. Object-shaped actions use one object argument. The runtime still owns canonical input packing.
 
 ### Actions stay small
 

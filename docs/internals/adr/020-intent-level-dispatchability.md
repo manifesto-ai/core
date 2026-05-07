@@ -7,7 +7,12 @@
 > **Related ADRs:** ADR-017 (Capability Decorator Pattern), ADR-018 (Public Snapshot Boundary)
 > **Related SPECs:** [core-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/core/docs/core-SPEC.md), [sdk-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/sdk/docs/sdk-SPEC.md), [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md)
 
-> **Current Contract Authority:** This ADR is implemented. The current behavior now lives in the owning package specs and current MEL docs. This document remains the architectural decision record and original design rationale.
+> **Current Contract Authority:** This ADR is implemented. The current behavior
+> now lives in the owning package specs and current MEL docs. In v5,
+> dispatchability is surfaced through the action-candidate model
+> (`action.<name>.check/preview/submit`); older `dispatchAsync()` wording below
+> is retained only as historical design rationale unless explicitly mapped to
+> that surface.
 
 ---
 
@@ -28,7 +33,7 @@ isActionAvailable(schema, snapshot, actionName): boolean     // AVAIL-Q-1..7
 getAvailableActions(schema, snapshot): readonly string[]      // AVAIL-Q-5
 ```
 
-The current SDK contract delegates to Core for these reads and checks availability at `dispatchAsync()` dequeue time. `simulate()` throws `ACTION_UNAVAILABLE` for unavailable actions (SIM-7).
+The current SDK contract delegates to Core for these reads and checks availability during action-candidate admission. `preview()` reports `ACTION_UNAVAILABLE` for unavailable actions without mutating the visible snapshot.
 
 This contract is sound. Nothing in this ADR changes it.
 
@@ -100,7 +105,7 @@ action shoot(cellIndex: number)
 | `allowed` / `authorized` / `legal` | Governance collision — `propose` / `approve` / `reject` already own authority semantics |
 | `admissible` | Unfamiliar outside academic contexts |
 | `runnable` / `executable` | Implies Host execution readiness, not semantic legality |
-| **`dispatchable`** | **Adopted.** SDK's canonical execution verb is `dispatchAsync()`. "Is this intent dispatchable?" maps directly to "can I pass this to `dispatchAsync()` and expect semantic admission?" |
+| **`dispatchable`** | **Adopted.** In v5, "Is this intent dispatchable?" maps to "will `action.<name>.check/preview/submit` admit this typed input under current semantic law?" |
 
 ---
 
@@ -216,7 +221,7 @@ This fulfills Manifesto's promise that semantic legality is **readable, not opaq
 
 **Execution semantics update:**
 
-`dispatchAsync()` dequeue-time check is now:
+The action-candidate admission check is now:
 
 | Step | Before adoption | Current contract |
 |------|-----------------|------------------|
@@ -224,10 +229,10 @@ This fulfills Manifesto's promise that semantic legality is **readable, not opaq
 | 2 | — | Check `isIntentDispatchable()` |
 | 3 | Execute via Host | Execute via Host |
 
-If dispatchability fails at dequeue time:
+If dispatchability fails at admission time:
 
-- `dispatchAsync()` MUST reject without mutating the visible snapshot.
-- `dispatchAsync()` MUST emit `dispatch:rejected` with a distinguishable rejection reason.
+- `submit()` MUST reject without mutating the visible snapshot.
+- Runtime events or reports MUST expose a distinguishable rejection reason.
 - The rejection event MUST include a machine-readable code that separates `ACTION_UNAVAILABLE` from `INTENT_NOT_DISPATCHABLE`.
 
 **`simulate()` update:**

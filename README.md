@@ -35,7 +35,7 @@ import CounterMel from "./counter.mel";
 
 const app = createManifesto(CounterMel, {}).activate();
 
-await app.actions.increment.submit();
+await app.action.increment.submit();
 console.log(app.snapshot().state.count); // 1
 ```
 

@@ -67,7 +67,7 @@ studio-cli transition-graph --observations path/to/observations.json --preset pa
 
 ## Important Notes
 
-- Snapshot inspection expects canonical snapshots from `runtime.getCanonicalSnapshot()`.
+- Snapshot inspection expects canonical snapshots from `runtime.inspect.canonicalSnapshot()`.
 - `transition-graph` requires explicit observations and a projection preset unless `--bundle` already contains both.
 - The CLI is thin by design. It delegates bundle loading to `@manifesto-ai/studio-node` and analysis to `@manifesto-ai/studio-core`.
 

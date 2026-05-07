@@ -26,13 +26,13 @@ const app = withGovernance(
 
 Governance requires an explicitly lineage-composed manifesto.
 
-## Write With `actions.<name>.submit()`
+## Write With `action.<name>.submit()`
 
 Governed runtimes intentionally do not expose base-runtime execution verbs such as `dispatchAsync()` or `dispatchAsyncWithReport()`.
 They also omit historical lineage commit verbs, v3 proposal write verbs, raw `createIntent()`, and root `MEL` refs from the app-facing root.
 
 ```typescript
-const pending = await app.actions.addTodo.submit("Review this");
+const pending = await app.action.addTodo.submit("Review this");
 
 if (pending.ok) {
   const settlement = await pending.waitForSettlement();
@@ -86,7 +86,7 @@ The visible Snapshot does not change while a proposal is waiting for human resol
 ## `approve()` and `reject()`
 
 ```typescript
-const pending = await app.actions.addTodo.submit("Review this");
+const pending = await app.action.addTodo.submit("Review this");
 
 if (pending.ok) {
   await app.approve(pending.proposal);

@@ -4,7 +4,7 @@
 
 `@manifesto-ai/governance` is the package that turns a composable manifesto into a governed world. Its canonical public entry is `withGovernance(manifesto, config)`.
 
-> **Current Contract Note:** The current package contract is [docs/governance-SPEC.md](docs/governance-SPEC.md). The v2.0.0 governance spec remains as the historical service-first baseline. The current runtime surface uses governance-mode `actions.<name>.submit(...)` plus `waitForSettlement(ref)`.
+> **Current Contract Note:** The current package contract is [docs/governance-SPEC.md](docs/governance-SPEC.md). The v2.0.0 governance spec remains as the historical service-first baseline. The current runtime surface uses governance-mode `action.<name>.submit(...)` plus `waitForSettlement(ref)`.
 
 ## Canonical Runtime Path
 
@@ -31,7 +31,7 @@ const governed = withGovernance(
   },
 ).activate();
 
-const pending = await governed.actions.increment.submit();
+const pending = await governed.action.increment.submit();
 const settlement = pending.ok
   ? await pending.waitForSettlement()
   : pending;
@@ -50,7 +50,7 @@ const settlement = pending.ok
 ## What Changes After Governance Activation
 
 - direct root write verbs from earlier runtimes no longer exist
-- the canonical state-change path becomes `actions.x.submit() -> approve()/reject() -> waitForSettlement()`
+- the canonical state-change path becomes `action.x.submit() -> approve()/reject() -> waitForSettlement()`
 - `waitForSettlement()` is an observation helper, not a state-change verb
 - lineage must be composed before governance activation
 - visible snapshots publish only after approved execution seals successfully

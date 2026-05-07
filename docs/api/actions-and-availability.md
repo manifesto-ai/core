@@ -7,8 +7,7 @@
 The v5 app-facing surface exposes actions through typed handles:
 
 ```typescript
-const increment = app.actions.increment;
-const dynamic = app.action("increment");
+const increment = app.action.increment;
 ```
 
 Each handle supports:
@@ -24,7 +23,7 @@ Execution view settings such as `context`, `report`, and `diagnostics` are
 selected before action handle use:
 
 ```typescript
-await app.with({ report: "summary" }).actions.increment.submit();
+await app.with({ report: "summary" }).action.increment.submit();
 ```
 
 ## Coarse Availability
@@ -32,8 +31,8 @@ await app.with({ report: "summary" }).actions.increment.submit();
 `available()` checks the action-family gate in the current visible Snapshot.
 
 ```typescript
-if (app.actions.decrement.available()) {
-  await app.actions.decrement.submit();
+if (app.action.decrement.available()) {
+  await app.action.decrement.submit();
 }
 ```
 
@@ -48,7 +47,7 @@ const available = app.inspect.availableActions();
 ```
 
 Treat returned action info as observational reads, not capability tokens. Base,
-lineage, and governed `actions.<name>.submit()` calls still re-check legality
+lineage, and governed `action.<name>.submit()` calls still re-check legality
 against the then-current runtime state.
 
 ## Action Metadata
@@ -56,7 +55,7 @@ against the then-current runtime state.
 Reads the public action contract from the activated schema.
 
 ```typescript
-const addTodo = app.actions.addTodo.info();
+const addTodo = app.action.addTodo.info();
 const same = app.inspect.action("addTodo");
 
 console.log(addTodo.name);
@@ -70,7 +69,7 @@ Availability does not know action input. Use `check()` when the candidate input
 matters.
 
 ```typescript
-const admission = app.actions.spend.check({ amount: 20 });
+const admission = app.action.spend.check({ amount: 20 });
 
 if (!admission.ok) {
   console.log(admission.code);
@@ -86,10 +85,10 @@ Legality order is stable:
 
 The intended public caller ladder is:
 
-1. `actions.<name>.available()` or `inspect.availableActions()`
-2. `actions.<name>.check(...input)`
-3. `actions.<name>.preview(...input)`
-4. `actions.<name>.submit(...input)`
+1. `action.<name>.available()` or `inspect.availableActions()`
+2. `action.<name>.check(...input)`
+3. `action.<name>.preview(...input)`
+4. `action.<name>.submit(...input)`
 
 ## Agent Pattern
 

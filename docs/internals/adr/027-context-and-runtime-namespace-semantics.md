@@ -266,14 +266,14 @@ const app = createManifesto(schema, effects, {
   },
 }).activate();
 
-await app.actions.addTodo.submit({ title: "Ship v5" });
+await app.action.addTodo.submit({ title: "Ship v5" });
 
 app.injectContext({
   tenantId: "acme",
   locale: "en-US",
 });
 
-await app.actions.addTodo.submit({ title: "Ship v5 again" });
+await app.action.addTodo.submit({ title: "Ship v5 again" });
 
 const requestApp = app.with({
   context: {
@@ -282,7 +282,7 @@ const requestApp = app.with({
   },
 });
 
-await requestApp.actions.addTodo.submit({ title: "Ship v5 for another tenant" });
+await requestApp.action.addTodo.submit({ title: "Ship v5 for another tenant" });
 
 await app
   .with({
@@ -293,7 +293,7 @@ await app
     report: "full",
     diagnostics: "trace",
   })
-  .actions.addTodo
+  .action.addTodo
   .bind({ title: "Ship v5 with a report" })
   .submit();
 ```
@@ -301,10 +301,10 @@ await app
 The canonical SDK order is:
 
 ```ts
-app.with(view).actions.actionName.bind(input).preview();
-app.with(view).actions.actionName.bind(input).submit();
-app.with(view).actions.actionName.preview(input);
-app.with(view).actions.actionName.submit(input);
+app.with(view).action.actionName.bind(input).preview();
+app.with(view).action.actionName.bind(input).submit();
+app.with(view).action.actionName.preview(input);
+app.with(view).action.actionName.submit(input);
 ```
 
 The `with(view)` descriptor may include context and projection controls:
@@ -329,12 +329,12 @@ app.injectContext({
   getId: () => `id-${count++}`,
 });
 
-await app.actions.addTodo.submit(
+await app.action.addTodo.submit(
   { title: "Ship v5" },
   { context: { tenantId: "acme", locale: "ko-KR" } }
 );
 
-await app.actions.addTodo.submit(
+await app.action.addTodo.submit(
   { title: "Ship v5" },
   { __kind: "SubmitOptions", report: "full" }
 );
@@ -593,7 +593,7 @@ app.injectContext({
   locale: "en-US",
 });
 
-await app.actions.addTodo.submit({ title: "Ship v5" });
+await app.action.addTodo.submit({ title: "Ship v5" });
 
 const requestApp = app.with({
   context: {
@@ -602,7 +602,7 @@ const requestApp = app.with({
   },
 });
 
-await requestApp.actions.addTodo.submit({ title: "Ship v5 for another tenant" });
+await requestApp.action.addTodo.submit({ title: "Ship v5 for another tenant" });
 ```
 
 The SDK values above are flat user external context values. The root runtime's

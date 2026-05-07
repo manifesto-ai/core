@@ -9,8 +9,7 @@ The base runtime returned by `createManifesto(...).activate()` exposes:
 | API | Use For |
 |-----|---------|
 | `snapshot()` | Read projected app-facing state |
-| `actions.<name>` | Use typed action handles for `info`, `available`, `check`, `preview`, `submit`, and `bind` |
-| `action(name)` | Access action handles when action names collide with root members |
+| `action.<name>` | Use typed action handles for `info`, `available`, `check`, `preview`, `submit`, and `bind` |
 | `observe.state(selector, listener)` | React to selected projected Snapshot values |
 | `observe.event(event, handler)` | Subscribe to compact `submission:*` lifecycle telemetry |
 | `inspect.graph()` | Inspect the projected schema graph |
@@ -25,7 +24,7 @@ The base runtime returned by `createManifesto(...).activate()` exposes:
 ```typescript
 const app = createManifesto(CounterSchema, {}).activate();
 
-const result = await app.actions.increment.submit();
+const result = await app.action.increment.submit();
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.count);
@@ -34,18 +33,18 @@ if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
 console.log(app.inspect.availableActions());
 ```
 
-Treat `inspect.availableActions()` and `actions.<name>.available()` as current-snapshot reads only. They are not durable capability tokens. The active runtime still revalidates legality when it submits work.
+Treat `inspect.availableActions()` and `action.<name>.available()` as current-snapshot reads only. They are not durable capability tokens. The active runtime still revalidates legality when it submits work.
 
-`actions.<name>.preview(...input)` is the non-mutating dry-run step after admission checks. It returns the projected next snapshot, dry-run requirements, current action availability changes, sorted `changedPaths`, and may also expose optional inspection-only diagnostics.
+`action.<name>.preview(...input)` is the non-mutating dry-run step after admission checks. It returns the projected next snapshot, dry-run requirements, current action availability changes, sorted `changedPaths`, and may also expose optional inspection-only diagnostics.
 
 ## Legality Ladder
 
 The intended public decision order is:
 
-1. availability via `actions.<name>.available()`
-2. blocker reads via `actions.<name>.check(...input)`
-3. dry-run via `actions.<name>.preview(...input)`
-4. law-aware ingress via `actions.<name>.submit(...input)`
+1. availability via `action.<name>.available()`
+2. blocker reads via `action.<name>.check(...input)`
+3. dry-run via `action.<name>.preview(...input)`
+4. law-aware ingress via `action.<name>.submit(...input)`
 
 `check()` preserves first-failing-layer ordering. `preview()` is non-mutating and does not publish state. `submit()` revalidates at the runtime write boundary.
 
@@ -55,9 +54,9 @@ Decorators change the write verb:
 
 | Runtime | Write Verb |
 |---------|------------|
-| Base SDK | `actions.<name>.submit(...args)` returning `BaseSubmissionResult` |
-| Lineage runtime | `actions.<name>.submit(...args)` returning `LineageSubmissionResult` with `world` and `report` |
-| Governed runtime | `actions.<name>.submit(...args)` returning pending `GovernanceSubmissionResult`; observe settlement with `pending.waitForSettlement()` or `app.waitForSettlement(ref)` |
+| Base SDK | `action.<name>.submit(...args)` returning `BaseSubmissionResult` |
+| Lineage runtime | `action.<name>.submit(...args)` returning `LineageSubmissionResult` with `world` and `report` |
+| Governed runtime | `action.<name>.submit(...args)` returning pending `GovernanceSubmissionResult`; observe settlement with `pending.waitForSettlement()` or `app.waitForSettlement(ref)` |
 
 Use the base runtime until approval, continuity, restore, branch/head history, or sealing is a product requirement.
 

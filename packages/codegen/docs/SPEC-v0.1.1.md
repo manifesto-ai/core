@@ -9,7 +9,7 @@
 > **Authors:** Manifesto Team
 > **License:** MIT
 > **Changelog:**
-> - **Current v5 alignment (2026-04-29):** ADR-025/ADR-026 in-place alignment: `snapshot.state` ontology, `state.fieldTypes` / `action.inputType` / `action.params` typing seams, generated domain facade guidance for SDK v5 `actions.*`, `action(name)`, `ActionInput`, and `ActionArgs`
+> - **Current v5 alignment (2026-05-07):** ADR-025/ADR-026 in-place alignment: `snapshot.state` ontology, `state.fieldTypes` / `action.inputType` / `action.params` typing seams, generated domain facade guidance for SDK v5 `action.*`, `ActionInput`, `ActionArgs`, and reserved public action-name rejection
 > - **v0.1.1 (2026-02-05):** Critical fixes: (1) `CodegenOutput.diagnostics` field added, (2) GEN-5/GEN-8 — error diagnostics prevent all disk mutation including outDir clean, (3) TS-4 demoted MUST→SHOULD, (4) ZOD-7 — non-string record key degrade policy, (5) GEN-9 — multi-invocation pattern
 > - **v0.1.0 (2026-02-05):** Initial specification — Plugin interface, FilePatch model, Runner rules, TS/Zod plugin mapping, artifacts pipeline, generation scope
 
@@ -546,12 +546,12 @@ export type TodoActionInput<Name extends keyof TodoDomain["actions"] & string> =
 export type TodoActionArgs<Name extends keyof TodoDomain["actions"] & string> =
   ActionArgs<TodoDomain, Name>;
 
-export type TodoActions<TMode extends RuntimeMode> = {
+export type TodoActionSurface<TMode extends RuntimeMode> = {
   readonly [Name in keyof TodoDomain["actions"] & string]:
     ActionHandle<TodoDomain, Name, TMode>;
 };
 
-export type TodoActionAccessor<TMode extends RuntimeMode> =
+export type TodoActionSurfaceFromApp<TMode extends RuntimeMode> =
   ManifestoApp<TodoDomain, TMode>["action"];
 
 export type TodoApp<TMode extends RuntimeMode> =
@@ -589,18 +589,24 @@ field order from `inputType` or `input` is structural, not a public tuple order.
 | FAC-12 | MUST | If `action.params` is absent and an action has an object-shaped `inputType` or `input`, the generated public signature MUST use one object input argument. |
 | FAC-13 | MUST | If `action.params` is absent and an action has no input carrier, the generated public signature MUST be zero-argument. |
 
-### 10.6 `actions.*` and `action(name)` Policy
+### 10.6 `action.*` and Reserved Public Action-Name Policy
 
-`actions.*` is the ergonomic property accessor on `ManifestoApp`. `action(name)`
-is the normative collision-safe accessor and MUST remain typed for every action
-name.
+`action.*` is the canonical static action namespace on `ManifestoApp`.
+`actions.*` and `app.action(name)` are not canonical SDK v5 semantic action
+accessors.
+
+Generated facade output MUST model valid actions as static `action.x` handles.
+Dynamic collision-safe action access is intentionally absent. The current v5
+reserved public action-name set is exactly `then`, `constructor`, `prototype`,
+and `__proto__`; those names MUST fail before generated facade output is
+treated as valid.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
-| FAC-8 | MUST | Generated `actions.x` types MUST map each declared non-colliding action name to `ActionHandle<TDomain, Name, TMode>`. |
-| FAC-9 | MUST | Generated app/facade helper types MUST preserve typed `action(name)` access for every declared action name, either through `ManifestoApp<TDomain, TMode>["action"]` or an exactly assignable helper. |
-| FAC-10 | MUST | Actions named `then`, `bind`, `constructor`, `inspect`, `snapshot`, `dispose`, or `action` MUST remain accessible through typed `action(name)`. |
-| FAC-11 | SHOULD | Generated ergonomic `actions.x` property types SHOULD avoid promising property access for names that would corrupt root/runtime members. |
+| FAC-8 | MUST | Generated `action.x` types MUST map each declared valid action name to `ActionHandle<TDomain, Name, TMode>`. |
+| FAC-9 | MUST | Generated app/facade helper types MUST preserve typed static action namespace access through `ManifestoApp<TDomain, TMode>["action"]` or an exactly assignable helper. |
+| FAC-10 | MUST | Actions named `then`, `constructor`, `prototype`, or `__proto__` MUST be rejected before generated facade output is treated as valid. |
+| FAC-11 | MUST NOT | Generated output MUST NOT promise `action.x` property access or typed `action(name)` semantic access for reserved public action names. |
 
 ### 10.7 ADR-025 Snapshot Ontology Consequences
 
@@ -610,7 +616,7 @@ facades nevertheless MUST model the current Snapshot ontology:
 - domain fields belong to `snapshot.state`
 - derived fields belong to `snapshot.computed`
 - platform/runtime/tooling fields belong to `snapshot.namespaces`
-- generated SDK projected snapshot types MUST NOT reintroduce `snapshot.data`
+- generated SDK projected snapshot types MUST NOT reintroduce the retired data root
 - generated domain facade state MUST NOT include platform namespace fields by default
 
 ---
@@ -913,7 +919,7 @@ If `TypeDefinition` changes cause codegen failures **two or more times per quart
 | INV-8 | **Path safety.** No generated file can escape `outDir`. | FP-1, FP-2, GEN-6 |
 | INV-9 | **Sequential execution.** Plugins execute one at a time, in declared order. | GEN-7 |
 | INV-10 | **Facade-only SDK alignment.** Generated SDK v5 facades expose type-safe action candidates without owning runtime authority. | FAC-* |
-| INV-11 | **Snapshot ontology alignment.** Generated domain state models `snapshot.state`, never retired `snapshot.data` or platform namespaces. | GEN-14, FAC-* |
+| INV-11 | **Snapshot ontology alignment.** Generated domain state models `snapshot.state`, never the retired data root or platform namespaces. | GEN-14, FAC-* |
 
 ---
 
@@ -934,7 +940,7 @@ If `TypeDefinition` changes cause codegen failures **two or more times per quart
 | **Runner** | Plugin name uniqueness, patch collision detection, outDir clean on success, outDir preserved on error, path safety rejection, deterministic ordering, plugin diagnostics merge |
 | **TS Plugin** | TypeDefinition mapping (all known kinds + unknown fallback), named type output form, recursive union degrade, nullable semantics, diagnostics for unknown kinds |
 | **Zod Plugin** | TypeDefinition mapping (all known kinds + unknown fallback), `z.lazy()` for refs, nullable optimization, optional TS artifacts, non-string record key degrade |
-| **Domain Facade Plugin** | `state.fieldTypes` precedence, `action.params` tuple order, SDK `ActionInput` / `ActionArgs` assignability, `actions.x` handle typing, `action(name)` collision access, no retired v3 root verbs |
+| **Domain Facade Plugin** | `state.fieldTypes` precedence, `action.params` tuple order, SDK `ActionInput` / `ActionArgs` assignability, `action.x` handle typing, reserved public action-name rejection, no retired v3 root verbs |
 | **Integration** | TS → Zod artifacts pipeline, multi-plugin collision detection, freshness check |
 
 ---
@@ -945,7 +951,7 @@ If `TypeDefinition` changes cause codegen failures **two or more times per quart
 |-----------|---------|-------------|
 | Core SPEC | current | `DomainSchema`, `TypeSpec`, `TypeDefinition`, `StateSpec`, `ActionSpec`, Snapshot ontology |
 | Compiler SPEC | current | `compileMelDomain()` output, `DomainModule` tooling sidecars, `state.fieldTypes`, `action.inputType`, `action.params` |
-| SDK SPEC | v5.0.0 surface | `ManifestoDomainShape`, `ManifestoApp`, `ActionHandle`, `ActionInput`, `ActionArgs`, `action(name)` |
+| SDK SPEC | v5.0.0 surface | `ManifestoDomainShape`, `ManifestoApp`, `ActionHandle`, `ActionInput`, `ActionArgs`, `action.*` |
 | Host Contract | current | Host boundary validation and refine overlay consumer |
 | Lineage SPEC | v5.0.0 surface | Lineage-mode `submit()` authority boundary that codegen does not implement |
 | Governance SPEC | v5.0.0 surface | Governance-mode `submit()` and settlement authority that codegen does not implement |
@@ -1004,10 +1010,10 @@ If `TypeDefinition` changes cause codegen failures **two or more times per quart
 | FAC-5 | MUST | Generated ActionArgs aliases align with SDK |
 | FAC-6 | MUST NOT | Do not structurally infer SDK option bags |
 | FAC-7 | MUST NOT | Do not invent positional parameters when action.params is absent |
-| FAC-8 | MUST | actions.x maps to ActionHandle for non-colliding names |
-| FAC-9 | MUST | action(name) remains typed for every action |
-| FAC-10 | MUST | Reserved/colliding action names remain available through action(name) |
-| FAC-11 | SHOULD | Avoid promising property access for names that corrupt runtime members |
+| FAC-8 | MUST | action.x maps to ActionHandle for valid names |
+| FAC-9 | MUST | ManifestoApp["action"] static namespace remains typed |
+| FAC-10 | MUST | Reserved public action names are rejected before generated facade output is valid |
+| FAC-11 | MUST NOT | Do not promise action.x or action(name) access for reserved names |
 | FAC-12 | MUST | Use one object input argument when params is absent but input carrier exists |
 | FAC-13 | MUST | Use zero arguments when params and input carrier are absent |
 

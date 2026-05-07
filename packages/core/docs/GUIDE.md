@@ -109,11 +109,14 @@ const intent = createIntent("increment", "intent-1");
 
 // Compute result
 const result = await core.compute(schema, snapshot, intent, context);
+const patched = core.apply(schema, snapshot, result.patches);
+const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+const next = core.applySystemDelta(namespaced, result.systemDelta);
 
 // Check result
-console.log(result.status);           // → "complete"
-console.log(result.requirements.length); // → 0
-console.log(result.snapshot.state.count); // → 1
+console.log(result.status); // → "complete"
+console.log(next.system.pendingRequirements.length); // → 0
+console.log(next.state.count); // → 1
 ```
 
 ### Use Case 2: Applying Patches Manually
@@ -208,11 +211,14 @@ const snapshot = createSnapshot({ user: null }, schemaWithEffect.hash, context);
 const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
 
 const result = await core.compute(schemaWithEffect, snapshot, intent, context);
+const patched = core.apply(schemaWithEffect, snapshot, result.patches);
+const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+const next = core.applySystemDelta(namespaced, result.systemDelta);
 
 // Effect is recorded as a requirement, not executed
 console.log(result.status); // → "pending"
-console.log(result.requirements.length); // → 1
-console.log(result.requirements[0].type); // → "api.fetch"
+console.log(next.system.pendingRequirements.length); // → 1
+console.log(next.system.pendingRequirements[0].type); // → "api.fetch"
 ```
 
 ---
@@ -344,7 +350,10 @@ const context = {
 };
 const intent = createIntent("fetchUser", { id: "123" }, "intent-1");
 const result = await core.compute(schema, snapshot, intent, context);
-console.log(result.snapshot.state.user); // → undefined (effect not executed!)
+const patched = core.apply(schema, snapshot, result.patches);
+const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+const next = core.applySystemDelta(namespaced, result.systemDelta);
+console.log(next.state.user); // → null (effect not executed!)
 ```
 
 **Why it's wrong:** Core only declares effects as requirements. It never executes them.
@@ -352,10 +361,13 @@ console.log(result.snapshot.state.user); // → undefined (effect not executed!)
 **Correct approach:**
 
 ```typescript
-// Right: Check for requirements and use Host to execute
+// Right: Check materialized pending requirements and use Host to execute
 const result = await core.compute(schema, snapshot, intent, context);
+const patched = core.apply(schema, snapshot, result.patches);
+const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+const next = core.applySystemDelta(namespaced, result.systemDelta);
 
-if (result.requirements.length > 0) {
+if (next.system.pendingRequirements.length > 0) {
   // Use Host to execute effects
   // Host will call core.apply() with resulting patches
 }
@@ -486,10 +498,13 @@ describe("Counter domain", () => {
       createIntent("increment", "intent-1"),
       context
     );
+    const patched = core.apply(schema, snapshot, result.patches);
+    const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+    const next = core.applySystemDelta(namespaced, result.systemDelta);
 
     // Assert
     expect(result.status).toBe("complete");
-    expect(result.snapshot.state.count).toBe(1);
+    expect(next.state.count).toBe(1);
   });
 
   it("handles effects correctly", async () => {
@@ -504,11 +519,14 @@ describe("Counter domain", () => {
 
     // Act
     const result = await core.compute(schemaWithEffect, snapshot, intent, context);
+    const patched = core.apply(schemaWithEffect, snapshot, result.patches);
+    const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+    const next = core.applySystemDelta(namespaced, result.systemDelta);
 
     // Assert
     expect(result.status).toBe("pending");
-    expect(result.requirements).toHaveLength(1);
-    expect(result.requirements[0].type).toBe("api.fetch");
+    expect(next.system.pendingRequirements).toHaveLength(1);
+    expect(next.system.pendingRequirements[0].type).toBe("api.fetch");
   });
 });
 ```

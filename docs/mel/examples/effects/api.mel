@@ -34,7 +34,6 @@ domain EffectsApi {
   // --- GET request ---
   action fetchUsers() {
     once(fetchingUsers) {
-      patch fetchingUsers = $runtime.intent.id
       patch status = "loading"
       effect api.fetch({
         url: "/users",
@@ -51,7 +50,6 @@ domain EffectsApi {
   // --- GET with path parameter ---
   action fetchUser(id: string) {
     once(fetchingUser) {
-      patch fetchingUser = $runtime.intent.id
       patch status = "loading"
       effect api.fetch({
         url: concat("/users/", id),
@@ -68,7 +66,6 @@ domain EffectsApi {
   // --- GET with query parameters ---
   action fetchPosts(userId: string, limit: number) {
     once(fetchingPosts) {
-      patch fetchingPosts = $runtime.intent.id
       patch status = "loading"
       effect api.fetch({
         url: concat("/posts?userId=", userId, "&limit=", limit),
@@ -93,7 +90,6 @@ domain EffectsApi {
     }
 
     once(creating) when and(neq(trim(name), ""), neq(trim(email), "")) {
-      patch creating = $runtime.intent.id
       patch status = "loading"
       effect api.post({
         url: "/users",
@@ -114,7 +110,6 @@ domain EffectsApi {
   // --- PUT request ---
   action updateUser(id: string, name: string) {
     once(updating) {
-      patch updating = $runtime.intent.id
       patch status = "loading"
       effect api.put({
         url: concat("/users/", id),
@@ -134,7 +129,6 @@ domain EffectsApi {
   // --- DELETE request ---
   action deleteUser(id: string) {
     once(deleting) {
-      patch deleting = $runtime.intent.id
       patch status = "loading"
       effect api.remove({
         url: concat("/users/", id),

@@ -1102,6 +1102,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `ChangedPath`
 - `CompileDiagnostic`
 - `ComposableManifesto`
+- `ComputedReadSurface`
 - `ComputedRef`
 - `ContextUpdater`
 - `CoreSnapshot`
@@ -1145,11 +1146,13 @@ _Source: `packages/sdk/src/index.ts`_
 - `ManifestoEventPayload`
 - `ManifestoEventPayloadMap`
 - `ManifestoRuntimeByLaws`
+- `ObserveSurface`
 - `Patch`
 - `PathSegment`
 - `PreviewDiagnosticsMode`
 - `PreviewResult`
 - `ProjectedDiff`
+- `ProjectedReadHandle`
 - `ProjectedSnapshot`
 - `ProposalRef`
 - `RuntimeMode`
@@ -1165,12 +1168,14 @@ _Source: `packages/sdk/src/index.ts`_
 - `SimulateResult`
 - `SimulationDiagnostics`
 - `Snapshot`
+- `StateReadSurface`
 - `SubmissionResult`
 - `SubmitReportMode`
 - `SubmitResultFor`
 - `TypedActionMetadata`
 - `TypedActionRef`
 - `TypedCreateIntent`
+- `TypedDomainRefs`
 - `TypedGetActionMetadata`
 - `TypedGetIntentBlockers`
 - `TypedIntent`

@@ -12,12 +12,12 @@
 >
 > **Current Contract Status:** SDK v5 exposes an activation-first
 > `ManifestoApp` organized around the action-candidate ladder:
-> `snapshot() -> actions.* -> check() -> preview() -> submit()`. The canonical
+> `snapshot() -> action.* -> check() -> preview() -> submit()`. The canonical
 > root surface is `snapshot()`, `context()`, `injectContext()`,
-> `updateContext()`, `with(view)`, `actions`, `action(name)`, `observe`,
-> `inspect`, and `dispose()`. Raw `Intent` construction is an advanced protocol
-> escape hatch reachable through `BoundAction.intent()`, not the primary app
-> path.
+> `updateContext()`, `with(view)`, `action`, `state`, `computed`, `observe`,
+> `inspect`, and `dispose()`. Raw `Intent`
+> construction is an advanced protocol escape hatch reachable through
+> `BoundAction.intent()`, not the primary app path.
 
 ## 1. Purpose
 
@@ -40,12 +40,16 @@ app.snapshot();
 app.context();
 app.injectContext({ locale: "en-US" });
 const requestApp = app.with({ context: { locale: "ko-KR" }, report: "full" });
-app.actions.addTodo.info();
-app.actions.addTodo.available();
-app.actions.addTodo.check({ title: "Ship v5" });
-app.actions.addTodo.preview({ title: "Ship v5" });
-await app.actions.addTodo.submit({ title: "Ship v5" });
-await requestApp.actions.addTodo.submit({ title: "Ship v5" });
+app.state.todos.value();
+app.computed.activeCount.observe((next, prev) => {
+  console.log(prev, next);
+});
+app.action.addTodo.info();
+app.action.addTodo.available();
+app.action.addTodo.check({ title: "Ship v5" });
+app.action.addTodo.preview({ title: "Ship v5" });
+await app.action.addTodo.submit({ title: "Ship v5" });
+await requestApp.action.addTodo.submit({ title: "Ship v5" });
 ```
 
 The SDK does not present `@manifesto-ai/world` as part of its public story.
@@ -74,6 +78,7 @@ Normative rule prefixes:
 | `SDK-CONTEXT-*` | ADR-027 runtime context materialization rules |
 | `SDK-RESULT-*` | result envelope and outcome rules |
 | `SDK-SNAPSHOT-*` | projected/canonical snapshot visibility |
+| `SDK-READ-*` | projected state/computed read handles |
 | `SDK-OBSERVE-*` | state/event observation |
 | `SDK-INSPECT-*` | advanced inspection surface |
 | `SDK-EXT-*` | `@manifesto-ai/sdk/extensions` boundary |
@@ -240,10 +245,10 @@ export type ComputedRef<TValue> = {
 Typed refs remain the canonical user-facing reference surface. String paths are
 not user-facing APIs.
 
-### 5.5 Typed MEL Surface
+### 5.5 Typed Domain Refs
 
 ```typescript
-export type TypedMEL<TDomain extends ManifestoDomainShape> = {
+export type TypedDomainRefs<TDomain extends ManifestoDomainShape> = {
   readonly actions: {
     readonly [Name in ActionName<TDomain>]: TypedActionRef<TDomain, Name>;
   };
@@ -254,10 +259,13 @@ export type TypedMEL<TDomain extends ManifestoDomainShape> = {
     readonly [Name in keyof TDomain["computed"]]: ComputedRef<TDomain["computed"][Name]>;
   };
 };
+
+/** @deprecated Use TypedDomainRefs. */
+export type TypedMEL<TDomain extends ManifestoDomainShape> = TypedDomainRefs<TDomain>;
 ```
 
-The typed MEL surface is still available for authoring helpers and advanced
-protocol work. It is no longer the default runtime action path.
+The typed domain-ref surface is still available for authoring helpers and
+advanced protocol work. It is no longer the default runtime action path.
 
 ### 5.6 Effect Authoring Subpath
 
@@ -283,7 +291,7 @@ export type PatchBuilder = {
 declare function defineEffects<TDomain extends ManifestoDomainShape>(
   factory: (
     ops: PatchBuilder,
-    MEL: TypedMEL<TDomain>,
+    refs: TypedDomainRefs<TDomain>,
   ) => Record<string, EffectHandler>,
 ): Record<string, EffectHandler>;
 ```
@@ -386,6 +394,7 @@ export type BaseWriteReport = {
   readonly changes: readonly ChangedPath[];
   readonly requirements: readonly Requirement[];
   readonly outcome: ExecutionOutcome;
+  readonly diagnostics?: ExecutionDiagnostics;
 };
 ```
 
@@ -395,13 +404,17 @@ settings. It is applied before an action is selected:
 ```typescript
 await app
   .with({ context: { locale: "ko-KR" }, report: "full" })
-  .actions.addTodo
+  .action.addTodo
   .submit({ title: "Ship v5" });
 ```
 
 `context` is mapped to Core `Context.external`. `report` affects submit result
 projection. `diagnostics` affects preview diagnostic projection. `report` and
 `diagnostics` are not Core inputs.
+
+`report: "summary"` carries the common write report fields. `report: "full"`
+MUST include the same semantic report fields and MAY add execution diagnostics
+captured from the Host/Core attempt. `report: "none"` omits the report field.
 
 Runtime context values MUST conform to the schema's `context` contract when one
 is declared. If the schema omits `context`, the external context contract is the
@@ -527,7 +540,9 @@ export type BaseManifestoApp<
   TDomain extends ManifestoDomainShape,
   TMode extends RuntimeMode,
 > = {
-  readonly actions: ActionSurface<TDomain, TMode>;
+  readonly action: ActionSurface<TDomain, TMode>;
+  readonly state: StateReadSurface<TDomain>;
+  readonly computed: ComputedReadSurface<TDomain>;
   readonly observe: ObserveSurface<TDomain>;
   readonly inspect: InspectSurface<TDomain>;
 
@@ -538,10 +553,6 @@ export type BaseManifestoApp<
     updater: ContextUpdater<DomainExternalContext<TDomain>>,
   ): DomainExternalContext<TDomain>;
   with(view: ExecutionView<DomainExternalContext<TDomain>>): ManifestoApp<TDomain, TMode>;
-
-  action<Name extends ActionName<TDomain>>(
-    name: Name,
-  ): ActionHandle<TDomain, Name, TMode>;
 
   dispose(): void;
 };
@@ -565,15 +576,20 @@ export type ManifestoApp<
       : EmptySurface);
 ```
 
-`actions.*` is the ergonomic property accessor. `action(name)` is the normative
-collision-safe accessor.
+`action.*` is the only canonical semantic action namespace. `actions.*` and
+`app.action(name)` are not part of the SDK v5 runtime surface.
+
+Dynamic action discovery belongs to `inspect.availableActions()` and
+`inspect.action(name)`. Those inspection calls expose read-only metadata only;
+semantic action submission remains routed through statically typed
+`app.action.<name>` handles.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | SDK-ROOT-1 | MUST | `ManifestoApp` MUST expose exactly the canonical root groups and root methods shown above plus mode-specific extensions. |
-| SDK-ROOT-2 | MUST | `snapshot()` MUST be the only root-level snapshot read in the canonical v5 public surface. |
-| SDK-ROOT-3 | MUST | `action(name)` MUST work for every declared action name, including names that collide with runtime or JavaScript reserved properties. |
-| SDK-ROOT-4 | MUST | User action names MUST NOT corrupt root members such as `then`, `constructor`, `bind`, `inspect`, `snapshot`, `context`, `injectContext`, `updateContext`, `with`, `dispose`, or `action`. |
+| SDK-ROOT-2 | MUST | `snapshot()` MUST be the only root-level method that returns the whole projected snapshot in the canonical v5 public surface. |
+| SDK-ROOT-3 | MUST | For every valid declared action name, `app.action.<name>` MUST expose an `ActionHandle<TDomain, Name, TMode>`. |
+| SDK-ROOT-4 | MUST | SDK activation and generated SDK facade output MUST reject reserved public action names before they are treated as valid runtime surfaces. |
 | SDK-ROOT-5 | MUST | Governance `waitForSettlement(ref)` MUST be type-level reachable only on governance-mode runtimes. |
 | SDK-ROOT-6 | MUST | The `ManifestoApp` governance extension conditional MUST use a non-distributive form equivalent to `[TMode] extends ["governance"]`. |
 | SDK-ROOT-7 | MUST NOT | The empty-surface branch MUST NOT use `Record<string, never>`. |
@@ -581,6 +597,72 @@ collision-safe accessor.
 | SDK-ROOT-9 | MUST | `injectContext(next)` MUST full-replace the current user external context for future transitions. |
 | SDK-ROOT-10 | MUST | `updateContext(updater)` MUST execute the updater synchronously once, validate the returned JSON value, full-replace the current user external context, and return the materialized replacement. |
 | SDK-ROOT-11 | MUST | `with(view)` MUST return an execution view for triggering transitions with the supplied context/report/diagnostics settings without mutating the source runtime view. |
+| SDK-ROOT-12 | MUST NOT | SDK MUST NOT provide `actions.*` or `app.action(name)` as canonical semantic action accessors. |
+| SDK-ROOT-13 | MUST | The current v5 reserved public action-name set is exactly `then`, `constructor`, `prototype`, and `__proto__`. Future SDK-owned members of the `action` namespace MUST update this SPEC before joining the reserved set. |
+
+### 7.1 Projected Read Handle Surface
+
+`state.*` and `computed.*` are typed projected read handles. They are
+field-level aliases over `snapshot()` and `observe.state()`, not mutation
+surfaces and not canonical substrate reads.
+
+```typescript
+export type ProjectedReadHandle<TValue, TRef> = {
+  readonly name: string;
+  readonly ref: TRef;
+
+  value(): TValue;
+
+  observe(
+    listener: (next: TValue, prev: TValue) => void,
+  ): Unsubscribe;
+};
+
+export type StateReadSurface<TDomain extends ManifestoDomainShape> = {
+  readonly [Name in keyof TDomain["state"]]:
+    ProjectedReadHandle<
+      TDomain["state"][Name],
+      FieldRef<TDomain["state"][Name]>
+    >;
+};
+
+export type ComputedReadSurface<TDomain extends ManifestoDomainShape> = {
+  readonly [Name in keyof TDomain["computed"]]:
+    ProjectedReadHandle<
+      TDomain["computed"][Name],
+      ComputedRef<TDomain["computed"][Name]>
+    >;
+};
+```
+
+Examples:
+
+```typescript
+const filterMode = app.state.filterMode.value();
+
+const stopMode = app.state.filterMode.observe((next, prev) => {
+  console.log(prev, next);
+});
+
+const stopActive = app.computed.activeCount.observe((next, prev) => {
+  console.log(prev, next);
+});
+```
+
+Read handles are top-level only in v5. Deep/dynamic handles such as
+`app.state.todos[0].title.observe(...)` are intentionally out of scope because
+index stability, collection identity, and path lifetime are not part of the
+current runtime surface.
+
+| Rule ID | Level | Description |
+|---------|-------|-------------|
+| SDK-READ-1 | MUST | `state.*.value()` MUST return the corresponding value from `snapshot().state`. |
+| SDK-READ-2 | MUST | `computed.*.value()` MUST return the corresponding value from `snapshot().computed`. |
+| SDK-READ-3 | MUST | `state.*.observe(listener)` and `computed.*.observe(listener)` MUST be semantically equivalent to `observe.state(selector, listener)` for the corresponding projected field. |
+| SDK-READ-4 | MUST | Read-handle `observe()` listeners MUST receive `(next, prev)` with the same registration, publication, and `Object.is` change semantics as `observe.state()`. |
+| SDK-READ-5 | MUST NOT | Projected read handles MUST NOT expose write verbs such as `set`, `merge`, `patch`, `submit`, `dispatch`, `commit`, or `propose`; all semantic mutation remains routed through `action.*.submit()`. |
+| SDK-READ-6 | MUST NOT | Projected read handles MUST NOT expose canonical-only substrate fields such as `namespaces`, `input`, `pendingRequirements`, `currentAction`, `meta.version`, `meta.timestamp`, or `meta.randomSeed`. |
+| SDK-READ-7 | MUST | Projected read handles MUST be limited to top-level declared state and computed fields for v5. |
 
 ## 8. Action Candidate Surface
 
@@ -675,12 +757,12 @@ runtime state.
 ### 8.5 Execution View Order
 
 ```typescript
-app.with({ diagnostics: "summary" }).actions.addTodo.preview({ title: "Ship v5" });
-await app.with({ report: "full" }).actions.addTodo.submit({ title: "Ship v5" });
+app.with({ diagnostics: "summary" }).action.addTodo.preview({ title: "Ship v5" });
+await app.with({ report: "full" }).action.addTodo.submit({ title: "Ship v5" });
 
 const candidate = app
   .with({ context: { locale: "ko-KR" }, report: "full" })
-  .actions.addTodo
+  .action.addTodo
   .bind({ title: "Ship v5" });
 
 candidate.preview();
@@ -841,7 +923,7 @@ export type PreviewResult<
 `submit()` is the v5 law-aware ingress verb.
 
 ```typescript
-await app.actions.addTodo.submit({ title: "Ship v5" });
+await app.action.addTodo.submit({ title: "Ship v5" });
 ```
 
 `submit()` means: submit this bound action candidate to the currently active
@@ -890,7 +972,7 @@ This is valid:
 Callers that care about domain success MUST narrow twice:
 
 ```typescript
-const result = await app.actions.addTodo.submit({ title: "Ship v5" });
+const result = await app.action.addTodo.submit({ title: "Ship v5" });
 
 if (!result.ok) {
   result.admission;
@@ -903,7 +985,7 @@ if (!result.ok) {
 |---------|-------|-------------|
 | SDK-RESULT-5 | MUST | `result.ok` MUST represent protocol/admission envelope success, not domain success. |
 | SDK-RESULT-6 | MUST | Domain success, stop, or fail MUST be carried by `ExecutionOutcome`. |
-| SDK-RESULT-7 | SHOULD NOT | Examples SHOULD NOT use `if (result.ok)` as a one-step domain success check unless the caller explicitly does not need domain outcome. |
+| SDK-RESULT-7 | SHOULD NOT | Examples SHOULD NOT use a bare `result.ok` branch as a one-step domain success check unless the caller explicitly does not need domain outcome. |
 
 ### 11.3 Mode-Specific Result Typing
 
@@ -1123,10 +1205,17 @@ resolve with `ok: true`, `status: "settled"`, and
 
 ## 12. Snapshot Boundary
 
-The root snapshot read is:
+The whole projected snapshot read is:
 
 ```typescript
 app.snapshot();
+```
+
+Field-level projected reads MAY use read handles:
+
+```typescript
+app.state.filterMode.value();
+app.computed.activeCount.value();
 ```
 
 The canonical substrate read is:
@@ -1143,6 +1232,7 @@ app.inspect.canonicalSnapshot();
 | SDK-SNAPSHOT-4 | MUST | Canonical substrate reads MUST live under `inspect`. |
 | SDK-SNAPSHOT-5 | MUST | `inspect.canonicalSnapshot()` MUST return the full canonical substrate. |
 | SDK-SNAPSHOT-6 | MUST NOT | SDK MUST NOT introduce a root `getCanonicalSnapshot()` compatibility alias in the canonical v5 surface. |
+| SDK-SNAPSHOT-7 | MUST | `snapshot()` MUST remain the only root-level method that returns the whole projected snapshot; `state.*.value()` and `computed.*.value()` are field-level projected reads. |
 
 ## 13. Observe Surface
 
@@ -1177,6 +1267,9 @@ wake state observers when the projected snapshot is unchanged. Selector and
 listener exceptions are isolated from runtime semantics. If a selector fails
 during registration or publication, the runtime MUST keep the registration
 alive and retry selection on later terminal projected snapshot publications.
+Read-handle observers (`state.*.observe()` and `computed.*.observe()`) are
+convenience wrappers over `observe.state()` and do not create a third
+observation channel.
 
 ```typescript
 export type SubmissionEventBase = {
@@ -1294,6 +1387,7 @@ Observe events.
 | SDK-OBSERVE-13 | MUST | `observe.state()` MUST keep registrations alive after selector failures and retry on later terminal projected snapshot publications. |
 | SDK-OBSERVE-14 | MUST | `observe.event()` handler failures MUST be isolated from runtime semantics and other handlers. |
 | SDK-OBSERVE-15 | MUST NOT | Legacy `dispatch:*` events MUST NOT be part of the canonical v5 `observe.event()` surface. |
+| SDK-OBSERVE-16 | MUST | `state.*.observe()` and `computed.*.observe()` MUST use `observe.state()` semantics and MUST NOT create a separate observation channel. |
 
 ## 14. Inspect Surface
 
@@ -1329,10 +1423,10 @@ schema fingerprint channel.
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | SDK-INSPECT-1 | MUST | `inspect.graph()` MUST expose the schema graph formerly reached as `getSchemaGraph()`. |
-| SDK-INSPECT-2 | MUST | `inspect.action(name)` MUST expose the same static action metadata as `actions.x.info()` for the named action. |
+| SDK-INSPECT-2 | MUST | `inspect.action(name)` MUST expose the same static action metadata as `action.x.info()` for the named action. |
 | SDK-INSPECT-3 | MUST | `inspect.availableActions()` MUST return currently available action info values. |
 | SDK-INSPECT-4 | MUST | `inspect.canonicalSnapshot()` MUST be the only canonical snapshot read in the canonical SDK root object graph. |
-| SDK-INSPECT-5 | MUST NOT | `actions.$available()` or other mixed action-meta names MUST NOT be introduced. |
+| SDK-INSPECT-5 | MUST NOT | `action.$available()` or other mixed action-meta names MUST NOT be introduced. |
 | SDK-INSPECT-6 | MUST | `inspect.graph()` MUST NOT expose ADR-025 platform namespace values as domain state graph nodes. |
 | SDK-INSPECT-7 | MUST | `inspect.availableActions()` MUST be a current visible-state read, not a durable capability token. |
 | SDK-INSPECT-8 | MUST | `inspect.schemaHash()` MUST return the current canonical snapshot schema hash. |
@@ -1417,19 +1511,19 @@ The migration map is:
 | `getSnapshot()` | `snapshot()` |
 | `getCanonicalSnapshot()` | `inspect.canonicalSnapshot()` |
 | `getSchemaGraph()` | `inspect.graph()` |
-| `getActionMetadata(name)` | `inspect.action(name)` or `actions.x.info()` |
+| `getActionMetadata(name)` | `inspect.action(name)` or `action.x.info()` |
 | `getAvailableActions()` | `inspect.availableActions()` |
-| `isActionAvailable(name)` | `actions.x.available()` |
-| `createIntent(MEL.actions.x, input)` | `actions.x.bind(input).intent()` |
-| `getIntentBlockers(intent)` | `actions.x.check(input).blockers` after narrowing |
-| `isIntentDispatchable(intent)` | `actions.x.check(input).ok` |
-| `whyNot(intent)` | `actions.x.check(input)` |
-| `why(intent)` | `actions.x.check(input)` plus `preview().diagnostics` |
-| `simulate(action, ...args)` | `actions.x.preview(...args)` |
-| `simulateIntent(intent)` | `actions.x.bind(input).preview()` |
-| `dispatchAsync(intent)` | `actions.x.submit(input)` on base runtime |
-| `commitAsync(intent)` | `actions.x.submit(input)` on lineage runtime |
-| `proposeAsync(intent)` | `actions.x.submit(input)` on governance runtime |
+| `isActionAvailable(name)` | `action.x.available()` |
+| `createIntent(refs.actions.x, input)` | `action.x.bind(input).intent()` |
+| `getIntentBlockers(intent)` | `action.x.check(input).blockers` after narrowing |
+| `isIntentDispatchable(intent)` | `action.x.check(input).ok` |
+| `whyNot(intent)` | `action.x.check(input)` |
+| `why(intent)` | `action.x.check(input)` plus `preview().diagnostics` |
+| `simulate(action, ...args)` | `action.x.preview(...args)` |
+| `simulateIntent(intent)` | `action.x.bind(input).preview()` |
+| `dispatchAsync(intent)` | `action.x.submit(input)` on base runtime |
+| `commitAsync(intent)` | `action.x.submit(input)` on lineage runtime |
+| `proposeAsync(intent)` | `action.x.submit(input)` on governance runtime |
 | `waitForProposal(id)` | `submission.waitForSettlement()` or `app.waitForSettlement(ref)` |
 | `subscribe(selector, listener)` | `observe.state(selector, listener)` |
 | `on(event, handler)` | `observe.event(event, handler)` |
@@ -1489,8 +1583,9 @@ export class ManifestoError extends Error {
 An implementation satisfies this SPEC when:
 
 - `createManifesto()` returns a composable manifesto and `activate()` returns `ManifestoApp<TDomain, TMode>`.
-- The root exposes `snapshot`, `context`, `injectContext`, `updateContext`, `with`, `actions`, `action`, `observe`, `inspect`, and `dispose`.
+- The root exposes `snapshot`, `context`, `injectContext`, `updateContext`, `with`, `action`, `state`, `computed`, `observe`, `inspect`, and `dispose`.
 - `ActionHandle` exposes `info`, `available`, `check`, `preview`, `submit`, and `bind`.
+- `state.*` and `computed.*` expose typed read-only `value()` and `observe((next, prev) => ...)` handles for top-level projected fields.
 - `BoundAction.intent()` returns `Intent | null`.
 - `check()` returns the first failing admission layer.
 - `preview()` is non-mutating and preserves Core status.
@@ -1502,8 +1597,10 @@ An implementation satisfies this SPEC when:
 - `result.ok` is documented and implemented as protocol envelope success, not domain success.
 - settled submit results preserve full projected `before` and `after` snapshots; large payloads do not change the default result shape.
 - `snapshot()` returns projected state and never exposes canonical-only fields.
+- `snapshot()` remains the only root-level method returning the whole projected snapshot; read handles are field-level projected reads.
 - `inspect.canonicalSnapshot()` returns the canonical substrate.
 - `observe.state()` and `observe.event()` remain separate channels.
+- read-handle observers use `observe.state()` semantics and do not create a separate observation channel.
 - Extension kernel APIs remain under `@manifesto-ai/sdk/extensions`.
 - v3 root APIs are absent from the canonical v5 runtime root.
 - resolved action annotations are the only SDK-owned path for `@meta` into `ActionHandle.info()`.
@@ -1523,8 +1620,10 @@ The SDK v5 CTS suite MUST cover:
 - Operational submit failure before terminal result rejects with `SubmissionFailedError` and emits `submission:failed`.
 - Governance-only `waitForSettlement(ref)` is type-level reachable only on governance runtimes.
 - `ProposalRef` can reattach settlement observation through a later governance runtime instance.
-- Action names colliding with `then`, `bind`, `constructor`, `inspect`, `snapshot`, `dispose`, or `action` remain accessible through `action(name)`.
+- Action names `then`, `constructor`, `prototype`, and `__proto__` are rejected before activation/codegen output is treated as valid; no `app.action(name)` semantic fallback exists.
 - `snapshot()` excludes canonical-only fields; `inspect.canonicalSnapshot()` includes the canonical substrate.
+- `state.*.value()` and `computed.*.value()` infer exact projected field value types.
+- `state.*` and `computed.*` handles do not expose write verbs.
 - MEL source annotations populate `ActionHandle.info()`, and caller-provided `options.annotations` overrides same-action compiler annotations.
 - `with(view)` is the only canonical route for report/diagnostic/context view settings before `preview()` or `submit()`.
 - `observe.event()` payloads match `ManifestoEventPayloadMap` and contain no full snapshot payloads.

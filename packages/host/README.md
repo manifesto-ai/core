@@ -91,7 +91,9 @@ const schema: DomainSchema = {
   version: "1.0.0",
   hash: "example-hash",
   state: {
-    count: { type: "number", default: 0 },
+    fields: {
+      count: { type: "number", required: true, default: 0 },
+    },
   },
   actions: {
     increment: {
@@ -99,7 +101,7 @@ const schema: DomainSchema = {
         kind: "patch",
         op: "set",
         path: [{ kind: "prop", name: "count" }],
-        value: { kind: "add", left: { kind: "get", path: "count" }, right: 1 },
+        value: { kind: "add", left: { kind: "get", path: "count" }, right: { kind: "lit", value: 1 } },
       },
     },
   },
@@ -114,7 +116,7 @@ const host = new ManifestoHost(schema, {
 host.registerEffect("api.fetch", async (_type, params, context) => {
   const response = await fetch(params.url);
   const data = await response.json();
-  return [{ op: "set", path: params.targetPath, value: data }];
+  return [{ op: "set", path: [{ kind: "prop", name: "user" }], value: data }];
 });
 
 // 4. Dispatch intent
@@ -282,15 +284,15 @@ host.registerEffect("api.get", async (type, params) => {
   try {
     const response = await fetch(params.url);
     if (!response.ok) {
-      return [{ op: "set", path: "error", value: `HTTP ${response.status}` }];
+      return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: `HTTP ${response.status}` }];
     }
     const data = await response.json();
     return [
-      { op: "set", path: params.target, value: data },
-      { op: "set", path: "error", value: null },
+      { op: "set", path: [{ kind: "prop", name: "data" }], value: data },
+      { op: "set", path: [{ kind: "prop", name: "error" }], value: null },
     ];
   } catch (e) {
-    return [{ op: "set", path: "error", value: e.message }];
+    return [{ op: "set", path: [{ kind: "prop", name: "error" }], value: e.message }];
   }
 });
 

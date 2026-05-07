@@ -13,9 +13,10 @@ createManifesto(schema, effects) -> activate() -> ManifestoApp
 Use SDK when you want:
 
 - the shortest path to a running base runtime
-- typed action candidates through `actions.<name>`
+- typed action candidates through `action.<name>`
 - typed effect authoring through `@manifesto-ai/sdk/effects`
 - projected Snapshot reads through `snapshot()`
+- typed projected field reads through `state.<name>` and `computed.<name>`
 - observer and event subscriptions through `observe`
 - static/runtime inspection through `inspect`
 - safe post-activation arbitrary-snapshot tooling through `@manifesto-ai/sdk/extensions`
@@ -33,8 +34,11 @@ through `BoundAction.intent()`. It is not the primary app path.
   - `injectContext(next)`
   - `updateContext(updater)`
   - `with(view)`
-  - `actions.<name>`
-  - `action(name)`
+  - `action.<name>`
+  - `state.<name>.value()`
+  - `state.<name>.observe(listener)`
+  - `computed.<name>.value()`
+  - `computed.<name>.observe(listener)`
   - `observe.state(selector, listener)`
   - `observe.event(event, listener)`
   - `inspect.graph()`
@@ -68,16 +72,20 @@ import { createManifesto } from "@manifesto-ai/sdk";
 
 const app = createManifesto<CounterDomain>(domainSchema, {}).activate();
 
-const info = app.actions.increment.info();
-const admission = app.actions.increment.check();
-const preview = app.with({ diagnostics: "summary" }).actions.increment.preview();
-const result = await app.with({ report: "summary" }).actions.increment.submit();
+const info = app.action.increment.info();
+const admission = app.action.increment.check();
+const preview = app.with({ diagnostics: "summary" }).action.increment.preview();
+const result = await app.with({ report: "summary" }).action.increment.submit();
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.count);
 }
 
-app.actions.increment.available();
+app.action.increment.available();
+app.state.count.value();
+app.state.count.observe((next, prev) => {
+  console.log(prev, next);
+});
 app.inspect.availableActions();
 app.inspect.action("increment");
 app.snapshot();
@@ -91,10 +99,10 @@ console.log(info.name, admission.ok, preview.admitted);
 Action handles keep argument shape typed from the domain.
 
 ```typescript
-app.actions.increment.submit();
-app.actions.add.submit(3);
-app.actions.addTodo.submit("Review docs", "todo-1");
-app.actions.configure.submit({ enabled: true, label: "Review" });
+app.action.increment.submit();
+app.action.add.submit(3);
+app.action.addTodo.submit("Review docs", "todo-1");
+app.action.configure.submit({ enabled: true, label: "Review" });
 ```
 
 Rules:
@@ -107,7 +115,7 @@ Rules:
 `bind(...input)` returns a reusable candidate:
 
 ```typescript
-const candidate = app.actions.addTodo.bind("Review docs", "todo-1");
+const candidate = app.action.addTodo.bind("Review docs", "todo-1");
 
 candidate.check();
 candidate.preview();
@@ -125,7 +133,7 @@ Use `info()` or `inspect.action()` when a UI, adapter, or agent needs the
 runtime's public action contract without maintaining a parallel registry.
 
 ```typescript
-const addTodo = app.actions.addTodo.info();
+const addTodo = app.action.addTodo.info();
 const same = app.inspect.action("addTodo");
 const available = app.inspect.availableActions();
 
@@ -136,8 +144,8 @@ console.log(same.annotations);
 console.log(available.map((action) => action.name));
 ```
 
-`actions.<name>.available()` remains the coarse legality query.
-`actions.<name>.check(...input)` is the fine bound-candidate legality surface.
+`action.<name>.available()` remains the coarse legality query.
+`action.<name>.check(...input)` is the fine bound-candidate legality surface.
 
 Treat availability reads as current-snapshot observations, not durable
 capability grants. The runtime still revalidates legality at submit time.
@@ -152,7 +160,7 @@ Use the current-snapshot action ladder when you want one structured answer to:
 - if submitted, what terminal result did the active runtime law produce?
 
 ```typescript
-const candidate = app.actions.spend.bind({ amount: 20 });
+const candidate = app.action.spend.bind({ amount: 20 });
 
 const admission = candidate.check();
 if (!admission.ok) {
@@ -161,7 +169,7 @@ if (!admission.ok) {
 
 const preview = app
   .with({ diagnostics: "trace" })
-  .actions.spend
+  .action.spend
   .bind({ amount: 20 })
   .preview();
 if (preview.admitted) {
@@ -171,7 +179,7 @@ if (preview.admitted) {
 
 const result = await app
   .with({ report: "full" })
-  .actions.spend
+  .action.spend
   .bind({ amount: 20 })
   .submit();
 ```
@@ -186,8 +194,26 @@ Lineage, and Governance modes share this ladder and differ through result type:
 
 Use `diagnostics: "none"` and `report: "none"` when an agent/tool path needs
 the smallest in-band payload.
+Use `with({ report: "full" })` when the write result should carry execution
+diagnostics in addition to the summary report fields.
 
 ## Observability
+
+For top-level projected fields, use read handles when you want a typed current
+value or direct field observer:
+
+```typescript
+const count = app.state.count.value();
+
+const unsubscribeCount = app.state.count.observe((next, prev) => {
+  console.log(prev, next);
+});
+```
+
+Read handles are projected and read-only. Semantic writes still go through
+`action.<name>.submit(...)`.
+
+Use `observe.state()` when you need a custom selector:
 
 ```typescript
 const unsubscribe = app.observe.state(
@@ -236,7 +262,7 @@ import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
 
 const ext = getExtensionKernel(app);
 const root = ext.getCanonicalSnapshot();
-const intent = app.actions.increment.bind().intent();
+const intent = app.action.increment.bind().intent();
 
 if (intent) {
   const explanation = ext.explainIntentFor(root, intent);

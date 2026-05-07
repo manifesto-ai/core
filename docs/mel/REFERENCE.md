@@ -936,12 +936,12 @@ action process(id: string) {
 
 Ensures a block runs only once per intent ID. Prevents duplicate execution on re-entry (when Host re-runs the same action after an effect completes).
 
-**The marker patch must be the first statement in the `once` block.**
+The compiler inserts the marker write automatically before the user-authored
+body.
 
 ```mel
 action increment() {
   once(lastIncrement) {
-    patch lastIncrement = $runtime.intent.id    // MUST be first
     patch count = add(count, 1)
   }
 }
@@ -952,7 +952,6 @@ action increment() {
 ```mel
 action addTask(id: string, title: string) {
   once(creating) when neq(trim(title), "") {
-    patch creating = $runtime.intent.id
     patch tasks[id] = {
       id: id,
       title: trim(title),
@@ -967,12 +966,10 @@ action addTask(id: string, title: string) {
 ```mel
 action processData() {
   once(step1) {
-    patch step1 = $runtime.intent.id
     effect api.fetch({ url: "/items", into: rawItems })
   }
 
   once(step2) when isNotNull(rawItems) {
-    patch step2 = $runtime.intent.id
     effect array.filter({
       source: rawItems,
       where: eq($item.active, true),
@@ -988,7 +985,8 @@ action processData() {
 
 **How `once` works:**
 
-`once(marker)` compiles to `when neq(marker, $runtime.intent.id)`. This means:
+`once(marker)` compiles to `when neq(marker, $runtime.intent.id)` with a
+compiler-owned marker write before the body. This means:
 - First call with intent A: `neq(null, "A")` = true — runs and sets marker to `"A"`
 - Re-entry of intent A: `neq("A", "A")` = false — skips
 - New intent B: `neq("A", "B")` = true — runs again
@@ -1507,17 +1505,14 @@ effect array.map({
 ```mel
 action process() {
   once(step1) {
-    patch step1 = $runtime.intent.id
     effect array.flatMap({ source: teams, select: $item.members, into: allMembers })
   }
 
   once(step2) when isNotNull(allMembers) {
-    patch step2 = $runtime.intent.id
     effect array.filter({ source: allMembers, where: eq($item.active, true), into: activeMembers })
   }
 
   once(step3) when isNotNull(activeMembers) {
-    patch step3 = $runtime.intent.id
     effect array.sort({ source: activeMembers, by: $item.name, into: sorted })
   }
 }
@@ -1525,7 +1520,7 @@ action process() {
 
 Each step in a pipeline:
 1. Guards with `when isNotNull(previousResult)` to wait for the prior step
-2. Sets its own marker patch first
+2. Uses its own marker so the compiler inserts an independent marker patch
 3. Declares one effect
 4. The next step detects completion by checking its source is non-null
 
@@ -1602,9 +1597,8 @@ action updateUser(name: string, age: number) {
 Available only in action flow expressions.
 
 ```mel
-// In actions (once marker pattern)
+// In actions (once marker pattern; marker write is compiler-owned)
 once(creating) {
-  patch creating = $runtime.intent.id    // Standard once marker
   patch tasks[$runtime.random.uuid] = { ... }
 }
 ```
@@ -1730,7 +1724,6 @@ domain SignupForm {
       fail "WEAK_PASSWORD" with "Password must be at least 8 characters"
     }
     once(submitting) {
-      patch submitting = $runtime.intent.id
       patch status = "loading"
       effect api.post({
         url: "/auth/signup",
@@ -1780,13 +1773,11 @@ domain ProductCatalog {
 
   action load() {
     once(loading) {
-      patch loading = $runtime.intent.id
       patch status = "loading"
       effect api.fetch({ url: "/products", into: rawProducts })
     }
 
     once(filtering) when isNotNull(rawProducts) {
-      patch filtering = $runtime.intent.id
       effect array.filter({
         source: rawProducts,
         where: eq($item.active, true),
@@ -1795,7 +1786,6 @@ domain ProductCatalog {
     }
 
     once(sorting) when isNotNull(filteredProducts) {
-      patch sorting = $runtime.intent.id
       effect array.sort({
         source: filteredProducts,
         by: $item.price,
@@ -1848,7 +1838,6 @@ domain UserRegistry {
   // Refresh the index of user IDs
   action refreshIndex() {
     once(indexing) {
-      patch indexing = $runtime.intent.id
       effect record.keys({ source: users, into: userIds })
     }
   }
@@ -1920,8 +1909,8 @@ domain Toggles {
 | Statement | Purpose | Marker required? |
 |-----------|---------|-----------------|
 | `when expr { }` | Conditional — runs when `expr` is true | No |
-| `once(marker) { }` | Per-intent idempotency — runs once per intent ID | Yes — `patch marker = $runtime.intent.id` must be first |
-| `once(marker) when expr { }` | Per-intent idempotency with extra condition | Yes |
+| `once(marker) { }` | Per-intent idempotency — runs once per intent ID | Yes — compiler owns the marker write |
+| `once(marker) when expr { }` | Per-intent idempotency with extra condition | Yes — compiler inserts marker write |
 | `onceIntent { }` | Per-intent idempotency — no marker in domain state | No |
 | `onceIntent when expr { }` | Per-intent idempotency with extra condition | No |
 
@@ -1959,7 +1948,7 @@ domain Toggles {
 | Legacy `len(keys(tasks))` workaround | `len(tasks)` |
 | `sum(filter(prices))` | Two computed: `computed active = filter(prices, ...)` then `sum(active)` |
 | Unguarded `patch count = 1` | `when true { patch count = 1 }` |
-| `once` block without marker first | `patch marker = $runtime.intent.id` must be first statement |
+| Manual marker write inside `once` | Remove it; the compiler inserts the marker write before the body |
 | `$runtime.random.uuid` in computed | Only in action body |
 | Nested effects | Sequential `once` blocks with `when isNotNull(prev)` |
 

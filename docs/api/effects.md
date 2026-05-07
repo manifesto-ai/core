@@ -31,21 +31,21 @@ const app = createManifesto(schema, effects).activate();
 
 ## Builder-First Authoring
 
-`defineEffects()` gives handlers typed top-level `MEL.state.*` refs while keeping the runtime contract unchanged.
+`defineEffects()` gives handlers typed top-level `refs.state.*` refs while keeping the runtime contract unchanged.
 
 ```typescript
 import { defineEffects } from "@manifesto-ai/sdk/effects";
 import type { UserProfileDomain } from "./user-profile-types";
 
-const effects = defineEffects<UserProfileDomain>(({ set, unset }, MEL) => ({
+const effects = defineEffects<UserProfileDomain>(({ set, unset }, refs) => ({
   "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
     const user = await fetchUser(id);
 
     return [
-      set(MEL.state.user, user),
-      set(MEL.state.loading, false),
-      unset(MEL.state.error),
+      set(refs.state.user, user),
+      set(refs.state.loading, false),
+      unset(refs.state.error),
     ];
   },
 }));

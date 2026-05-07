@@ -8,7 +8,7 @@
 
 When debugging Manifesto, reduce the problem to this loop:
 
-1. Bind or call an action candidate from `app.actions.*`
+1. Bind or call an action candidate from `app.action.*`
 2. Submit it from the activated runtime
 3. Observe telemetry
 4. Read the next snapshot
@@ -48,7 +48,7 @@ This immediately tells you which class of failure you are dealing with:
 ```typescript
 const before = app.snapshot();
 const beforeCanonical = app.inspect.canonicalSnapshot();
-const result = await app.actions.fetchUser.submit("123");
+const result = await app.action.fetchUser.submit("123");
 const afterCanonical = app.inspect.canonicalSnapshot();
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
@@ -71,7 +71,7 @@ If the snapshot did not change, ask:
 Before you submit again, ask the runtime directly:
 
 ```typescript
-const admission = app.actions.fetchUser.check("123");
+const admission = app.action.fetchUser.check("123");
 
 if (!admission.ok) {
   console.log(admission.code, admission.blockers);
@@ -88,26 +88,26 @@ bound-candidate question.
 The safest current path is the runtime-owned action handle:
 
 ```typescript
-await app.actions.fetchUser.submit("123");
+await app.action.fetchUser.submit("123");
 ```
 
 For object-shaped actions, object-form binding is also a supported public path:
 
 ```typescript
-await app.actions.addTodo.submit({
+await app.action.addTodo.submit({
   id: "todo-1",
   title: "Review docs",
 });
 ```
 
-That keeps app code on the typed `actions.*` surface and lets the runtime pack
+That keeps app code on the typed `action.*` surface and lets the runtime pack
 the canonical input expected by the compiled action.
 
 If you need to see exactly what the runtime thinks the action contract is,
 inspect it directly:
 
 ```typescript
-console.log(app.actions.addTodo.info());
+console.log(app.action.addTodo.info());
 ```
 
 That is often faster than reconstructing the expected input shape from source.
@@ -165,7 +165,7 @@ Use the [Re-entry Safety](./reentry-safe-flows) guide for that class of bug.
 ## A Simple Debugging Pattern
 
 ```typescript
-async function debugSubmit(run: () => ReturnType<typeof app.actions.fetchUser.submit>) {
+async function debugSubmit(run: () => ReturnType<typeof app.action.fetchUser.submit>) {
   console.log("snapshot before", app.snapshot().state);
 
   const result = await run();

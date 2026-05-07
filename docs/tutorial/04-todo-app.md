@@ -142,22 +142,22 @@ app.observe.state(
 async function run() {
   render();
 
-  await app.actions.addTodo.submit(
+  await app.action.addTodo.submit(
     "Write the tutorial",
     crypto.randomUUID(),
   );
 
-  await app.actions.addTodo.submit(
+  await app.action.addTodo.submit(
     "Review the generated docs build",
     crypto.randomUUID(),
   );
 
   const firstTodoId = (app.snapshot().state.todos as Todo[])[0].id;
-  await app.actions.toggleTodo.submit(firstTodoId);
+  await app.action.toggleTodo.submit(firstTodoId);
 
-  await app.actions.setFilter.submit("completed");
+  await app.action.setFilter.submit("completed");
 
-  await app.actions.clearCompleted.submit();
+  await app.action.clearCompleted.submit();
 
   render();
   app.dispose();

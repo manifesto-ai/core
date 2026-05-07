@@ -21,22 +21,20 @@ domain ControlOnce {
     step3: string | null = null
 
     // Data
-    items: Array<Item> | null = null
-    processed: Array<Item> | null = null
+    items: Array<Item> = []
+    processed: Array<Item> = []
   }
 
   // --- Basic once ---
   // Runs once per intent, prevents duplicate execution
   action increment() {
     once(lastIncrement) {
-      patch lastIncrement = $runtime.intent.id    // MUST be first!
       patch count = add(count, 1)
     }
   }
 
   action decrement() {
     once(lastDecrement) {
-      patch lastDecrement = $runtime.intent.id
       patch count = sub(count, 1)
     }
   }
@@ -45,7 +43,6 @@ domain ControlOnce {
   // Combines idempotency with additional condition
   action incrementIfPositive() {
     once(lastIncrement) when gt(count, 0) {
-      patch lastIncrement = $runtime.intent.id
       patch count = add(count, 1)
     }
   }
@@ -54,7 +51,6 @@ domain ControlOnce {
   // Effect runs only once per intent
   action fetchData() {
     once(step1) {
-      patch step1 = $runtime.intent.id
       effect api.fetch({ url: "/items", into: items })
     }
   }
@@ -63,13 +59,11 @@ domain ControlOnce {
   action processItems() {
     // Step 1: Fetch
     once(step1) {
-      patch step1 = $runtime.intent.id
       effect api.fetch({ url: "/items", into: items })
     }
 
     // Step 2: Filter (waits for items)
-    once(step2) when isNotNull(items) {
-      patch step2 = $runtime.intent.id
+    once(step2) when gt(len(items), 0) {
       effect array.filter({
         source: items,
         where: eq($item.active, true),
@@ -78,8 +72,7 @@ domain ControlOnce {
     }
 
     // Step 3: Complete (waits for processed)
-    once(step3) when isNotNull(processed) {
-      patch step3 = $runtime.intent.id
+    once(step3) when gt(len(processed), 0) {
       patch count = len(processed)
     }
   }
@@ -102,8 +95,8 @@ domain ControlOnce {
       patch step1 = null
       patch step2 = null
       patch step3 = null
-      patch items = null
-      patch processed = null
+      patch items = []
+      patch processed = []
       patch count = 0
     }
   }
@@ -129,7 +122,7 @@ domain ControlOnce {
 //   neq("A", "B") = true -> runs again!
 //
 // Key Rules:
-//   - Marker patch MUST be first statement
+//   - Compiler inserts the marker patch before the body
 //   - Marker should be string | null type
 //   - Each once block needs unique marker
 //

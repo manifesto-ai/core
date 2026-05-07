@@ -80,16 +80,16 @@ Use `compileFragmentInContext()` when authoring-time tooling needs the compiler 
 ```typescript
 import { compileFragmentInContext } from "@manifesto-ai/compiler";
 
-const result = compileFragmentInContext(melSource, {
+const compileResult = compileFragmentInContext(melSource, {
   kind: "addComputed",
   name: "nextCount",
   expr: "add(count, 1)",
 }, { includeSchemaDiff: true });
 
-if (result.ok) {
-  const nextSource = result.newSource;
-  const changedTargets = result.changedTargets;
-  const impact = result.schemaDiff;
+if (compileResult.ok) {
+  const nextSource = compileResult.newSource;
+  const changedTargets = compileResult.changedTargets;
+  const impact = compileResult.schemaDiff;
 }
 ```
 

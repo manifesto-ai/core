@@ -9,7 +9,7 @@ domain ComputedAggregation {
   state {
     prices: Array<number> = [10, 20, 30, 40, 50]
     scores: Array<number> = [85, 92, 78, 95, 88]
-    temperatures: Array<number> = [-5, 0, 15, 25, 30]
+    temperatures: Array<number> = [5, 10, 15, 25, 30]
     emptyArray: Array<number> = []
 
     // For value comparison examples

@@ -74,7 +74,7 @@ import CounterSchema from "./counter.mel";
 
 const app = createManifesto(CounterSchema, {}).activate();
 
-await app.actions.increment.submit();
+await app.action.increment.submit();
 
 const snapshot = app.snapshot();
 console.log(snapshot.state.count);      // 1
@@ -86,7 +86,7 @@ console.log(snapshot.computed.doubled); // 2
 - MEL declared domain state, derived values, and an action.
 - `createManifesto()` created a composable manifesto from the schema.
 - `activate()` opened the base runtime surface.
-- `actions.increment.submit()` validated and published the next terminal Snapshot.
+- `action.increment.submit()` validated and published the next terminal Snapshot.
 
 ## Next
 

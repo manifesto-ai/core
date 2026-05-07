@@ -62,7 +62,7 @@ export type TodoDomain = {
 };
 ```
 
-The hook uses this type to keep `actions.*` aligned with the domain action
+The hook uses this type to keep `action.*` aligned with the domain action
 signatures.
 
 ---
@@ -95,7 +95,7 @@ type UseManifestoResult = {
 };
 
 async function submitOrThrow(
-  run: (app: TodoApp) => ReturnType<TodoApp["actions"]["clearCompleted"]["submit"]>,
+  run: (app: TodoApp) => ReturnType<TodoApp["action"]["clearCompleted"]["submit"]>,
   app: TodoApp,
 ): Promise<TodoSnapshot> {
   const result = await run(app);
@@ -136,19 +136,19 @@ export function useManifesto(): UseManifestoResult {
   };
 
   const addTodo = (title: string) =>
-    withApp((app) => submitOrThrow((runtime) => runtime.actions.addTodo.submit(title), app));
+    withApp((app) => submitOrThrow((runtime) => runtime.action.addTodo.submit(title), app));
 
   const toggleTodo = (id: string) =>
-    withApp((app) => submitOrThrow((runtime) => runtime.actions.toggleTodo.submit(id), app));
+    withApp((app) => submitOrThrow((runtime) => runtime.action.toggleTodo.submit(id), app));
 
   const removeTodo = (id: string) =>
-    withApp((app) => submitOrThrow((runtime) => runtime.actions.removeTodo.submit(id), app));
+    withApp((app) => submitOrThrow((runtime) => runtime.action.removeTodo.submit(id), app));
 
   const setFilter = (newFilter: FilterMode) =>
-    withApp((app) => submitOrThrow((runtime) => runtime.actions.setFilter.submit(newFilter), app));
+    withApp((app) => submitOrThrow((runtime) => runtime.action.setFilter.submit(newFilter), app));
 
   const clearCompleted = () =>
-    withApp((app) => submitOrThrow((runtime) => runtime.actions.clearCompleted.submit(), app));
+    withApp((app) => submitOrThrow((runtime) => runtime.action.clearCompleted.submit(), app));
 
   return {
     state,
@@ -166,7 +166,7 @@ The important runtime rules are:
 
 - `createManifesto(...).activate()` runs once per mounted hook instance
 - `observe.state(...)` pushes only later terminal snapshots
-- every action helper submits through `app.actions.*`
+- every action helper submits through `app.action.*`
 - React never calls retired root runtime verbs
 
 ---
@@ -242,20 +242,20 @@ If a form or modal needs to wait for completion, await the helper:
 await addTodo("Review the UI flow");
 ```
 
-The helper already uses `app.actions.addTodo.submit(title)`, so you do not need
+The helper already uses `app.action.addTodo.submit(title)`, so you do not need
 a second generic dispatch layer.
 
 ---
 
 ## 5. Treat Availability As Snapshot-Derived UI State
 
-`actions.x.available()` is a point-in-time runtime read. If the UI needs a
+`action.x.available()` is a point-in-time runtime read. If the UI needs a
 reactive boolean, recompute it in the same path that updates React state from
 snapshots.
 
 ```typescript
 const syncAvailability = (app: TodoApp) => {
-  setCanClearCompleted(app.actions.clearCompleted.available());
+  setCanClearCompleted(app.action.clearCompleted.available());
 };
 
 useEffect(() => {
@@ -330,7 +330,7 @@ Activate once during mount, then keep the runtime in a ref.
 ### Reintroducing a generic string dispatcher
 
 Prefer explicit helpers like `addTodo(title)` over `act("addTodo", input)`.
-That keeps the app path aligned with typed `actions.*`.
+That keeps the app path aligned with typed `action.*`.
 
 ### Waiting for retired SDK APIs
 

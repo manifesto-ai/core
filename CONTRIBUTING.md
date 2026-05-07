@@ -120,10 +120,11 @@ Releases are automated using [Release Please](https://github.com/googleapis/rele
 
 Respect the layered architecture:
 
-- **Core** (pure computation) → MUST NOT import Host, World
-- **Host** (execution) → MUST NOT import World governance
-- **World** (governance) → MUST NOT import Host or Core internals
-- **Runtime/SDK** (composition/public API) → MUST NOT import Core/Host/World internals outside package contracts
+- **Core** (pure computation) → MUST NOT import Host, SDK runtime internals, Lineage, or Governance
+- **Host** (execution) → MUST NOT import Governance or Lineage internals
+- **Lineage** (continuity) → MUST NOT execute effects or evaluate authority
+- **Governance** (legitimacy) → MUST NOT execute effects, apply patches, or seal lineage implicitly
+- **Runtime/SDK** (composition/public API) → MUST NOT import package internals outside public/provider contracts
 
 See [CLAUDE.md Section 3](./CLAUDE.md#3-package-boundary-rules) for complete details.
 
@@ -137,8 +138,8 @@ All code contributions MUST comply with the Manifesto Constitution (`CLAUDE.md`)
 
 1. **Determinism** — Same input MUST produce same output, always
 2. **Snapshot as Sole Medium** — All state communication through Snapshot only
-3. **Separation of Concerns** — Core computes, Host executes, World governs
-4. **Immutability** — Snapshots and Worlds MUST NOT mutate after creation
+3. **Separation of Concerns** — Core computes, Host executes, Lineage records continuity, Governance authorizes legitimacy
+4. **Immutability** — Snapshots and Lineage Worlds MUST NOT mutate after creation
 5. **Type Safety** — Zero string paths in user-facing APIs
 
 ### State Mutation Rules

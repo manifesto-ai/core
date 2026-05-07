@@ -19,7 +19,7 @@ This guide uses a Todo app. Build that domain first in [Building a Todo App](/gu
 
 The examples assume action-level gates are modeled with MEL `available when`.
 `inspect.availableActions()` reflects those current-snapshot action gates.
-Bound-input checks still belong to `dispatchable when` and `actions.x.check()`.
+Bound-input checks still belong to `dispatchable when` and `action.x.check()`.
 Treat availability as a present-tense observational read, not a capability
 token; tools still re-check legality at submit time.
 
@@ -81,12 +81,12 @@ export const todoTools = {
     description: "Add one todo through the Manifesto runtime.",
     inputSchema: z.object({ title: z.string().min(1) }),
     execute: async ({ title }) => {
-      const admission = app.actions.addTodo.check(title);
+      const admission = app.action.addTodo.check(title);
       if (!admission.ok) {
         return unavailable("addTodo");
       }
 
-      const result = await app.with({ report: "none" }).actions.addTodo.submit(title);
+      const result = await app.with({ report: "none" }).action.addTodo.submit(title);
 
       return {
         status: result.ok
@@ -103,12 +103,12 @@ export const todoTools = {
     description: "Clear completed todos when the action is available.",
     inputSchema: z.object({}),
     execute: async () => {
-      const admission = app.actions.clearCompleted.check();
+      const admission = app.action.clearCompleted.check();
       if (!admission.ok) {
         return unavailable("clearCompleted");
       }
 
-      const result = await app.with({ report: "none" }).actions.clearCompleted.submit();
+      const result = await app.with({ report: "none" }).action.clearCompleted.submit();
 
       return {
         status: result.ok
@@ -136,7 +136,7 @@ If a tool needs first-party admission data, before/after snapshots, or projected
 diffs in-band, keep the default report detail:
 
 ```typescript
-const result = await app.with({ report: "full" }).actions.addTodo.submit(title);
+const result = await app.with({ report: "full" }).action.addTodo.submit(title);
 
 if (!result.ok) {
   return result;
@@ -240,7 +240,7 @@ const addTodoForReview = tool({
   description: "Propose a todo. A human reviewer must approve before it changes state.",
   inputSchema: z.object({ title: z.string().min(1) }),
   execute: async ({ title }) => {
-    const pending = await app.actions.addTodo.submit(title);
+    const pending = await app.action.addTodo.submit(title);
 
     if (!pending.ok) {
       return {
@@ -274,7 +274,7 @@ export async function approveAgentProposal(proposalId: string) {
 }
 ```
 
-That is the upgrade path: direct tools use `actions.x.submit()`. Reviewable
+That is the upgrade path: direct tools use `action.x.submit()`. Reviewable
 tools use the same call shape and receive a `ProposalRef`; a reviewer calls
 `approve()` when policy requires it, then observes settlement through
 `pending.waitForSettlement()` or `app.waitForSettlement(ref)`.
@@ -301,7 +301,7 @@ snapshot when a tool needs deterministic replay evidence.
 
 ### Describing actions only in the system prompt
 
-Use `inspect.availableActions()` and `actions.x.info()` as the capability
+Use `inspect.availableActions()` and `action.x.info()` as the capability
 surface.
 
 ### Letting the agent edit state directly

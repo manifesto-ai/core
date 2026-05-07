@@ -38,7 +38,7 @@ const app = withGovernance(
 Governance-mode action submission uses the SDK v5 action-candidate surface:
 
 ```typescript
-const pending = await app.actions.increment.submit({ by: 1 });
+const pending = await app.action.increment.submit({ by: 1 });
 const settlement = await pending.waitForSettlement();
 ```
 
@@ -128,7 +128,7 @@ root methods:
 - `waitForProposal(app, proposalOrId, options?)`
 - `waitForProposalWithReport(app, proposalOrId, options?)`
 
-Use `actions.x.submit(input)`, `pending.waitForSettlement()`, and
+Use `action.x.submit(input)`, `pending.waitForSettlement()`, and
 `app.waitForSettlement(ref)` in current v5 code.
 
 ## Low-Level Protocol Surface

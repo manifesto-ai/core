@@ -16,7 +16,7 @@
 In Manifesto, determinism means that **the same input always produces the same output, always**. This is not a convenience—it is the foundational constraint that makes every other guarantee possible.
 
 ```typescript
-compute(schema, snapshot, intent, context) → (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) → ComputeResult
 ```
 
 This equation is:
@@ -122,7 +122,7 @@ type Snapshot = {
 
 **Key invariants:**
 - Snapshots are immutable after creation
-- All state changes happen via Patches
+- Domain state changes happen via `Patch[]`; namespace and system changes use their dedicated delta channels
 - Computed values are recalculated, never stored
 - There is no channel for value passing outside Snapshot
 - External runtime facts used by Core are supplied as explicit `Context`
@@ -193,7 +193,7 @@ await fetch('/api/data');
 
 1. **Purity**: Core remains pure; no IO inside
 2. **Testability**: Test Flow without executing real effects
-3. **Flexibility**: Host decides how/when/whether to execute
+3. **Execution mechanics**: Host schedules, retries, or reports Core-declared requirements
 4. **Batching**: Host can batch multiple effects
 5. **Retry Logic**: Host can implement retry without Core knowing
 
@@ -215,7 +215,7 @@ await fetch('/api/data');
 │  └─────────────────────────────────────┘                   │
 │                     │                                       │
 │                     ▼                                       │
-│  Returns: (snapshot', requirements, trace)                  │
+│  Returns: ComputeResult                                     │
 │                     │                                       │
 │         ┌──────────┴──────────┐                            │
 │         ▼                     ▼                            │
@@ -313,7 +313,10 @@ test('computes transition', () => {
     external: {},
   };
   const result = await core.compute(schema, snapshot, intent, context);
-  expect(result.snapshot.state.count).toBe(1);
+  const patched = core.apply(schema, snapshot, result.patches);
+  const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+  const next = core.applySystemDelta(namespaced, result.systemDelta);
+  expect(next.state.count).toBe(1);
 });
 ```
 
@@ -500,8 +503,8 @@ But Core's computation remains pure.
 // Wrong: Non-deterministic
 const id = Math.random().toString();
 
-// Right: Deterministic
-const id = context.runtime.random.seed;
+// Right: Deterministic input to UUID allocation
+const id = allocateDeterministicId(context.runtime.random.seed, "createItem");
 ```
 
 Host/SDK materializes the seed once per transition attempt. MEL and expression
@@ -541,7 +544,7 @@ Determinism is not a feature of Manifesto—it is the constraint that defines wh
 **The fundamental equation:**
 
 ```
-compute(schema, snapshot, intent, context) → (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) → ComputeResult
 ```
 
 This equation is pure, total, traceable, and complete.

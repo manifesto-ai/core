@@ -20,8 +20,8 @@ This is what makes Manifesto a semantic layer rather than a state management lib
 ## One Semantic Core, Two Runtime Surfaces
 
 ```text
-Base runtime -> activate() -> actions.x.submit(...) -> next Snapshot
-Governed runtime -> withLineage() -> withGovernance() -> actions.x.submit(...) -> proposal -> settlement -> sealed Snapshot
+Base runtime -> activate() -> action.x.submit(...) -> next Snapshot
+Governed runtime -> withLineage() -> withGovernance() -> action.x.submit(...) -> proposal -> settlement -> sealed Snapshot
 ```
 
 The semantic core is shared. The runtime surface changes based on whether you need direct dispatch or governed composition.
@@ -47,13 +47,13 @@ import TaskBoardMel from "./task-board.mel";
 const app = createManifesto(TaskBoardMel, {}).activate();
 
 // UI surface
-await app.actions.addTask.submit(
+await app.action.addTask.submit(
   crypto.randomUUID(),
   "Human-created task",
 );
 
 // Agent surface - same action-candidate contract
-await app.actions.addTask.submit(
+await app.action.addTask.submit(
   crypto.randomUUID(),
   "Agent-created task",
 );

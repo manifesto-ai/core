@@ -17,7 +17,7 @@ console.log(snapshot.system.lastError);
 ## Read the Dispatch Result
 
 ```typescript
-const result = await app.actions.increment.submit();
+const result = await app.action.increment.submit();
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.count);

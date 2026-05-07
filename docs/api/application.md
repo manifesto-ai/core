@@ -21,7 +21,7 @@ const app = manifesto.activate();
 | `schema` | A compiled `DomainSchema` or MEL source string |
 | `effects` | A record of SDK effect handlers, keyed by effect type. You can author it directly or via `@manifesto-ai/sdk/effects`. |
 
-`createManifesto()` returns a composable object. Runtime reads and writes such as `snapshot()`, `actions.<name>.submit()`, `observe`, and `inspect` exist only after `activate()`.
+`createManifesto()` returns a composable object. Runtime reads and writes such as `snapshot()`, `action.<name>.submit()`, `observe`, and `inspect` exist only after `activate()`.
 
 Compiler tooling artifacts such as `DomainModule` are outside this seam. If you compile through `compileMelModule()`, pass `module.schema` to `createManifesto()`, not the whole module.
 

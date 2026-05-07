@@ -47,7 +47,7 @@ This file should live outside React components and outside request handlers that
 ## 2. Create A Reviewable Request
 
 ```typescript
-const candidate = governed.actions.addTodo.bind("Document the governed path");
+const candidate = governed.action.addTodo.bind("Document the governed path");
 ```
 
 The typed candidate still comes from the runtime. Governance adds proposal semantics when you submit it.

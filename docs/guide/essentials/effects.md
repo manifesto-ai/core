@@ -40,14 +40,14 @@ Start with a named effect when the work crosses a process boundary. Start with `
 import { defineEffects } from "@manifesto-ai/sdk/effects";
 import type { UserProfileDomain } from "./user-profile-types";
 
-const app = createManifesto(UserProfileSchema, defineEffects<UserProfileDomain>(({ set }, MEL) => ({
+const app = createManifesto(UserProfileSchema, defineEffects<UserProfileDomain>(({ set }, refs) => ({
   "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
     const user = await fetchUser(id);
 
     return [
-      set(MEL.state.userName, user.name),
-      set(MEL.state.loading, false),
+      set(refs.state.userName, user.name),
+      set(refs.state.loading, false),
     ];
   },
 }))).activate();

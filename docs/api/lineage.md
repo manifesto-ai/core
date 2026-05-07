@@ -11,7 +11,7 @@
 Use this package when you want:
 
 - `withLineage(createManifesto(...), config).activate()`
-- seal-aware `actions.<name>.submit(...args)`
+- seal-aware `action.<name>.submit(...args)`
 - lineage `LineageSubmissionResult` values with `world` and `report`
 - head, branch, world, and restore APIs on the activated runtime
 - `getWorldSnapshot(worldId)` for stored sealed canonical snapshot inspection by world id
@@ -35,7 +35,7 @@ const lineage = withLineage(
 
 - `withLineage()` and `LineageConfig`
 - activated `LineageInstance<T>`
-- lineage-aware `actions.<name>.submit(...args)` that seals before publication
+- lineage-aware `action.<name>.submit(...args)` that seals before publication
 - lineage-owned `LineageSubmissionResult` reports
 - inherited v5 action-candidate reads such as `available()`, `check()`, and `preview()`
 - `restore`, `getWorld`, `getWorldSnapshot`, `getLineage`, `getLatestHead`, `getHeads`, `getBranches`, `getActiveBranch`, `switchActiveBranch`, `createBranch`
@@ -48,7 +48,7 @@ Those inherited action-candidate legality queries keep the base SDK meaning:
 
 ## Runtime Meaning
 
-`actions.<name>.submit(...args)` on a lineage runtime is not the base SDK write path.
+`action.<name>.submit(...args)` on a lineage runtime is not the base SDK write path.
 
 It means:
 

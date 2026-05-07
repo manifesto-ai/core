@@ -38,7 +38,7 @@ The safest path is to use action handles from the activated runtime:
 ```typescript
 const app = createManifesto(schema, effects).activate();
 
-const result = await app.actions.addTodo.submit(
+const result = await app.action.addTodo.submit(
   crypto.randomUUID(),
   "Review the docs",
 );
@@ -47,14 +47,14 @@ const result = await app.actions.addTodo.submit(
 Object-shaped actions bind with a single object argument:
 
 ```typescript
-const result = await app.actions.addTodo.submit({
+const result = await app.action.addTodo.submit({
   id: crypto.randomUUID(),
   title: "Review the docs",
 });
 ```
 
 That keeps the public call typed while letting the runtime own canonical input
-packing. Base, Lineage, and Governance all use `actions.<name>.submit(...)`;
+packing. Base, Lineage, and Governance all use `action.<name>.submit(...)`;
 their result unions express the active runtime law.
 
 ---
@@ -63,9 +63,9 @@ their result unions express the active runtime law.
 
 Current SDK rules are:
 
-- zero-parameter actions: `actions.x.submit()` or `actions.x.bind()`
-- single-parameter actions: `actions.x.submit(value)` or `actions.x.bind(value)`
-- multi-parameter actions with positional metadata: `actions.x.submit(...args)` or `actions.x.bind(...args)`
+- zero-parameter actions: `action.x.submit()` or `action.x.bind()`
+- single-parameter actions: `action.x.submit(value)` or `action.x.bind(value)`
+- multi-parameter actions with positional metadata: `action.x.submit(...args)` or `action.x.bind(...args)`
 - hand-authored multi-field object inputs without positional metadata: use one object argument
 
 `BoundAction.input` preserves the public shape:
@@ -82,7 +82,7 @@ Use `bind(...).intent()` only when a bridge, extension, or protocol test needs
 the packed raw shape:
 
 ```typescript
-const candidate = app.actions.addTodo.bind("Review the docs");
+const candidate = app.action.addTodo.bind("Review the docs");
 const intent = candidate.intent();
 ```
 
@@ -149,7 +149,7 @@ import TodoMel from "./todo.mel";
 
 const app = createManifesto(TodoMel, {}).activate();
 
-await app.actions.addTodo.submit({
+await app.action.addTodo.submit({
   id: crypto.randomUUID(),
   title: "Ship the rewrite",
 });

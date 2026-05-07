@@ -729,9 +729,12 @@ test('fails when title is empty', () => {
   };
 
   const result = await core.compute(schema, snapshot, intent, context);
+  const patched = core.apply(schema, snapshot, result.patches);
+  const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+  const next = core.applySystemDelta(namespaced, result.systemDelta);
 
   expect(result.status).toBe('error');
-  expect(result.snapshot.system.lastError).toMatchObject({
+  expect(next.system.lastError).toMatchObject({
     code: 'EMPTY_TITLE'
   });
 });

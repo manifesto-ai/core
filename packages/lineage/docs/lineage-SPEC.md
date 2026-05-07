@@ -12,8 +12,8 @@
 >
 > **Current Contract Status:** Lineage v5 is the continuity-owning decorator for
 > the SDK v5 action-candidate runtime. The canonical lineage write ingress is
-> `actions.x.submit(...)` / `action(name).submit(...)` on a lineage-mode
-> `ManifestoApp`. V3 `commitAsync*` names are historical migration inputs, not
+> `action.x.submit(...)` on a lineage-mode `ManifestoApp`. V3 `commitAsync*`
+> names are historical migration inputs, not
 > canonical v5 runtime root methods.
 
 ---
@@ -51,7 +51,7 @@ const app = withLineage(createManifesto<TodoDomain>(schema, effects), {
   store,
 }).activate();
 
-const result = await app.actions.addTodo.submit({ title: "Ship v5" });
+const result = await app.action.addTodo.submit({ title: "Ship v5" });
 ```
 
 `submit()` is the common SDK verb, but the lineage decorator owns what it means
@@ -122,7 +122,7 @@ extension above and the lineage-mode implementation of `submit()`.
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | LIN-V5-SFC-1 | MUST | Activated lineage runtimes MUST expose the SDK v5 root grammar plus `LineageContinuitySurface`. |
-| LIN-V5-SFC-2 | MUST | `actions.x.submit()` and `action(name).submit()` MUST be the canonical lineage write ingress. |
+| LIN-V5-SFC-2 | MUST | `action.x.submit()` MUST be the canonical lineage write ingress. `actions.x.submit()` and `action(name).submit()` MUST NOT be canonical v5 lineage surfaces. |
 | LIN-V5-SFC-3 | MUST NOT | Canonical v5 lineage runtimes MUST NOT expose root `commitAsync()` or `commitAsyncWithReport()`. |
 | LIN-V5-SFC-4 | MUST | Query methods MUST return continuity truth from the backing `LineageService`. |
 | LIN-V5-SFC-5 | SHOULD | `getWorldSnapshot(worldId)` SHOULD expose the stored sealed canonical snapshot substrate for a specific world when available. |
@@ -142,8 +142,8 @@ Migration mapping:
 
 | v3 API | v5 API |
 |--------|--------|
-| `commitAsync(intent)` | `actions.x.submit(input)` on a lineage runtime |
-| `commitAsyncWithReport(intent)` | `actions.x.submit(input)` result `report` field |
+| `commitAsync(intent)` | `action.x.submit(input)` on a lineage runtime |
+| `commitAsyncWithReport(intent)` | `action.x.submit(input)` result `report` field |
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -475,7 +475,7 @@ An implementation is v5-compliant only if all of the following hold:
 
 - `withLineage()` accepts a composable manifesto and exposes no runtime verbs pre-activation.
 - Activated lineage runtime exposes the SDK v5 action-candidate grammar.
-- Canonical lineage write ingress is `actions.x.submit()` / `action(name).submit()`.
+- Canonical lineage write ingress is `action.x.submit()`.
 - `commitAsync()` and `commitAsyncWithReport()` are absent from the canonical v5 lineage runtime root.
 - Successful head-advancing submissions resolve only after seal commit succeeds.
 - Seal failure rejects and does not publish.

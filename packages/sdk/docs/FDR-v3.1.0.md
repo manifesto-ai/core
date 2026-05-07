@@ -169,21 +169,21 @@ Traversals:
 
 ```typescript
 // "What does createTask affect?" - follow outgoing edges downstream
-graph.traceDown(MEL.actions.createTask);
+graph.traceDown(refs.actions.createTask);
 // -> createTask ->(mutates)-> tasks ->(feeds)-> activeTasks ->(feeds)-> todoTasks
 //    ->(feeds)-> todoCount ->(unlocks)-> finalize
 
 // "What feeds into todoCount?" - follow incoming edges upstream
-graph.traceUp(MEL.computed.todoCount);
+graph.traceUp(refs.computed.todoCount);
 // -> tasks ->(feeds)-> activeTasks ->(feeds)-> todoTasks ->(feeds)-> todoCount
 
 // "What does tasks affect downstream?" - follow outgoing edges
-graph.traceDown(MEL.state.tasks);
+graph.traceDown(refs.state.tasks);
 // -> tasks ->(feeds)-> activeTasks ->(feeds)-> todoTasks ->(feeds)-> todoCount
 //    tasks ->(feeds)-> deletedTasks ->(feeds)-> deletedCount
 
 // "What feeds into finalize?" - follow incoming edges upstream
-graph.traceUp(MEL.actions.finalize);
+graph.traceUp(refs.actions.finalize);
 // -> tasks ->(feeds)-> activeTasks ->(feeds)-> todoTasks ->(feeds)-> todoCount
 //    ->(unlocks)-> finalize
 ```
@@ -274,7 +274,7 @@ interface ManifestoBaseInstance<T> {
 }
 ```
 
-Usage with TypedMEL:
+Usage with typed domain refs:
 
 ```typescript
 const instance = manifesto.activate();
@@ -283,16 +283,16 @@ const instance = manifesto.activate();
 const graph = instance.getSchemaGraph();
 
 // What does moveTask affect downstream?
-const downstream = graph.traceDown(instance.MEL.actions.moveTask);
+const downstream = graph.traceDown(instance.refs.actions.moveTask);
 
 // What feeds into todoCount?
-const upstream = graph.traceUp(instance.MEL.computed.todoCount);
+const upstream = graph.traceUp(instance.refs.computed.todoCount);
 
 // What is downstream of tasks?
-const taskImpact = graph.traceDown(instance.MEL.state.tasks);
+const taskImpact = graph.traceDown(instance.refs.state.tasks);
 
 // What feeds into finalize's availability?
-const finalizeUpstream = graph.traceUp(instance.MEL.actions.finalize);
+const finalizeUpstream = graph.traceUp(instance.refs.actions.finalize);
 ```
 
 ### Relationship to Existing Introspection APIs
@@ -327,7 +327,7 @@ This is a deliberate simplification. Guard-level granularity can be added as a f
 
 #### Why Ref-Canonical Querying in `traceUp()` / `traceDown()`?
 
-Making `ActionRef | FieldRef | ComputedRef` the canonical query surface preserves the SDK's zero-string-path discipline while still enabling type-safe subgraph queries via `instance.MEL.*`. The `__kind` discriminant plus the ref's normative `name` gives SchemaGraph enough identity to resolve the projected node unambiguously.
+Making `ActionRef | FieldRef | ComputedRef` the canonical query surface preserves the SDK's zero-string-path discipline while still enabling type-safe subgraph queries via `instance.refs.*`. The `__kind` discriminant plus the ref's normative `name` gives SchemaGraph enough identity to resolve the projected node unambiguously.
 
 Kind-prefixed string node ids remain useful for debugging, REPL work, and serialized tooling payloads, but they are intentionally secondary. Keeping strings as convenience/debug-only avoids promoting two equal public lookup surfaces that must be maintained forever.
 

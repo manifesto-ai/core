@@ -180,7 +180,7 @@ const requiredAnchors = [
     path: "packages/lineage/docs/lineage-SPEC.md",
     tokens: [
       "Lineage v5 is the continuity-owning decorator",
-      "actions.x.submit(...)",
+      "action.x.submit(...)",
       "WorldRecord",
       "Host-owned `namespaces.host.lastError` is a canonical-only",
       "MUST NOT | Lineage MUST NOT derive sealed failed outcome",
@@ -190,7 +190,7 @@ const requiredAnchors = [
     path: "packages/governance/docs/governance-SPEC.md",
     tokens: [
       "Governance v5 is the legitimacy-owning decorator",
-      "actions.x.submit(...)",
+      "action.x.submit(...)",
       "ProposalRef",
       "waitForSettlement(ref)",
       "type GovernanceSettlementReport",

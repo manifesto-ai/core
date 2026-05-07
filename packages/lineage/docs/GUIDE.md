@@ -2,7 +2,7 @@
 
 > Practical guide for the current ADR-017 lineage runtime.
 
-> **Current Contract Note:** This guide follows the current v5 lineage decorator model. The canonical app-facing path is `withLineage(createManifesto(...), config).activate()`, with `actions.<name>.submit(...)` as the write verb.
+> **Current Contract Note:** This guide follows the current v5 lineage decorator model. The canonical app-facing path is `withLineage(createManifesto(...), config).activate()`, with `action.<name>.submit(...)` as the write verb.
 
 ## 1. Compose Lineage Before Activation
 
@@ -22,7 +22,7 @@ Lineage does not decorate a running instance. It decorates the composable manife
 ## 2. Submit Means Execute And Seal
 
 ```ts
-await lineage.actions.increment.submit();
+await lineage.action.increment.submit();
 ```
 
 On a lineage runtime, `submit()` means:
@@ -36,7 +36,7 @@ If seal commit fails, the Promise rejects and the new snapshot does not become v
 ## 3. Use The Additive Report Companion When Tooling Needs More Context
 
 ```ts
-const result = await lineage.with({ report: "full" }).actions.increment.submit();
+const result = await lineage.with({ report: "full" }).action.increment.submit();
 ```
 
 Execution view report settings keep the same seal/publication law and package additive result detail as data.
@@ -66,7 +66,7 @@ if (latestHead) {
 
 These APIs project the backing continuity truth through the activated runtime.
 `snapshot()` remains the projected runtime read. `inspect.canonicalSnapshot()` reads the current visible canonical substrate. `getWorldSnapshot(worldId)` reads the stored sealed canonical snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
-The activated lineage runtime also keeps the inherited SDK action-candidate legality queries: `actions.x.available()` and `actions.x.check(...)`.
+The activated lineage runtime also keeps the inherited SDK action-candidate legality queries: `action.x.available()` and `action.x.check(...)`.
 
 ## 5. Restore A Sealed Lineage World
 

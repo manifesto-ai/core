@@ -13,8 +13,8 @@ Use this guide when you are building a tool that reads Manifesto runtime state, 
 | Computed declarations | `ComputedSpec` | [Core API](/api/core), [Public Surface Inventory](/api/public-surface) |
 | Action declarations | `ActionSpec` | [Core API](/api/core), [Public Surface Inventory](/api/public-surface) |
 | Runtime typing seam | `state.fieldTypes`, `action.inputType`, `action.params` | [Compiler API](/api/compiler), [Current Contract](/internals/spec/current-contract) |
-| Current-snapshot legality | `actions.x.available()`, `actions.x.check(...)` | [Actions and Availability](/api/actions-and-availability), [SDK API](/api/sdk) |
-| Current-snapshot dry-run | `actions.x.preview(...)` | [Runtime Instance](/api/runtime), [SDK API](/api/sdk) |
+| Current-snapshot legality | `action.x.available()`, `action.x.check(...)` | [Actions and Availability](/api/actions-and-availability), [SDK API](/api/sdk) |
+| Current-snapshot dry-run | `action.x.preview(...)` | [Runtime Instance](/api/runtime), [SDK API](/api/sdk) |
 | Arbitrary-snapshot read-only analysis | `@manifesto-ai/sdk/extensions` | [SDK API](/api/sdk) |
 | Sealed world inspection | `getWorldSnapshot(worldId)` | [Lineage API](/api/lineage) |
 | Replay input inspection | `computeEnvelope.intent + computeEnvelope.context` on Lineage attempts or Governance proposals | [Lineage API](/api/lineage), [Governance API](/api/governance) |
@@ -25,7 +25,7 @@ Use this guide when you are building a tool that reads Manifesto runtime state, 
 Tooling should normalize a candidate operation into one typed action candidate, then reuse that same value across admission, preview, and the runtime write verb.
 
 ```typescript
-const candidate = app.actions.spend.bind({ amount: 20 });
+const candidate = app.action.spend.bind({ amount: 20 });
 const admission = candidate.check();
 
 if (!admission.ok) {
@@ -86,7 +86,7 @@ const sealed = await app.getWorldSnapshot(worldId);
 
 if (sealed) {
   const projected = ext.projectSnapshot(sealed);
-  const intent = ext.createIntent(ext.MEL.actions.spend, { amount: 20 });
+  const intent = ext.createIntent(ext.refs.actions.spend, { amount: 20 });
   const explanation = ext.explainIntentFor(sealed, intent);
 
   if (explanation.kind === "admitted") {

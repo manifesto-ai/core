@@ -63,7 +63,7 @@ Options are optional. By default, this uses `createDomainPlugin()` and emits a c
 ### createDomainPlugin()
 
 Generates the canonical SDK v5 domain facade for `snapshot.state`, `computed`,
-`actions.*`, `action(name)`, `ActionInput`, and `ActionArgs`.
+`action.*`, `ActionInput`, and `ActionArgs`.
 
 ```typescript
 import { createDomainPlugin } from "@manifesto-ai/codegen";

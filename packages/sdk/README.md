@@ -4,14 +4,14 @@
 
 `@manifesto-ai/sdk` is the default package for applications that start with `createManifesto()`.
 
-> **Current Contract Note:** The current SDK contract is the activation-first v5 model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md). It includes typed action candidates through `actions.*`, projected `snapshot()` reads, `observe`, `inspect`, `@manifesto-ai/sdk/extensions`, and `createSimulationSession(app)`.
+> **Current Contract Note:** The current SDK contract is the activation-first v5 model documented in [docs/sdk-SPEC.md](docs/sdk-SPEC.md). It includes typed action candidates through `action.*`, projected `snapshot()` reads, `observe`, `inspect`, `@manifesto-ai/sdk/extensions`, and `createSimulationSession(app)`.
 
 ## When to Use It
 
 Use the SDK when you want:
 
 - the shortest path to a running base runtime
-- typed action submission through `actions.*`
+- typed action submission through `action.*`
 - optional typed effect authoring through `@manifesto-ai/sdk/effects`
 - action-candidate check/preview/submit, observers, legality queries, optional trace diagnostics, and snapshot reads in one package
 - projected Snapshot reads by default, with canonical inspection available explicitly
@@ -25,7 +25,7 @@ import { createManifesto } from "@manifesto-ai/sdk";
 const manifesto = createManifesto<CounterDomain>(counterSchema, {});
 const app = manifesto.activate();
 
-await app.actions.increment.submit();
+await app.action.increment.submit();
 console.log(app.snapshot().state.count);
 ```
 

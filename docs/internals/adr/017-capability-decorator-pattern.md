@@ -10,7 +10,12 @@
 
 > **Current Contract Authority:** When this ADR differs from the current runtime surface, follow the package-level current specs and version indexes for `@manifesto-ai/sdk`, `@manifesto-ai/lineage`, and `@manifesto-ai/governance`. This ADR is retained as the architectural decision record and activation-first rationale.
 >
-> **Known Current Divergences:** Parts of this ADR still describe an earlier decorator variant in which lineage kept a lineage-aware `dispatchAsync` and governance could auto-ensure lineage from a base composable. The current implemented contract instead uses `dispatchAsync -> commitAsync -> proposeAsync`, requires explicit `withLineage()` before `withGovernance()`, and is normatively defined by the package specs.
+> **Known Current Divergences:** Parts of this ADR still describe earlier
+> decorator variants centered on root `dispatchAsync`, `commitAsync`, and
+> `proposeAsync` verbs. The current v5 runtime surface instead uses
+> `action.<name>.check/preview/submit`, keeps explicit `withLineage()` before
+> `withGovernance()`, and defines settlement observation through
+> `waitForSettlement(ref)` in the package specs.
 
 ---
 
@@ -27,11 +32,11 @@
 Read this section first when you need the current decorator contract rather than the historical rationale:
 
 - the canonical composition path is `createManifesto() -> withLineage() -> withGovernance() -> activate()`
-- verb promotion is `dispatchAsync -> commitAsync -> proposeAsync`
+- current write ingress is the action-candidate surface: `action.<name>.check/preview/submit`
 - `withGovernance()` requires explicit prior `withLineage()` composition
 - governed runtimes remove direct `dispatchAsync` and `commitAsync` backdoors
-- inherited legality queries preserve their base meanings across decorators; `getAvailableActions()` / `isActionAvailable()` are current-snapshot reads, not durable capability grants
-- proposal settlement observation, when needed, is additive to the governed story; it does not replace `proposeAsync()`
+- inherited legality queries preserve their base meanings across decorators; `action.<name>.available()` and related candidate reads are current-snapshot reads, not durable capability grants
+- proposal settlement observation is exposed through result-bound `waitForSettlement()` and runtime `waitForSettlement(ref)`
 
 The remaining sections are retained architectural rationale for the activation-first decorator pattern. When any older example or alternative branch in this ADR differs from the package specs or version indexes, the package docs win.
 

@@ -110,9 +110,12 @@ const intent = createIntent("increment", "intent-1");
 
 // Compute result (pure, deterministic)
 const result = await core.compute(schema, snapshot, intent, context);
+const patched = core.apply(schema, snapshot, result.patches);
+const namespaced = core.applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
+const next = core.applySystemDelta(namespaced, result.systemDelta);
 
 console.log(result.status); // -> "complete"
-console.log(result.snapshot.state.count); // -> 1
+console.log(next.state.count); // -> 1
 ```
 
 > See [GUIDE.md](GUIDE.md) for the full tutorial.
@@ -140,7 +143,7 @@ type DomainSchema = { id, version, hash, types, state, context?, computed, actio
 type Snapshot = { state, computed, system, input, meta, namespaces };
 type Intent = { type, input?, intentId };
 type Patch = { op: "set" | "unset" | "merge", path, value? };
-type ComputeResult = { status, snapshot, requirements, trace };
+type ComputeResult = { status, patches, namespaceDelta?, systemDelta, trace };
 ```
 
 > See [core-SPEC.md](core-SPEC.md) for the current living specification.

@@ -82,7 +82,7 @@ When documents conflict, prefer higher-ranked sources.
 The fundamental equation is:
 
 ```
-compute(schema, snapshot, intent) -> (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) -> ComputeResult
 ```
 
 This equation is:
@@ -90,6 +90,12 @@ This equation is:
 - **Total**: MUST always return a result (never throws)
 - **Traceable**: Every step MUST be recorded
 - **Complete**: Snapshot MUST be the whole truth
+- **Contextual**: Host-provided logical time, seed, and external context are explicit inputs
+
+`ComputeResult` carries domain `patches`, optional `namespaceDelta`,
+`systemDelta`, `trace`, and terminal status. Requirements are system
+transitions (`systemDelta.addRequirements`) and become visible after
+materialization in `snapshot.system.pendingRequirements`.
 
 ---
 
@@ -247,12 +253,13 @@ type Snapshot = {
 - Array push/pop/splice (use `set` with expression)
 - Deep merge (use multiple patches)
 
-**ALL state changes MUST:**
-- Go through `apply(schema, snapshot, patches)`
-- Result in a new Snapshot (old Snapshot unchanged)
-- Increment `meta.version` by exactly 1
+**ALL state transitions MUST:**
+- Apply domain patches through `apply(schema, snapshot, patches)`
+- Apply namespace transitions through `applyNamespaceDeltas(snapshot, deltas)`
+- Apply system transitions through `applySystemDelta(snapshot, delta)`
+- Result in a new Snapshot when the addressed channel changes (old Snapshot unchanged)
 - Treat domain patch paths as rooted at `snapshot.state`
-- Use the namespace transition channel for `snapshot.namespaces`, never domain patches
+- Treat namespace patch paths as rooted at `snapshot.namespaces[namespace]`
 
 #### 4.3 Computed Values
 
@@ -480,8 +487,9 @@ Core is pure. Tests require NO mocking.
 ```typescript
 // CORRECT - Core test
 it('computes transition', () => {
-  const result = core.compute(schema, snapshot, intent);
-  expect(result.snapshot.state.count).toBe(1);
+  const result = core.computeSync(schema, snapshot, intent, context);
+  const next = core.apply(schema, snapshot, result.patches);
+  expect(next.state.count).toBe(1);
 });
 ```
 
@@ -580,7 +588,7 @@ flow.onceNull(state.submittedAt, ({ patch, effect }) => {
 host.execute(snapshot, intent);  // Bypasses Governance and Lineage!
 
 // REQUIRED - Governed writes enter through the governed runtime
-const pending = await governed.actions.spend.submit(1);
+const pending = await governed.action.spend.submit(1);
 if (pending.ok) {
   await governed.approve(pending.proposal);
   await pending.waitForSettlement();

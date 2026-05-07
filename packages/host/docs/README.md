@@ -68,7 +68,7 @@ const host = createHost(schema, {
 host.registerEffect("api.fetch", async (_type, params) => {
   const response = await fetch(params.url);
   const data = await response.json();
-  return [{ op: "set", path: params.targetPath, value: data }];
+  return [{ op: "set", path: [{ kind: "prop", name: "user" }], value: data }];
 });
 
 // Dispatch intent
@@ -124,7 +124,7 @@ host.registerEffect("timer.delay", async (_type, params) => {
 
 host.registerEffect("api.post", async (_type, params) => {
   const res = await fetch(params.url, { method: "POST", body: params.body });
-  return [{ op: "set", path: "response", value: await res.json() }];
+  return [{ op: "set", path: [{ kind: "prop", name: "response" }], value: await res.json() }];
 });
 ```
 

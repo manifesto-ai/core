@@ -17,11 +17,11 @@ Use this in UI, routes, tools, tests, and agent context builders.
 
 ## Submit Result
 
-`actions.<name>.submit()` resolves with an explicit submit result. Settled
+`action.<name>.submit()` resolves with an explicit submit result. Settled
 results include projected `before` and `after` snapshots.
 
 ```typescript
-const result = await app.actions.toggleTodo.submit("todo-1");
+const result = await app.action.toggleTodo.submit("todo-1");
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   render(result.after.state.todos);

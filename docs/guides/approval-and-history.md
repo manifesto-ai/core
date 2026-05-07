@@ -25,7 +25,7 @@ createManifesto(schema, effects)
   -> withLineage(...)
   -> withGovernance(...)
   -> activate()
-  -> actions.x.submit(...)
+  -> action.x.submit(...)
   -> waitForSettlement(...)
 ```
 

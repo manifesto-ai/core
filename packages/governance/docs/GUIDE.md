@@ -39,7 +39,7 @@ lineage on behalf of the caller.
 ## 2. Submit To Governance
 
 ```typescript
-const pending = await app.actions.increment.submit({ by: 1 });
+const pending = await app.action.increment.submit({ by: 1 });
 ```
 
 Governance-mode `submit()` creates or enters the proposal path. It does not mean
@@ -98,7 +98,7 @@ HITL and tribunal policies keep proposals pending until a governance control
 surface resolves them.
 
 ```typescript
-const pending = await app.actions.increment.submit({ by: 1 });
+const pending = await app.action.increment.submit({ by: 1 });
 
 if (pending.ok) {
   await app.approve(pending.proposal);

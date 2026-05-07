@@ -16,7 +16,7 @@
 | v4.1.0 | Add intent dispatchability query API — `ActionSpec.dispatchable`, `isIntentDispatchable()` | — |
 | v4.0.0 | ADR-015 hard cut — remove accumulated `system.errors`, remove `appendErrors`, keep `lastError` as the sole current error surface | FDR-002, FDR-005 |
 | v3.1.0 | Additive availability query API — `isActionAvailable()`, `getAvailableActions()` | — |
-| v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()`, patch root anchored at `snapshot.data` | FDR-015 |
+| v3.0.0 | ADR-009 hard cut — structured `PatchPath`, `SystemDelta`, `applySystemDelta()`, patch root anchored at the then-current data root | FDR-015 |
 | v2.0.0 | Initial release — DomainSchema, StateSpec, ComputedSpec, ExprSpec, FlowSpec, Snapshot | FDR-001 ~ FDR-016 |
 | v2.0.1 | Patch operation clarification (`merge` is shallow), platform-reserved namespace policy | — |
 | v2.0.2 | Normative note on `data` vs "state" terminology, computed key access semantics | — |
@@ -151,11 +151,11 @@ RIGHT:  effect('api:call')             // Declares requirement
 Each `compute()` call is **complete and independent**:
 
 ```
-compute(schema, snapshot₀, intent, context) → (snapshot₁, requirements[], trace)
+compute(schema, snapshot₀, intent, context) → ComputeResult
 ```
 
-- If `requirements` is empty: computation is **complete**.
-- If `requirements` is non-empty: Host MUST fulfill them, then call `compute()` **again**.
+- If materializing `patches`, `namespaceDelta`, and `systemDelta` leaves `snapshot.system.pendingRequirements` empty: computation is **terminal** for that intent step.
+- If materialization leaves `snapshot.system.pendingRequirements` non-empty: Host MUST fulfill those requirements, clear fulfilled IDs through `systemDelta`, then call `compute()` **again**.
 - There is no "resume". Each `compute()` is a fresh calculation.
 
 ```
@@ -174,7 +174,7 @@ compute(schema, snapshot₀, intent, context) → (snapshot₁, requirements[], 
 │  └─────────────────────────────────────┘                   │
 │                     │                                       │
 │                     ▼                                       │
-│  Returns: (snapshot', requirements, trace)                  │
+│  Returns: ComputeResult                                     │
 │                     │                                       │
 │         ┌──────────┴──────────┐                            │
 │         ▼                     ▼                            │
@@ -624,7 +624,7 @@ Within collection operations (`filter`, `map`, `find`, `every`, `some`):
 - `$runtime.*` reads built-in runtime facts from `intent` and `context.runtime`.
 - `$context.*` reads only schema-declared user context under `context.external`.
 - `$runtime.*` and `$context.*` are legal only during bound action Flow evaluation; they are illegal in state initializers, computed values, `available`, and `dispatchable` evaluation.
-- `$meta.*` and `$system.*` are not current v5 expression namespaces.
+- Legacy meta/system dollar namespaces are not current v5 expression namespaces.
 - Compiler-generated owner-specific namespace reads are not part of Core expression semantics.
 - Division by zero MUST return `null`, not throw.
 - Out-of-bounds array access MUST return `null`, not throw.
@@ -2185,8 +2185,8 @@ The absence of a `resume()` API is intentional and reflects a core design princi
 
 Traditional patterns:
 ```typescript
-const result = await api.call();  // Value returned
-if (result.ok) { ... }            // Value used
+const apiResult = await api.call();  // Value returned
+if (apiResult.ok) { ... }            // Value used
 ```
 
 Manifesto pattern:

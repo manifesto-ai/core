@@ -38,15 +38,15 @@ It does not execute the fetch inline inside the domain.
 import { defineEffects } from "@manifesto-ai/sdk/effects";
 import type { UserProfileDomain } from "./user-profile-types";
 
-export const effects = defineEffects<UserProfileDomain>(({ set }, MEL) => ({
+export const effects = defineEffects<UserProfileDomain>(({ set }, refs) => ({
   "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
     const response = await fetch(`https://example.com/users/${id}`);
     const user = await response.json();
 
     return [
-      set(MEL.state.user, user),
-      set(MEL.state.loading, false),
+      set(refs.state.user, user),
+      set(refs.state.loading, false),
     ];
   },
 }));

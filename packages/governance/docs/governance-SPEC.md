@@ -12,8 +12,8 @@
 >
 > **Current Contract Status:** Governance v5 is the legitimacy-owning decorator
 > for the SDK v5 action-candidate runtime. The canonical governed write ingress
-> is `actions.x.submit(...)` / `action(name).submit(...)` on a governance-mode
-> `ManifestoApp`. V3 proposal helper names are historical migration inputs, not
+> is `action.x.submit(...)` on a governance-mode `ManifestoApp`. V3 proposal
+> helper names are historical migration inputs, not
 > canonical v5 runtime root methods.
 
 ---
@@ -55,7 +55,7 @@ const app = withGovernance(withLineage(createManifesto(schema, effects), {
   execution,
 }).activate();
 
-const pending = await app.actions.approveInvoice.submit({ invoiceId });
+const pending = await app.action.approveInvoice.submit({ invoiceId });
 const settlement = await pending.waitForSettlement();
 ```
 
@@ -174,7 +174,7 @@ proposal read boundary.
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | GOV-V5-SFC-1 | MUST | Activated governance runtimes MUST expose the SDK v5 root grammar plus `GovernanceControlSurface`. |
-| GOV-V5-SFC-2 | MUST | `actions.x.submit()` and `action(name).submit()` MUST be the canonical governed action submission ingress. |
+| GOV-V5-SFC-2 | MUST | `action.x.submit()` MUST be the canonical governed action submission ingress. `actions.x.submit()` and `action(name).submit()` MUST NOT be canonical v5 governance surfaces. |
 | GOV-V5-SFC-3 | MUST | `app.waitForSettlement(ref)` MUST be reachable on governance-mode runtimes. |
 | GOV-V5-SFC-4 | MUST | `approve()`, `reject()`, and lookup methods MUST be treated as governance control surface, not action submission verbs. |
 | GOV-V5-SFC-5 | MUST NOT | Governance control methods MUST NOT expose direct base or lineage execution. |
@@ -194,7 +194,7 @@ Migration mapping:
 
 | v3 API | v5 API |
 |--------|--------|
-| `proposeAsync(intent)` | `actions.x.submit(input)` on a governance runtime |
+| `proposeAsync(intent)` | `action.x.submit(input)` on a governance runtime |
 | `waitForProposal(app, proposalOrId)` | `pending.waitForSettlement()` or `app.waitForSettlement(ref)` |
 | `waitForProposalWithReport(app, proposalOrId)` | `GovernanceSettlementResult.report` |
 
@@ -291,8 +291,9 @@ type GovernanceSettlementSurface<TDomain extends ManifestoDomainShape> = {
 ```
 
 `app.waitForSettlement(ref)` is equivalent to calling `waitForSettlement()` on
-the original pending submit result. It observes settlement; it does not cause
-settlement and it does not bypass authority.
+the original pending submit result. It observes settlement and may enqueue
+proposal-specific recovery for the referenced stored proposal after restart; it
+does not create proposals, choose authority outcomes, or bypass authority.
 
 The `ref` is used as the proposal store lookup key. Unknown or missing
 `ProposalRef` values are observation failures, not governance lifecycle
@@ -305,8 +306,9 @@ work, seal worlds, or publish snapshots.
 | GOV-V5-SETTLE-2 | MUST | Base and lineage runtimes MUST NOT expose `app.waitForSettlement(ref)`. |
 | GOV-V5-SETTLE-3 | MUST | `app.waitForSettlement(ref)` MUST work after process restart when backed by a store containing the referenced proposal. |
 | GOV-V5-SETTLE-4 | MUST NOT | The observer method MUST NOT be named `settle()`. |
-| GOV-V5-SETTLE-5 | MUST NOT | `waitForSettlement()` MUST NOT approve, reject, execute, seal, or publish by itself. |
+| GOV-V5-SETTLE-5 | MUST | `waitForSettlement()` MAY resume settlement only for the referenced stored proposal and only through the same authority, execution, and lineage laws as normal submission. |
 | GOV-V5-SETTLE-5A | MUST NOT | Unknown or missing `ProposalRef` observation MUST NOT create proposals or trigger authority, execution, sealing, or publication. |
+| GOV-V5-SETTLE-5B | MUST NOT | `waitForSettlement()` MUST NOT fabricate authority decisions, branch targets, worlds, or visible publication while observing or resuming settlement. |
 
 ### 5.2 Settlement Result
 
@@ -412,6 +414,7 @@ type GovernanceSettlementReport =
 | GOV-V5-REPORT-3 | MUST | Rejected, superseded, expired, and cancelled reports MUST remain governance lifecycle facts only. |
 | GOV-V5-REPORT-4 | MUST NOT | Lifecycle-only reports MUST NOT fabricate execution diffs, worlds, or outcomes. |
 | GOV-V5-REPORT-5 | MUST NOT | `settlement_failed` reports MUST NOT fabricate `worldId`, `outcome`, `before`, or `after`. |
+| GOV-V5-REPORT-6 | MUST | Settled report `published` MUST describe actual visible runtime publication: the proposal branch is active and the active head is the result world. |
 
 ---
 
@@ -466,12 +469,13 @@ does not use governance-owned direct execution.
 | Rule ID | Level | Description |
 |---------|-------|-------------|
 | GOV-V5-EXEC-1 | MUST | Approved governed execution MUST run through the SDK/Host runtime path and Lineage sealing. |
-| GOV-V5-EXEC-2 | MUST | Completed governed execution MUST seal first, then publish the visible snapshot, then report settlement. |
+| GOV-V5-EXEC-2 | MUST | Completed governed execution MUST seal first, publish the visible snapshot only when the proposal result is the active branch head, then report settlement. |
 | GOV-V5-EXEC-3 | MUST | Failed terminal governed execution MAY seal a failed lineage world and terminal proposal record. |
 | GOV-V5-EXEC-4 | MUST NOT | Failed terminal governed execution MUST NOT publish the failed snapshot as the visible runtime snapshot. |
 | GOV-V5-EXEC-5 | MUST | Governance events MUST be emitted only after the corresponding proposal, decision, seal, or settlement record is durable. |
 | GOV-V5-EXEC-6 | MUST | Governed execution MUST use the proposal's submitted compute envelope and pass its exact context to the SDK/Host/Core runtime path. |
 | GOV-V5-EXEC-7 | MUST | Approval-time `injectContext()` or `updateContext()` changes MUST NOT affect execution of an already-created proposal. |
+| GOV-V5-EXEC-8 | MUST | `failed` proposal status is reserved for approved or executing proposals whose execution, seal, or persistence path failed. Ingress-stage terminal compensation MUST use `superseded`, not `failed`. |
 
 ---
 
@@ -486,6 +490,9 @@ Governance settlement failure and domain failure are separate.
 - After a durable `ProposalRef` exists, authority, runtime, seal, persistence,
   or observation failure is reported by `waitForSettlement()` as `ok: false`,
   `status: "settlement_failed"`.
+- Ingress-stage operational compensation before approval is a lifecycle
+  settlement (`ok: true`, `status: "superseded"`) so it does not imply failed
+  execution.
 - Settlement failure MUST NOT fabricate `world`, `before`, `after`, or
   `outcome`.
 
@@ -537,8 +544,7 @@ An implementation is v5-compliant only if all of the following hold:
 - `withGovernance()` accepts a lineage-decorated composable manifesto and exposes
   no runtime verbs before activation.
 - Activated governance runtime exposes the SDK v5 action-candidate grammar.
-- Canonical governed write ingress is `actions.x.submit()` /
-  `action(name).submit()`.
+- Canonical governed write ingress is `action.x.submit()`.
 - Governance `submit()` creates or enters the proposal path and never directly
   executes base or lineage lower-authority verbs.
 - `GovernanceSubmissionResult` carries durable `ProposalRef`.

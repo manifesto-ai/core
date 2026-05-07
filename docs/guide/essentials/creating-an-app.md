@@ -27,9 +27,9 @@ import type { UserProfileDomain } from "./user-profile-types";
 
 const app = createManifesto(
   UserProfileSchema,
-  defineEffects<UserProfileDomain>(({ set }, MEL) => ({
+  defineEffects<UserProfileDomain>(({ set }, refs) => ({
     "api.fetchUser": async () => [
-      set(MEL.state.loading, false),
+      set(refs.state.loading, false),
     ],
   })),
 ).activate();
@@ -40,7 +40,7 @@ Pass `{}` when the domain does not declare external effects.
 ## The Minimal Loop
 
 ```typescript
-const result = await app.actions.increment.submit();
+const result = await app.action.increment.submit();
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.count);
@@ -50,7 +50,7 @@ app.dispose();
 
 ## Common Mistake
 
-`createManifesto()` does not expose runtime verbs by itself. Call `activate()` before using `actions`, `snapshot()`, `observe`, or `inspect`.
+`createManifesto()` does not expose runtime verbs by itself. Call `activate()` before using `action`, `snapshot()`, `observe`, or `inspect`.
 
 ## Next
 

@@ -95,8 +95,8 @@ They are pure, but they are still part of the same action flow.
 Submit the same action more than once and inspect the resulting snapshot:
 
 ```typescript
-await app.actions.submitForm.submit();
-await app.actions.submitForm.submit();
+await app.action.submitForm.submit();
+await app.action.submitForm.submit();
 
 const snapshot = app.snapshot();
 console.log(snapshot.state);

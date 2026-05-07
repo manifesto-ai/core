@@ -49,7 +49,7 @@ Do not return raw values. Do not rely on a hidden callback channel.
 import { defineEffects } from "@manifesto-ai/sdk/effects";
 import type { UserProfileDomain } from "./user-profile-types";
 
-export const effects = defineEffects<UserProfileDomain>(({ set, unset }, MEL) => ({
+export const effects = defineEffects<UserProfileDomain>(({ set, unset }, refs) => ({
   "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
 
@@ -62,15 +62,15 @@ export const effects = defineEffects<UserProfileDomain>(({ set, unset }, MEL) =>
       const user = await response.json();
 
       return [
-        set(MEL.state.user, user),
-        set(MEL.state.loading, false),
-        unset(MEL.state.error),
+        set(refs.state.user, user),
+        set(refs.state.loading, false),
+        unset(refs.state.error),
       ];
     } catch (error) {
       return [
-        set(MEL.state.loading, false),
+        set(refs.state.loading, false),
         set(
-          MEL.state.error,
+          refs.state.error,
           error instanceof Error ? error.message : "Unknown error",
         ),
       ];
@@ -168,9 +168,12 @@ describe("api.fetchUser", () => {
       json: async () => ({ id: "123", name: "Ada" }),
     }) as typeof fetch;
 
-    const snapshot = {
-      data: { loading: true, user: null, error: null },
-    } as Snapshot;
+	    const snapshot = {
+	      state: { loading: true, user: null, error: null },
+	      computed: {},
+	      system: { status: "idle", lastError: null },
+	      meta: { schemaHash: "test-schema" },
+	    } as Snapshot;
 
     const patches = await effects["api.fetchUser"]({ id: "123" }, { snapshot });
 

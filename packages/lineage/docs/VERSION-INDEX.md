@@ -30,5 +30,5 @@
 
 - The current normative Lineage contract is v5 even though source implementation may still be mid-cut on `feature/v5`.
 - `@manifesto-ai/lineage` owns continuity storage semantics; SDK owns the common app-facing action-candidate grammar.
-- Root `commitAsync()` and `commitAsyncWithReport()` are superseded by lineage-mode `actions.x.submit()` and the submit result `report` field in the canonical v5 public surface.
+- Root `commitAsync()` and `commitAsyncWithReport()` are superseded by lineage-mode `action.x.submit()` and the submit result `report` field in the canonical v5 public surface.
 - `@manifesto-ai/lineage` remains the continuity decorator in the governed composition path; `@manifesto-ai/governance` owns authority and settlement semantics.

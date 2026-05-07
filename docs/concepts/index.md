@@ -25,7 +25,7 @@ If you are still trying to get the first app running, go back to [Quick Start](/
 ## The Fundamental Equation
 
 ```
-compute(schema, snapshot, intent, context) -> (snapshot', requirements, trace)
+compute(schema, snapshot, intent, context) -> ComputeResult
 ```
 
 - **Pure**: Same inputs always produce same outputs
