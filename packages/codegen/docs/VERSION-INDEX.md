@@ -1,13 +1,13 @@
 # Codegen Documentation Index
 
 > **Package:** `@manifesto-ai/codegen`
-> **Last Updated:** 2026-04-29
+> **Last Updated:** 2026-05-07
 
 ---
 
 ## Latest Version
 
-- **Package:** v0.2.8
+- **Package:** v5.0.0
 - **SPEC:** [v0.1.1](SPEC-v0.1.1.md) (Normative Baseline, current ADR-025/ADR-026 v5 facade alignment in-place)
 - **ADR:** [ADR-CODEGEN-001](ADR-CODEGEN-001.md) (Accepted)
 
@@ -17,7 +17,8 @@
 
 | Version | SPEC | ADR | Type | Status |
 |---------|------|-----|------|--------|
-| v0.2.8 | [SPEC](SPEC-v0.1.1.md) | [ADR-026](../../../docs/internals/adr/026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress.md) | In-place current alignment | ADR-025/ADR-026 v5 domain facade target |
+| v5.0.0 | [SPEC](SPEC-v0.1.1.md) | [ADR-026](../../../docs/internals/adr/026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress.md) | In-place current alignment | ADR-025/ADR-026 v5 domain facade target |
+| v0.2.8 | [SPEC](SPEC-v0.1.1.md) | [ADR-026](../../../docs/internals/adr/026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress.md) | Pre-v5 package release | Superseded by v5.0.0 |
 | v0.2.1 | [SPEC](SPEC-v0.1.1.md) | [ADR-CODEGEN-001](ADR-CODEGEN-001.md) | In-place implementation | Canonical domain plugin introduced |
 | v0.1.1 | [SPEC](SPEC-v0.1.1.md) | [ADR-CODEGEN-001](ADR-CODEGEN-001.md) | Full | Normative Baseline |
 

@@ -41,7 +41,7 @@ This is the canonical entry story for new integrations.
 | `@manifesto-ai/compiler` | [SPEC-v1.2.0.md](https://github.com/manifesto-ai/core/blob/main/packages/compiler/docs/SPEC-v1.2.0.md) (current v5.0.0 in-place) | Full current MEL compiler contract; source-to-schema/source-to-IR lowering |
 | `@manifesto-ai/lineage` | [lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md) (current v5.0.0 ADR-026/ADR-027 surface) | Seal-aware continuity, lineage-mode `submit()` results, canonical snapshot persistence, replay envelope, restore |
 | `@manifesto-ai/governance` | [governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md) (current v5.0.0 ADR-026/ADR-027 surface) | Proposal legitimacy, submitted compute envelope preservation, governance-mode `submit()` results, durable `ProposalRef`, settlement observation, and control surface |
-| `@manifesto-ai/codegen` | [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md) (current v0.2.8, v5 facade alignment in-place) | Build-time domain facade generation aligned to ADR-025 ontology and ADR-026 SDK v5 action candidates |
+| `@manifesto-ai/codegen` | [SPEC-v0.1.1.md](https://github.com/manifesto-ai/core/blob/main/packages/codegen/docs/SPEC-v0.1.1.md) (current v5.0.0 package release, v5 facade alignment in-place) | Build-time domain facade generation aligned to ADR-025 ontology and ADR-026 SDK v5 action candidates |
 
 ## ADR-025 v5 Ontology Baseline
 

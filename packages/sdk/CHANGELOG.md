@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.0](https://github.com/manifesto-ai/core/compare/sdk-v3.18.1...sdk-v5.0.0) (2026-05-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sdk:** align the public package release with the v5 action-candidate runtime surface, projected read handles, law-aware `submit()`, and `refs`-based effect authoring.
+
 ## [3.18.1](https://github.com/manifesto-ai/core/compare/sdk-v3.18.0...sdk-v3.18.1) (2026-04-25)
 
 

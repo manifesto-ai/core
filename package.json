@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/monorepo",
-  "version": "1.0.0",
+  "version": "5.0.0",
   "private": true,
   "description": "Semantic layer for deterministic domain state",
   "homepage": "https://docs.manifesto-ai.dev",

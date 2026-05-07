@@ -1,13 +1,13 @@
 # Lineage Documentation Index
 
 > **Package:** `@manifesto-ai/lineage`
-> **Last Updated:** 2026-04-29
+> **Last Updated:** 2026-05-07
 
 ## Current Contract
 
 | Version | Document | ADR | Notes | Status |
 |---------|----------|-----|-------|--------|
-| v5.x | [SPEC](lineage-SPEC.md) | [ADR-025](../../../docs/internals/adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation.md), [ADR-026](../../../docs/internals/adr/026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress.md), [ADR-016](../../../docs/internals/adr/016-merkle-tree-lineage.md), [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md) | Lineage-mode SDK v5 decorator surface with law-aware `submit()`, `WorldRecord` lineage result refs, ADR-025 `state` / `namespaces` hash alignment, and canonical removal of root `commitAsync*` write verbs. | Current |
+| v5.0.0 | [SPEC](lineage-SPEC.md) | [ADR-025](../../../docs/internals/adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation.md), [ADR-026](../../../docs/internals/adr/026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress.md), [ADR-016](../../../docs/internals/adr/016-merkle-tree-lineage.md), [ADR-017](../../../docs/internals/adr/017-capability-decorator-pattern.md) | Lineage-mode SDK v5 decorator surface with law-aware `submit()`, `WorldRecord` lineage result refs, ADR-025 `state` / `namespaces` hash alignment, and canonical removal of root `commitAsync*` write verbs. | Current |
 
 ## Superseded Contract
 

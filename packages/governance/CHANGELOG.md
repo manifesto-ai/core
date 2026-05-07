@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.0.0](https://github.com/manifesto-ai/core/compare/governance-v3.13.1...governance-v5.0.0) (2026-05-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **governance:** align the public package release with the v5 governance-mode `submit()` surface, durable `ProposalRef`, and settlement observation contract.
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.13.0 to ^5.0.0
+
 ## [3.13.1](https://github.com/manifesto-ai/core/compare/governance-v3.13.0...governance-v3.13.1) (2026-04-25)
 
 

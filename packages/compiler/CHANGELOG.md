@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.0.0](https://github.com/manifesto-ai/core/compare/compiler-v3.9.0...compiler-v5.0.0) (2026-05-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **compiler:** align the public package release with the v5 MEL compiler contract, ADR-025 namespace separation, ADR-027 runtime/context lowering, and ADR-028 Core-owned dynamic patch targets.
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^2.13.0 to ^5.0.0
+
 ## [3.9.0](https://github.com/manifesto-ai/core/compare/compiler-v3.8.0...compiler-v3.9.0) (2026-04-25)
 
 

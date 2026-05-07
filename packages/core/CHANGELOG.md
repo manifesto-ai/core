@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.0](https://github.com/manifesto-ai/core/compare/core-v2.13.0...core-v5.0.0) (2026-05-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** align the public package release with the v5 Snapshot ontology, explicit compute `Context`, and Core-owned dynamic Flow patch target semantics.
+
 ## [2.13.0](https://github.com/manifesto-ai/core/compare/core-v2.12.0...core-v2.13.0) (2026-04-23)
 
 

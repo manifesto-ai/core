@@ -1,11 +1,11 @@
 # Governance Protocol Documentation Index
 
 > **Package:** `@manifesto-ai/governance`
-> **Last Updated:** 2026-04-29
+> **Last Updated:** 2026-05-07
 
 ## Current Specification
 
-- **Package Release:** v5.x release train
+- **Package Release:** v5.0.0 release train
 - **Contract Surface:** v5 governance-mode SDK action-candidate surface with decorator-owned `submit()`, durable `ProposalRef`, runtime `waitForSettlement(ref)`, and governance control surface separation
 - **SPEC (Living Document):** [governance-SPEC.md](governance-SPEC.md) - current ADR-026 governance-mode contract for Manifesto v5
 - **README:** [../README.md](../README.md)
@@ -24,7 +24,7 @@
 
 | Version | SPEC | ADR | Type | Status |
 |---------|------|-----|------|--------|
-| v5.x | [SPEC](governance-SPEC.md) | [ADR-025](../../../docs/internals/adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation.md), [ADR-026](../../../docs/internals/adr/026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress.md), [ADR-017 v3.1](../../../docs/internals/adr/017-capability-decorator-pattern.md) | Governance-mode SDK v5 decorator surface with law-aware `submit()`, durable `ProposalRef`, `waitForSettlement(ref)`, and separated control surface | Current |
+| v5.0.0 | [SPEC](governance-SPEC.md) | [ADR-025](../../../docs/internals/adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation.md), [ADR-026](../../../docs/internals/adr/026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress.md), [ADR-017 v3.1](../../../docs/internals/adr/017-capability-decorator-pattern.md) | Governance-mode SDK v5 decorator surface with law-aware `submit()`, durable `ProposalRef`, `waitForSettlement(ref)`, and separated control surface | Current |
 | v3.0.0 | Git history | [ADR-017 v3.1](../../../docs/internals/adr/017-capability-decorator-pattern.md) | Decorator runtime + governed activation with `proposeAsync()` and proposal settlement helpers | Superseded |
 | v2.0.0 | [SPEC](governance-SPEC-2.0.0v.md) | [ADR-015](../../../docs/internals/adr/015-snapshot-ontological-purification.md), [ADR-016](../../../docs/internals/adr/016-merkle-tree-lineage.md) | Service-first split package contract | Superseded |
 | v1.0.0 | [SPEC](governance-SPEC-1.0.0v.md) | [ADR-014](../../../docs/internals/adr/014-split-world-protocol.md) | Initial protocol extraction | Historical |
