@@ -10,17 +10,19 @@ import { describe, it, expect } from "vitest";
 import {
   lowerExprNode,
   lowerPatchFragments,
-  lowerRuntimePatches,
   DEFAULT_SCHEMA_CONTEXT,
   DEFAULT_ACTION_CONTEXT,
   EFFECT_ARGS_CONTEXT,
   DEFAULT_PATCH_CONTEXT,
   LoweringError,
-  type MelIRPatchPath,
   type MelExprNode,
   type MelPatchFragment,
-  type MelRuntimePatch,
 } from "../lowering/index.js";
+import {
+  lowerRuntimePatches,
+  type MelIRPatchPath,
+  type MelRuntimePatch,
+} from "../lowering/lower-runtime-patch.js";
 
 const irp = (...segments: string[]): MelIRPatchPath =>
   segments.map((name) => ({ kind: "prop" as const, name }));

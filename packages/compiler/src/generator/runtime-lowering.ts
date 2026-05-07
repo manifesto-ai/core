@@ -75,7 +75,7 @@ function lowerFlow(flow: CompilerFlowNode): CoreFlowNode {
       return {
         kind: "patch",
         op: flow.op,
-        path: flow.path,
+        path: lowerFlowPatchPath(flow.path),
         value: flow.value ? lowerActionExpr(flow.value) : undefined,
       };
 
@@ -106,6 +106,18 @@ function lowerFlow(flow: CompilerFlowNode): CoreFlowNode {
     case "halt":
       return flow;
   }
+}
+
+function lowerFlowPatchPath(
+  path: Extract<CompilerFlowNode, { kind: "patch" }>["path"]
+): Extract<CoreFlowNode, { kind: "patch" }>["path"] {
+  return path.map((segment) => {
+    if (segment.kind === "prop" || segment.kind === "index") {
+      return segment;
+    }
+
+    return { kind: "expr", expr: lowerActionExpr(segment.expr) };
+  });
 }
 
 function lowerSchemaExpr(expr: MelExprNode): CoreExprNode {

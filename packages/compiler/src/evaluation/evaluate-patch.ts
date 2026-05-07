@@ -9,6 +9,7 @@
 import type { ExprNode as CoreExprNode } from "@manifesto-ai/core";
 import type { ConditionalPatchOp, LoweredPatchOp } from "../lowering/lower-patch.js";
 import type { EvaluationContext, EvaluationSnapshot } from "./context.js";
+import { inheritRuntimeAllocationState } from "./context.js";
 import { applyPatchToWorkingSnapshot } from "./context.js";
 import { evaluateExpr } from "./evaluate-expr.js";
 
@@ -97,10 +98,10 @@ export function evaluateConditionalPatchOps(
 
   for (const op of ops) {
     // Create context with current working snapshot
-    const evalCtx: EvaluationContext = {
+    const evalCtx = inheritRuntimeAllocationState(ctx, {
       ...ctx,
       snapshot: workingSnapshot,
-    };
+    });
 
     // Evaluate condition if present
     if (op.condition !== undefined) {

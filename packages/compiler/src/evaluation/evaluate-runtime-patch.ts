@@ -8,6 +8,7 @@ import type { MergePatch, Patch, PatchPath, PatchSegment, SetPatch, UnsetPatch }
 import { mergeAtPatchPath, patchPathToDisplayString, setByPatchPath, unsetByPatchPath } from "@manifesto-ai/core";
 import type { IRPatchPath, RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.js";
 import type { EvaluationContext, EvaluationSnapshot } from "./context.js";
+import { inheritRuntimeAllocationState } from "./context.js";
 import { evaluateExpr } from "./evaluate-expr.js";
 
 const UNSAFE_PROP_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
@@ -104,10 +105,10 @@ export function evaluateRuntimePatchesWithTrace(
       ? workingSnapshot
       : guardScopeStack[guardScopeStack.length - 1].snapshot;
 
-    const evalCtx: EvaluationContext = {
+    const evalCtx = inheritRuntimeAllocationState(ctx, {
       ...ctx,
       snapshot: activeSnapshot,
-    };
+    });
 
     if (op.condition !== undefined) {
       const conditionResult = evaluateExpr(op.condition, evalCtx);
@@ -162,10 +163,13 @@ export function evaluateRuntimePatchesWithTrace(
       continue;
     }
 
-    patches.push(patch);
+    const isScopedMarker = isScopedMarkerPath(op.path);
+    if (!isScopedMarker) {
+      patches.push(patch);
+    }
     workingSnapshot = applyConcretePatchToWorkingSnapshot(workingSnapshot, patch);
 
-    if (op.op === "set" && isScopedMarkerPath(op.path)) {
+    if (op.op === "set" && isScopedMarker) {
       guardScopeStack.push({
         markerPath: concretePath,
         snapshot: workingSnapshot,
@@ -175,7 +179,7 @@ export function evaluateRuntimePatchesWithTrace(
 
     if (
       op.op === "unset"
-      && isScopedMarkerPath(op.path)
+      && isScopedMarker
       && guardScopeStack.length > 0
       && isPatchPathEqual(
         guardScopeStack[guardScopeStack.length - 1].markerPath,
@@ -296,23 +300,8 @@ function isValidPropSegment(name: string): boolean {
 }
 
 function isScopedMarkerPath(path: IRPatchPath): boolean {
-  return hasPropPrefix(path, ["$mel", "__whenGuards"])
-    || hasPropPrefix(path, ["$mel", "__onceScopeGuards"]);
-}
-
-function hasPropPrefix(path: IRPatchPath, prefix: string[]): boolean {
-  if (path.length < prefix.length) {
-    return false;
-  }
-
-  for (let i = 0; i < prefix.length; i++) {
-    const segment = path[i];
-    if (segment.kind !== "prop" || segment.name !== prefix[i]) {
-      return false;
-    }
-  }
-
-  return true;
+  void path;
+  return false;
 }
 
 function isPatchPathEqual(a: PatchPath, b: PatchPath): boolean {

@@ -300,6 +300,28 @@ describe("CCTS Introspection Suite", () => {
               ],
             },
           },
+          dynamicRoot: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: [
+                { kind: "expr", expr: { kind: "lit", value: "tasks" } },
+              ],
+              value: { kind: "lit", value: ["dynamic"] },
+            },
+          },
+          dynamicNested: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: [
+                { kind: "prop", name: "items" },
+                { kind: "expr", expr: { kind: "lit", value: 0 } },
+                { kind: "prop", name: "done" },
+              ],
+              value: { kind: "lit", value: true },
+            },
+          },
         },
       });
       const normalizedGraph = extractSchemaGraph(normalizedSchema);
@@ -389,7 +411,9 @@ describe("CCTS Introspection Suite", () => {
             && edges.includes("action:mutate|mutates|state:box")
             && !normalizedEdges.includes("action:mutatePaths|mutates|state:count")
             && normalizedEdges.includes("action:mutatePaths|mutates|state:box")
-            && normalizedEdges.includes("action:mutatePaths|mutates|state:items"),
+            && normalizedEdges.includes("action:mutatePaths|mutates|state:items")
+            && !normalizedEdges.includes("action:dynamicRoot|mutates|state:tasks")
+            && normalizedEdges.includes("action:dynamicNested|mutates|state:items"),
           {
             passMessage: "Mutation roots are extracted from the top-level target segment.",
             failMessage: "Mutation roots were not reduced to the top-level target segment.",

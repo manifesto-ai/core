@@ -1,5 +1,11 @@
 import { parsePath } from "@manifesto-ai/core";
 
+type RuntimeAllocationState = {
+  ordinal: number;
+};
+
+const RUNTIME_ALLOCATION_STATE = Symbol("manifesto.compiler.runtimeAllocationState");
+
 /**
  * Evaluation Context Types
  *
@@ -28,7 +34,7 @@ export interface EvaluationSnapshot {
 }
 
 /**
- * Intent metadata for evaluation.
+ * Legacy evaluator metadata.
  *
  * @see SPEC v0.4.0 §18.3
  */
@@ -65,8 +71,8 @@ export interface EvaluationContext {
   snapshot: EvaluationSnapshot;
 
   /**
-   * Intent metadata.
-   * Paths starting with "meta.*" resolve here.
+   * Legacy metadata retained for older call sites. MEL v5 runtime reads must
+   * enter through explicit `$runtime.*` and `$context.*` inputs.
    */
   meta: EvaluationMeta;
 
@@ -83,8 +89,7 @@ export interface EvaluationContext {
   item?: unknown;
 
   /**
-   * Bound transition runtime facts. When omitted, legacy patch evaluation
-   * derives intent fields from `meta` for compatibility.
+   * Bound transition runtime facts for `$runtime.*` reads.
    */
   runtime?: {
     intent?: {
@@ -97,7 +102,6 @@ export interface EvaluationContext {
     };
     random?: {
       seed?: string;
-      uuid?: string;
     };
   };
 
@@ -124,6 +128,38 @@ export function createEvaluationContext(
     ...(options.runtime ? { runtime: options.runtime } : {}),
     ...(options.context ? { context: options.context } : {}),
   };
+}
+
+export function getRuntimeAllocationState(ctx: EvaluationContext): RuntimeAllocationState {
+  const existing = (ctx as { [RUNTIME_ALLOCATION_STATE]?: RuntimeAllocationState })[
+    RUNTIME_ALLOCATION_STATE
+  ];
+  if (existing) {
+    return existing;
+  }
+
+  return setRuntimeAllocationState(ctx, { ordinal: 0 });
+}
+
+export function inheritRuntimeAllocationState(
+  parent: EvaluationContext,
+  child: EvaluationContext,
+): EvaluationContext {
+  setRuntimeAllocationState(child, getRuntimeAllocationState(parent));
+  return child;
+}
+
+function setRuntimeAllocationState(
+  ctx: EvaluationContext,
+  state: RuntimeAllocationState,
+): RuntimeAllocationState {
+  Object.defineProperty(ctx, RUNTIME_ALLOCATION_STATE, {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: state,
+  });
+  return state;
 }
 
 /**

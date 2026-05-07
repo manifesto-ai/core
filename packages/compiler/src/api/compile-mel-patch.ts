@@ -139,9 +139,6 @@ export function compileMelPatchText(
   const analyzeStart = performance.now();
   const collectContext: PatchCollectContext = {
     actionName: options.actionName,
-    onceCounter: 0,
-    onceIntentCounter: 0,
-    whenCounter: 0,
   };
   const action = program.domain.members.find(
     (member): member is ActionNode =>
@@ -193,7 +190,7 @@ export function compileMelPatchText(
   const collector = new PatchStatementCollector({
     mapLocation,
     toMelExpr,
-  });
+  }, options.allowSysPaths?.prefixes ?? ["input", "runtime", "context"]);
   const patchStatements = collector.collect(
     patchRoot.body,
     errors,

@@ -155,7 +155,7 @@ export const COMPILER_COMPLIANCE_CASES: readonly CompilerComplianceCase[] = [
   complianceCase(CCTS_CASES.INTROSPECTION_GRAPH_SURFACE, "introspection", "SchemaGraph emits projected nodes with kind-prefixed ids and deterministic ordering."),
   complianceCase(CCTS_CASES.INTROSPECTION_FEEDS_UNLOCKS, "introspection", "SchemaGraph extracts feeds and unlocks relations from computed deps and availability."),
   complianceCase(CCTS_CASES.INTROSPECTION_MUTATIONS, "introspection", "SchemaGraph extracts mutates relations from patches and effect into roots."),
-  complianceCase(CCTS_CASES.INTROSPECTION_PROJECTION, "introspection", "SchemaGraph excludes $*-owned substrate and tainted computed nodes."),
+  complianceCase(CCTS_CASES.INTROSPECTION_PROJECTION, "introspection", "SchemaGraph excludes owner namespace substrate and computed nodes that depend on runtime-only roots."),
 
   complianceCase(CCTS_CASES.SOURCE_EDIT_API_SURFACE, "source-editing", "compileFragmentInContext API and result semantics are tracked."),
   complianceCase(CCTS_CASES.SOURCE_EDIT_FRAGMENT_GRAMMAR, "source-editing", "Fragment grammars reject parse failures, scope violations, and raw splice smuggling."),

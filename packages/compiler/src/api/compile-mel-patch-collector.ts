@@ -1,5 +1,3 @@
-import { sha256Sync } from "@manifesto-ai/core";
-
 import type { Diagnostic } from "../diagnostics/types.js";
 import type { MelExprNode } from "../lowering/lower-expr.js";
 import type { MelIRPatchPath } from "../lowering/lower-runtime-patch.js";
@@ -21,11 +19,10 @@ import {
 import { toMelExpr } from "./compile-mel-patch-expr.js";
 
 export interface PatchCollectContext {
-  actionName: string;
-  onceCounter: number;
-  onceIntentCounter: number;
-  whenCounter: number;
+  readonly actionName: string;
 }
+
+type AllowedSysPrefix = "input" | "runtime" | "context";
 
 export type ConditionedPatchStatement = {
   patch: PatchStmtNode;
@@ -38,11 +35,13 @@ export interface PatchCollectorDeps {
 }
 
 export class PatchStatementCollector {
-  private readonly conditionComposer = new ConditionComposer();
   private readonly exprValidator: PatchExprValidator;
 
-  constructor(private readonly deps: PatchCollectorDeps) {
-    this.exprValidator = new PatchExprValidator(deps.mapLocation);
+  constructor(
+    private readonly deps: PatchCollectorDeps,
+    allowSysPrefixes: readonly AllowedSysPrefix[] = ["input", "runtime", "context"],
+  ) {
+    this.exprValidator = new PatchExprValidator(deps.mapLocation, allowSysPrefixes);
   }
 
   collect(
@@ -60,6 +59,7 @@ export class PatchStatementCollector {
     context: PatchCollectContext,
     parentCondition: MelExprNode | undefined
   ): ConditionedPatchStatement[] {
+    void context;
     const patchStatements: ConditionedPatchStatement[] = [];
 
     for (const stmt of stmts) {
@@ -76,364 +76,17 @@ export class PatchStatementCollector {
       }
 
       if (stmt.kind === "when") {
-        this.exprValidator.validateExpr(stmt.condition, errors);
-        let condition = parentCondition;
-        try {
-          condition = this.conditionComposer.and(
-            parentCondition,
-            this.deps.toMelExpr(stmt.condition)
-          );
-        } catch (error) {
-          errors.push({
-            severity: "error",
-            code: "E_LOWER",
-            message: (error as Error).message,
-            location: this.deps.mapLocation(stmt.condition.location),
-          });
-        }
-        const whenMarkerId = sha256Sync(
-          `${context.actionName}:${context.whenCounter}:when`
-        );
-        context.whenCounter += 1;
-
-        const whenMarkerPath = {
-          kind: "path" as const,
-          segments: [
-            {
-              kind: "propertySegment",
-              name: "$mel",
-              location: stmt.location,
-            },
-            {
-              kind: "propertySegment",
-              name: "__whenGuards",
-              location: stmt.location,
-            },
-            {
-              kind: "propertySegment",
-              name: whenMarkerId,
-              location: stmt.location,
-            },
-          ],
-          location: stmt.location,
-        } satisfies PathNode;
-
-        const whenMarkerExpr = pathToMelExpr(whenMarkerPath);
-
-        const guardedBody = this.collectPatchStatements(
-          stmt.body,
-          errors,
-          context,
-          undefined
-        ).map((statement) => ({
-          patch: statement.patch,
-          condition: this.conditionComposer.and(whenMarkerExpr, statement.condition),
-        }));
-
-        patchStatements.push(
-          {
-            patch: {
-              kind: "patch",
-              op: "set",
-              path: whenMarkerPath,
-              value: {
-                kind: "literal",
-                literalType: "boolean",
-                value: true,
-                location: stmt.location,
-              },
-              location: stmt.location,
-            },
-            condition,
-          },
-          ...guardedBody,
-          {
-            patch: {
-              kind: "patch",
-              op: "unset",
-              path: whenMarkerPath,
-              location: stmt.location,
-            },
-          }
-        );
+        this.pushUnsupportedControlError(stmt.kind, stmt.location, errors);
         continue;
       }
 
       if (stmt.kind === "once") {
-        this.exprValidator.validatePath(stmt.marker, errors);
-        let condition = parentCondition;
-        const markerExpr = pathToMelExpr(stmt.marker);
-        const markerPath = stmt.marker;
-        const markerLocation = stmt.location;
-        let onceCondition: MelExprNode = {
-          kind: "call",
-          fn: "neq",
-          args: [markerExpr, { kind: "sys", path: ["runtime", "intent", "id"] }],
-        };
-
-        if (stmt.condition) {
-          this.exprValidator.validateExpr(stmt.condition, errors);
-          try {
-            onceCondition = this.conditionComposer.and(
-              onceCondition,
-              this.deps.toMelExpr(stmt.condition)
-            ) ?? onceCondition;
-          } catch (error) {
-            errors.push({
-              severity: "error",
-              code: "E_LOWER",
-              message: (error as Error).message,
-              location: this.deps.mapLocation(stmt.condition.location),
-            });
-          }
-        }
-
-        condition = this.conditionComposer.and(parentCondition, onceCondition);
-        const onceScopeMarkerId = sha256Sync(
-          `${context.actionName}:${context.onceCounter}:once`
-        );
-        context.onceCounter += 1;
-        const onceScopeMarkerPath: PathNode = {
-          kind: "path",
-          segments: [
-            {
-              kind: "propertySegment",
-              name: "$mel",
-              location: markerLocation,
-            },
-            {
-              kind: "propertySegment",
-              name: "__onceScopeGuards",
-              location: markerLocation,
-            },
-            {
-              kind: "propertySegment",
-              name: onceScopeMarkerId,
-              location: markerLocation,
-            },
-          ],
-          location: markerLocation,
-        };
-        const onceScopeMarkerExpr = pathToMelExpr(onceScopeMarkerPath);
-        const scopedBodyPatchStatements = this.collectPatchStatements(
-          stmt.body,
-          errors,
-          context,
-          onceScopeMarkerExpr
-        );
-        patchStatements.push(
-          {
-            patch: {
-              kind: "patch",
-              op: "set",
-              path: onceScopeMarkerPath,
-              value: {
-                kind: "literal",
-                literalType: "boolean",
-                value: true,
-                location: markerLocation,
-              },
-              location: markerLocation,
-            },
-            condition,
-          },
-          {
-            patch: {
-              kind: "patch",
-              op: "set",
-              path: markerPath,
-              value: {
-                kind: "systemIdent",
-                path: ["runtime", "intent", "id"],
-                location: markerLocation,
-              },
-              location: markerLocation,
-            },
-            condition: onceScopeMarkerExpr,
-          },
-          ...scopedBodyPatchStatements,
-          {
-            patch: {
-              kind: "patch",
-              op: "unset",
-              path: onceScopeMarkerPath,
-              location: markerLocation,
-            },
-            condition,
-          }
-        );
+        this.pushUnsupportedControlError(stmt.kind, stmt.location, errors);
         continue;
       }
 
       if (stmt.kind === "onceIntent") {
-        const markerScopeId = sha256Sync(
-          `${context.actionName}:${context.onceCounter}:onceIntent`
-        );
-        context.onceCounter += 1;
-        const markerScopePath: PathNode = {
-          kind: "path" as const,
-          segments: [
-            {
-              kind: "propertySegment",
-              name: "$mel",
-              location: stmt.location,
-            },
-            {
-              kind: "propertySegment",
-              name: "__onceScopeGuards",
-              location: stmt.location,
-            },
-            {
-              kind: "propertySegment",
-              name: markerScopeId,
-              location: stmt.location,
-            },
-          ],
-          location: stmt.location,
-        };
-        const markerScopeExpr = pathToMelExpr(markerScopePath);
-        const onceIntentGuardId = sha256Sync(
-          `${context.actionName}:${context.onceIntentCounter}:intent`
-        );
-        context.onceIntentCounter += 1;
-
-        const markerLocation = stmt.location;
-        const onceIntentGuardPath = {
-          kind: "path" as const,
-          segments: [
-            {
-              kind: "propertySegment",
-              name: "$mel",
-              location: markerLocation,
-            },
-            {
-              kind: "propertySegment",
-              name: "guards",
-              location: markerLocation,
-            },
-            {
-              kind: "propertySegment",
-              name: "intent",
-              location: markerLocation,
-            },
-            {
-              kind: "propertySegment",
-              name: onceIntentGuardId,
-              location: markerLocation,
-            },
-          ],
-          location: markerLocation,
-        } satisfies PathNode;
-
-        let onceIntentCondition: MelExprNode = {
-          kind: "call",
-          fn: "neq",
-          args: [
-            pathToMelExpr(onceIntentGuardPath),
-            { kind: "sys", path: ["runtime", "intent", "id"] },
-          ],
-        };
-
-        if (stmt.condition) {
-          this.exprValidator.validateExpr(stmt.condition, errors);
-          try {
-            onceIntentCondition = this.conditionComposer.and(
-              onceIntentCondition,
-              this.deps.toMelExpr(stmt.condition)
-            ) ?? onceIntentCondition;
-          } catch (error) {
-            errors.push({
-              severity: "error",
-              code: "E_LOWER",
-              message: (error as Error).message,
-              location: this.deps.mapLocation(stmt.condition.location),
-            });
-          }
-        }
-
-        const condition = this.conditionComposer.and(parentCondition, onceIntentCondition);
-
-        const onceIntentGuardMapPath: PathNode = {
-          kind: "path",
-          segments: [
-            {
-              kind: "propertySegment",
-              name: "$mel",
-              location: markerLocation,
-            },
-            {
-              kind: "propertySegment",
-              name: "guards",
-              location: markerLocation,
-            },
-            {
-              kind: "propertySegment",
-              name: "intent",
-              location: markerLocation,
-            },
-          ],
-          location: markerLocation,
-        };
-
-        const scopedBodyPatchStatements = this.collectPatchStatements(
-          stmt.body,
-          errors,
-          context,
-          markerScopeExpr
-        );
-
-        patchStatements.push(
-          {
-            patch: {
-              kind: "patch",
-              op: "set",
-              path: markerScopePath,
-              value: {
-                kind: "literal",
-                literalType: "boolean",
-                value: true,
-                location: markerLocation,
-              },
-              location: markerLocation,
-            },
-            condition,
-          },
-          {
-            patch: {
-              kind: "patch",
-              op: "merge",
-              path: onceIntentGuardMapPath,
-              value: {
-                kind: "objectLiteral",
-                properties: [
-                  {
-                    kind: "objectProperty",
-                    key: onceIntentGuardId,
-                    value: {
-                      kind: "systemIdent",
-                      path: ["runtime", "intent", "id"],
-                      location: markerLocation,
-                    },
-                    location: markerLocation,
-                  },
-                ],
-                location: markerLocation,
-              },
-              location: markerLocation,
-            },
-            condition: markerScopeExpr,
-          },
-          ...scopedBodyPatchStatements,
-          {
-            patch: {
-              kind: "patch",
-              op: "unset",
-              path: markerScopePath,
-              location: markerLocation,
-            },
-            condition,
-          }
-        );
+        this.pushUnsupportedControlError(stmt.kind, stmt.location, errors);
         continue;
       }
 
@@ -446,6 +99,20 @@ export class PatchStatementCollector {
     }
 
     return patchStatements;
+  }
+
+  private pushUnsupportedControlError(
+    kind: "when" | "once" | "onceIntent",
+    location: Diagnostic["location"],
+    errors: Diagnostic[]
+  ): void {
+    errors.push({
+      severity: "error",
+      code: "E_UNSUPPORTED_CONTROL",
+      message:
+        `compileMelPatch() does not support '${kind}' in v5. Compile a full MEL domain so Core can lower guarded control through the current runtime channels.`,
+      location: this.deps.mapLocation(location),
+    });
   }
 }
 
@@ -462,43 +129,6 @@ export function compilePatchStmtToMelRuntime(
   };
 }
 
-function pathToMelExpr(path: PathNode): MelExprNode {
-  const segments = path.segments;
-  let result: MelExprNode | undefined;
-
-  for (const segment of segments) {
-    if (segment.kind === "propertySegment") {
-      const prop = { kind: "prop", name: segment.name } as const;
-      if (!result) {
-        result = { kind: "get", path: [prop] };
-      } else {
-        result = {
-          kind: "call",
-          fn: "field",
-          args: [result, { kind: "lit", value: segment.name }],
-        };
-      }
-      continue;
-    }
-
-    if (!result) {
-      throw new Error("Path cannot start with index access in compileMelPatch guard.");
-    }
-
-    result = {
-      kind: "call",
-      fn: "at",
-      args: [result, toMelExpr(segment.index)],
-    };
-  }
-
-  if (!result) {
-    throw new Error("Empty patch guard path.");
-  }
-
-  return result;
-}
-
 function toRuntimePatchPath(path: PathNode): MelIRPatchPath {
   return path.segments.map((segment) => {
     if (segment.kind === "propertySegment") {
@@ -509,25 +139,16 @@ function toRuntimePatchPath(path: PathNode): MelIRPatchPath {
   });
 }
 
-class ConditionComposer {
-  and(lhs: MelExprNode | undefined, rhs: MelExprNode | undefined): MelExprNode | undefined {
-    if (!lhs) {
-      return rhs;
-    }
-
-    if (!rhs) {
-      return lhs;
-    }
-
-    return {
-      kind: "call",
-      fn: "and",
-      args: [lhs, rhs],
-    };
-  }
-}
-
 class PatchExprValidator {
+  private static readonly VALID_RUNTIME_PATHS = new Set([
+    "intent.id",
+    "intent.action",
+    "time.timestamp",
+    "time.iso",
+    "random.seed",
+    "random.uuid",
+  ]);
+
   private readonly symbols: DomainTypeSymbols = {
     stateTypes: new Map(),
     contextTypes: new Map(),
@@ -537,7 +158,10 @@ class PatchExprValidator {
     computedTypeInFlight: new Set(),
   };
 
-  constructor(private readonly mapLocation: (location: Diagnostic["location"]) => Diagnostic["location"]) {}
+  constructor(
+    private readonly mapLocation: (location: Diagnostic["location"]) => Diagnostic["location"],
+    private readonly allowSysPrefixes: readonly AllowedSysPrefix[],
+  ) {}
 
   validatePath(path: PathNode, errors: Diagnostic[]): void {
     for (const segment of path.segments) {
@@ -610,10 +234,77 @@ class PatchExprValidator {
 
       case "literal":
       case "identifier":
-      case "systemIdent":
       case "iterationVar":
         return;
+
+      case "systemIdent":
+        this.validateSystemIdent(expr, errors);
+        return;
     }
+  }
+
+  private validateSystemIdent(expr: Extract<ExprNode, { kind: "systemIdent" }>, errors: Diagnostic[]): void {
+    const [namespace, ...rest] = expr.path;
+
+    if (namespace === "system" || namespace === "meta") {
+      this.pushInvalidSysPath(
+        `$${namespace}.* is retired in v5 MEL; use $runtime.* or declared $context.* where action-flow context is available`,
+        expr.location,
+        errors,
+      );
+      return;
+    }
+
+    if (namespace !== "input" && namespace !== "runtime" && namespace !== "context") {
+      this.pushInvalidSysPath(
+        `Invalid dollar identifier namespace '$${namespace ?? ""}'. Valid namespaces: $runtime, $context, $input, $item`,
+        expr.location,
+        errors,
+      );
+      return;
+    }
+
+    if (!this.allowSysPrefixes.includes(namespace)) {
+      this.pushInvalidSysPath(
+        `Dollar namespace path '${expr.path.join(".")}' is not allowed in this lowering context`,
+        expr.location,
+        errors,
+      );
+      return;
+    }
+
+    if (namespace === "runtime") {
+      const key = rest.join(".");
+      if (!PatchExprValidator.VALID_RUNTIME_PATHS.has(key)) {
+        this.pushInvalidSysPath(
+          `Invalid runtime value '$runtime.${key}'. Valid values: ${[...PatchExprValidator.VALID_RUNTIME_PATHS].join(", ")}`,
+          expr.location,
+          errors,
+        );
+      }
+      return;
+    }
+
+    if (namespace === "context") {
+      this.pushInvalidSysPath(
+        "Cannot use $context.* without a domain context declaration",
+        expr.location,
+        errors,
+      );
+    }
+  }
+
+  private pushInvalidSysPath(
+    message: string,
+    location: Diagnostic["location"],
+    errors: Diagnostic[],
+  ): void {
+    errors.push({
+      severity: "error",
+      code: "E003",
+      message,
+      location: this.mapLocation(location),
+    });
   }
 
   private validatePrimitiveEquality(

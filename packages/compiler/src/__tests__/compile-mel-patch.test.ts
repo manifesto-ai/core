@@ -5,20 +5,18 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { compileMelPatch } from "../api/index.js";
+import { compileMelPatch } from "../api/compile-mel.js";
 import {
   patchPathToDisplayString,
   semanticPathToPatchPath,
-  sha256Sync,
   type Patch,
-  type PatchPath,
 } from "@manifesto-ai/core";
+import { createEvaluationContext } from "../evaluation/context.js";
 import {
-  createEvaluationContext,
   evaluateRuntimePatches,
   evaluateRuntimePatchesWithTrace,
-} from "../evaluation/index.js";
-import type { RuntimeConditionalPatchOp } from "../lowering/index.js";
+} from "../evaluation/evaluate-runtime-patch.js";
+import type { RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.js";
 
 type LegacyPatch = {
   op: Patch["op"];
@@ -27,12 +25,6 @@ type LegacyPatch = {
 };
 
 const pp = semanticPathToPatchPath;
-
-const stripInternalGuards = (ops: Patch[]): LegacyPatch[] =>
-  toLegacyPatches(ops.filter((op) => !isInternalGuardPath(op.path)));
-
-const stripInternalWhenGuards = (ops: Patch[]): LegacyPatch[] =>
-  toLegacyPatches(ops.filter((op) => !isWhenGuardPath(op.path)));
 
 function toLegacyPatches(ops: Patch[]): LegacyPatch[] {
   return ops.map((op) => {
@@ -44,36 +36,6 @@ function toLegacyPatches(ops: Patch[]): LegacyPatch[] {
     }
     return { op: "unset", path: patchPathToDisplayString(op.path) };
   });
-}
-
-function isWhenGuardPath(path: PatchPath): boolean {
-  return (
-    path.length >= 2
-    && path[0].kind === "prop"
-    && path[0].name === "$mel"
-    && path[1].kind === "prop"
-    && path[1].name === "__whenGuards"
-  );
-}
-
-function isInternalGuardPath(path: PatchPath): boolean {
-  return (
-    path.length >= 2
-    && path[0].kind === "prop"
-    && path[0].name === "$mel"
-    && path[1].kind === "prop"
-    && (path[1].name === "__whenGuards" || path[1].name === "__onceScopeGuards")
-  );
-}
-
-function isRuntimeWhenGuardPath(path: RuntimeConditionalPatchOp["path"]): boolean {
-  return (
-    path.length >= 2
-    && path[0].kind === "prop"
-    && path[0].name === "$mel"
-    && path[1].kind === "prop"
-    && path[1].name === "__whenGuards"
-  );
 }
 
 function renderRuntimePath(path: RuntimeConditionalPatchOp["path"]): string {
@@ -157,7 +119,7 @@ describe("compileMelPatch", () => {
     ]);
   });
 
-  it("preserves guard conditions when collecting patch statements", () => {
+  it("rejects when guards in patch text", () => {
     const melText = `
       when gt(input.increment, 0) {
         patch inGuard = input.increment
@@ -167,9 +129,6 @@ describe("compileMelPatch", () => {
         patch never = 1
       }
 
-      onceIntent {
-        patch onceValue = 1
-      }
     `;
 
     const result = compileMelPatch(melText, {
@@ -177,79 +136,17 @@ describe("compileMelPatch", () => {
       actionName: "regression-compileMelPatch-guards",
     });
 
-    expect(result.errors).toHaveLength(0);
-    expect(result.ops).toHaveLength(10);
-    expect(
-      result.ops.filter((op) => isRuntimeWhenGuardPath(op.path))
-    ).toHaveLength(4);
-
-    const guardId = sha256Sync("regression-compileMelPatch-guards:0:intent");
-
-    const positiveMatch = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-2" },
-        snapshot: {
-          state: {},
-          computed: {},
-        },
-        input: { increment: 2 },
-      })
-    );
-
-    expect(stripInternalGuards(positiveMatch)).toEqual([
-      {
-        op: "set",
-        path: "inGuard",
-        value: 2,
-      },
-      {
-        op: "merge",
-        path: "$mel.guards.intent",
-        value: {
-          [guardId]: "intent-2",
-        },
-      },
-      {
-        op: "set",
-        path: "onceValue",
-        value: 1,
-      },
+    expect(result.errors).toHaveLength(2);
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
+      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
     ]);
-
-    const zeroMatch = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-2" },
-        snapshot: {
-          state: {},
-          computed: {},
-        },
-        input: { increment: 0 },
-      })
-    );
-
-    expect(stripInternalGuards(zeroMatch)).toEqual([
-      {
-        op: "merge",
-        path: "$mel.guards.intent",
-        value: {
-          [guardId]: "intent-2",
-        },
-      },
-      {
-        op: "set",
-        path: "onceValue",
-        value: 1,
-      },
-    ]);
+    expect(result.ops).toHaveLength(0);
   });
 
   it("rejects definitely nonprimitive equality in patch compiler expressions", () => {
     const melText = `
-      when eq({ a: 1 }, { a: 1 }) {
-        patch guarded = true
-      }
+      patch sameObject = eq({ a: 1 }, { a: 1 })
       patch sameArray = eq([], [])
       patch sameKeys = eq(keys({ a: 1 }), [])
     `;
@@ -271,10 +168,8 @@ describe("compileMelPatch", () => {
 
   it("allows primitive and unknown-surface equality in patch compiler expressions", () => {
     const melText = `
-      when neq(trim(title), "") {
-        patch sameNull = eq(null, marker)
-        patch empty = eq(len(items), 0)
-      }
+      patch sameNull = eq(null, marker)
+      patch empty = eq(len(items), 0)
     `;
 
     const result = compileMelPatch(melText, {
@@ -286,7 +181,7 @@ describe("compileMelPatch", () => {
     expect(result.ops.length).toBeGreaterThan(0);
   });
 
-  it("evaluates when guard condition once for every nested patch in the block", () => {
+  it("rejects when guards instead of emitting MEL namespace markers", () => {
     const melText = `
       when eq(count, 0) {
         patch count = add(count, 1)
@@ -299,49 +194,13 @@ describe("compileMelPatch", () => {
       actionName: "regression-compileMelPatch-when-block-reuse",
     });
 
-    expect(result.errors).toHaveLength(0);
-
-    const positiveMatch = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-3" },
-        snapshot: {
-          state: { count: 0 },
-          computed: {},
-        },
-        input: {},
-      })
-    );
-
-    expect(stripInternalWhenGuards(positiveMatch)).toEqual([
-      {
-        op: "set",
-        path: "count",
-        value: 1,
-      },
-      {
-        op: "set",
-        path: "status",
-        value: "updated",
-      },
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
     ]);
-
-    const zeroMatch = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-3" },
-        snapshot: {
-          state: { count: 1 },
-          computed: {},
-        },
-        input: {},
-      })
-    );
-
-    expect(stripInternalWhenGuards(zeroMatch)).toEqual([]);
+    expect(result.ops).toHaveLength(0);
   });
 
-  it("uses one-time block entry snapshot for all when body values", () => {
+  it("rejects nested when guards in patch-only compilation", () => {
     const melText = `
       when eq(count, 0) {
         patch count = add(count, 1)
@@ -354,49 +213,13 @@ describe("compileMelPatch", () => {
       actionName: "regression-compileMelPatch-when-entry-snapshot",
     });
 
-    expect(result.errors).toHaveLength(0);
-
-    const positiveMatch = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-enter-snapshot" },
-        snapshot: {
-          state: { count: 0, flag: null },
-          computed: {},
-        },
-        input: {},
-      })
-    );
-
-    expect(stripInternalGuards(positiveMatch)).toEqual([
-      {
-        op: "set",
-        path: "count",
-        value: 1,
-      },
-      {
-        op: "set",
-        path: "flag",
-        value: true,
-      },
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
     ]);
-
-    const negativeMatch = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-enter-snapshot" },
-        snapshot: {
-          state: { count: 5, flag: null },
-          computed: {},
-        },
-        input: {},
-      })
-    );
-
-    expect(negativeMatch).toEqual([]);
+    expect(result.ops).toHaveLength(0);
   });
 
-  it("emits marker patch for once guard and prevents duplicate execution", () => {
+  it("rejects once guards in patch text", () => {
     const melText = `
       once(onceMarker) {
         patch onceValue = 1
@@ -408,52 +231,12 @@ describe("compileMelPatch", () => {
       actionName: "regression-compileMelPatch-once",
     });
 
-    expect(result.errors).toHaveLength(0);
-    expect(result.ops).toHaveLength(4);
-
-    const firstIntent = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-1" },
-        snapshot: {
-          state: {},
-          computed: {},
-        },
-        input: {},
-      })
-    );
-
-    expect(stripInternalGuards(firstIntent)).toEqual([
-      {
-        op: "set",
-        path: "onceMarker",
-        value: "intent-1",
-      },
-      {
-        op: "set",
-        path: "onceValue",
-        value: 1,
-      },
-    ]);
-
-    const sameIntentRepeat = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-1" },
-        snapshot: {
-          state: {
-            onceMarker: "intent-1",
-          },
-          computed: {},
-        },
-        input: {},
-      })
-    );
-
-    expect(sameIntentRepeat).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({ code: "E_UNSUPPORTED_CONTROL" });
+    expect(result.ops).toHaveLength(0);
   });
 
-  it("evaluates once block conditions as a single unit", () => {
+  it("rejects conditional once guards in patch text", () => {
     const melText = `
       once(onceMarker) when eq(count, 0) {
         patch count = add(count, 1)
@@ -466,58 +249,12 @@ describe("compileMelPatch", () => {
       actionName: "regression-compileMelPatch-once-single-eval",
     });
 
-    expect(result.errors).toHaveLength(0);
-
-    const firstIntent = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-1" },
-        snapshot: {
-          state: { count: 0 },
-          computed: {},
-        },
-        input: {},
-      })
-    );
-
-    expect(stripInternalGuards(firstIntent)).toEqual([
-      {
-        op: "set",
-        path: "onceMarker",
-        value: "intent-1",
-      },
-      {
-        op: "set",
-        path: "count",
-        value: 1,
-      },
-      {
-        op: "set",
-        path: "status",
-        value: "done",
-      },
-    ]);
-
-    const sameIntentRepeat = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-1" },
-        snapshot: {
-          state: {
-            count: 1,
-            status: "done",
-            onceMarker: "intent-1",
-          },
-          computed: {},
-        },
-        input: {},
-      })
-    );
-
-    expect(sameIntentRepeat).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({ code: "E_UNSUPPORTED_CONTROL" });
+    expect(result.ops).toHaveLength(0);
   });
 
-  it("evaluates onceIntent block conditions as a single unit", () => {
+  it("rejects onceIntent guards in patch text", () => {
     const melText = `
       onceIntent when eq(count, 0) {
         patch count = add(count, 1)
@@ -530,66 +267,9 @@ describe("compileMelPatch", () => {
       actionName: "regression-compileMelPatch-onceIntent-single-eval",
     });
 
-    expect(result.errors).toHaveLength(0);
-    const guardId = sha256Sync(
-      "regression-compileMelPatch-onceIntent-single-eval:0:intent"
-    );
-
-    const firstIntent = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-2" },
-        snapshot: {
-          state: { count: 0 },
-          computed: {},
-        },
-        input: {},
-      })
-    );
-
-    expect(stripInternalGuards(firstIntent)).toEqual([
-      {
-        op: "merge",
-        path: "$mel.guards.intent",
-        value: {
-          [guardId]: "intent-2",
-        },
-      },
-      {
-        op: "set",
-        path: "count",
-        value: 1,
-      },
-      {
-        op: "set",
-        path: "status",
-        value: "done",
-      },
-    ]);
-
-    const sameIntentRepeat = evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext({
-        meta: { intentId: "intent-2" },
-        snapshot: {
-          state: {
-            count: 1,
-            status: "done",
-            $mel: {
-              guards: {
-                intent: {
-                  [guardId]: "intent-2",
-                },
-              },
-            },
-          },
-          computed: {},
-        },
-        input: {},
-      })
-    );
-
-    expect(stripInternalGuards(sameIntentRepeat)).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({ code: "E_UNSUPPORTED_CONTROL" });
+    expect(result.ops).toHaveLength(0);
   });
 
   it("supports non-static property access in patch expressions", () => {
@@ -952,9 +632,7 @@ describe("compileMelPatch", () => {
 
   it("rejects unsupported statement types in patch text", () => {
     const melText = `
-      when true {
-        effect api.fetch({ url: "/users", into: result })
-      }
+      effect api.fetch({ url: "/users", into: result })
     `;
 
     const result = compileMelPatch(melText, {
@@ -1058,7 +736,94 @@ describe("compileMelPatch", () => {
     });
 
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0].code).toBe("INVALID_SYS_PATH");
+    expect(result.errors[0].code).toBe("E003");
+    expect(result.ops).toHaveLength(0);
+  });
+
+  it("rejects invalid $runtime paths during patch-only analysis", () => {
+    const result = compileMelPatch(`patch requestId = $runtime.nope`, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-invalid-runtime-path",
+    });
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      code: "E003",
+    });
+    expect(result.errors[0].message).toContain("Invalid runtime value");
+    expect(result.ops).toHaveLength(0);
+  });
+
+  it("derives deterministic runtime UUIDs during patch evaluation", () => {
+    const result = compileMelPatch(`
+      patch firstId = $runtime.random.uuid
+      patch secondId = $runtime.random.uuid
+    `, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-runtime-uuid",
+    });
+    const context = {
+      meta: { intentId: "intent-runtime-uuid" },
+      snapshot: { state: {}, computed: {} },
+      runtime: {
+        intent: { id: "intent-runtime-uuid", action: "create" },
+        random: { seed: "seed-runtime-uuid" },
+      },
+    };
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+
+    expect(result.errors).toHaveLength(0);
+
+    const firstEvaluation = toLegacyPatches(evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext(context),
+    ));
+    const secondEvaluation = toLegacyPatches(evaluateRuntimePatches(
+      result.ops,
+      createEvaluationContext(context),
+    ));
+
+    expect(firstEvaluation).toEqual(secondEvaluation);
+    expect(firstEvaluation[0]?.value).toMatch(uuidPattern);
+    expect(firstEvaluation[1]?.value).toMatch(uuidPattern);
+    expect(firstEvaluation[0]?.value).not.toBe(firstEvaluation[1]?.value);
+  });
+
+  it("resolves prototype-named state fields as own state, not inherited computed", () => {
+    const ops = [
+      {
+        op: "set",
+        path: [{ kind: "prop", name: "copied" }],
+        value: { kind: "get", path: "toString" },
+      },
+    ] satisfies readonly RuntimeConditionalPatchOp[];
+    const patches = evaluateRuntimePatches(
+      ops,
+      createEvaluationContext({
+        meta: { intentId: "intent-prototype-field" },
+        snapshot: {
+          state: { toString: "domain-value" },
+          computed: {},
+        },
+      }),
+    );
+
+    expect(toLegacyPatches(patches)).toEqual([
+      { op: "set", path: "copied", value: "domain-value" },
+    ]);
+  });
+
+  it("rejects $context paths without a domain context declaration in patch-only mode", () => {
+    const result = compileMelPatch(`patch locale = $context.locale`, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-context-without-domain",
+    });
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      code: "E003",
+      message: "Cannot use $context.* without a domain context declaration",
+    });
     expect(result.ops).toHaveLength(0);
   });
 });

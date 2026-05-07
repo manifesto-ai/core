@@ -71,13 +71,45 @@ export {
 // Lowering (MEL IR → Core IR)
 // ════════════════════════════════════════════════════════════════════════════
 
-export * from "./lowering/index.js";
+export type {
+  AllowedSysPrefix,
+  ExprLoweringContext,
+  PatchLoweringContext,
+  LoweringErrorCode,
+  MelPrimitive,
+  MelPathSegment,
+  MelPathNode,
+  MelSystemPath,
+  MelObjField,
+  MelExprNode,
+  MelTypeExpr,
+  MelTypeField,
+  MelPatchOp,
+  MelPatchFragment,
+  LoweredTypeExpr,
+  LoweredTypeField,
+  LoweredPatchOp,
+  SchemaConditionalPatchOp,
+  /** @deprecated Use SchemaConditionalPatchOp */
+  ConditionalPatchOp,
+} from "./lowering/index.js";
 
-// ════════════════════════════════════════════════════════════════════════════
-// Evaluation (Core IR → Concrete Values)
-// ════════════════════════════════════════════════════════════════════════════
-
-export * from "./evaluation/index.js";
+export {
+  DEFAULT_SCHEMA_CONTEXT,
+  DEFAULT_ACTION_CONTEXT,
+  DEFAULT_DISPATCHABLE_CONTEXT,
+  EFFECT_ARGS_CONTEXT,
+  DEFAULT_PATCH_CONTEXT,
+  LoweringError,
+  invalidKindForContext,
+  unknownCallFn,
+  invalidSysPath,
+  unsupportedBase,
+  invalidShape,
+  unknownNodeKind,
+  lowerExprNode,
+  lowerPatchFragments,
+} from "./lowering/index.js";
 
 // ════════════════════════════════════════════════════════════════════════════
 // Compile API (MEL Text Ingest)

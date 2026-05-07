@@ -8,16 +8,18 @@
 
 import { describe, it, expect } from "vitest";
 import { patchPathToDisplayString, semanticPathToPatchPath, type ExprNode, type Patch } from "@manifesto-ai/core";
+import { createEvaluationContext, type EvaluationContext } from "../evaluation/context.js";
+import { evaluateExpr } from "../evaluation/evaluate-expr.js";
 import {
-  evaluateExpr,
   evaluateConditionalPatchOps,
   evaluateCondition,
+} from "../evaluation/evaluate-patch.js";
+import {
   evaluateRuntimePatches,
   evaluateRuntimePatchesWithTrace,
-  createEvaluationContext,
-  type EvaluationContext,
-} from "../evaluation/index.js";
-import type { ConditionalPatchOp, RuntimeConditionalPatchOp } from "../lowering/index.js";
+} from "../evaluation/evaluate-runtime-patch.js";
+import type { ConditionalPatchOp } from "../lowering/lower-patch.js";
+import type { RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.js";
 
 const irp = (path: string): RuntimeConditionalPatchOp["path"] =>
   semanticPathToPatchPath(path).map((segment) =>
@@ -45,6 +47,10 @@ function createTestContext(
 ): EvaluationContext {
   return createEvaluationContext({
     meta: { intentId: "test-intent-123" },
+    runtime: {
+      intent: { id: "test-intent-123", action: "test-action" },
+      time: { timestamp: 1234567890 },
+    },
     snapshot: {
       state: { count: 10, name: "Alice", items: [1, 2, 3] },
       computed: { total: 100 },
@@ -90,9 +96,9 @@ describe("evaluateExpr", () => {
       expect(evaluateExpr({ kind: "get", path: "name" }, ctx)).toBe("Alice");
     });
 
-    it("should resolve meta paths", () => {
+    it("should resolve runtime paths", () => {
       const ctx = createTestContext();
-      expect(evaluateExpr({ kind: "get", path: "meta.intentId" }, ctx)).toBe(
+      expect(evaluateExpr({ kind: "get", path: "$runtime.intent.id" }, ctx)).toBe(
         "test-intent-123"
       );
     });
@@ -133,7 +139,7 @@ describe("evaluateExpr", () => {
       );
     });
 
-    it("should return null for missing meta intent and action paths", () => {
+    it("should return null for legacy meta intent and action paths", () => {
       const ctx = createTestContext({
         meta: {} as EvaluationContext["meta"],
       });
@@ -1187,13 +1193,13 @@ describe("evaluateRuntimePatches", () => {
       });
     });
 
-    it("should evaluate expressions referencing meta", () => {
+    it("should evaluate expressions referencing runtime intent", () => {
       const ctx = createTestContext();
       const ops: RuntimeConditionalPatchOp[] = [
         {
           op: "set",
           path: irp("lastIntentId"),
-          value: { kind: "get", path: "meta.intentId" },
+          value: { kind: "get", path: "$runtime.intent.id" },
         },
       ];
 

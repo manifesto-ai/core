@@ -1,11 +1,20 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type {
   CanonicalDomainSchema,
   CoreExprNode,
   CoreFlowNode,
   DomainSchema,
 } from "../../../generator/ir.js";
-import { createEvaluationContext, evaluateExpr } from "../../../index.js";
+import {
+  createCore,
+  createIntent,
+  createSnapshot,
+  hashSchemaSync,
+  patchPathToDisplayString,
+  validate,
+} from "@manifesto-ai/core";
+import { createEvaluationContext } from "../../../evaluation/context.js";
+import { evaluateExpr } from "../../../evaluation/evaluate-expr.js";
 import type { MelExprNode } from "../../../lowering/lower-expr.js";
 import { createCompilerComplianceAdapter } from "../ccts-adapter.js";
 import {
@@ -21,6 +30,19 @@ import { getRuleOrThrow } from "../ccts-rules.js";
 const adapter = createCompilerComplianceAdapter();
 const CANONICAL_EXPR_KINDS = new Set(["lit", "var", "sys", "get", "field", "call", "obj", "arr"]);
 const FORBIDDEN_EXPR_MARKERS = new Set(["seq", "effect", "patch", "halt", "fail"]);
+const TEST_CONTEXT = {
+  runtime: {
+    time: { timestamp: 0 },
+    random: { seed: "seed" },
+  },
+  external: {},
+};
+
+function expectRuntimeSchemaHash(schema: DomainSchema): void {
+  const { hash, ...schemaWithoutHash } = schema;
+  expect(hash).toBe(hashSchemaSync(schemaWithoutHash));
+  expect(validate(schema).errors.filter((error) => error.code === "V-008")).toEqual([]);
+}
 
 function collectEffectTypes(flow: CoreFlowNode | undefined, types: string[] = []): string[] {
   if (!flow) {
@@ -48,6 +70,37 @@ function collectEffectTypes(flow: CoreFlowNode | undefined, types: string[] = []
   }
 
   return types;
+}
+
+function collectPatchFlows(
+  flow: CoreFlowNode | undefined,
+  patches: Array<Extract<CoreFlowNode, { kind: "patch" }>> = []
+): Array<Extract<CoreFlowNode, { kind: "patch" }>> {
+  if (!flow) {
+    return patches;
+  }
+
+  switch (flow.kind) {
+    case "seq":
+      for (const step of flow.steps) {
+        collectPatchFlows(step, patches);
+      }
+      break;
+    case "if":
+      collectPatchFlows(flow.then, patches);
+      if (flow.else) {
+        collectPatchFlows(flow.else, patches);
+      }
+      break;
+    case "causalGuard":
+      collectPatchFlows(flow.body, patches);
+      break;
+    case "patch":
+      patches.push(flow);
+      break;
+  }
+
+  return patches;
 }
 
 function walkCanonicalExpr(expr: MelExprNode | undefined, visit: (expr: MelExprNode) => void): void {
@@ -563,6 +616,152 @@ describe("CCTS Lowering and IR Suite", () => {
         evidence: [noteEvidence("Observed lowered schema excerpt", rendered.slice(0, 320))],
       }),
     ]);
+  });
+
+  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(ADR-028) dynamic patch targets lower without placeholder evaluation"), async () => {
+    const compiled = adapter.compile(`
+      domain Demo {
+        state {
+          records: Record<string, string> = {}
+          items: Array<string> = [""]
+          literalKeys: Record<string, number> = {}
+          value: string = "v"
+        }
+        computed currentValue = value
+        action write(id: string) {
+          when true {
+            patch records[id] = value
+            patch literalKeys["file:///proof.lean"] = 1
+            patch items[0] = value
+            patch records[$runtime.random.uuid] = value
+          }
+        }
+      }
+    `);
+
+    const flow = compiled.value?.actions["write"]?.flow;
+    const patches = collectPatchFlows(flow);
+    const rendered = JSON.stringify(compiled.value);
+    const recordsByInputId = patches.find((patch) =>
+      patch.path[0]?.kind === "prop" &&
+      patch.path[0].name === "records" &&
+      patch.path[1]?.kind === "expr" &&
+      patch.path[1].expr.kind === "get" &&
+      patch.path[1].expr.path === "input.id"
+    );
+    const literalUri = patches.find((patch) =>
+      patch.path[0]?.kind === "prop" &&
+      patch.path[0].name === "literalKeys" &&
+      patch.path[1]?.kind === "prop" &&
+      patch.path[1].name === "file:///proof.lean"
+    );
+    const arrayIndex = patches.find((patch) =>
+      patch.path[0]?.kind === "prop" &&
+      patch.path[0].name === "items" &&
+      patch.path[1]?.kind === "index" &&
+      patch.path[1].index === 0
+    );
+    const recordsByRuntimeUuid = patches.find((patch) =>
+      patch.path[0]?.kind === "prop" &&
+      patch.path[0].name === "records" &&
+      patch.path[1]?.kind === "expr" &&
+      patch.path[1].expr.kind === "get" &&
+      patch.path[1].expr.path === "$runtime.random.uuid"
+    );
+
+    expect(compiled.errors).toEqual([]);
+    expect(compiled.value).not.toBeNull();
+    expect(patches).toHaveLength(4);
+    expect(rendered).not.toContain('"*"');
+    expect(recordsByInputId?.path).toBeDefined();
+    expect(literalUri?.path).toBeDefined();
+    expect(arrayIndex?.path).toBeDefined();
+    expect(recordsByRuntimeUuid?.path).toBeDefined();
+    expectRuntimeSchemaHash(compiled.value!);
+
+    const core = createCore();
+    const snapshot = createSnapshot(
+      { records: {}, items: [""], literalKeys: {}, value: "v" },
+      compiled.value!.hash,
+      TEST_CONTEXT
+    );
+    const result = await core.compute(
+      compiled.value!,
+      snapshot,
+      createIntent("write", { id: "alpha" }, "intent-1"),
+      TEST_CONTEXT
+    );
+
+    expect(result.systemDelta.lastError).toBeNull();
+    expect(result.patches.map((patch) => patchPathToDisplayString(patch.path))).toEqual([
+      "records.alpha",
+      "literalKeys.file:///proof.lean",
+      "items[0]",
+      expect.stringMatching(/^records\.[0-9a-f-]+$/),
+    ]);
+  });
+
+  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(ADR-028) runtime schema hash includes lowered Flow IR"), () => {
+    const dynamicTargetSource = `
+      domain DynamicTarget {
+        state {
+          records: Record<string, string> = {}
+          value: string = "v"
+        }
+        computed current = value
+        action write(id: string) {
+          when true {
+            patch records[id] = value
+          }
+        }
+      }
+    `;
+    const sources = [
+      `
+        domain ValueExpr {
+          state {
+            count: number = 0
+            value: number = 1
+          }
+          computed current = value
+          action set() {
+            when true {
+              patch count = value
+            }
+          }
+        }
+      `,
+      `
+        domain ConditionExpr {
+          state {
+            count: number = 0
+            value: number = 1
+          }
+          computed current = value
+          action set() {
+            when gt(value, 0) {
+              patch count = 1
+            }
+          }
+        }
+      `,
+      dynamicTargetSource,
+    ];
+
+    for (const source of sources) {
+      const compiled = adapter.compile(source);
+      expect(compiled.errors).toEqual([]);
+      expect(compiled.value).not.toBeNull();
+      expectRuntimeSchemaHash(compiled.value!);
+    }
+
+    const canonical = adapter.canonical(dynamicTargetSource);
+    const compiled = adapter.compile(dynamicTargetSource);
+    expect(canonical.errors).toEqual([]);
+    expect(canonical.value).not.toBeNull();
+    expect(compiled.errors).toEqual([]);
+    expect(compiled.value).not.toBeNull();
+    expect(compiled.value!.hash).not.toBe(canonical.value!.hash);
   });
 
   it(caseTitle(CCTS_CASES.IR_EXPR_CLOSURE, "(A1) expression trees remain finite and flow-free"), () => {

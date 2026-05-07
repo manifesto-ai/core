@@ -1,4 +1,4 @@
-import type { PatchPath } from "@manifesto-ai/core";
+import type { FlowPatchPath } from "@manifesto-ai/core";
 import type {
   CoreExprNode,
   CoreFlowNode,
@@ -235,7 +235,7 @@ function collectMutationRootsFromFlow(
   return [...roots];
 }
 
-function rootFromPatchPath(path: PatchPath): string | null {
+function rootFromPatchPath(path: FlowPatchPath): string | null {
   const [head] = path;
   if (!head || head.kind !== "prop" || head.name.startsWith("$")) {
     return null;

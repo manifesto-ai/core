@@ -40,6 +40,7 @@ import {
   semanticPathToPatchPath,
   sha256Sync,
   type ExprNode as RuntimeExprNode,
+  type FlowNode as RuntimeFlowNode,
   type PatchPath,
 } from "@manifesto-ai/core";
 import { lowerCanonicalSchema } from "./runtime-lowering.js";
@@ -54,22 +55,21 @@ export type CoreExprNode = RuntimeExprNode;
 export type CompilerExprNode = MelExprNode;
 
 /**
- * Core FlowNode types (matching core/schema/flow.ts)
+ * Core FlowNode type (kept attached to @manifesto-ai/core to avoid schema drift).
  */
-export type CoreFlowNode =
-  | { kind: "seq"; steps: CoreFlowNode[] }
-  | { kind: "if"; cond: CoreExprNode; then: CoreFlowNode; else?: CoreFlowNode }
-  | { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CoreExprNode }
-  | { kind: "causalGuard"; guardId: string; body: CoreFlowNode }
-  | { kind: "effect"; type: string; params: Record<string, CoreExprNode> }
-  | { kind: "call"; flow: string }
-  | { kind: "halt"; reason?: string }
-  | { kind: "fail"; code: string; message?: CoreExprNode };
+export type CoreFlowNode = RuntimeFlowNode;
+
+type CompilerFlowPatchSegment =
+  | { kind: "prop"; name: string }
+  | { kind: "index"; index: number }
+  | { kind: "expr"; expr: CompilerExprNode };
+
+type CompilerFlowPatchPath = CompilerFlowPatchSegment[];
 
 export type CompilerFlowNode =
   | { kind: "seq"; steps: CompilerFlowNode[] }
   | { kind: "if"; cond: CompilerExprNode; then: CompilerFlowNode; else?: CompilerFlowNode }
-  | { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CompilerExprNode }
+  | { kind: "patch"; op: "set" | "unset" | "merge"; path: CompilerFlowPatchPath; value?: CompilerExprNode }
   | { kind: "causalGuard"; guardId: string; body: CompilerFlowNode }
   | { kind: "effect"; type: string; params: Record<string, CompilerExprNode> }
   | { kind: "call"; flow: string }
@@ -330,8 +330,10 @@ export function generate(program: ProgramNode): GenerateResult {
     };
   }
 
+  const loweredSchema = lowerCanonicalSchema(canonical.schema);
+
   return {
-    schema: lowerCanonicalSchema(canonical.schema),
+    schema: withRuntimeSchemaHash(loweredSchema),
     diagnostics: canonical.diagnostics,
   };
 }
@@ -1520,17 +1522,15 @@ function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): Co
 }
 
 function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CompilerFlowNode {
-  const path = generatePath(stmt.path, ctx);
-
   const result: CompilerFlowNode = {
     kind: "patch",
     op: stmt.op,
-    path: toPatchPath(path),
+    path: generatePatchPath(stmt.path, ctx),
   };
 
   if (stmt.value) {
     const valueExpr = generateExpr(stmt.value, ctx);
-    (result as { kind: "patch"; op: "set" | "unset" | "merge"; path: PatchPath; value?: CompilerExprNode }).value = valueExpr;
+    (result as { kind: "patch"; op: "set" | "unset" | "merge"; path: CompilerFlowPatchPath; value?: CompilerExprNode }).value = valueExpr;
 
     // Track 2: validate literal patch values against the target field's declared type
     if (stmt.op === "set") {
@@ -1702,6 +1702,31 @@ function generatePath(path: PathNode, ctx: GeneratorContext): string {
   return joinPathPreserveEmptySegments(...segments);
 }
 
+function generatePatchPath(path: PathNode, ctx: GeneratorContext): CompilerFlowPatchPath {
+  return path.segments.map((segment) => {
+    if (segment.kind === "propertySegment") {
+      return { kind: "prop" as const, name: segment.name };
+    }
+
+    const indexExpr = generateExpr(segment.index, ctx, { preferActionParams: true });
+    if (indexExpr.kind === "lit") {
+      if (
+        typeof indexExpr.value === "number" &&
+        Number.isInteger(indexExpr.value) &&
+        indexExpr.value >= 0
+      ) {
+        return { kind: "index" as const, index: indexExpr.value };
+      }
+
+      if (typeof indexExpr.value === "string") {
+        return { kind: "prop" as const, name: indexExpr.value };
+      }
+    }
+
+    return { kind: "expr" as const, expr: indexExpr };
+  });
+}
+
 function toPatchPath(path: string): PatchPath {
   return semanticPathToPatchPath(path);
 }
@@ -1804,4 +1829,13 @@ function computeCanonicalHash(schema: Omit<CanonicalDomainSchema, "hash">): stri
 
 function computeHash(schema: Omit<DomainSchema, "hash">): string {
   return hashSchemaSync(schema);
+}
+
+function withRuntimeSchemaHash(schema: DomainSchema): DomainSchema {
+  const { hash: _hash, ...schemaWithoutHash } = schema;
+
+  return {
+    ...schemaWithoutHash,
+    hash: computeHash(schemaWithoutHash),
+  };
 }
