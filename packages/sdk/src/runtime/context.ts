@@ -133,7 +133,7 @@ function materializeRecord(
   rejectAccessors(value, source, path);
   rejectSymbolKeys(value, source, path);
 
-  const clone: Record<string, JsonValue> = {};
+  const clone = Object.create(null) as Record<string, JsonValue>;
   for (const [key, child] of Object.entries(value)) {
     clone[key] = materializeJsonValue(child, source, [...path, key], seen);
   }

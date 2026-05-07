@@ -203,6 +203,21 @@ export class ManifestoHost {
     }]);
   }
 
+  private clearHostLastError(snapshot: Snapshot): Snapshot {
+    const hostState = getHostState(snapshot);
+    if (hostState?.lastError == null) {
+      return snapshot;
+    }
+
+    return this.core.applyNamespaceDeltas(snapshot, [{
+      namespace: "host",
+      patches: [{
+        op: "unset",
+        path: [{ kind: "prop", name: "lastError" }],
+      }],
+    }]);
+  }
+
   private normalizeCanonicalSnapshot(candidate: unknown, operation: string): Snapshot {
     let normalized: Record<string, unknown> | null = null;
 
@@ -363,6 +378,8 @@ export class ManifestoHost {
         ),
       };
     }
+
+    this.currentSnapshot = this.clearHostLastError(this.currentSnapshot);
 
     const initialHostLastError = getHostState(this.currentSnapshot)?.lastError ?? null;
     const stableSnapshot = this.cloneSnapshot(this.currentSnapshot);

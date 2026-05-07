@@ -337,6 +337,17 @@ describe("activated v5 base runtime", () => {
       },
     }).activate()).toThrow(/Unknown context field/);
 
+    const withProtoKey: Record<string, unknown> = { ...initialContext };
+    Object.defineProperty(withProtoKey, "__proto__", {
+      value: { polluted: true },
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+    expect(() => createManifesto<ContextDomain>(schema, {}, {
+      context: withProtoKey as never,
+    }).activate()).toThrow(/Unknown context field/);
+
     expect(() => createManifesto<ContextDomain>(schema, {}, {
       context: {
         ...initialContext,

@@ -428,6 +428,45 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
         effectType: "failing",
       });
     });
+
+    it("should clear stale host errors before a later successful dispatch", async () => {
+      const effectSchema = createTestSchema({
+        actions: {
+          simpleAction: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: pp("count"),
+              value: { kind: "lit", value: 1 },
+            },
+          },
+          failingEffect: {
+            flow: {
+              kind: "causalGuard",
+              guardId: "host-stale-failure",
+              body: {
+                kind: "effect",
+                type: "failing",
+                params: {},
+              },
+            },
+          },
+        },
+      });
+      const host = createHost(effectSchema, { initialData: {} });
+      host.registerEffect("failing", async () => {
+        throw new Error("boom");
+      });
+
+      const failed = await host.dispatch(createTestIntent("failingEffect"));
+      expect(failed.status).toBe("error");
+      expect(getHostState(failed.snapshot)?.lastError?.code).toBe("EFFECT_EXECUTION_FAILED");
+
+      const succeeded = await host.dispatch(createTestIntent("simpleAction"));
+      expect(succeeded.status).toBe("complete");
+      expect(succeeded.snapshot.state.count).toBe(1);
+      expect(getHostState(succeeded.snapshot)?.lastError).toBeUndefined();
+    });
   });
 
   describe("snapshot data integrity", () => {
