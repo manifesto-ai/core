@@ -12,7 +12,7 @@ const pp = semanticPathToPatchPath;
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createHost, getHostState, getLegacyDataRootHostState } from "../../index.js";
-import type { DomainSchema } from "@manifesto-ai/core";
+import type { DomainSchema, NamespaceDelta, Patch, Requirement, Snapshot } from "@manifesto-ai/core";
 import {
   createTestSchema,
   createTestIntent,
@@ -185,6 +185,162 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       expect(hostState?.lastError?.code).toBe("EFFECT_APPLY_FAILED");
       expect(hostState?.lastError?.message).toContain("Invalid namespace merge target");
       expect(resultSnapshot.system.pendingRequirements).toHaveLength(0);
+    });
+
+    it("should escalate fatal when effect failure cannot be recorded in host namespace", async () => {
+      const host = createHost(schema, { initialData: { count: 0 } });
+      const key = "test-key";
+      const intent = createTestIntent("simpleAction");
+      const pending = {
+        id: "req-corrupt-host-namespace",
+        type: "badPatch",
+        params: {},
+        actionId: "simpleAction",
+        flowPosition: {
+          nodePath: "actions.simpleAction.flow",
+          snapshotVersion: 0,
+        },
+        createdAt: 0,
+      };
+      const snapshot = {
+        ...createMinimalSnapshot({ count: 0 }),
+        system: {
+          status: "pending" as const,
+          lastError: null,
+          pendingRequirements: [pending],
+          currentAction: "simpleAction",
+        },
+        namespaces: {
+          host: "corrupt",
+        },
+      };
+      host.seedSnapshot(key, snapshot);
+
+      host.injectEffectResult(
+        key,
+        pending.id,
+        intent.intentId!,
+        [{
+          op: "merge",
+          path: pp("count"),
+          value: { invalid: true },
+        }],
+        intent,
+      );
+      await host.drain(key);
+
+      const resultSnapshot = host.getContextSnapshot(key)!;
+      expect(host.hasFatalError(key)).toBe(true);
+      expect(resultSnapshot.system.pendingRequirements).toHaveLength(0);
+      expect(resultSnapshot.namespaces.host).toBe("corrupt");
+    });
+
+    it("should carry registered effect namespace deltas into FulfillEffect jobs", async () => {
+      const effectSchema = createTestSchema({
+        actions: {
+          fetchOnce: {
+            flow: {
+              kind: "causalGuard",
+              guardId: "host-namespace-registered-effect",
+              body: {
+                kind: "effect",
+                type: "needsNamespace",
+                params: {},
+              },
+            },
+          },
+        },
+      });
+      const host = createHost(effectSchema, { initialData: {} });
+      const namespaceDelta: readonly NamespaceDelta[] = [{
+        namespace: "host",
+        patches: [{
+          op: "set",
+          path: [{ kind: "prop", name: "registeredEffectSeen" }],
+          value: true,
+        }],
+      }];
+      (host as unknown as {
+        readonly executor: {
+          execute: (
+            requirement: Requirement,
+            snapshot: Snapshot,
+          ) => Promise<{
+            ok: boolean;
+            success: boolean;
+            patches: Patch[];
+            namespaceDelta?: readonly NamespaceDelta[];
+            duration: number;
+          }>;
+        };
+      }).executor.execute = async () => ({
+        ok: true,
+        success: true,
+        patches: [],
+        namespaceDelta,
+        duration: 0,
+      });
+
+      const result = await host.dispatch(createTestIntent("fetchOnce"));
+      const hostState = getHostState(result.snapshot);
+
+      expect(result.status).toBe("complete");
+      expect(hostState?.registeredEffectSeen).toBe(true);
+      expect(result.snapshot.system.lastError).toBeNull();
+    });
+
+    it("should reject non-host effect namespace deltas", async () => {
+      const effectSchema = createTestSchema({
+        actions: {
+          fetchOnce: {
+            flow: {
+              kind: "causalGuard",
+              guardId: "host-namespace-rejected-effect",
+              body: {
+                kind: "effect",
+                type: "rejectNamespace",
+                params: {},
+              },
+            },
+          },
+        },
+      });
+      const host = createHost(effectSchema, { initialData: {} });
+      (host as unknown as {
+        readonly executor: {
+          execute: (
+            requirement: Requirement,
+            snapshot: Snapshot,
+          ) => Promise<{
+            ok: boolean;
+            success: boolean;
+            patches: Patch[];
+            namespaceDelta?: readonly NamespaceDelta[];
+            duration: number;
+          }>;
+        };
+      }).executor.execute = async () => ({
+        ok: true,
+        success: true,
+        patches: [],
+        namespaceDelta: [{
+          namespace: "mel",
+          patches: [{
+            op: "set",
+            path: [{ kind: "prop", name: "leaked" }],
+            value: true,
+          }],
+        }],
+        duration: 0,
+      });
+
+      const result = await host.dispatch(createTestIntent("fetchOnce"));
+      const hostState = getHostState(result.snapshot);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.namespaces.mel).toBeUndefined();
+      expect(hostState?.lastError?.message).toContain("namespaces.host");
+      expect(result.snapshot.system.pendingRequirements).toHaveLength(0);
     });
 
     it("should preserve compute namespace failures and not dispatch effects", async () => {

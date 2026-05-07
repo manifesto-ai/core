@@ -77,7 +77,7 @@ export type ComputedRef<TValue> = {
   readonly _type?: TValue;
 };
 
-export type TypedMEL<T extends ManifestoDomainShape> = {
+export type TypedDomainRefs<T extends ManifestoDomainShape> = {
   readonly actions: {
     readonly [K in keyof T["actions"]]: TypedActionRef<T, K>;
   };
@@ -89,6 +89,12 @@ export type TypedMEL<T extends ManifestoDomainShape> = {
   };
 };
 
+/**
+ * @deprecated Use TypedDomainRefs. This compatibility alias is retained for
+ * older helper/provider code that still names the typed ref surface "MEL".
+ */
+export type TypedMEL<T extends ManifestoDomainShape> = TypedDomainRefs<T>;
+
 export type ActionArgs<
   T extends ManifestoDomainShape,
   K extends keyof T["actions"],
@@ -99,18 +105,22 @@ export type RuntimeMode = "base" | "lineage" | "governance";
 export type ActionName<T extends ManifestoDomainShape> =
   keyof T["actions"] & string;
 
+type ActionInputFromArgs<TArgs extends readonly unknown[]> =
+  TArgs extends readonly []
+    ? undefined
+    : 2 extends TArgs["length"]
+      ? Readonly<TArgs>
+      : TArgs extends readonly [unknown, unknown, ...unknown[]]
+        ? Readonly<TArgs>
+        : TArgs[0];
+
 export type ActionInput<
   T extends ManifestoDomainShape,
   K extends ActionName<T>,
-> =
-  ActionArgs<T, K> extends []
-    ? undefined
-    : ActionArgs<T, K> extends [infer Only]
-      ? Only
-      : Readonly<ActionArgs<T, K>>;
+> = ActionInputFromArgs<ActionArgs<T, K>>;
 
 export type ProjectedSnapshot<T extends ManifestoDomainShape> =
-  Snapshot<T["state"]>;
+  Snapshot<T["state"], T["computed"]>;
 
 export type ExternalContext = Readonly<Record<string, JsonValue>>;
 
@@ -226,6 +236,7 @@ export type BaseWriteReport = {
   readonly changes: readonly ChangedPath[];
   readonly requirements: readonly Requirement[];
   readonly outcome: ExecutionOutcome;
+  readonly diagnostics?: ExecutionDiagnostics;
 };
 export type WorldRecord = {
   readonly worldId: string;
@@ -442,8 +453,33 @@ export type CreateIntentArgs<
   K extends keyof T["actions"],
 > = ActionArgs<T, K> | ActionObjectBindingArgs<T, K>;
 
-export type Selector<T, R> = (snapshot: Snapshot<T>) => R;
+export type Selector<
+  TState,
+  R,
+  TComputed = Record<string, unknown>,
+> = (snapshot: Snapshot<TState, TComputed>) => R;
 export type Unsubscribe = () => void;
+
+export type ProjectedReadHandle<TValue, TRef> = {
+  readonly name: string;
+  readonly ref: TRef;
+  value(): TValue;
+  observe(listener: (next: TValue, prev: TValue) => void): Unsubscribe;
+};
+
+export type StateReadSurface<T extends ManifestoDomainShape> = {
+  readonly [K in keyof T["state"]]: ProjectedReadHandle<
+    T["state"][K],
+    FieldRef<T["state"][K]>
+  >;
+};
+
+export type ComputedReadSurface<T extends ManifestoDomainShape> = {
+  readonly [K in keyof T["computed"]]: ProjectedReadHandle<
+    T["computed"][K],
+    ComputedRef<T["computed"][K]>
+  >;
+};
 
 declare const MANIFESTO_INTENT_BRAND: unique symbol;
 
@@ -466,7 +502,7 @@ export type TypedCreateIntent<T extends ManifestoDomainShape> = <
 
 export type TypedDispatchAsync<T extends ManifestoDomainShape> = (
   intent: TypedIntent<T>,
-) => Promise<Snapshot<T["state"]>>;
+) => Promise<ProjectedSnapshot<T>>;
 export type TypedCommitAsync<T extends ManifestoDomainShape> =
   TypedDispatchAsync<T>;
 
@@ -485,7 +521,7 @@ export type SchemaGraph = CompilerSchemaGraph & {
 export type SimulateResult<
   T extends ManifestoDomainShape = ManifestoDomainShape,
 > = {
-  readonly snapshot: Snapshot<T["state"]>;
+  readonly snapshot: ProjectedSnapshot<T>;
   readonly changedPaths: readonly ChangedPath[];
   readonly newAvailableActions: readonly (keyof T["actions"])[];
   readonly requirements: readonly Requirement[];
@@ -541,8 +577,8 @@ export type AvailableActionDelta<
 export type DispatchProjectedDiff<
   T extends ManifestoDomainShape = ManifestoDomainShape,
 > = {
-  readonly beforeSnapshot: Snapshot<T["state"]>;
-  readonly afterSnapshot: Snapshot<T["state"]>;
+  readonly beforeSnapshot: ProjectedSnapshot<T>;
+  readonly afterSnapshot: ProjectedSnapshot<T>;
   readonly changedPaths: readonly ChangedPath[];
   readonly availability: AvailableActionDelta<T>;
 };
@@ -597,7 +633,7 @@ export type DispatchReport<
       readonly kind: "rejected";
       readonly intent: TypedIntent<T>;
       readonly admission: Extract<IntentAdmission<T>, { readonly kind: "blocked" }>;
-      readonly beforeSnapshot: Snapshot<T["state"]>;
+      readonly beforeSnapshot: ProjectedSnapshot<T>;
       readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
       readonly rejection: {
         readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT";
@@ -611,7 +647,7 @@ export type DispatchReport<
         readonly kind: "admitted";
         readonly actionName: keyof T["actions"] & string;
       };
-      readonly beforeSnapshot: Snapshot<T["state"]>;
+      readonly beforeSnapshot: ProjectedSnapshot<T>;
       readonly beforeCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
       readonly error: ExecutionFailureInfo;
       readonly published: boolean;
@@ -644,7 +680,7 @@ export type IntentExplanation<
       readonly status: ComputeStatus;
       readonly requirements: readonly Requirement[];
       readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
-      readonly snapshot: Snapshot<T["state"]>;
+      readonly snapshot: ProjectedSnapshot<T>;
       readonly newAvailableActions: readonly (keyof T["actions"])[];
       readonly changedPaths: readonly ChangedPath[];
     };
@@ -663,7 +699,7 @@ export type TypedSimulateIntent<T extends ManifestoDomainShape> = <
 ) => SimulateResult<T>;
 
 export type TypedSubscribe<T extends ManifestoDomainShape> = <R>(
-  selector: Selector<T["state"], R>,
+  selector: Selector<T["state"], R, T["computed"]>,
   listener: (value: R) => void,
 ) => Unsubscribe;
 
@@ -797,7 +833,9 @@ export type BaseManifestoApp<
   T extends ManifestoDomainShape,
   TMode extends RuntimeMode,
 > = {
-  readonly actions: ActionSurface<T, TMode>;
+  readonly action: ActionSurface<T, TMode>;
+  readonly state: StateReadSurface<T>;
+  readonly computed: ComputedReadSurface<T>;
   readonly observe: ObserveSurface<T>;
   readonly inspect: InspectSurface<T>;
   snapshot(): ProjectedSnapshot<T>;
@@ -807,7 +845,6 @@ export type BaseManifestoApp<
     updater: ContextUpdater<DomainExternalContext<T>>,
   ): DomainExternalContext<T>;
   with(view: ExecutionView<DomainExternalContext<T>>): ManifestoApp<T, TMode>;
-  action<Name extends ActionName<T>>(name: Name): ActionHandle<T, Name, TMode>;
   dispose(): void;
 };
 
@@ -835,7 +872,7 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   ) => Promise<DispatchReport<T>>;
   readonly subscribe: TypedSubscribe<T>;
   readonly on: TypedOn<T>;
-  readonly getSnapshot: () => Snapshot<T["state"]>;
+  readonly getSnapshot: () => ProjectedSnapshot<T>;
   readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
   readonly getAvailableActions: () => readonly (keyof T["actions"])[];
   readonly isIntentDispatchable: TypedIsIntentDispatchable<T>;
@@ -848,6 +885,8 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly getSchemaGraph: () => SchemaGraph;
   readonly simulate: TypedSimulate<T>;
   readonly simulateIntent: TypedSimulateIntent<T>;
+  readonly refs: TypedDomainRefs<T>;
+  /** @deprecated Use refs. */
   readonly MEL: TypedMEL<T>;
   readonly schema: DomainSchema;
   readonly dispose: () => void;
@@ -855,7 +894,7 @@ export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
 
 export type ManifestoLegalityRuntime<T extends ManifestoDomainShape> = Pick<
   ManifestoBaseInstance<T>,
-  "createIntent" | "whyNot" | "simulate" | "simulateIntent" | "MEL"
+  "createIntent" | "whyNot" | "simulate" | "simulateIntent" | "refs" | "MEL"
 >;
 
 export type ManifestoDispatchRuntime<T extends ManifestoDomainShape> = Pick<

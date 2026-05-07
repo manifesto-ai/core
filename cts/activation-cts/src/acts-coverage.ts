@@ -62,7 +62,7 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
   complianceCase(
     ACTS_CASES.BASE_ACTIVATION_CHAIN,
     "base",
-    "Base activation chain exposes action handles and executes actions.<name>.submit() successfully.",
+    "Base activation chain exposes action handles and executes action.<name>.submit() successfully.",
   ),
   complianceCase(
     ACTS_CASES.BASE_DEQUEUE_AVAILABILITY,

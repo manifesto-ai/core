@@ -23,9 +23,9 @@ const pp = semanticPathToPatchPath;
 
 type CollisionDomain = {
   actions: {
-    then: () => void;
     bind: () => void;
-    constructor: () => void;
+    state: () => void;
+    computed: () => void;
     inspect: () => void;
     snapshot: () => void;
     context: () => void;
@@ -116,17 +116,17 @@ function setCountFlow(value: number): DomainSchema["actions"][string]["flow"] {
 
 function createCollisionSchema(): DomainSchema {
   const actionValues = {
-    then: 1,
     bind: 2,
-    constructor: 3,
-    inspect: 4,
-    snapshot: 5,
-    context: 6,
-    injectContext: 7,
-    updateContext: 8,
-    with: 9,
-    dispose: 10,
-    action: 11,
+    state: 4,
+    computed: 5,
+    inspect: 6,
+    snapshot: 7,
+    context: 8,
+    injectContext: 9,
+    updateContext: 10,
+    with: 11,
+    dispose: 12,
+    action: 13,
   } as const;
 
   return withHash({
@@ -142,6 +142,21 @@ function createCollisionSchema(): DomainSchema {
     actions: Object.fromEntries(
       Object.entries(actionValues).map(([name, value]) => [name, { flow: setCountFlow(value) }]),
     ),
+  });
+}
+
+function createReservedActionSchema(name: string): DomainSchema {
+  return withHash({
+    id: `manifesto:sdk-v5-reserved-${name}`,
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: false, default: 0 },
+      },
+    },
+    computed: { fields: {} },
+    actions: Object.fromEntries([[name, { flow: setCountFlow(1) }]]),
   });
 }
 
@@ -352,20 +367,84 @@ describe("SDK v5 action-candidate contract", () => {
 
     expect(Object.keys(app).sort()).toEqual([
       "action",
-      "actions",
+      "computed",
       "context",
       "dispose",
       "injectContext",
       "inspect",
       "observe",
       "snapshot",
+      "state",
       "updateContext",
       "with",
     ]);
+    expect(Object.keys(app.state).sort()).toEqual(["count", "status"]);
+    expect(Object.keys(app.computed).sort()).toEqual(["doubled"]);
     expect(app.snapshot().state.count).toBe(0);
     expect(app.inspect.canonicalSnapshot().state.count).toBe(0);
     expectProjectedSnapshotBoundary(app.snapshot());
     expect(app.inspect.canonicalSnapshot()).toHaveProperty("namespaces");
+  });
+
+  it("exposes projected state and computed read handles as read-only field views", async () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const count = app.state.count;
+    const doubled = app.computed.doubled;
+    const countListener = vi.fn();
+    const doubledListener = vi.fn();
+
+    expect(Object.keys(count).sort()).toEqual(["name", "observe", "ref", "value"]);
+    expect(count).toMatchObject({
+      name: "count",
+      ref: { __kind: "FieldRef", name: "count" },
+    });
+    expect(doubled).toMatchObject({
+      name: "doubled",
+      ref: { __kind: "ComputedRef", name: "doubled" },
+    });
+    expect(count.value()).toBe(0);
+    expect(doubled.value()).toBe(0);
+
+    for (const forbidden of [
+      "set",
+      "merge",
+      "patch",
+      "submit",
+      "dispatch",
+      "commit",
+      "propose",
+      "namespaces",
+      "input",
+      "meta",
+    ]) {
+      expect(forbidden in count).toBe(false);
+      expect(forbidden in doubled).toBe(false);
+    }
+
+    const unsubscribeCount = count.observe(countListener);
+    const unsubscribeDoubled = doubled.observe(doubledListener);
+    expect(countListener).not.toHaveBeenCalled();
+    expect(doubledListener).not.toHaveBeenCalled();
+
+    await app.action.increment.submit();
+    expect(count.value()).toBe(1);
+    expect(doubled.value()).toBe(2);
+    expect(countListener).toHaveBeenCalledTimes(1);
+    expect(countListener).toHaveBeenLastCalledWith(1, 0);
+    expect(doubledListener).toHaveBeenCalledTimes(1);
+    expect(doubledListener).toHaveBeenLastCalledWith(2, 0);
+
+    await app.action.increment.submit();
+    expect(countListener).toHaveBeenCalledTimes(2);
+    expect(countListener).toHaveBeenLastCalledWith(2, 1);
+    expect(doubledListener).toHaveBeenCalledTimes(2);
+    expect(doubledListener).toHaveBeenLastCalledWith(4, 2);
+
+    unsubscribeCount();
+    unsubscribeDoubled();
+    await app.action.increment.submit();
+    expect(countListener).toHaveBeenCalledTimes(2);
+    expect(doubledListener).toHaveBeenCalledTimes(2);
   });
 
   it("keeps v3 root verbs absent from the canonical v5 runtime root", () => {
@@ -397,7 +476,7 @@ describe("SDK v5 action-candidate contract", () => {
       {},
       { annotations: { increment: { title: "Increment" } } },
     ).activate();
-    const handle = app.actions.increment;
+    const handle = app.action.increment;
 
     expect(Object.keys(handle).sort()).toEqual([
       "available",
@@ -422,8 +501,8 @@ describe("SDK v5 action-candidate contract", () => {
       {},
     ).activate();
 
-    await app.actions.disable.submit();
-    const unavailable = app.actions.incrementGuarded.check("not-number" as unknown as number);
+    await app.action.disable.submit();
+    const unavailable = app.action.incrementGuarded.check("not-number" as unknown as number);
     expect(unavailable).toMatchObject({
       ok: false,
       layer: "availability",
@@ -443,17 +522,77 @@ describe("SDK v5 action-candidate contract", () => {
       createDispatchabilitySchema(),
       {},
     ).activate();
-    expect(fresh.actions.incrementGuarded.check("not-number" as unknown as number)).toMatchObject({
+    expect(fresh.action.incrementGuarded.check("not-number" as unknown as number)).toMatchObject({
       ok: false,
       layer: "input",
       code: "INVALID_INPUT",
     });
-    expect(fresh.actions.incrementGuarded.bind("not-number" as unknown as number).intent()).toBeNull();
-    expect(fresh.actions.incrementGuarded.check(0)).toMatchObject({
+    expect(fresh.action.incrementGuarded.bind("not-number" as unknown as number).intent()).toBeNull();
+    expect(fresh.action.incrementGuarded.check(0)).toMatchObject({
       ok: false,
       layer: "dispatchability",
       code: "INTENT_NOT_DISPATCHABLE",
     });
+  });
+
+  it("keeps availability blockers when invalid input cannot form an intent", async () => {
+    const app = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+    const guarded = app.action.incrementGuarded as unknown as {
+      readonly check: (input: unknown) => unknown;
+    };
+
+    await app.action.disable.submit();
+    const unavailable = guarded.check(() => undefined);
+
+    expect(unavailable).toMatchObject({
+      ok: false,
+      layer: "availability",
+      code: "ACTION_UNAVAILABLE",
+      blockers: [{
+        code: "ACTION_UNAVAILABLE",
+        message: "Increment only while enabled and below the caller-provided max",
+        detail: { layer: "available" },
+      }],
+    });
+  });
+
+  it("rejects stray input on zero-arg actions without executing", async () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const increment = app.action.increment as unknown as {
+      readonly check: (input: unknown) => unknown;
+      readonly preview: (input: unknown) => unknown;
+      readonly submit: (input: unknown) => Promise<unknown>;
+      readonly bind: (input: unknown) => { readonly intent: () => unknown };
+    };
+    const strayInput = { report: "summary" };
+
+    expect(increment.check(strayInput)).toMatchObject({
+      ok: false,
+      layer: "input",
+      code: "INVALID_INPUT",
+      message: 'Action "increment" does not accept input',
+    });
+    expect(increment.preview(strayInput)).toMatchObject({
+      admitted: false,
+      admission: {
+        layer: "input",
+        code: "INVALID_INPUT",
+      },
+    });
+    await expect(increment.submit(strayInput)).resolves.toMatchObject({
+      ok: false,
+      mode: "base",
+      action: "increment",
+      admission: {
+        layer: "input",
+        code: "INVALID_INPUT",
+      },
+    });
+    expect(increment.bind(strayInput).intent()).toBeNull();
+    expect(app.snapshot().state.count).toBe(0);
   });
 
   it("keeps preview pure, non-committing, non-publishing, and non-enqueuing", async () => {
@@ -467,7 +606,7 @@ describe("SDK v5 action-candidate contract", () => {
     const listener = vi.fn();
     app.observe.state((snapshot) => snapshot.state.count, listener);
 
-    const preview = app.actions.increment.preview();
+    const preview = app.action.increment.preview();
 
     expect(preview).toMatchObject({
       admitted: true,
@@ -478,14 +617,14 @@ describe("SDK v5 action-candidate contract", () => {
     expect(listener).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
 
-    await app.actions.increment.submit();
+    await app.action.increment.submit();
     expect(enqueue).toHaveBeenCalledTimes(1);
   });
 
   it("returns base submit results with mode base, protocol ok, status settled, before, after, and outcome", async () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
-    const result = await app.actions.increment.submit();
+    const result = await app.action.increment.submit();
 
     expect(result).toMatchObject({
       ok: true,
@@ -506,7 +645,7 @@ describe("SDK v5 action-candidate contract", () => {
   it("maps halted and error terminal statuses to stop and fail outcomes without turning protocol ok false", async () => {
     const app = createManifesto<OutcomeDomain>(createOutcomeSchema(), {}).activate();
 
-    const stopped = await app.actions.stop.submit();
+    const stopped = await app.action.stop.submit();
     expect(stopped).toMatchObject({
       ok: true,
       mode: "base",
@@ -515,7 +654,7 @@ describe("SDK v5 action-candidate contract", () => {
     });
     expect(stopped.ok && stopped.after.state.count).toBe(1);
 
-    const failed = await app.with({ report: "full" }).actions.fail.submit();
+    const failed = await app.with({ report: "full" }).action.fail.submit();
     expect(failed).toMatchObject({
       ok: true,
       mode: "base",
@@ -544,61 +683,72 @@ describe("SDK v5 action-candidate contract", () => {
   it("keeps full projected before and after snapshots in settled submit results regardless of payload size", async () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
-    const result = await app.actions.add.submit(5);
+    const result = await app.action.add.submit(5);
 
     expect(result.ok && result.before.state).toEqual({ count: 0, status: "idle" });
     expect(result.ok && result.after.state).toEqual({ count: 5, status: "idle" });
   });
 
-  it("keeps action-name collisions accessible through action(name) without corrupting runtime members", async () => {
+  it("keeps root-name actions accessible through static action.* without corrupting runtime members", async () => {
     const app = createManifesto<CollisionDomain>(createCollisionSchema(), {}).activate();
 
     const runtimeMembers = {
       action: app.action,
-      actions: app.actions,
       context: app.context,
+      computed: app.computed,
       dispose: app.dispose,
       injectContext: app.injectContext,
       inspect: app.inspect,
       observe: app.observe,
       snapshot: app.snapshot,
+      state: app.state,
       updateContext: app.updateContext,
       with: app.with,
     };
 
     for (const [name, value] of Object.entries({
-      then: 1,
       bind: 2,
-      constructor: 3,
-      inspect: 4,
-      snapshot: 5,
-      context: 6,
-      injectContext: 7,
-      updateContext: 8,
-      with: 9,
-      dispose: 10,
-      action: 11,
+      state: 4,
+      computed: 5,
+      inspect: 6,
+      snapshot: 7,
+      context: 8,
+      injectContext: 9,
+      updateContext: 10,
+      with: 11,
+      dispose: 12,
+      action: 13,
     }) as Array<[keyof CollisionDomain["actions"], number]>) {
-      expect(app.actions).toHaveProperty(name);
-      await app.action(name).submit();
+      expect(app.action).toHaveProperty(name);
+      await app.action[name].submit();
       expect(app.snapshot().state.count).toBe(value);
       expect(app.action).toBe(runtimeMembers.action);
-      expect(app.actions).toBe(runtimeMembers.actions);
       expect(app.context).toBe(runtimeMembers.context);
+      expect(app.computed).toBe(runtimeMembers.computed);
       expect(app.dispose).toBe(runtimeMembers.dispose);
       expect(app.injectContext).toBe(runtimeMembers.injectContext);
       expect(app.inspect).toBe(runtimeMembers.inspect);
       expect(app.observe).toBe(runtimeMembers.observe);
       expect(app.snapshot).toBe(runtimeMembers.snapshot);
+      expect(app.state).toBe(runtimeMembers.state);
       expect(app.updateContext).toBe(runtimeMembers.updateContext);
       expect(app.with).toBe(runtimeMembers.with);
+    }
+
+    expect("actions" in app).toBe(false);
+  });
+
+  it("rejects reserved public action names before activation", () => {
+    for (const name of ["then", "constructor", "prototype", "__proto__"]) {
+      expect(() => createManifesto(createReservedActionSchema(name), {}).activate())
+        .toThrowError(expect.objectContaining({ code: "RESERVED_ACTION_NAME" }));
     }
   });
 
   it("packs BoundAction.intent() inputs from activated action metadata, not runtime argument introspection", () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
-    const bound = app.actions.add.bind(3);
+    const bound = app.action.add.bind(3);
 
     expect(bound.input).toBe(3);
     expect(bound.intent()).toMatchObject({
@@ -610,7 +760,7 @@ describe("SDK v5 action-candidate contract", () => {
   it("preserves ordered public input for multi-arg bound actions", () => {
     const app = createManifesto<MultiArgDomain>(createMultiArgSchema(), {}).activate();
 
-    const bound = app.actions.rename.bind("Ada", true);
+    const bound = app.action.rename.bind("Ada", true);
 
     expect(bound.input).toEqual(["Ada", true]);
     expect(bound.intent()).toMatchObject({
@@ -619,11 +769,23 @@ describe("SDK v5 action-candidate contract", () => {
     });
   });
 
+  it("preserves tuple public input for optional trailing multi-arg bound actions", () => {
+    const app = createManifesto<MultiArgDomain>(createMultiArgSchema(), {}).activate();
+
+    const bound = app.action.rename.bind("Ada");
+
+    expect(bound.input).toEqual(["Ada"]);
+    expect(bound.intent()).toMatchObject({
+      type: "rename",
+      input: { name: "Ada" },
+    });
+  });
+
   it("keeps object-valued single param public input separate from Core-packed intent input", async () => {
     const app = createManifesto<ObjectInputDomain>(objectInputMelSource, {}).activate();
 
-    const result = await app.actions.toggleTodo.submit({ id: "todo-1" });
-    const bound = app.actions.toggleTodo.bind({ id: "todo-2" });
+    const result = await app.action.toggleTodo.submit({ id: "todo-1" });
+    const bound = app.action.toggleTodo.bind({ id: "todo-2" });
 
     expect(result.ok && result.after.state.selectedId).toBe("todo-1");
     expect(bound.input).toEqual({ id: "todo-2" });
@@ -637,7 +799,7 @@ describe("SDK v5 action-candidate contract", () => {
     const app = createManifesto<ObjectInputDomain>(objectInputMelSource, {}).activate();
     const original = { id: "todo-2" };
 
-    const bound = app.actions.toggleTodo.bind(original);
+    const bound = app.action.toggleTodo.bind(original);
     original.id = "todo-mutated";
 
     expect(bound.input).toEqual({ id: "todo-2" });
@@ -652,10 +814,10 @@ describe("SDK v5 action-candidate contract", () => {
     const app = createManifesto<OptionDomain>(createOptionSchema(), {}).activate();
     const optionLike = { __kind: "PreviewOptions" as const, diagnostics: "domain" };
 
-    const preview = app.actions.setOption.preview(optionLike);
+    const preview = app.action.setOption.preview(optionLike);
     expect(preview.admitted && preview.after.state.value).toEqual(optionLike);
 
-    const submitted = await app.actions.setOption.submit(optionLike);
+    const submitted = await app.action.setOption.submit(optionLike);
     expect(submitted.ok && submitted.after.state.value).toEqual(optionLike);
   });
 
@@ -665,7 +827,7 @@ describe("SDK v5 action-candidate contract", () => {
       {},
     ).activate();
 
-    const preview = app.with({ diagnostics: "none" }).actions.configure.preview({
+    const preview = app.with({ diagnostics: "none" }).action.configure.preview({
       retries: 3,
       label: "fast",
     });
@@ -675,7 +837,7 @@ describe("SDK v5 action-candidate contract", () => {
     });
     expect(preview.admitted && "diagnostics" in preview).toBe(false);
 
-    const submitted = await app.with({ report: "none" }).actions.configure.submit({
+    const submitted = await app.with({ report: "none" }).action.configure.submit({
       retries: 5,
     });
     expect(submitted.ok && submitted.after.state).toMatchObject({
@@ -695,19 +857,19 @@ describe("SDK v5 action-candidate contract", () => {
       callback: () => undefined,
     } as unknown as { retries: number; label?: string };
 
-    expect(app.actions.configure.check(invalid)).toMatchObject({
+    expect(app.action.configure.check(invalid)).toMatchObject({
       ok: false,
       layer: "input",
       code: "INVALID_INPUT",
     });
-    expect(app.actions.configure.preview(invalid)).toMatchObject({
+    expect(app.action.configure.preview(invalid)).toMatchObject({
       admitted: false,
       admission: {
         layer: "input",
         code: "INVALID_INPUT",
       },
     });
-    await expect(app.actions.configure.submit(invalid)).resolves.toMatchObject({
+    await expect(app.action.configure.submit(invalid)).resolves.toMatchObject({
       ok: false,
       mode: "base",
       action: "configure",
@@ -716,23 +878,23 @@ describe("SDK v5 action-candidate contract", () => {
         code: "INVALID_INPUT",
       },
     });
-    expect(app.actions.configure.bind(invalid).intent()).toBeNull();
+    expect(app.action.configure.bind(invalid).intent()).toBeNull();
   });
 
   it("honors preview and submit option detail suppression", async () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
-    const preview = app.with({ diagnostics: "none" }).actions.increment.preview();
+    const preview = app.with({ diagnostics: "none" }).action.increment.preview();
     expect(preview.admitted && "diagnostics" in preview).toBe(false);
 
-    const submitted = await app.with({ report: "none" }).actions.increment.submit();
+    const submitted = await app.with({ report: "none" }).action.increment.submit();
     expect(submitted.ok && "report" in submitted).toBe(false);
   });
 
   it("returns distinct full submit reports when requested", async () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
-    const submitted = await app.with({ report: "full" }).actions.increment.submit();
+    const submitted = await app.with({ report: "full" }).action.increment.submit();
 
     expect(submitted.ok && submitted.report).toMatchObject({
       mode: "base",
@@ -748,6 +910,11 @@ describe("SDK v5 action-candidate contract", () => {
         { path: ["computed", "doubled"], kind: "changed" },
       ]),
     );
+    expect(submitted.ok && submitted.report?.diagnostics).toBeDefined();
+
+    const summary = await app.with({ report: "summary" }).action.increment.submit();
+    expect(summary.ok && summary.report !== undefined).toBe(true);
+    expect(summary.ok && summary.report !== undefined && "diagnostics" in summary.report).toBe(false);
   });
 
   it("passes a call-entry materialized context into base submit execution", async () => {
@@ -770,7 +937,7 @@ describe("SDK v5 action-candidate contract", () => {
       },
     });
 
-    await app.actions.increment.submit();
+    await app.action.increment.submit();
 
     expect(receivedContext).toBe(materializedContext);
   });
@@ -785,7 +952,7 @@ describe("SDK v5 action-candidate contract", () => {
       },
     });
 
-    await expect(app.actions.increment.submit()).rejects.toBeInstanceOf(SubmissionFailedError);
+    await expect(app.action.increment.submit()).rejects.toBeInstanceOf(SubmissionFailedError);
   });
 
   it("emits submission:failed for operational submit failure before terminal result", async () => {
@@ -800,13 +967,45 @@ describe("SDK v5 action-candidate contract", () => {
     const failed = vi.fn();
     app.observe.event("submission:failed", failed);
 
-    await expect(app.actions.increment.submit()).rejects.toBeInstanceOf(SubmissionFailedError);
+    await expect(app.action.increment.submit()).rejects.toBeInstanceOf(SubmissionFailedError);
 
     expect(failed).toHaveBeenCalledWith(expect.objectContaining({
       action: "increment",
       mode: "base",
       stage: "runtime",
       error: expect.objectContaining({ message: "host exploded" }),
+    }));
+  });
+
+  it("rejects HostResult errors while preserving the diagnostic canonical snapshot", async () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {
+      "api.fetch": async () => {
+        throw new Error("effect exploded");
+      },
+    }).activate();
+    const failed = vi.fn();
+    app.observe.event("submission:failed", failed);
+
+    await expect(app.action.load.submit()).rejects.toBeInstanceOf(SubmissionFailedError);
+
+    const canonical = app.inspect.canonicalSnapshot() as CoreSnapshot;
+    const hostNamespace = canonical.namespaces.host as {
+      readonly lastError?: { readonly code?: string; readonly message?: string };
+    };
+    expect(canonical.system.lastError).toBeNull();
+    expect(hostNamespace.lastError).toMatchObject({
+      code: "EFFECT_EXECUTION_FAILED",
+      message: "effect exploded",
+    });
+    expect(app.snapshot().state.status).toBe("loading");
+    expect(failed).toHaveBeenCalledWith(expect.objectContaining({
+      action: "load",
+      mode: "base",
+      stage: "runtime",
+      error: expect.objectContaining({
+        code: "EFFECT_EXECUTION_FAILED",
+        message: "effect exploded",
+      }),
     }));
   });
 
@@ -817,7 +1016,7 @@ describe("SDK v5 action-candidate contract", () => {
     app.observe.event("submission:settled", settled);
     app.observe.event("proposal:created", proposalCreated);
 
-    await app.actions.increment.submit();
+    await app.action.increment.submit();
 
     expect(settled).toHaveBeenCalledWith(expect.objectContaining({
       action: "increment",
@@ -840,7 +1039,7 @@ describe("SDK v5 action-candidate contract", () => {
     });
     app.observe.event("submission:settled", afterThrow);
 
-    const result = await app.actions.increment.submit();
+    const result = await app.action.increment.submit();
 
     expect(result.ok).toBe(true);
     expect(afterThrow).toHaveBeenCalledWith(expect.objectContaining({
@@ -858,7 +1057,7 @@ describe("SDK v5 action-candidate contract", () => {
 
     expect(listener).not.toHaveBeenCalled();
 
-    await app.actions.increment.submit();
+    await app.action.increment.submit();
 
     expect(listener).toHaveBeenCalledWith(1, 0);
   });
@@ -869,7 +1068,7 @@ describe("SDK v5 action-candidate contract", () => {
 
     app.observe.state((snapshot) => snapshot.state.status, listener);
 
-    await app.actions.increment.submit();
+    await app.action.increment.submit();
 
     expect(listener).not.toHaveBeenCalled();
   });
@@ -886,11 +1085,11 @@ describe("SDK v5 action-candidate contract", () => {
       return snapshot.state.count;
     }, listener);
 
-    await app.actions.increment.submit();
+    await app.action.increment.submit();
     expect(listener).not.toHaveBeenCalled();
 
     selectorEnabled = true;
-    await app.actions.increment.submit();
+    await app.action.increment.submit();
 
     expect(listener).toHaveBeenCalledWith(2, undefined);
   });

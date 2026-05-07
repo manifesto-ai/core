@@ -61,9 +61,9 @@ const governed = withGovernance<CounterDomain>(
 const governedApp: ManifestoApp<CounterDomain, "governance"> = governed;
 const proposalRef = "prop-example" as ProposalRef;
 const submit: Promise<GovernanceSubmissionResult<CounterDomain, "increment">> =
-  governed.actions.increment.submit();
+  governed.action.increment.submit();
 const submitFor: Promise<SubmitResultFor<"governance", CounterDomain, "increment">> =
-  governed.action("increment").submit();
+  governed.action.increment.submit();
 const runtimeSettlement: Promise<GovernanceSettlementResult<CounterDomain, ActionName<CounterDomain>>> =
   governed.waitForSettlement(proposalRef);
 const appSettlement: Promise<GovernanceSettlementResult<CounterDomain, ActionName<CounterDomain>>> =
@@ -126,7 +126,7 @@ const foreignGoverned = withGovernance<ForeignDomain>(
 ).activate();
 
 const foreignSubmit: Promise<GovernanceSubmissionResult<ForeignDomain, "toggle">> =
-  foreignGoverned.actions.toggle.submit();
+  foreignGoverned.action.toggle.submit();
 void foreignSubmit;
 
 async function checkSettlementNarrowing() {

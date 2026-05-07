@@ -17,7 +17,7 @@ function previewAction<
   name: Name,
   ...args: ActionArgs<T, Name>
 ): PreviewResult<T, Name> {
-  return app.action(name).bind(...args).preview();
+  return app.action[name].bind(...args).preview();
 }
 
 function submitAction<
@@ -28,7 +28,7 @@ function submitAction<
   name: Name,
   ...args: ActionArgs<T, Name>
 ): Promise<BaseSubmissionResult<T, Name>> {
-  return app.action(name).bind(...args).submit();
+  return app.action[name].bind(...args).submit();
 }
 
 const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();

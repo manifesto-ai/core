@@ -13,7 +13,7 @@ import type {
   FieldRef,
   ManifestoDomainShape,
   TypedActionRef,
-  TypedMEL,
+  TypedDomainRefs,
 } from "./types.js";
 import { ManifestoError } from "./errors.js";
 
@@ -45,7 +45,7 @@ export type PatchBuilder = {
 
 type DefineEffectsFactory<T extends ManifestoDomainShape> = (
   ops: PatchBuilder,
-  MEL: TypedMEL<T>,
+  refs: TypedDomainRefs<T>,
 ) => Record<string, EffectHandler>;
 
 function isPlainObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -56,7 +56,7 @@ function assertFieldRef(op: keyof PatchBuilder, ref: unknown): asserts ref is Fi
   if (!ref || typeof ref !== "object") {
     throw new ManifestoError(
       "SCHEMA_ERROR",
-      `PatchBuilder.${op}() expects a FieldRef from defineEffects(..., MEL.state.*)`,
+      `PatchBuilder.${op}() expects a FieldRef from defineEffects(..., refs.state.*)`,
     );
   }
 
@@ -64,7 +64,7 @@ function assertFieldRef(op: keyof PatchBuilder, ref: unknown): asserts ref is Fi
   if (candidate.__kind !== "FieldRef" || typeof candidate.name !== "string" || candidate.name.length === 0) {
     throw new ManifestoError(
       "SCHEMA_ERROR",
-      `PatchBuilder.${op}() expects a FieldRef from defineEffects(..., MEL.state.*)`,
+      `PatchBuilder.${op}() expects a FieldRef from defineEffects(..., refs.state.*)`,
     );
   }
 
@@ -139,14 +139,14 @@ const PATCH_BUILDER: PatchBuilder = Object.freeze({
   },
 });
 
-const AUTHORING_MEL = Object.freeze({
+const AUTHORING_REFS = Object.freeze({
   actions: createRefNamespace<TypedActionRef<ManifestoDomainShape>>("ActionRef"),
   state: createRefNamespace<FieldRef<unknown>>("FieldRef"),
   computed: createRefNamespace<ComputedRef<unknown>>("ComputedRef"),
-}) as TypedMEL<ManifestoDomainShape>;
+}) as TypedDomainRefs<ManifestoDomainShape>;
 
 export function defineEffects<T extends ManifestoDomainShape>(
   factory: DefineEffectsFactory<T>,
 ): Record<string, EffectHandler> {
-  return factory(PATCH_BUILDER, AUTHORING_MEL as TypedMEL<T>);
+  return factory(PATCH_BUILDER, AUTHORING_REFS as TypedDomainRefs<T>);
 }

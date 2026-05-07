@@ -22,20 +22,27 @@ import type {
   BaseSubmissionResult,
   Blocker,
   BoundAction,
+  ComputedReadSurface,
+  ComputedRef,
   DispatchBlocker,
   DispatchExecutionOutcome,
   ExecutionDiagnostics,
   ExecutionOutcome,
   ExecutionView,
+  FieldRef,
   ManifestoApp,
   ManifestoDomainShape,
+  ObserveSurface,
   PreviewDiagnosticsMode,
   PreviewResult,
+  ProjectedReadHandle,
   ProjectedSnapshot,
+  StateReadSurface,
   SubmitReportMode,
   TypedActionMetadata,
   TypedActionRef,
   TypedIntent,
+  Unsubscribe,
 } from "../types.js";
 import {
   EXTENSION_KERNEL,
@@ -87,7 +94,6 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     getCanonicalSnapshot: kernel.getCanonicalSnapshot,
   });
   const actionInfoByName = new Map<ActionName<T>, ActionInfo<ActionName<T>>>();
-  const actionHandleByName = new Map<ActionName<T>, ActionHandle<T, ActionName<T>, BaseMode>>();
 
   for (const metadata of kernel.getActionMetadata()) {
     actionInfoByName.set(
@@ -96,12 +102,11 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     );
   }
 
-  const actions = Object.create(null) as ActionSurface<T, BaseMode>;
+  const action = Object.create(null) as ActionSurface<T, BaseMode>;
 
   for (const name of actionInfoByName.keys()) {
     const handle = createActionHandle(name);
-    actionHandleByName.set(name, handle);
-    Object.defineProperty(actions, name, {
+    Object.defineProperty(action, name, {
       enumerable: true,
       configurable: false,
       writable: false,
@@ -109,50 +114,43 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     });
   }
 
-  function action<Name extends ActionName<T>>(
-    name: Name,
-  ): ActionHandle<T, Name, BaseMode> {
-    const handle = actionHandleByName.get(name);
-    if (!handle) {
-      throw new ManifestoError(
-        "UNKNOWN_ACTION",
-        `Action "${String(name)}" is not declared by this Manifesto schema`,
-      );
+  function observeState<S>(
+    selector: (snapshot: ProjectedSnapshot<T>) => S,
+    listener: (next: S, prev: S) => void,
+  ): Unsubscribe {
+    if (kernel.isDisposed()) {
+      return () => {};
     }
-    return handle as ActionHandle<T, Name, BaseMode>;
+
+    let previous: S;
+    try {
+      previous = selector(kernel.getSnapshot());
+    } catch {
+      previous = undefined as S;
+    }
+
+    return kernel.subscribe(selector, (next) => {
+      const prev = previous;
+      previous = next;
+      listener(next, prev);
+    });
   }
 
+  const observe: ObserveSurface<T> = Object.freeze({
+    state: observeState,
+    event(event, listener) {
+      if (kernel.isDisposed()) {
+        return () => {};
+      }
+      return kernel.on(event, listener);
+    },
+  });
+
   const app = {
-    actions: Object.freeze(actions),
-    observe: Object.freeze({
-      state<S>(
-        selector: (snapshot: ProjectedSnapshot<T>) => S,
-        listener: (next: S, prev: S) => void,
-      ) {
-        if (kernel.isDisposed()) {
-          return () => {};
-        }
-
-        let previous: S;
-        try {
-          previous = selector(kernel.getSnapshot());
-        } catch {
-          previous = undefined as S;
-        }
-
-        return kernel.subscribe(selector, (next) => {
-          const prev = previous;
-          previous = next;
-          listener(next, prev);
-        });
-      },
-      event(event, listener) {
-        if (kernel.isDisposed()) {
-          return () => {};
-        }
-        return kernel.on(event, listener);
-      },
-    }),
+    action: Object.freeze(action),
+    state: createStateReadSurface(),
+    computed: createComputedReadSurface(),
+    observe,
     inspect: Object.freeze({
       graph: kernel.getSchemaGraph,
       canonicalSnapshot: kernel.getCanonicalSnapshot,
@@ -195,11 +193,61 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     with(nextView) {
       return createBaseRuntimeInstance(kernel, mergeRuntimeView(nextView), true);
     },
-    action,
     dispose: kernel.dispose,
   } satisfies ManifestoApp<T, BaseMode>;
 
   return Object.freeze(attachExtensionKernel(app, kernel));
+
+  function createReadHandle<TValue, TRef>(
+    name: string,
+    ref: TRef,
+    select: (snapshot: ProjectedSnapshot<T>) => TValue,
+  ): ProjectedReadHandle<TValue, TRef> {
+    return Object.freeze({
+      name,
+      ref,
+      value: () => select(kernel.getSnapshot()),
+      observe: (listener) => observeState(select, listener),
+    });
+  }
+
+  function createStateReadSurface(): StateReadSurface<T> {
+    const surface: Record<PropertyKey, unknown> = Object.create(null);
+    for (const name of Object.keys(kernel.refs.state) as Array<keyof T["state"] & string>) {
+      const ref = kernel.refs.state[name] as FieldRef<T["state"][typeof name]>;
+      Object.defineProperty(surface, name, {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: createReadHandle(
+          name,
+          ref,
+          (snapshot) => snapshot.state[name],
+        ),
+      });
+    }
+
+    return Object.freeze(surface) as StateReadSurface<T>;
+  }
+
+  function createComputedReadSurface(): ComputedReadSurface<T> {
+    const surface: Record<PropertyKey, unknown> = Object.create(null);
+    for (const name of Object.keys(kernel.refs.computed) as Array<keyof T["computed"] & string>) {
+      const ref = kernel.refs.computed[name] as ComputedRef<T["computed"][typeof name]>;
+      Object.defineProperty(surface, name, {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: createReadHandle(
+          name,
+          ref,
+          (snapshot) => snapshot.computed[name],
+        ),
+      });
+    }
+
+    return Object.freeze(surface) as ComputedReadSurface<T>;
+  }
 
   function createActionHandle<Name extends ActionName<T>>(
     name: Name,
@@ -242,9 +290,9 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     name: Name,
     args: ActionArgs<T, Name>,
   ): Candidate<T, Name> {
-    const actionRef = kernel.MEL.actions[name] as TypedActionRef<T, Name>;
+    const actionRef = kernel.refs.actions[name] as TypedActionRef<T, Name>;
     const publicInput = toPublicInput(name, args);
-    const stableInput = tryCloneAndFreezeActionPayload(publicInput);
+    const stableInput = tryCloneAndFreezeActionPayload<ActionInput<T, Name>>(publicInput);
     if (!stableInput.ok) {
       return Object.freeze({
         actionName: name,
@@ -284,9 +332,13 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     name: Name,
     args: readonly unknown[],
   ): ActionInput<T, Name> {
-    void name;
     if (args.length === 0) {
       return undefined as ActionInput<T, Name>;
+    }
+
+    const metadata = kernel.getActionMetadata(name);
+    if (metadata.publicArity > 1) {
+      return Object.freeze([...args]) as ActionInput<T, Name>;
     }
 
     if (args.length === 1) {
@@ -392,16 +444,21 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
         }) as BaseSubmissionResult<T, Name>;
       }
 
-      if (attempt.kind === "failed" && !attempt.published) {
-        const error = toErrorValue(
-          attempt.failure,
-          attempt.intent,
-          attempt.beforeCanonicalSnapshot,
-        );
-        emitSubmissionFailed(candidate.actionName, attempt.intent, error, attempt.beforeCanonicalSnapshot);
-        throw new SubmissionFailedError(attempt.failure.message, "runtime", {
-          cause: attempt.failure,
-        });
+      if (attempt.kind === "failed") {
+        const failureSnapshot = attempt.outcome?.canonical.afterCanonicalSnapshot
+          ?? attempt.beforeCanonicalSnapshot;
+        const hostOperationalError = readHostNamespaceError(failureSnapshot);
+        if (!attempt.published || hostOperationalError || !failureSnapshot.system.lastError) {
+          const error = hostOperationalError ?? toDiagnosticErrorValue(
+            attempt.failure,
+            attempt.intent,
+            failureSnapshot,
+          );
+          emitSubmissionFailed(candidate.actionName, attempt.intent, error, failureSnapshot);
+          throw new SubmissionFailedError(attempt.failure.message, "runtime", {
+            cause: attempt.failure,
+          });
+        }
       }
 
       const dispatchOutcome = attempt.kind === "completed"
@@ -440,6 +497,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
         candidate.actionName,
         dispatchOutcome,
         outcome,
+        attempt.diagnostics,
       );
 
       return Object.freeze({
@@ -588,7 +646,17 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     snapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>,
   ): readonly Blocker[] {
     if (!candidate.intent) {
-      return Object.freeze([]);
+      const availabilityIntent = Object.freeze({
+        type: String(candidate.actionName),
+        intentId: `availability:${String(candidate.actionName)}`,
+      }) as TypedIntent<T, Name>;
+      const legality = kernel.evaluateIntentLegalityFor(snapshot, availabilityIntent);
+      const admission = kernel.deriveIntentAdmission(snapshot, legality);
+      if (admission.kind !== "blocked" || admission.failure.kind !== "unavailable") {
+        return Object.freeze([]);
+      }
+
+      return mapBlockedAdmission(candidate.actionName, admission).blockers;
     }
 
     const legality = kernel.evaluateIntentLegalityFor(snapshot, candidate.intent);
@@ -703,6 +771,7 @@ function createBaseWriteReport<T extends ManifestoDomainShape>(
   action: ActionName<T>,
   outcome: DispatchExecutionOutcome<T>,
   executionOutcome: ExecutionOutcome,
+  diagnostics?: ExecutionDiagnostics,
 ): BaseWriteReport | undefined {
   if (mode === "none") {
     return undefined;
@@ -714,6 +783,7 @@ function createBaseWriteReport<T extends ManifestoDomainShape>(
     changes: outcome.projected.changedPaths,
     requirements: outcome.canonical.pendingRequirements,
     outcome: executionOutcome,
+    ...(mode === "full" && diagnostics !== undefined ? { diagnostics } : {}),
   });
 }
 
@@ -847,4 +917,55 @@ function toErrorValue<T extends ManifestoDomainShape>(
     },
     timestamp: snapshot.meta.timestamp,
   });
+}
+
+function toDiagnosticErrorValue<T extends ManifestoDomainShape>(
+  error: Error,
+  intent: TypedIntent<T>,
+  snapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>,
+): ErrorValue {
+  return readSnapshotError(snapshot) ?? toErrorValue(error, intent, snapshot);
+}
+
+function readSnapshotError<T extends ManifestoDomainShape>(
+  snapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>,
+): ErrorValue | null {
+  if (snapshot.system.lastError) {
+    return snapshot.system.lastError;
+  }
+
+  return readHostNamespaceError(snapshot);
+}
+
+function readHostNamespaceError<T extends ManifestoDomainShape>(
+  snapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>,
+): ErrorValue | null {
+  const hostNamespace = snapshot.namespaces?.host;
+  if (
+    hostNamespace
+    && typeof hostNamespace === "object"
+    && !Array.isArray(hostNamespace)
+  ) {
+    const lastError = (hostNamespace as { readonly lastError?: unknown }).lastError;
+    if (isErrorValue(lastError)) {
+      return lastError;
+    }
+  }
+
+  return null;
+}
+
+function isErrorValue(value: unknown): value is ErrorValue {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as Partial<ErrorValue>;
+  return typeof candidate.code === "string"
+    && typeof candidate.message === "string"
+    && typeof candidate.timestamp === "number"
+    && !!candidate.source
+    && typeof candidate.source === "object"
+    && typeof candidate.source.actionId === "string"
+    && typeof candidate.source.nodePath === "string";
 }

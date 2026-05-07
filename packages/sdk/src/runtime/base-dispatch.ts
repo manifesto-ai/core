@@ -5,7 +5,7 @@ import type {
   DispatchExecutionOutcome,
   IntentAdmission,
   ManifestoDomainShape,
-  Snapshot,
+  ProjectedSnapshot,
   TypedIntent,
 } from "../types.js";
 import type {
@@ -25,7 +25,7 @@ type RejectedAttempt<T extends ManifestoDomainShape> = {
   readonly kind: "rejected";
   readonly intent: TypedIntent<T>;
   readonly admission: Extract<IntentAdmission<T>, { readonly kind: "blocked" }>;
-  readonly beforeSnapshot: Snapshot<T["state"]>;
+  readonly beforeSnapshot: ProjectedSnapshot<T>;
   readonly beforeCanonicalSnapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>;
   readonly rejection: {
     readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT";
@@ -38,7 +38,7 @@ type FailedAttempt<T extends ManifestoDomainShape> = {
   readonly kind: "failed";
   readonly intent: TypedIntent<T>;
   readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
-  readonly beforeSnapshot: Snapshot<T["state"]>;
+  readonly beforeSnapshot: ProjectedSnapshot<T>;
   readonly beforeCanonicalSnapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>;
   readonly failure: Error;
   readonly errorInfo: ExecutionFailureInfo;
@@ -51,7 +51,7 @@ type CompletedAttempt<T extends ManifestoDomainShape> = {
   readonly kind: "completed";
   readonly intent: TypedIntent<T>;
   readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
-  readonly publishedSnapshot: Snapshot<T["state"]>;
+  readonly publishedSnapshot: ProjectedSnapshot<T>;
   readonly outcome: DispatchExecutionOutcome<T>;
   readonly diagnostics: ExecutionDiagnostics;
 };
@@ -172,7 +172,7 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
 
 export function attemptToDispatchAsyncResult<T extends ManifestoDomainShape>(
   attempt: BaseDispatchAttemptResult<T>,
-): Snapshot<T["state"]> {
+): ProjectedSnapshot<T> {
   if (attempt.kind === "completed") {
     return attempt.publishedSnapshot;
   }

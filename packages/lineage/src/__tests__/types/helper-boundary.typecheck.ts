@@ -23,7 +23,7 @@ function submitBound<
   action: K,
   ...intentArgs: ActionArgs<T, K>
 ): Promise<LineageSubmissionResult<T, K>> {
-  const bound = app.action(action).bind(...intentArgs);
+  const bound = app.action[action].bind(...intentArgs);
   const admission = bound.check();
   if (admission.ok) {
     void bound.preview();

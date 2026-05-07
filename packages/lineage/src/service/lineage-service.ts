@@ -3,6 +3,7 @@ import {
   buildWorldLineage,
   getBranchById,
   getHeadsFromStore,
+  migrateStoredSnapshotShape,
   restoreSnapshot,
   selectLatestHead,
   toBranchInfo,
@@ -102,7 +103,7 @@ export class DefaultLineageService implements LineageService {
       `LIN-BASE-3 violation: failed base world ${input.baseWorldId} cannot be used as base`
     );
 
-    const baseSnapshot = await this.store.getSnapshot(input.baseWorldId);
+    const baseSnapshot = await this.getSnapshot(input.baseWorldId);
     assertLineage(baseSnapshot != null, `LIN-PERSIST-BASE-1 violation: missing snapshot for base world ${input.baseWorldId}`);
     assertLineage(
       baseSnapshot.system.pendingRequirements.length === 0,
@@ -123,7 +124,7 @@ export class DefaultLineageService implements LineageService {
     );
 
     const expectedEpoch = await this.store.getBranchEpoch(input.branchId);
-    const headAdvanced = record.world.terminalStatus === "completed";
+    const headAdvanced = input.advanceHead ?? record.world.terminalStatus === "completed";
     const forkCreated = (await this.store.getEdges(branchTip))
       .some((candidate) => candidate.from === branchTip);
     const edge = createWorldEdge(branchTip, record.worldId);
@@ -224,7 +225,8 @@ export class DefaultLineageService implements LineageService {
   }
 
   async getSnapshot(worldId: WorldId): Promise<Snapshot | null> {
-    return this.store.getSnapshot(worldId);
+    const snapshot = await this.store.getSnapshot(worldId);
+    return snapshot ? migrateStoredSnapshotShape(snapshot) : null;
   }
 
   async getAttempts(worldId: WorldId) {

@@ -4,14 +4,19 @@ import type {
   Admission,
   BaseSubmissionResult,
   BoundAction,
+  ComputedReadSurface,
+  ComputedRef,
   ExecutionView,
+  FieldRef,
   GovernanceSettlementResult,
   GovernanceSubmissionResult,
   LineageSubmissionResult,
   ManifestoApp,
   PreviewDiagnosticsMode,
   PreviewResult,
+  ProjectedReadHandle,
   ProjectedSnapshot,
+  StateReadSurface,
   SubmissionResult,
   SubmitReportMode,
   SubmitResultFor,
@@ -45,6 +50,16 @@ type MultiArgDomain = {
   computed: {};
 };
 
+type OptionalSingleArgDomain = {
+  actions: {
+    maybeRename: (name?: string) => void;
+  };
+  state: {
+    name: string;
+  };
+  computed: {};
+};
+
 type ContextTypedDomain = {
   actions: {
     stamp: () => void;
@@ -63,24 +78,49 @@ const app: ManifestoApp<CounterDomain, "base"> =
   createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 declare const objectApp: ManifestoApp<ObjectInputDomain, "base">;
 declare const multiArgApp: ManifestoApp<MultiArgDomain, "base">;
+declare const optionalSingleArgApp: ManifestoApp<OptionalSingleArgDomain, "base">;
 declare const contextApp: ManifestoApp<ContextTypedDomain, "base">;
 
-const handle: ActionHandle<CounterDomain, "add", "base"> = app.actions.add;
+const handle: ActionHandle<CounterDomain, "add", "base"> = app.action.add;
 const input: ActionInput<CounterDomain, "add"> = 1;
 const bound: BoundAction<CounterDomain, "add", "base"> = handle.bind(input);
-const objectBound = objectApp.actions.toggleTodo.bind({ id: "todo-1" });
+const objectBound = objectApp.action.toggleTodo.bind({ id: "todo-1" });
 const objectInput: ToggleTodoInput = objectBound.input;
-const scalarInput: string = objectApp.actions.toggleTodoById.bind("todo-1").input;
+const scalarInput: string = objectApp.action.toggleTodoById.bind("todo-1").input;
 const multiArgInput: readonly [string, boolean?] =
-  multiArgApp.actions.rename.bind("Ada", true).input;
+  multiArgApp.action.rename.bind("Ada", true).input;
+const multiArgOptionalInput: readonly [string, boolean?] =
+  multiArgApp.action.rename.bind("Ada").input;
+const optionalSingleInput: string | undefined =
+  optionalSingleArgApp.action.maybeRename.bind().input;
+const optionalSingleInputWithValue: string | undefined =
+  optionalSingleArgApp.action.maybeRename.bind("Ada").input;
 const admission: Admission<"add"> = bound.check();
 const previewMode: PreviewDiagnosticsMode = "summary";
 const submitMode: SubmitReportMode = "summary";
 const view: ExecutionView = { diagnostics: previewMode, report: submitMode };
-const preview: PreviewResult<CounterDomain, "add"> = app.with(view).actions.add.bind(input).preview();
+const preview: PreviewResult<CounterDomain, "add"> = app.with(view).action.add.bind(input).preview();
 const baseResult: Promise<BaseSubmissionResult<CounterDomain, "add">> =
-  app.with(view).actions.add.bind(input).submit();
+  app.with(view).action.add.bind(input).submit();
 const projected: ProjectedSnapshot<CounterDomain> = app.snapshot();
+const stateSurface: StateReadSurface<CounterDomain> = app.state;
+const computedSurface: ComputedReadSurface<CounterDomain> = app.computed;
+const countHandle: ProjectedReadHandle<number, FieldRef<number>> = app.state.count;
+const doubledHandle: ProjectedReadHandle<number, ComputedRef<number>> = app.computed.doubled;
+const readCount: number = app.state.count.value();
+const readDoubled: number = app.computed.doubled.value();
+const unsubscribeCount = app.state.count.observe((next, prev) => {
+  const nextCount: number = next;
+  const prevCount: number = prev;
+  void nextCount;
+  void prevCount;
+});
+const unsubscribeDoubled = app.computed.doubled.observe((next, prev) => {
+  const nextDoubled: number = next;
+  const prevDoubled: number = prev;
+  void nextDoubled;
+  void prevDoubled;
+});
 
 declare const lineage: LineageSubmissionResult<CounterDomain, "add">;
 declare const governance: GovernanceSubmissionResult<CounterDomain, "add">;
@@ -96,11 +136,26 @@ void admission;
 void preview;
 void baseResult;
 void projected.state.count;
+void stateSurface.count;
+void computedSurface.doubled;
+void countHandle.ref;
+void doubledHandle.ref;
+void readCount;
+void readDoubled;
+void unsubscribeCount;
+void unsubscribeDoubled;
+const computedDoubled: number = projected.computed.doubled;
+void computedDoubled;
 void objectInput;
 void scalarInput;
 void multiArgInput;
-void objectApp.actions.toggleTodo.submit({ id: "todo-1" });
-void objectApp.actions.toggleTodoById.submit("todo-1");
+void multiArgOptionalInput;
+void optionalSingleInput;
+void optionalSingleInputWithValue;
+void objectApp.action.toggleTodo.submit({ id: "todo-1" });
+void objectApp.action.toggleTodoById.submit("todo-1");
+void optionalSingleArgApp.action.maybeRename.submit();
+void optionalSingleArgApp.action.maybeRename.submit("Ada");
 void lineage;
 void governance;
 void settlement;
@@ -126,8 +181,8 @@ const contextView = contextApp.with({
 void typedLocale;
 void updatedContext.tenantId;
 void contextView.context().tenantId;
-void contextView.actions.stamp.preview();
-void contextView.actions.stamp.submit();
+void contextView.action.stamp.preview();
+void contextView.action.stamp.submit();
 void createManifesto<ContextTypedDomain>(createCounterSchema(), {}, {
   context: { tenantId: "acme", locale: "ko-KR" },
 });
@@ -138,6 +193,20 @@ createManifesto<ContextTypedDomain>(createCounterSchema(), {}, {
   // @ts-expect-error createManifesto context must match the domain context type
   context: { tenantId: "acme" },
 });
+// @ts-expect-error projected computed fields keep their domain type
+const computedDoubledString: string = projected.computed.doubled;
+// @ts-expect-error optional single-argument action input is scalar or undefined, not a tuple
+const optionalSingleTuple: ActionInput<OptionalSingleArgDomain, "maybeRename"> = ["Ada"];
+// @ts-expect-error read handles are read-only and expose no set verb
+app.state.count.set(1);
+// @ts-expect-error read handles are not action candidates
+app.state.count.submit();
+// @ts-expect-error computed read handles cannot propose semantic writes
+app.computed.doubled.propose();
+// @ts-expect-error canonical namespaces are not projected state read handles
+app.state.namespaces;
+// @ts-expect-error transient input is not a projected computed read handle
+app.computed.input;
 // @ts-expect-error injectContext requires a full replacement
 contextApp.injectContext({ locale: "ko-KR" });
 contextApp.with({
@@ -149,8 +218,8 @@ bound.preview({ diagnostics: "summary" });
 // @ts-expect-error bound submit does not accept option bags
 bound.submit({ report: "summary" });
 // @ts-expect-error object-valued single param requires the declared object value
-objectApp.actions.toggleTodo.submit("todo-1");
+objectApp.action.toggleTodo.submit("todo-1");
 // @ts-expect-error scalar single param remains positional and does not accept named object sugar
-objectApp.actions.toggleTodoById.submit({ id: "todo-1" });
+objectApp.action.toggleTodoById.submit({ id: "todo-1" });
 
 export {};

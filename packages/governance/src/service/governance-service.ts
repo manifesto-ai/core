@@ -119,7 +119,10 @@ export class DefaultGovernanceService implements GovernanceService {
     const currentEpoch = options.currentEpoch ?? branchInfo?.epoch ?? proposal.epoch;
     const currentHead = options.currentBranchHead ?? branchInfo?.head ?? proposal.baseWorld;
 
-    if (this.shouldDiscardAuthorityResult(proposal, currentEpoch)) {
+    if (
+      this.shouldDiscardAuthorityResult(proposal, currentEpoch) &&
+      currentHead !== proposal.baseWorld
+    ) {
       return {
         proposal: this.prepareSupersede(proposal, "head_advance"),
         discarded: true,

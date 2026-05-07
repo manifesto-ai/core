@@ -32,9 +32,9 @@ describe("@manifesto-ai/sdk/extensions createSimulationSession", () => {
     const ext = getExtensionKernel(app);
 
     const root = createSimulationSession(app);
-    const step1 = root.next(ext.MEL.actions.increment);
-    const branchA = step1.next(ext.MEL.actions.increment);
-    const branchB = step1.next(ext.MEL.actions.add, 5);
+    const step1 = root.next(ext.refs.actions.increment);
+    const branchA = step1.next(ext.refs.actions.increment);
+    const branchB = step1.next(ext.refs.actions.add, 5);
 
     expect(root.depth).toBe(0);
     expect(root.snapshot.state.count).toBe(0);
@@ -70,7 +70,7 @@ describe("@manifesto-ai/sdk/extensions createSimulationSession", () => {
     const ext = getExtensionKernel(app);
 
     const root = createSimulationSession(app);
-    const intent = ext.createIntent(ext.MEL.actions.add, 3);
+    const intent = ext.createIntent(ext.refs.actions.add, 3);
     const final = root.next(intent).finish();
 
     expect(final.depth).toBe(1);
@@ -86,7 +86,7 @@ describe("@manifesto-ai/sdk/extensions createSimulationSession", () => {
     const ext = getExtensionKernel(app);
 
     const root = createSimulationSession(app);
-    const intent = ext.createIntent(ext.MEL.actions.add, 3) as TypedIntent<CounterDomain> & {
+    const intent = ext.createIntent(ext.refs.actions.add, 3) as TypedIntent<CounterDomain> & {
       input: { amount: number };
     };
     const step = root.next(intent);
@@ -106,14 +106,14 @@ describe("@manifesto-ai/sdk/extensions createSimulationSession", () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
     const ext = getExtensionKernel(app);
 
-    const pending = createSimulationSession(app).next(ext.MEL.actions.load);
+    const pending = createSimulationSession(app).next(ext.refs.actions.load);
 
     expect(pending.status).toBe("pending");
     expect(pending.isTerminal).toBe(true);
     expect(pending.availableActions).toEqual([]);
     expect(pending.requirements).toHaveLength(1);
 
-    expect(() => pending.next(ext.MEL.actions.increment)).toThrowError(
+    expect(() => pending.next(ext.refs.actions.increment)).toThrowError(
       expect.objectContaining({
         code: "SIMULATION_SESSION_TERMINAL",
       } satisfies Partial<ManifestoError>),

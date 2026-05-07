@@ -37,11 +37,9 @@ import {
 } from "../lowering/to-mel-expr.js";
 import {
   hashSchemaSync,
-  semanticPathToPatchPath,
   sha256Sync,
   type ExprNode as RuntimeExprNode,
   type FlowNode as RuntimeFlowNode,
-  type PatchPath,
 } from "@manifesto-ai/core";
 import { lowerCanonicalSchema } from "./runtime-lowering.js";
 
@@ -1459,14 +1457,11 @@ function generateWhen(stmt: WhenStmtNode, ctx: GeneratorContext): CompilerFlowNo
 }
 
 function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CompilerFlowNode {
-  // Desugar once(marker) { ... } to:
-  // when neq(marker, $runtime.intent.id) { patch marker = $runtime.intent.id; ... }
-
-  const markerPath = generatePath(stmt.marker, ctx);
+  const markerPath = generatePatchPath(stmt.marker, ctx);
   const intentIdExpr: CompilerExprNode = getPathExpr("$runtime", "intent", "id");
 
   // Condition: marker != $runtime.intent.id
-  let cond: CompilerExprNode = callExpr("neq", [getPathExpr(...pathToSegments(markerPath)), intentIdExpr]);
+  let cond: CompilerExprNode = callExpr("neq", [generatePathReadExpr(stmt.marker, ctx), intentIdExpr]);
 
   // Add extra condition if present
   if (stmt.condition) {
@@ -1474,11 +1469,11 @@ function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CompilerFlowNo
     cond = callExpr("and", [cond, extraCond]);
   }
 
-  // Body: patch marker = $runtime.intent.id, then rest
+  // Compiler-owned marker write closes the once() guard before user-authored body steps.
   const markerPatch: CompilerFlowNode = {
     kind: "patch",
     op: "set",
-    path: toPatchPath(markerPath),
+    path: markerPath,
     value: intentIdExpr,
   };
 
@@ -1727,16 +1722,54 @@ function generatePatchPath(path: PathNode, ctx: GeneratorContext): CompilerFlowP
   });
 }
 
-function toPatchPath(path: string): PatchPath {
-  return semanticPathToPatchPath(path);
-}
-
 function callExpr(fn: string, args: CompilerExprNode[]): CompilerExprNode {
   return { kind: "call", fn, args };
 }
 
-function pathToSegments(path: string): string[] {
-  return path.split(/(?<!\\)\./g).map((segment) => segment.replaceAll("\\.", ".").replaceAll("\\\\", "\\"));
+function generatePathReadExpr(path: PathNode, ctx: GeneratorContext): CompilerExprNode {
+  const [first, ...rest] = path.segments;
+  if (!first || first.kind !== "propertySegment") {
+    return { kind: "lit", value: null };
+  }
+
+  let current: CompilerExprNode = resolveIdentifier(first.name, ctx, {});
+  for (const segment of rest) {
+    if (segment.kind === "propertySegment") {
+      current = appendStaticPathSegment(current, segment.name);
+      continue;
+    }
+
+    const indexExpr = generateExpr(segment.index, ctx, { preferActionParams: true });
+    if (
+      indexExpr.kind === "lit" &&
+      (typeof indexExpr.value === "number" || typeof indexExpr.value === "string")
+    ) {
+      current = appendStaticPathSegment(current, String(indexExpr.value));
+      continue;
+    }
+
+    current = callExpr("at", [current, indexExpr]);
+  }
+
+  return current;
+}
+
+function appendStaticPathSegment(
+  base: CompilerExprNode,
+  segment: string
+): CompilerExprNode {
+  if (base.kind === "get" && !base.base) {
+    return {
+      kind: "get",
+      path: [...base.path, { kind: "prop", name: segment }],
+    };
+  }
+
+  return {
+    kind: "field",
+    object: base,
+    property: segment,
+  };
 }
 
 // ============ Expression Generation ============

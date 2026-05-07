@@ -184,6 +184,39 @@ describe("compute", () => {
       expect(result.snapshot.state).toEqual({ value: "" });
     });
 
+    it("returns an error value instead of throwing when context parsing overflows", () => {
+      const schema = createTestSchema({
+        actions: {
+          capture: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: pp("value"),
+              value: { kind: "lit", value: "captured" },
+            },
+          },
+        },
+      });
+      const snapshot = createTestSnapshot({ value: "" }, schema.hash);
+      const intent = createTestIntent("capture");
+      const cyclic: Record<string, unknown> = {};
+      cyclic.self = cyclic;
+
+      const result = computeSync(schema, snapshot, intent, {
+        runtime: {
+          time: { timestamp: 123 },
+          random: { seed: "seed" },
+        },
+        external: { cyclic },
+      } as unknown as Context);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError).toMatchObject({
+        code: "INVALID_INPUT",
+      });
+      expect(result.snapshot.state).toEqual({ value: "" });
+    });
+
     it("should process a simple action", async () => {
       const schema = createTestSchema({
         actions: {
@@ -222,10 +255,38 @@ describe("compute", () => {
       expect(result.snapshot.system.lastError?.code).toBe("UNKNOWN_ACTION");
     });
 
+    it("should reject input for actions that declare no input", async () => {
+      const schema = createTestSchema({
+        actions: {
+          noop: {
+            flow: { kind: "halt", reason: "noop" },
+          },
+        },
+      });
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent = createTestIntent("noop", { report: "summary" });
+
+      const result = await computeWithContext(schema, snapshot, intent);
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError).toMatchObject({
+        code: "INVALID_INPUT",
+        message: 'Action "noop" does not accept input',
+      });
+      expect(result.snapshot.state).toEqual({ count: 0 });
+    });
+
     it("should handle action with input", async () => {
       const schema = createTestSchema({
         actions: {
           setName: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                name: { type: "string", required: true },
+              },
+            },
             flow: {
               kind: "patch",
               op: "set", path: pp("name"),
@@ -272,6 +333,13 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           markIntent: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                name: { type: "string", required: true },
+              },
+            },
             flow: {
               kind: "patch",
               op: "set", path: pp("value"),
@@ -297,6 +365,13 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           withdraw: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                amount: { type: "number", required: true },
+              },
+            },
             available: {
               kind: "gt",
               left: { kind: "get", path: "balance" },
@@ -357,6 +432,40 @@ describe("compute", () => {
 
       expect(result.status).toBe("error");
       expect(result.snapshot.system.lastError?.code).toBe("TYPE_MISMATCH");
+    });
+
+    it("should timestamp availability errors from the compute context", async () => {
+      const schema = createTestSchema({
+        actions: {
+          invalidAvailable: {
+            available: {
+              kind: "lit",
+              value: "not-boolean",
+            },
+            flow: {
+              kind: "patch",
+              op: "set", path: pp("count"),
+              value: { kind: "lit", value: 1 },
+            },
+          },
+        },
+      });
+      const snapshot = createTestSnapshot({ count: 0 }, schema.hash);
+      const intent = createTestIntent("invalidAvailable");
+
+      const result = await compute(schema, snapshot, intent, {
+        runtime: {
+          time: { timestamp: 9876 },
+          random: { seed: "seed" },
+        },
+        external: {},
+      });
+
+      expect(result.status).toBe("error");
+      expect(result.snapshot.system.lastError).toMatchObject({
+        code: "TYPE_MISMATCH",
+        timestamp: 9876,
+      });
     });
   });
 
@@ -575,6 +684,13 @@ describe("compute", () => {
         },
         actions: {
           setA: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                value: { type: "number", required: true },
+              },
+            },
             flow: {
               kind: "patch",
               op: "set", path: pp("a"),
@@ -634,6 +750,13 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           conditionalHalt: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                shouldHalt: { type: "boolean", required: true },
+              },
+            },
             flow: {
               kind: "seq",
               steps: [
@@ -673,6 +796,13 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           validateInput: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                value: { type: "string", required: false },
+              },
+            },
             flow: {
               kind: "if",
               cond: { kind: "isNull", arg: { kind: "get", path: "input.value" } },
@@ -799,7 +929,7 @@ describe("compute", () => {
 
       // First add - initialize todos array
       const snapshot = createTestSnapshot({}, schema.hash);
-      const intent = createTestIntent("addTodo", { text: "Test todo" });
+      const intent = createTestIntent("addTodo");
 
       const result = await computeWithContext(schema, snapshot, intent);
 
@@ -811,6 +941,13 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           transfer: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                amount: { type: "number", required: true },
+              },
+            },
             flow: {
               kind: "seq",
               steps: [

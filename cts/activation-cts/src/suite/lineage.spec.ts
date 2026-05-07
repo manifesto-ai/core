@@ -136,7 +136,7 @@ describe("ACTS Lineage Suite", () => {
       world.observe.event("submission:settled", settled);
       world.observe.event("proposal:created", proposalCreated);
 
-      const result = await world.actions.increment.submit();
+      const result = await world.action.increment.submit();
 
       const failingStore = createInMemoryLineageStore();
       const failingRealService = createLineageService(failingStore);
@@ -174,7 +174,7 @@ describe("ACTS Lineage Suite", () => {
       failingWorld.observe.state((next) => next.state.count, failingSubscriber);
 
       await expect(
-        failingWorld.actions.increment.submit(),
+        failingWorld.action.increment.submit(),
       ).rejects.toBeInstanceOf(SubmissionFailedError);
 
       expectAllCompliance([
@@ -218,7 +218,7 @@ describe("ACTS Lineage Suite", () => {
         { store: createInMemoryLineageStore() },
       ).activate();
 
-      const result = await world.actions.increment.submit();
+      const result = await world.action.increment.submit();
 
       expectAllCompliance([
         evaluateRule(

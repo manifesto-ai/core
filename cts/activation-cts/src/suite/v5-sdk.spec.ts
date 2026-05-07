@@ -28,13 +28,14 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
 
       expect(Object.keys(app).sort()).toEqual([
         "action",
-        "actions",
+        "computed",
         "context",
         "dispose",
         "injectContext",
         "inspect",
         "observe",
         "snapshot",
+        "state",
         "updateContext",
         "with",
       ]);
@@ -47,7 +48,7 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
       expect(app.snapshot()).not.toHaveProperty("namespaces");
       expect(Object.keys(app.snapshot().meta)).toEqual(["schemaHash"]);
       expect(app.inspect.canonicalSnapshot()).toHaveProperty("namespaces");
-      expect(Object.keys(app.actions.increment).sort()).toEqual([
+      expect(Object.keys(app.action.increment).sort()).toEqual([
         "available",
         "bind",
         "check",
@@ -55,40 +56,19 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
         "preview",
         "submit",
       ]);
-      expect(app.action("increment").info().name).toBe("increment");
+      expect(app.action.increment.info().name).toBe("increment");
     },
   );
 
   it(
     caseTitle(
       ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE,
-      "action(name) remains collision-safe for runtime and JavaScript reserved action names.",
+      "reserved public action names are rejected before activation.",
     ),
-    async () => {
-      const app = createManifesto<CollisionDomain>(createCollisionSchema(), {}).activate();
-
-      for (const [name, value] of Object.entries({
-        then: 1,
-        bind: 2,
-        constructor: 3,
-        inspect: 4,
-        snapshot: 5,
-        context: 6,
-        injectContext: 7,
-        updateContext: 8,
-        with: 9,
-        dispose: 10,
-        action: 11,
-      }) as Array<[keyof CollisionDomain["actions"], number]>) {
-        await app.action(name).submit();
-        expect(app.snapshot().state.count).toBe(value);
-        expect(typeof app.snapshot).toBe("function");
-        expect(typeof app.context).toBe("function");
-        expect(typeof app.injectContext).toBe("function");
-        expect(typeof app.updateContext).toBe("function");
-        expect(typeof app.with).toBe("function");
-        expect(typeof app.dispose).toBe("function");
-      }
+    () => {
+      expect(() => {
+        createManifesto<CollisionDomain>(createCollisionSchema(), {}).activate();
+      }).toThrow(/RESERVED_ACTION_NAME|reserved/);
     },
   );
 
@@ -100,21 +80,45 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
     async () => {
       const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
-      expect(app.actions.add.check("bad" as unknown as number)).toMatchObject({
+      const scalarBound = app.action.add.bind(2);
+      expect(scalarBound.input).toBe(2);
+      expect(scalarBound.intent()).toMatchObject({
+        type: "add",
+        input: { amount: 2 },
+      });
+
+      const objectBound = app.action.replace.bind({ count: 7 });
+      expect(objectBound.input).toEqual({ count: 7 });
+      expect(objectBound.intent()).toMatchObject({
+        type: "replace",
+        input: { count: 7 },
+      });
+
+      expect(app.action.add.check("bad" as unknown as number)).toMatchObject({
         ok: false,
         layer: "input",
         code: "INVALID_INPUT",
       });
 
-      await app.actions.increment.submit();
-      expect(app.actions.incrementIfEven.check()).toMatchObject({
+      await app.action.increment.submit();
+      expect(app.action.addWhenPositive.check("bad" as unknown as number)).toMatchObject({
+        ok: false,
+        layer: "input",
+        code: "INVALID_INPUT",
+      });
+      expect(app.action.addWhenPositive.check(0)).toMatchObject({
+        ok: false,
+        layer: "dispatchability",
+        code: "INTENT_NOT_DISPATCHABLE",
+      });
+      expect(app.action.incrementIfEven.check()).toMatchObject({
         ok: false,
         layer: "availability",
         code: "ACTION_UNAVAILABLE",
       });
 
       const before = app.snapshot();
-      const preview = app.actions.add.preview(4);
+      const preview = app.action.add.preview(4);
       expect(preview.admitted).toBe(true);
       expect(preview.admitted && preview.after.state.count).toBe(5);
       expect(app.snapshot()).toBe(before);
@@ -130,7 +134,7 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
     async () => {
       const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
-      const rejected = await app.actions.add.submit("bad" as unknown as number);
+      const rejected = await app.action.add.submit("bad" as unknown as number);
       expect(rejected).toMatchObject({
         ok: false,
         mode: "base",
@@ -138,7 +142,7 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
         admission: { layer: "input", code: "INVALID_INPUT" },
       });
 
-      const result = await app.actions.add.submit(3);
+      const result = await app.action.add.submit(3);
       expect(result).toMatchObject({
         ok: true,
         mode: "base",
@@ -149,20 +153,36 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
       expect(result.ok && result.before.state.count).toBe(0);
       expect(result.ok && result.after.state.count).toBe(3);
 
+      const full = await app.with({ report: "full" }).action.add.submit(2);
+      expect(full).toMatchObject({
+        ok: true,
+        status: "settled",
+        report: {
+          mode: "base",
+          action: "add",
+          outcome: { kind: "ok" },
+        },
+      });
+      expect(full.ok && full.report).toMatchObject({
+        changes: expect.any(Array),
+        requirements: expect.any(Array),
+      });
+
       const stopped = await createManifesto<HaltingDomain>(
         createHaltingSchema(),
         {},
-      ).activate().actions.finalize.submit();
+      ).activate().with({ report: "full" }).action.finalize.submit();
       expect(stopped).toMatchObject({
         ok: true,
         status: "settled",
         outcome: { kind: "stop", reason: "done" },
+        report: { outcome: { kind: "stop" } },
       });
 
       const failed = await createManifesto<FailingDomain>(
         createFailingSchema(),
         {},
-      ).activate().actions.fail.submit();
+      ).activate().with({ report: "full" }).action.fail.submit();
       expect(failed).toMatchObject({
         ok: true,
         status: "settled",
@@ -170,6 +190,7 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
           kind: "fail",
           error: { message: "repair required" },
         },
+        report: { outcome: { kind: "fail" } },
       });
     },
   );
@@ -195,7 +216,7 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
       app.observe.event("submission:settled", () => sequence.push("submission:settled"));
       app.observe.event("proposal:created", proposalCreated);
 
-      const result = await app.actions.increment.submit();
+      const result = await app.action.increment.submit();
 
       expect(result.ok).toBe(true);
       expect(settled).toHaveBeenCalledWith(expect.objectContaining({
@@ -232,7 +253,7 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
 
       expect(observed).toEqual([]);
 
-      await app.actions.increment.submit();
+      await app.action.increment.submit();
 
       expect(observed).toEqual([[1, 0]]);
     },
@@ -247,11 +268,11 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
       const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
       expect(app.inspect.schemaHash()).toBe(app.inspect.canonicalSnapshot().meta.schemaHash);
-      expect(app.inspect.action("increment")).toEqual(app.actions.increment.info());
+      expect(app.inspect.action("increment")).toEqual(app.action.increment.info());
       expect(app.inspect.availableActions().map((action) => action.name))
         .toContain("incrementIfEven");
 
-      await app.actions.increment.submit();
+      await app.action.increment.submit();
 
       expect(app.inspect.availableActions().map((action) => action.name))
         .not.toContain("incrementIfEven");

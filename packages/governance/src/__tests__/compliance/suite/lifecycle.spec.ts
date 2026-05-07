@@ -79,10 +79,12 @@ describe("GCTS Lifecycle Suite", () => {
       const monotonicPairs: Array<readonly [ProposalStatus, ProposalStatus, boolean]> = [
         ["submitted", "evaluating", true],
         ["submitted", "rejected", true],
+        ["submitted", "failed", false],
         ["submitted", "superseded", true],
         ["submitted", "approved", false],
         ["evaluating", "approved", true],
         ["evaluating", "rejected", true],
+        ["evaluating", "failed", false],
         ["evaluating", "superseded", true],
         ["approved", "executing", true],
         ["approved", "superseded", false],

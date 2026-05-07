@@ -61,6 +61,13 @@ describe("Golden: Complex Effect Scenarios", () => {
       actions: {
         // Simple fetch with state guard - only fetches if response is null
         fetchData: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              url: { type: "string", required: true },
+            },
+          },
           flow: {
             kind: "if",
             cond: {

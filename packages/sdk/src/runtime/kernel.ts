@@ -94,6 +94,13 @@ type RuntimeActionRef = {
   readonly [ACTION_SINGLE_PARAM_OBJECT_VALUE]?: boolean;
 };
 
+const RESERVED_PUBLIC_ACTION_NAMES = new Set([
+  "then",
+  "constructor",
+  "prototype",
+  "__proto__",
+]);
+
 function getActionParamNames(
   action: DomainSchema["actions"][string],
 ): readonly string[] {
@@ -126,6 +133,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   createIntent,
   initialContext,
 }: RuntimeKernelOptions<T>): RuntimeKernel<T> {
+  const refs = MEL;
   const initialCanonicalSnapshot = host.getSnapshot();
   if (!initialCanonicalSnapshot) {
     throw new ManifestoError("SCHEMA_ERROR", "Host failed to initialize its genesis snapshot");
@@ -133,9 +141,9 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
 
   function projectSnapshotFromCanonical(
     snapshot: CoreSnapshot,
-  ): Snapshot<T["state"]> {
+  ): Snapshot<T["state"], T["computed"]> {
     return cloneAndDeepFreeze(
-      projectCanonicalSnapshot<T["state"]>(snapshot, projectionPlan),
+      projectCanonicalSnapshot<T["state"], T["computed"]>(snapshot, projectionPlan),
     );
   }
 
@@ -175,6 +183,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   } = stateStore;
   const schemaGraph = createSdkSchemaGraph(extractSchemaGraph(schema));
   const actionNames = Object.keys(schema.actions) as Array<keyof T["actions"] & string>;
+  assertNoReservedPublicActionNames(actionNames);
   let currentExternalContext = materializeExternalContext<T>(
     schema,
     initialContext,
@@ -184,7 +193,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     Object.fromEntries(
       actionNames.map((name) => {
         const action = schema.actions[name];
-        const actionRef = MEL.actions[name] as unknown as RuntimeActionRef | undefined;
+        const actionRef = refs.actions[name] as unknown as RuntimeActionRef | undefined;
         const rawParams = actionRef?.[ACTION_PARAM_NAMES];
         const params = Object.freeze(
           Array.isArray(rawParams) ? [...rawParams] : getActionParamNames(action),
@@ -424,13 +433,14 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   }) as RuntimeKernel<T>["simulate"];
 
   const extensionKernel = Object.freeze({
+    refs,
     MEL,
     schema,
     createIntent,
     getCanonicalSnapshot,
     projectSnapshot: (
       snapshot: CanonicalSnapshot<T["state"]>,
-    ): Snapshot<T["state"]> => projectSnapshotFromCanonical(snapshot),
+    ): Snapshot<T["state"], T["computed"]> => projectSnapshotFromCanonical(snapshot),
     simulateSync: (
       snapshot: CanonicalSnapshot<T["state"]>,
       intent: TypedIntent<T>,
@@ -452,6 +462,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
 
   return {
     schema,
+    refs,
     MEL,
     createIntent,
     subscribe,
@@ -501,4 +512,18 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     rejectNotDispatchable: admission.rejectNotDispatchable,
     [EXTENSION_KERNEL]: extensionKernel,
   };
+}
+
+function assertNoReservedPublicActionNames(actionNames: readonly string[]): void {
+  const reserved = actionNames.filter((name) => RESERVED_PUBLIC_ACTION_NAMES.has(name));
+  if (reserved.length === 0) {
+    return;
+  }
+
+  throw new ManifestoError(
+    "RESERVED_ACTION_NAME",
+    `Action name${reserved.length === 1 ? "" : "s"} ${
+      reserved.map((name) => `"${name}"`).join(", ")
+    } ${reserved.length === 1 ? "is" : "are"} reserved by the SDK public action namespace`,
+  );
 }

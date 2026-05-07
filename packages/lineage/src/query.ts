@@ -94,13 +94,44 @@ function normalizeNamespaces(namespaces: Snapshot["namespaces"] | null | undefin
   return normalized;
 }
 
-export async function restoreSnapshot(
-  store: LineageStore,
-  worldId: WorldId
-): Promise<Snapshot> {
-  const snapshot = await store.getSnapshot(worldId);
-  assertLineage(snapshot != null, `LIN-RESUME-2 violation: missing snapshot for world ${worldId}`);
+export function migrateStoredSnapshotShape(stored: unknown): Snapshot {
+  assertLineage(isRecord(stored), "LIN-RESTORE-ONTO-1 violation: stored snapshot must be an object");
 
+  const stateSource = isRecord(stored.state)
+    ? stored.state
+    : isRecord(stored.data)
+      ? stored.data
+      : {};
+  const migratedNamespaces = migrateLegacyNamespaces(
+    stateSource,
+    isRecord(stored.namespaces) ? stored.namespaces : {},
+  );
+  const system = isRecord(stored.system) ? stored.system : {};
+  const meta = isRecord(stored.meta) ? stored.meta : {};
+
+  return {
+    state: cloneValue(stripLegacyNamespaceKeys(stateSource)),
+    computed: cloneValue(isRecord(stored.computed) ? stored.computed : {}),
+    system: {
+      status: isSystemStatus(system.status) ? system.status : "idle",
+      lastError: isErrorValue(system.lastError) ? cloneValue(system.lastError) : null,
+      pendingRequirements: Array.isArray(system.pendingRequirements)
+        ? cloneValue(system.pendingRequirements)
+        : [],
+      currentAction: typeof system.currentAction === "string" ? system.currentAction : null,
+    },
+    input: cloneValue(stored.input ?? null),
+    meta: {
+      version: typeof meta.version === "number" ? meta.version : 0,
+      timestamp: typeof meta.timestamp === "number" ? meta.timestamp : 0,
+      randomSeed: typeof meta.randomSeed === "string" ? meta.randomSeed : "",
+      schemaHash: typeof meta.schemaHash === "string" ? meta.schemaHash : "",
+    },
+    namespaces: migratedNamespaces,
+  };
+}
+
+export function normalizeForRestore(snapshot: Snapshot): Snapshot {
   return {
     state: cloneValue(snapshot.state),
     computed: cloneValue(snapshot.computed),
@@ -119,6 +150,64 @@ export async function restoreSnapshot(
     },
     namespaces: normalizeNamespaces(snapshot.namespaces),
   };
+}
+
+export async function restoreSnapshot(
+  store: LineageStore,
+  worldId: WorldId
+): Promise<Snapshot> {
+  const stored = await store.getSnapshot(worldId);
+  assertLineage(stored != null, `LIN-RESUME-2 violation: missing snapshot for world ${worldId}`);
+
+  return normalizeForRestore(migrateStoredSnapshotShape(stored));
+}
+
+function migrateLegacyNamespaces(
+  state: Record<string, unknown>,
+  namespaces: Record<string, unknown>,
+): Snapshot["namespaces"] {
+  const migrated: Record<string, unknown> = cloneValue(namespaces);
+  for (const [key, value] of Object.entries(state)) {
+    if (!key.startsWith("$") || key.length === 1) {
+      continue;
+    }
+
+    migrated[key.slice(1)] = cloneValue(value);
+  }
+
+  return migrated;
+}
+
+function stripLegacyNamespaceKeys(state: Record<string, unknown>): Record<string, unknown> {
+  const stripped: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(state)) {
+    if (!key.startsWith("$")) {
+      stripped[key] = value;
+    }
+  }
+
+  return stripped;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isSystemStatus(value: unknown): value is Snapshot["system"]["status"] {
+  return value === "idle"
+    || value === "computing"
+    || value === "pending"
+    || value === "error";
+}
+
+function isErrorValue(value: unknown): value is NonNullable<Snapshot["system"]["lastError"]> {
+  return isRecord(value)
+    && typeof value.code === "string"
+    && typeof value.message === "string"
+    && isRecord(value.source)
+    && typeof value.source.actionId === "string"
+    && typeof value.source.nodePath === "string"
+    && typeof value.timestamp === "number";
 }
 
 export async function buildWorldLineage(store: LineageStore): Promise<WorldLineage> {

@@ -20,8 +20,8 @@ import type {
   ManifestoDomainShape,
   ManifestoEvent,
   ManifestoEventPayloadMap,
+  ProjectedSnapshot,
   SimulationDiagnostics,
-  Snapshot,
   TypedIntent,
   TypedOn,
   TypedSubscribe,
@@ -31,13 +31,13 @@ import type { ManifestoError } from "../errors.js";
 export interface RuntimeStateStore<T extends ManifestoDomainShape> {
   readonly subscribe: TypedSubscribe<T>;
   readonly on: TypedOn<T>;
-  readonly getSnapshot: () => Snapshot<T["state"]>;
+  readonly getSnapshot: () => ProjectedSnapshot<T>;
   readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
   readonly getVisibleCoreSnapshot: () => CoreSnapshot;
   readonly setVisibleSnapshot: (
     snapshot: CoreSnapshot,
     options?: { readonly notify?: boolean },
-  ) => Snapshot<T["state"]>;
+  ) => ProjectedSnapshot<T>;
   readonly restoreVisibleSnapshot: () => void;
   readonly emitEvent: <K extends ManifestoEvent>(
     event: K,
@@ -141,7 +141,7 @@ export interface RuntimeAdmission<T extends ManifestoDomainShape> {
 export type PublishedRuntimeSnapshot<
   T extends ManifestoDomainShape = ManifestoDomainShape,
 > = {
-  readonly publishedSnapshot: Snapshot<T["state"]>;
+  readonly publishedSnapshot: ProjectedSnapshot<T>;
   readonly publishedCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
 };
 

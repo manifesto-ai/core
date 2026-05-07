@@ -235,8 +235,8 @@ describe("CCTS Annotation Suite", () => {
 
     const sameSchema = JSON.stringify(annotatedSchema.schema) === JSON.stringify(strippedSchema.schema);
     const sameGraph = JSON.stringify(extractSchemaGraph(annotatedSchema.schema!)) === JSON.stringify(extractSchemaGraph(strippedSchema.schema!));
-    const annotatedAdmission = annotated.actions.archive.check(2);
-    const strippedAdmission = stripped.actions.archive.check(2);
+    const annotatedAdmission = annotated.action.archive.check(2);
+    const strippedAdmission = stripped.action.archive.check(2);
     const sameDispatchability = JSON.stringify(annotatedAdmission) === JSON.stringify(strippedAdmission);
     const annotatedAvailableActions = annotated.inspect.availableActions();
     const strippedAvailableActions = stripped.inspect.availableActions();
@@ -245,8 +245,8 @@ describe("CCTS Annotation Suite", () => {
     const strippedBlockers = strippedAdmission.ok ? [] : strippedAdmission.blockers;
     const sameBlockers = JSON.stringify(annotatedBlockers) === JSON.stringify(strippedBlockers);
 
-    await annotated.actions.archive.submit(2);
-    await stripped.actions.archive.submit(2);
+    await annotated.action.archive.submit(2);
+    await stripped.action.archive.submit(2);
 
     const annotatedSnapshot = annotated.snapshot();
     const strippedSnapshot = stripped.snapshot();

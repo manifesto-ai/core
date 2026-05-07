@@ -3,7 +3,7 @@ import type { Snapshot as CoreSnapshot } from "@manifesto-ai/core";
 import type {
   CanonicalSnapshot,
   ManifestoDomainShape,
-  Snapshot,
+  ProjectedSnapshot,
 } from "../types.js";
 import type {
   PublishedRuntimeSnapshot,
@@ -14,7 +14,7 @@ type RuntimePublicationOptions<T extends ManifestoDomainShape> = {
   readonly setVisibleSnapshot: (
     snapshot: CoreSnapshot,
     options?: { readonly notify?: boolean },
-  ) => Snapshot<T["state"]>;
+  ) => ProjectedSnapshot<T>;
   readonly restoreVisibleSnapshot: () => void;
   readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
 };
@@ -27,7 +27,7 @@ export function createRuntimePublication<T extends ManifestoDomainShape>({
   function replaceVisibleSnapshot(
     snapshot: CoreSnapshot,
     options?: { readonly notify?: boolean },
-  ): Snapshot<T["state"]> {
+  ): ProjectedSnapshot<T> {
     return setVisibleSnapshot(snapshot, options);
   }
 

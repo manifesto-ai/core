@@ -28,6 +28,7 @@ type CounterDomain = {
   actions: {
     increment: () => void;
     add: (amount: number) => void;
+    stop: () => void;
     fail: () => void;
   };
   state: {
@@ -83,6 +84,16 @@ type ObjectInputDomain = {
   computed: {};
 };
 
+type MultiArgDomain = {
+  actions: {
+    rename: (name: string, force?: boolean) => void;
+  };
+  state: {
+    name: string;
+  };
+  computed: {};
+};
+
 type V5SubmitResult = {
   readonly ok: boolean;
   readonly mode: string;
@@ -110,6 +121,7 @@ type V5SubmitResult = {
     readonly outcome?: { readonly kind: string };
     readonly changes?: readonly string[];
     readonly requirements?: readonly unknown[];
+    readonly diagnostics?: unknown;
   };
 };
 
@@ -147,8 +159,7 @@ type V5ActionHandle = {
 };
 
 type V5LineageRuntime<TActions extends Record<string, V5ActionHandle>> = {
-  readonly actions: TActions;
-  readonly action: (name: keyof TActions & string) => V5ActionHandle;
+  readonly action: TActions;
   readonly observe: {
     readonly state: (
       selector: (snapshot: { readonly state: Record<string, unknown> }) => unknown,
@@ -173,6 +184,7 @@ type V5LineageRuntime<TActions extends Record<string, V5ActionHandle>> = {
     readonly head: string;
     readonly tip: string;
   }>;
+  readonly with: (view: { readonly report?: "none" | "summary" | "full" }) => V5LineageRuntime<TActions>;
   readonly restore: (worldId: string) => Promise<void>;
   readonly commitAsync?: unknown;
   readonly commitAsyncWithReport?: unknown;
@@ -183,6 +195,7 @@ type V5LineageRuntime<TActions extends Record<string, V5ActionHandle>> = {
 type V5CounterLineageRuntime = V5LineageRuntime<{
   readonly increment: V5ActionHandle;
   readonly add: V5ActionHandle;
+  readonly stop: V5ActionHandle;
   readonly fail: V5ActionHandle;
 }>;
 
@@ -200,6 +213,10 @@ type V5CyclicComputedLineageRuntime = V5LineageRuntime<{
 
 type V5ObjectInputLineageRuntime = V5LineageRuntime<{
   readonly choose: V5ActionHandle;
+}>;
+
+type V5MultiArgLineageRuntime = V5LineageRuntime<{
+  readonly rename: V5ActionHandle;
 }>;
 
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
@@ -252,6 +269,23 @@ function createCounterSchema(): DomainSchema {
             left: { kind: "get", path: "count" },
             right: { kind: "get", path: "input.amount" },
           },
+        },
+      },
+      stop: {
+        flow: {
+          kind: "seq",
+          steps: [
+            {
+              kind: "patch",
+              op: "set",
+              path: pp("status"),
+              value: { kind: "lit", value: "stopped" },
+            },
+            {
+              kind: "halt",
+              reason: "expected test stop",
+            },
+          ],
         },
       },
       fail: {
@@ -418,6 +452,39 @@ function createObjectInputSchema(): DomainSchema {
   });
 }
 
+function createMultiArgSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:lineage-v5-multi-arg",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        name: { type: "string", required: false, default: "" },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      rename: {
+        params: ["name", "force"],
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            name: { type: "string", required: true },
+            force: { type: "boolean", required: false },
+          },
+        },
+        flow: {
+          kind: "patch",
+          op: "set",
+          path: pp("name"),
+          value: { kind: "get", path: "input.name" },
+        },
+      },
+    },
+  });
+}
+
 function proxyLineageService(
   realService: LineageService,
   overrides: Partial<LineageService>,
@@ -493,6 +560,13 @@ function activateObjectInputLineage(): V5ObjectInputLineageRuntime {
   ).activate() as unknown as V5ObjectInputLineageRuntime;
 }
 
+function activateMultiArgLineage(): V5MultiArgLineageRuntime {
+  return withLineage(
+    createManifesto<MultiArgDomain>(createMultiArgSchema(), {}),
+    { store: createInMemoryLineageStore() },
+  ).activate() as unknown as V5MultiArgLineageRuntime;
+}
+
 function withHostIntentSlot(
   snapshot: CoreSnapshot,
   intent: { readonly type: string; readonly intentId: string; readonly input?: unknown },
@@ -527,10 +601,10 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
   it("exposes the v5 action-candidate write surface and removes v3 root write verbs", () => {
     const { app } = activateCounterLineage();
 
-    expect(app.actions).toBeDefined();
-    expect(app.actions.increment.submit).toEqual(expect.any(Function));
-    expect(app.actions.add.submit).toEqual(expect.any(Function));
-    expect(app.action("increment")).toBe(app.actions.increment);
+    expect("actions" in app).toBe(false);
+    expect(app.action).toBeDefined();
+    expect(app.action.increment.submit).toEqual(expect.any(Function));
+    expect(app.action.add.submit).toEqual(expect.any(Function));
     expect("commitAsync" in app).toBe(false);
     expect("commitAsyncWithReport" in app).toBe(false);
     expect("dispatchAsync" in app).toBe(false);
@@ -543,7 +617,7 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
     const app = activateObjectInputLineage();
     const original = { id: "before" };
 
-    const bound = app.actions.choose.bind(original);
+    const bound = app.action.choose.bind(original);
     original.id = "after";
 
     const result = await bound.submit();
@@ -562,6 +636,20 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
     app.dispose();
   });
 
+  it("preserves optional trailing multi-arg public input on lineage bound actions", () => {
+    const app = activateMultiArgLineage();
+
+    const bound = app.action.rename.bind("Ada");
+
+    expect(bound.input).toEqual(["Ada"]);
+    expect(bound.intent()).toMatchObject({
+      type: "rename",
+      input: { name: "Ada" },
+    });
+
+    app.dispose();
+  });
+
   it("treats non-structured-clone lineage inputs as input admission failures", async () => {
     const app = activateObjectInputLineage();
     const invalid = {
@@ -569,19 +657,19 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
       callback: () => undefined,
     };
 
-    expect(app.actions.choose.check(invalid)).toMatchObject({
+    expect(app.action.choose.check(invalid)).toMatchObject({
       ok: false,
       layer: "input",
       code: "INVALID_INPUT",
     });
-    expect(app.actions.choose.preview(invalid)).toMatchObject({
+    expect(app.action.choose.preview(invalid)).toMatchObject({
       admitted: false,
       admission: {
         layer: "input",
         code: "INVALID_INPUT",
       },
     });
-    await expect(app.actions.choose.submit(invalid)).resolves.toMatchObject({
+    await expect(app.action.choose.submit(invalid)).resolves.toMatchObject({
       ok: false,
       mode: "lineage",
       action: "choose",
@@ -590,7 +678,7 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
         code: "INVALID_INPUT",
       },
     });
-    expect(app.actions.choose.bind(invalid).intent()).toBeNull();
+    expect(app.action.choose.bind(invalid).intent()).toBeNull();
 
     app.dispose();
   });
@@ -603,7 +691,7 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
     app.observe.state((snapshot) => snapshot.state.count, observedState);
     app.observe.event("submission:settled", settled);
 
-    const result = await app.actions.increment.submit();
+    const result = await app.action.increment.submit();
 
     expect(result).toMatchObject({
       ok: true,
@@ -622,6 +710,12 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
     });
     expect(result.world?.worldId).toEqual(expect.any(String));
     expect(result.report?.worldId).toBe(result.world?.worldId);
+    expect(result.report).not.toHaveProperty("diagnostics");
+
+    const { app: fullApp } = activateCounterLineage();
+    const fullResult = await fullApp.with({ report: "full" }).action.increment.submit();
+    expect(fullResult.report).toHaveProperty("diagnostics");
+    fullApp.dispose();
     expect(app.snapshot().state.count).toBe(1);
     expect((await app.getLatestHead())?.worldId).toBe(result.world?.worldId);
     expect(await app.getWorld(result.world!.worldId!)).toEqual(expect.objectContaining({
@@ -647,7 +741,7 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
       createManifesto<CounterDomain>(schema, {}),
       { service },
     ).activate() as unknown as V5CounterLineageRuntime;
-    const result = await app.actions.add.submit(2);
+    const result = await app.action.add.submit(2);
     const worldId = result.world?.worldId;
     if (!worldId) {
       throw new Error("expected sealed world");
@@ -715,13 +809,13 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
     });
     const { app } = activateComputedLineage(service);
 
-    const result = await app.actions.setCount.submit(2);
+    const result = await app.action.setCount.submit(2);
     const worldId = result.world!.worldId!;
 
     expect(app.snapshot().computed.double).toBe(4);
     expect(((await app.getWorldSnapshot(worldId)) as CoreSnapshot | null)?.computed.double).toBe(4);
 
-    await app.actions.setCount.submit(7);
+    await app.action.setCount.submit(7);
     await app.restore(worldId);
 
     expect(app.snapshot().state.count).toBe(2);
@@ -766,7 +860,7 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
 
     app.observe.event("submission:rejected", rejected);
 
-    const result = await app.actions.frozenSpend.submit(1);
+    const result = await app.action.frozenSpend.submit(1);
 
     expect(result).toMatchObject({
       ok: false,
@@ -792,7 +886,7 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
   it("seals failed domain outcomes without publishing them as the visible head", async () => {
     const { app } = activateCounterLineage();
 
-    const result = await app.actions.fail.submit();
+    const result = await app.action.fail.submit();
 
     expect(result).toMatchObject({
       ok: true,
@@ -807,6 +901,36 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
         headAdvanced: false,
         published: false,
         outcome: { kind: "fail" },
+      },
+    });
+    expect(result.world?.worldId).toEqual(expect.any(String));
+    expect(app.snapshot().state.status).toBe("idle");
+
+    const activeBranch = await app.getActiveBranch();
+    expect(activeBranch.head).not.toBe(result.world?.worldId);
+    expect(activeBranch.tip).toBe(result.world?.worldId);
+
+    app.dispose();
+  });
+
+  it("seals halted domain outcomes without publishing them as the visible head", async () => {
+    const { app } = activateCounterLineage();
+
+    const result = await app.action.stop.submit();
+
+    expect(result).toMatchObject({
+      ok: true,
+      mode: "lineage",
+      status: "settled",
+      action: "stop",
+      outcome: { kind: "stop", reason: "expected test stop" },
+      after: { state: { status: "stopped" } },
+      report: {
+        mode: "lineage",
+        action: "stop",
+        headAdvanced: false,
+        published: false,
+        outcome: { kind: "stop", reason: "expected test stop" },
       },
     });
     expect(result.world?.worldId).toEqual(expect.any(String));
@@ -852,7 +976,7 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
 
     app.observe.event("submission:failed", failed);
 
-    await expect(app.actions.increment.submit()).rejects.toBeInstanceOf(SubmissionFailedError);
+    await expect(app.action.increment.submit()).rejects.toBeInstanceOf(SubmissionFailedError);
     expect(app.snapshot().state.count).toBe(0);
     expect(failed).toHaveBeenCalledWith(expect.objectContaining({
       action: "increment",
@@ -871,6 +995,6 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
 
     app.dispose();
 
-    await expect(app.actions.increment.submit()).rejects.toBeInstanceOf(DisposedError);
+    await expect(app.action.increment.submit()).rejects.toBeInstanceOf(DisposedError);
   });
 });

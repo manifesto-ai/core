@@ -3,7 +3,6 @@ import {
   semanticPathToPatchPath,
   type DomainSchema,
 } from "@manifesto-ai/core";
-import type { ManifestoDomainShape } from "@manifesto-ai/sdk";
 import type {
   ActorAuthorityBinding,
   GovernanceExecutionConfig,
@@ -11,10 +10,12 @@ import type {
 
 const pp = semanticPathToPatchPath;
 
-export type CounterDomain = ManifestoDomainShape & {
+export type CounterDomain = {
   actions: {
     increment: () => void;
     add: (amount: number) => void;
+    addWhenPositive: (amount: number) => void;
+    replace: (input: { readonly count: number }) => void;
     incrementIfEven: () => void;
     load: () => void;
   };
@@ -27,7 +28,7 @@ export type CounterDomain = ManifestoDomainShape & {
   };
 };
 
-export type HaltingDomain = ManifestoDomainShape & {
+export type HaltingDomain = {
   actions: {
     finalize: () => void;
   };
@@ -37,7 +38,7 @@ export type HaltingDomain = ManifestoDomainShape & {
   computed: {};
 };
 
-export type FailingDomain = ManifestoDomainShape & {
+export type FailingDomain = {
   actions: {
     fail: () => void;
   };
@@ -47,7 +48,7 @@ export type FailingDomain = ManifestoDomainShape & {
   computed: {};
 };
 
-export type CollisionDomain = ManifestoDomainShape & {
+export type CollisionDomain = {
   actions: {
     then: () => void;
     bind: () => void;
@@ -127,6 +128,45 @@ export function createCounterSchema(): DomainSchema {
             left: { kind: "get", path: "count" },
             right: { kind: "get", path: "input.amount" },
           },
+        },
+      },
+      addWhenPositive: {
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            amount: { type: "number", required: true },
+          },
+        },
+        dispatchable: {
+          kind: "gt",
+          left: { kind: "get", path: "input.amount" },
+          right: { kind: "lit", value: 0 },
+        },
+        flow: {
+          kind: "patch",
+          op: "set",
+          path: pp("count"),
+          value: {
+            kind: "add",
+            left: { kind: "get", path: "count" },
+            right: { kind: "get", path: "input.amount" },
+          },
+        },
+      },
+      replace: {
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            count: { type: "number", required: true },
+          },
+        },
+        flow: {
+          kind: "patch",
+          op: "set",
+          path: pp("count"),
+          value: { kind: "get", path: "input.count" },
         },
       },
       incrementIfEven: {

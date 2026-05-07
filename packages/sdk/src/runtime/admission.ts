@@ -12,7 +12,7 @@ import type {
   DispatchBlocker,
   IntentExplanation,
   ManifestoDomainShape,
-  Snapshot,
+  ProjectedSnapshot,
   TypedIntent,
 } from "../types.js";
 import type {
@@ -40,7 +40,7 @@ type RuntimeAdmissionOptions<T extends ManifestoDomainShape> = {
   ) => boolean;
   readonly projectSnapshotFromCanonical: (
     snapshot: CoreSnapshot,
-  ) => Snapshot<T["state"]>;
+  ) => ProjectedSnapshot<T>;
   readonly getSimulateSync: () => RuntimeSimulateSync<T>;
 };
 

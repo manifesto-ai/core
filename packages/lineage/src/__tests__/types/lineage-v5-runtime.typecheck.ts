@@ -22,11 +22,11 @@ const lineage = withLineage<CounterDomain>(
 const app: ManifestoApp<CounterDomain, "lineage"> = lineage;
 
 const actionSubmit: Promise<SubmitResultFor<"lineage", CounterDomain, "increment">> =
-  app.actions.increment.submit();
+  app.action.increment.submit();
 const collisionSafeSubmit: Promise<LineageSubmissionResult<CounterDomain, "increment">> =
-  app.action("increment").submit();
+  app.action.increment.submit();
 const boundSubmit: Promise<LineageSubmissionResult<CounterDomain, "increment">> =
-  app.actions.increment.bind().submit();
+  app.action.increment.bind().submit();
 
 async function readLineageResult(): Promise<void> {
   const result = await actionSubmit;

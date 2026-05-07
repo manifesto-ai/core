@@ -202,7 +202,7 @@ describe("activated v5 base runtime", () => {
       (app.context() as { locale: string }).locale = "en-US";
     }).toThrow(TypeError);
 
-    const preview = app.actions.stamp.preview();
+    const preview = app.action.stamp.preview();
     expect(preview.admitted && preview.after.state).toMatchObject({
       tenantId: "acme",
       locale: "ko-KR",
@@ -210,7 +210,7 @@ describe("activated v5 base runtime", () => {
     });
     expect(app.snapshot().state.locale).toBe("");
 
-    const result = await app.actions.stamp.submit();
+    const result = await app.action.stamp.submit();
     expect(result.ok && result.after.state).toMatchObject({
       tenantId: "acme",
       locale: "ko-KR",
@@ -246,7 +246,7 @@ describe("activated v5 base runtime", () => {
     expect(stateListener).not.toHaveBeenCalled();
     expect(eventListener).not.toHaveBeenCalled();
 
-    const result = await app.actions.stamp.submit();
+    const result = await app.action.stamp.submit();
     expect(result.ok && result.after.state.locale).toBe("ja-JP");
   });
 
@@ -263,7 +263,7 @@ describe("activated v5 base runtime", () => {
       },
     });
 
-    const preview = requestApp.actions.stamp.preview();
+    const preview = requestApp.action.stamp.preview();
     expect(preview.admitted && preview.after.state).toMatchObject({
       tenantId: "other",
       locale: "en-US",
@@ -283,7 +283,7 @@ describe("activated v5 base runtime", () => {
         runtime: "submit-runtime",
       },
     });
-    const result = await submitApp.actions.stamp.submit();
+    const result = await submitApp.action.stamp.submit();
     expect(result.ok && result.after.state).toMatchObject({
       tenantId: "other",
       locale: "fr-FR",
@@ -309,7 +309,7 @@ describe("activated v5 base runtime", () => {
       { context: initialContext },
     ).activate();
 
-    const submitted = app.actions.loadWithContext.submit();
+    const submitted = app.action.loadWithContext.submit();
     app.injectContext({
       tenantId: "acme",
       locale: "en-US",
@@ -398,7 +398,7 @@ describe("activated v5 base runtime", () => {
     const listener = vi.fn();
     app.observe.state((snapshot) => snapshot.state.count, listener);
 
-    const result = await app.actions.increment.submit();
+    const result = await app.action.increment.submit();
 
     expect(result.ok && result.before.state.count).toBe(0);
     expect(result.ok && result.after.state.count).toBe(1);
@@ -432,7 +432,7 @@ describe("activated v5 base runtime", () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
     const before = app.snapshot();
 
-    const preview = app.actions.load.preview();
+    const preview = app.action.load.preview();
 
     expect(preview.admitted).toBe(true);
     expect(preview.admitted && preview.status).toBe("pending");
@@ -446,7 +446,7 @@ describe("activated v5 base runtime", () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
     const ext = getExtensionKernel(app);
     const canonical = ext.getCanonicalSnapshot();
-    const intent = ext.createIntent(ext.MEL.actions.increment);
+    const intent = ext.createIntent(ext.refs.actions.increment);
 
     const first = ext.simulateSync(canonical, intent);
     const second = ext.simulateSync(canonical, intent);
@@ -460,7 +460,7 @@ describe("activated v5 base runtime", () => {
   it("compares projected snapshots using state/computed/system/meta only", async () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
     const before = app.snapshot();
-    await app.actions.increment.submit();
+    await app.action.increment.submit();
     const after = app.snapshot();
 
     expect(projectedSnapshotsEqual(before, before)).toBe(true);
@@ -473,13 +473,13 @@ describe("activated v5 base runtime", () => {
     app.dispose();
     app.dispose();
 
-    await expect(app.actions.increment.submit()).rejects.toBeInstanceOf(DisposedError);
+    await expect(app.action.increment.submit()).rejects.toBeInstanceOf(DisposedError);
     expect(app.snapshot().state.count).toBe(0);
   });
 
   it("does not let projected snapshot mutation leak back into runtime state", async () => {
     const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-    await app.actions.add.submit(3);
+    await app.action.add.submit(3);
 
     const snapshot = app.snapshot();
     expect(() => {

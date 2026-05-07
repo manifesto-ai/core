@@ -32,6 +32,7 @@ describe("EffectExecutor", () => {
 
       const result = await executor.execute(requirement, snapshot);
 
+      expect(result.ok).toBe(true);
       expect(result.success).toBe(true);
       expect(result.patches).toHaveLength(1);
       expect(result.patches[0]).toEqual({
@@ -47,8 +48,16 @@ describe("EffectExecutor", () => {
 
       const result = await executor.execute(requirement, snapshot);
 
+      expect(result.ok).toBe(false);
       expect(result.success).toBe(false);
       expect(result.patches).toEqual([]);
+      if (result.ok) {
+        throw new Error("expected failed effect result");
+      }
+      expect(result.failure).toEqual({
+        code: "UNKNOWN_EFFECT",
+        message: "Unknown effect type: unknown",
+      });
       expect(result.error).toContain("Unknown effect type: unknown");
     });
 
@@ -200,7 +209,15 @@ describe("EffectExecutor", () => {
         createTestSnapshot()
       );
 
+      expect(result.ok).toBe(false);
       expect(result.success).toBe(false);
+      if (result.ok) {
+        throw new Error("expected failed effect result");
+      }
+      expect(result.failure).toEqual({
+        code: "EFFECT_EXECUTION_FAILED",
+        message: "Handler failed!",
+      });
       expect(result.error).toBe("Handler failed!");
     });
 
@@ -302,8 +319,16 @@ describe("EffectExecutor", () => {
         createTestSnapshot()
       );
 
+      expect(result.ok).toBe(false);
       expect(result.success).toBe(false);
       expect(attempts).toBe(3); // initial + 2 retries
+      if (result.ok) {
+        throw new Error("expected failed effect result");
+      }
+      expect(result.failure).toEqual({
+        code: "EFFECT_EXECUTION_FAILED",
+        message: "Always fails",
+      });
       expect(result.error).toBe("Always fails");
     });
 
@@ -348,6 +373,7 @@ describe("EffectExecutor", () => {
       );
 
       expect(results).toHaveLength(3);
+      expect(results.every((r) => r.ok)).toBe(true);
       expect(results.every((r) => r.success)).toBe(true);
       expect(patches).toHaveLength(3);
     });
@@ -375,8 +401,19 @@ describe("EffectExecutor", () => {
       );
 
       expect(results).toHaveLength(3);
+      expect(results[0].ok).toBe(true);
       expect(results[0].success).toBe(true);
+      expect(results[1].ok).toBe(false);
       expect(results[1].success).toBe(false);
+      const failed = results[1];
+      if (!failed || failed.ok) {
+        throw new Error("expected failed effect result");
+      }
+      expect(failed.failure).toMatchObject({
+        code: "EFFECT_EXECUTION_FAILED",
+        message: "Failed",
+      });
+      expect(results[2].ok).toBe(true);
       expect(results[2].success).toBe(true);
       expect(patches).toHaveLength(2); // Only successful patches
     });

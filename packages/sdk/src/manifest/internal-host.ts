@@ -7,7 +7,10 @@ import {
   defaultRuntime,
 } from "@manifesto-ai/host";
 import {
+  createSnapshot,
+  evaluateComputed,
   extractDefaults,
+  isOk,
   type DomainSchema,
   type Patch,
 } from "@manifesto-ai/core";
@@ -30,11 +33,22 @@ export function createInternalHost(
   effects: Record<string, EffectHandler>,
 ): InternalHostBundle {
   const runtime = defaultRuntime;
+  const contextProvider: HostContextProvider = createHostContextProvider(runtime);
+  const initialSnapshot = createSnapshot(
+    extractDefaults(schema.state),
+    schema.hash,
+    contextProvider.createInitialContext(),
+  );
+  const initialComputed = evaluateComputed(schema, initialSnapshot);
   const host = createHost(schema, {
-    initialData: extractDefaults(schema.state),
+    initialSnapshot: isOk(initialComputed)
+      ? {
+        ...initialSnapshot,
+        computed: initialComputed.value,
+      }
+      : initialSnapshot,
     runtime,
   });
-  const contextProvider: HostContextProvider = createHostContextProvider(runtime);
 
   for (const [effectType, appHandler] of Object.entries(effects)) {
     const hostHandler: HostEffectHandler = async (

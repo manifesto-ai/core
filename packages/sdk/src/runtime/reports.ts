@@ -7,6 +7,7 @@ import type {
   DispatchExecutionOutcome,
   ChangedPath,
   ManifestoDomainShape,
+  ProjectedSnapshot,
   Snapshot,
 } from "../types.js";
 import {
@@ -22,7 +23,7 @@ type RuntimeReportHelperOptions<T extends ManifestoDomainShape> = {
   ) => readonly (keyof T["actions"])[];
   readonly projectSnapshotFromCanonical: (
     snapshot: CoreSnapshot,
-  ) => Snapshot<T["state"]>;
+  ) => ProjectedSnapshot<T>;
 };
 
 export function createRuntimeReportHelpers<T extends ManifestoDomainShape>({

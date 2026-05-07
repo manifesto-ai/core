@@ -68,7 +68,7 @@ describe("ACTS Base Suite", () => {
     ),
     async () => {
       const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-      const result = await app.actions.add.submit(2);
+      const result = await app.action.add.submit(2);
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("ACTS-BASE-3"), result.ok
@@ -76,7 +76,7 @@ describe("ACTS Base Suite", () => {
           && app.snapshot().state.count === 2, {
           passMessage: "Base activation chain submitted an action candidate successfully.",
           failMessage: "Base activation chain did not publish the expected terminal snapshot.",
-          evidence: [noteEvidence("Executed createManifesto() -> activate() -> actions.add.submit().")],
+          evidence: [noteEvidence("Executed createManifesto() -> activate() -> action.add.submit().")],
         }),
       ]);
 
@@ -91,7 +91,7 @@ describe("ACTS Base Suite", () => {
     ),
     async () => {
       const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-      await app.actions.add.submit(3);
+      await app.action.add.submit(3);
       const snapshot = app.snapshot();
 
       expect(() => {
@@ -119,15 +119,15 @@ describe("ACTS Base Suite", () => {
       const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
       const graph = app.inspect.graph();
       const before = app.snapshot();
-      const preview = app.actions.load.preview();
+      const preview = app.action.load.preview();
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("ACTS-BASE-5"), typeof graph.traceUp === "function"
-          && typeof app.actions.increment.preview === "function"
-          && typeof app.action("increment").info === "function", {
+          && typeof app.action.increment.preview === "function"
+          && typeof app.inspect.action("increment").name === "string", {
           passMessage: "V5 base runtime exposes inspect.graph(), action info, and action preview.",
           failMessage: "V5 base runtime introspection surface is incomplete.",
-          evidence: [noteEvidence("Checked inspect.graph(), action(name).info(), and actions.x.preview().")],
+          evidence: [noteEvidence("Checked inspect.graph(), inspect.action(name), and action.x.preview().")],
         }),
         evaluateRule(getRuleOrThrow("ACTS-BASE-6"), graph.traceUp("state:count").nodes.length > 0
           && !("namespaces" in app.snapshot()), {
@@ -141,7 +141,7 @@ describe("ACTS Base Suite", () => {
           && app.snapshot() === before, {
           passMessage: "Preview is non-committing and returns projected after snapshot plus requirements.",
           failMessage: "Preview committed state or did not expose expected dry-run data.",
-          evidence: [noteEvidence("Ran actions.load.preview() and re-read app.snapshot().")],
+          evidence: [noteEvidence("Ran action.load.preview() and re-read app.snapshot().")],
         }),
       ]);
 
@@ -156,7 +156,7 @@ describe("ACTS Base Suite", () => {
     ),
     () => {
       const app = createManifesto<HaltingDomain>(createHaltingSchema(), {}).activate();
-      const preview = app.actions.finalize.preview();
+      const preview = app.action.finalize.preview();
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("ACTS-BASE-8"), preview.admitted
@@ -164,7 +164,7 @@ describe("ACTS Base Suite", () => {
           && app.snapshot().state.status === "idle", {
           passMessage: "Preview preserved halted status without publishing state.",
           failMessage: "Preview failed to preserve halted status or committed state.",
-          evidence: [noteEvidence("Ran actions.finalize.preview() against halting schema.")],
+          evidence: [noteEvidence("Ran action.finalize.preview() against halting schema.")],
         }),
       ]);
 
@@ -179,8 +179,8 @@ describe("ACTS Base Suite", () => {
     ),
     async () => {
       const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
-      const result = await app.actions.add.submit(2);
-      const rejected = await app.actions.add.submit("bad" as unknown as number);
+      const result = await app.action.add.submit(2);
+      const rejected = await app.action.add.submit("bad" as unknown as number);
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("ACTS-BASE-9"), result.ok
@@ -190,14 +190,14 @@ describe("ACTS Base Suite", () => {
           && result.after.state.count === 2, {
           passMessage: "Base submit returned a settled result envelope with projected snapshots.",
           failMessage: "Base submit did not return the expected settled result envelope.",
-          evidence: [noteEvidence("Ran actions.add.submit(2).")],
+          evidence: [noteEvidence("Ran action.add.submit(2).")],
         }),
         evaluateRule(getRuleOrThrow("ACTS-BASE-10"), !rejected.ok
           && rejected.mode === "base"
           && rejected.admission.layer === "input", {
           passMessage: "Base submit returned admission failure as a value.",
           failMessage: "Base submit did not preserve admission rejection as a value.",
-          evidence: [noteEvidence("Ran actions.add.submit() with invalid input.")],
+          evidence: [noteEvidence("Ran action.add.submit() with invalid input.")],
         }),
       ]);
 

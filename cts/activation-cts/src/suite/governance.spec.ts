@@ -71,11 +71,11 @@ function hasIncrementSubmitSurface(runtime: unknown): boolean {
   if (!isRecord(runtime)) {
     return false;
   }
-  const actions = runtime.actions;
-  if (!isRecord(actions)) {
+  const action = runtime.action;
+  if (!isRecord(action)) {
     return false;
   }
-  const increment = actions.increment;
+  const increment = action.increment;
   return isRecord(increment) && typeof increment.submit === "function";
 }
 
@@ -101,11 +101,11 @@ async function submitIncrementCandidate(runtime: unknown): Promise<unknown> {
   if (!isRecord(runtime)) {
     return undefined;
   }
-  const actions = runtime.actions;
-  if (!isRecord(actions)) {
+  const action = runtime.action;
+  if (!isRecord(action)) {
     return undefined;
   }
-  const increment = actions.increment;
+  const increment = action.increment;
   if (!isRecord(increment) || typeof increment.submit !== "function") {
     return undefined;
   }
@@ -258,7 +258,7 @@ describe("ACTS Governance Suite", () => {
             failMessage: "Governed runtime is missing v5 action submit or runtime settlement observation.",
             evidence: [
               noteEvidence(
-                "Checked for actions.increment.submit() and app.waitForSettlement(ref).",
+                "Checked for action.increment.submit() and app.waitForSettlement(ref).",
               ),
             ],
           },

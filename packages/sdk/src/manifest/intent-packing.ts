@@ -59,13 +59,9 @@ function packIntentInput(action: RuntimeActionRef, args: readonly unknown[]): un
   }
 
   if (paramNames.length === 0) {
-    if (args.length === 1) {
-      return args[0];
-    }
-
     throw new ManifestoError(
       "INVALID_INTENT_ARGS",
-      `Action "${String(action.name)}" does not accept multiple positional arguments`,
+      `Action "${String(action.name)}" does not accept input`,
     );
   }
 

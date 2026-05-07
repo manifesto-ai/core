@@ -5,16 +5,23 @@ import {
 
 export type CanonicalNamespaces = CoreSnapshot["namespaces"];
 
-export type Snapshot<T = unknown> = {
-  state: T;
-  computed: Record<string, unknown>;
+export type Snapshot<
+  TState = unknown,
+  TComputed = Record<string, unknown>,
+> = {
+  state: TState;
+  computed: TComputed;
   system: Pick<CoreSnapshot["system"], "status" | "lastError">;
   meta: Pick<CoreSnapshot["meta"], "schemaHash">;
 };
 
-export type CanonicalSnapshot<T = unknown> =
-  Omit<CoreSnapshot, "state"> & {
-    state: T;
+export type CanonicalSnapshot<
+  TState = unknown,
+  TComputed = Record<string, unknown>,
+> =
+  Omit<CoreSnapshot, "state" | "computed"> & {
+    state: TState;
+    computed: TComputed;
     namespaces: CanonicalNamespaces;
   };
 
@@ -30,13 +37,16 @@ export function buildSnapshotProjectionPlan(
   };
 }
 
-export function projectCanonicalSnapshot<T = unknown>(
+export function projectCanonicalSnapshot<
+  TState = unknown,
+  TComputed = Record<string, unknown>,
+>(
   snapshot: CoreSnapshot,
   plan: SnapshotProjectionPlan,
-): Snapshot<T> {
+): Snapshot<TState, TComputed> {
   return {
-    state: projectState<T>(snapshot.state),
-    computed: projectComputed(snapshot.computed, plan),
+    state: projectState<TState>(snapshot.state),
+    computed: projectComputed<TComputed>(snapshot.computed, plan),
     system: {
       status: snapshot.system.status,
       lastError: snapshot.system.lastError,
@@ -47,20 +57,26 @@ export function projectCanonicalSnapshot<T = unknown>(
   };
 }
 
-export function projectEffectContextSnapshot<T = unknown>(
+export function projectEffectContextSnapshot<
+  TState = unknown,
+  TComputed = Record<string, unknown>,
+>(
   snapshot: CoreSnapshot,
   plan: SnapshotProjectionPlan,
-): Snapshot<T> {
-  return projectCanonicalSnapshot<T>(snapshot, plan);
+): Snapshot<TState, TComputed> {
+  return projectCanonicalSnapshot<TState, TComputed>(snapshot, plan);
 }
 
 export function cloneAndDeepFreeze<T>(value: T): T {
   return deepFreeze(structuredClone(value));
 }
 
-export function projectedSnapshotsEqual<T>(
-  left: Snapshot<T>,
-  right: Snapshot<T>,
+export function projectedSnapshotsEqual<
+  TState,
+  TComputed = Record<string, unknown>,
+>(
+  left: Snapshot<TState, TComputed>,
+  right: Snapshot<TState, TComputed>,
 ): boolean {
   return cycleSafeEqual(left, right);
 }
@@ -69,10 +85,10 @@ function projectState<T>(state: unknown): T {
   return structuredClone(state) as T;
 }
 
-function projectComputed(
+function projectComputed<TComputed>(
   computed: CoreSnapshot["computed"],
   plan: SnapshotProjectionPlan,
-): Snapshot["computed"] {
+): TComputed {
   const projected: Record<string, unknown> = {};
 
   for (const key of plan.visibleComputedKeys) {
@@ -81,7 +97,7 @@ function projectComputed(
     }
   }
 
-  return structuredClone(projected);
+  return structuredClone(projected) as TComputed;
 }
 
 function cycleSafeEqual(left: unknown, right: unknown): boolean {

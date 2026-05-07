@@ -97,6 +97,13 @@ describe("Golden: Workflow End-to-End", () => {
           },
         },
         setTask: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              name: { type: "string", required: true },
+            },
+          },
           flow: {
             kind: "seq",
             steps: [
@@ -136,6 +143,13 @@ describe("Golden: Workflow End-to-End", () => {
           },
         },
         setPriority: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              priority: { type: "number", required: true },
+            },
+          },
           flow: {
             kind: "seq",
             steps: [

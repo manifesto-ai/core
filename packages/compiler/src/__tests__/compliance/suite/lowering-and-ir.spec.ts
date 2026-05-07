@@ -701,6 +701,66 @@ describe("CCTS Lowering and IR Suite", () => {
     ]);
   });
 
+  it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(ADR-028) once marker paths preserve dynamic segments"), async () => {
+    const compiled = adapter.compile(`
+      domain Demo {
+        state {
+          markers: Record<string, string | null> = {}
+          writes: Record<string, number> = {}
+        }
+        action write(id: string, value: number) {
+          once(markers[id]) {
+            patch writes[id] = value
+          }
+        }
+      }
+    `);
+
+    const flow = compiled.value?.actions["write"]?.flow;
+    const patches = collectPatchFlows(flow);
+    const rendered = JSON.stringify(compiled.value);
+    const markerPatch = patches.find((patch) =>
+      patch.path[0]?.kind === "prop" &&
+      patch.path[0].name === "markers" &&
+      patch.path[1]?.kind === "expr" &&
+      patch.path[1].expr.kind === "get" &&
+      patch.path[1].expr.path === "input.id"
+    );
+
+    expect(compiled.errors).toEqual([]);
+    expect(rendered).not.toContain('"*"');
+    expect(markerPatch).toBeDefined();
+
+    const core = createCore();
+    const snapshot = createSnapshot(
+      { markers: {}, writes: {} },
+      compiled.value!.hash,
+      TEST_CONTEXT
+    );
+    const first = await core.compute(
+      compiled.value!,
+      snapshot,
+      createIntent("write", { id: "alpha", value: 1 }, "intent-alpha-1"),
+      TEST_CONTEXT
+    );
+    const firstSnapshot = core.apply(compiled.value!, snapshot, first.patches);
+    const second = await core.compute(
+      compiled.value!,
+      firstSnapshot,
+      createIntent("write", { id: "beta", value: 2 }, "intent-beta-1"),
+      TEST_CONTEXT
+    );
+
+    expect(first.patches.map((patch) => patchPathToDisplayString(patch.path))).toEqual([
+      "markers.alpha",
+      "writes.alpha",
+    ]);
+    expect(second.patches.map((patch) => patchPathToDisplayString(patch.path))).toEqual([
+      "markers.beta",
+      "writes.beta",
+    ]);
+  });
+
   it(caseTitle(CCTS_CASES.IR_SYSTEM_LOWERING, "(ADR-028) runtime schema hash includes lowered Flow IR"), () => {
     const dynamicTargetSource = `
       domain DynamicTarget {

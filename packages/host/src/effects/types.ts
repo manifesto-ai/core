@@ -1,4 +1,4 @@
-import type { Patch, Requirement, Snapshot } from "@manifesto-ai/core";
+import type { NamespaceDelta, Patch, Requirement, Snapshot } from "@manifesto-ai/core";
 
 /**
  * Context provided to effect handlers
@@ -58,32 +58,41 @@ export interface RegisteredHandler {
   options: Required<EffectHandlerOptions>;
 }
 
-/**
- * Effect execution result
- */
-export interface EffectResult {
-  /**
-   * Whether the effect was successful
-   */
-  success: boolean;
+export interface EffectFailure {
+  readonly code: string;
+  readonly message: string;
+}
 
+type EffectResultBase = {
   /**
-   * Patches returned by the handler (empty on failure)
+   * Host-owned namespace deltas produced by internal effect execution plumbing.
+   *
+   * The public EffectHandler contract remains Patch[]; this field is for
+   * Host-owned adapters that need to preserve namespace transitions.
    */
-  patches: Patch[];
-
-  /**
-   * Error message if failed
-   */
-  error?: string;
-
-  /**
-   * Error code if failed
-   */
-  errorCode?: string;
+  readonly namespaceDelta?: readonly NamespaceDelta[];
 
   /**
    * Time taken in milliseconds
    */
-  duration: number;
-}
+  readonly duration: number;
+};
+
+export type EffectResult =
+  | (EffectResultBase & {
+      readonly ok: true;
+      /** @deprecated Use ok. */
+      readonly success: true;
+      readonly patches: Patch[];
+    })
+  | (EffectResultBase & {
+      readonly ok: false;
+      /** @deprecated Use ok. */
+      readonly success: false;
+      readonly patches: [];
+      readonly failure: EffectFailure;
+      /** @deprecated Use failure.message. */
+      readonly error: string;
+      /** @deprecated Use failure.code. */
+      readonly errorCode: string;
+    });

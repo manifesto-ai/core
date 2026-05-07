@@ -35,6 +35,13 @@ describe("ManifestoHost", () => {
           },
         },
         setName: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              name: { type: "string", required: true },
+            },
+          },
           flow: {
             kind: "patch",
             op: "set", path: pp("name"),
@@ -54,6 +61,23 @@ describe("ManifestoHost", () => {
     it("should use schema", () => {
       const host = createHost(schema, { initialData: {} });
       expect(host.getSchema()).toBe(schema);
+    });
+
+    it("should accept a canonical initialSnapshot", () => {
+      const initialSnapshot = createTestSnapshot({ count: 2 }, schema.hash);
+      const host = createHost(schema, { initialSnapshot });
+
+      expect(host.getSnapshot()?.state).toEqual({ count: 2 });
+      expect(host.getSnapshot()?.meta.schemaHash).toBe(schema.hash);
+    });
+
+    it("should reject ambiguous initialSnapshot and initialData options", () => {
+      const initialSnapshot = createTestSnapshot({ count: 2 }, schema.hash);
+
+      expect(() => createHost(schema, {
+        initialSnapshot,
+        initialData: { count: 2 },
+      })).toThrow("either initialSnapshot or legacy initialData");
     });
   });
 
@@ -384,6 +408,13 @@ describe("ManifestoHost", () => {
         },
         actions: {
           addItem: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                price: { type: "number", required: true },
+              },
+            },
             flow: {
               kind: "patch",
               op: "set", path: pp("itemsTotal"),
@@ -395,6 +426,13 @@ describe("ManifestoHost", () => {
             },
           },
           setShipping: {
+            input: {
+              type: "object",
+              required: true,
+              fields: {
+                amount: { type: "number", required: true },
+              },
+            },
             flow: {
               kind: "patch",
               op: "set", path: pp("shipping"),
@@ -469,11 +507,7 @@ describe("ManifestoHost", () => {
   });
 
   describe("Availability bypass scenarios (#134 review concern)", () => {
-    it("SCENARIO: sequential dispatch after max-iterations leaves currentAction in snapshot", async () => {
-      // This tests the reviewer's concern: can a second dispatch of the same
-      // action type skip availability because the first dispatch left
-      // currentAction set in the shared snapshot?
-      //
+    it("SCENARIO: max-iterations preserves stable head and does not leak currentAction", async () => {
       // Setup: action "run" with available when isNull(pending),
       // maxIterations = 1 so the first dispatch exits before ContinueCompute.
       const lifecycleSchema = createTestSchema({
@@ -522,37 +556,34 @@ describe("ManifestoHost", () => {
         { op: "set", path: pp("result"), value: "done" },
       ]);
 
-      // 1st dispatch: exits with LOOP_MAX_ITERATIONS, currentAction may be set
+      // 1st dispatch: exits with LOOP_MAX_ITERATIONS.
       const result1 = await host.dispatch(
         { type: "run", intentId: "intent-A", input: undefined }
       );
       expect(result1.status).toBe("error");
       expect(result1.error?.code).toBe("LOOP_MAX_ITERATIONS");
+      expect(result1.snapshot.system.currentAction).toBeNull();
 
-      // Check what the shared snapshot looks like after a max-iterations error
       const snapshotAfter = host.getSnapshot();
       const currentAction = snapshotAfter?.system.currentAction;
       const pending = (snapshotAfter?.state as Record<string, unknown>)?.pending;
+      const hostLastError = (snapshotAfter?.namespaces.host as {
+        lastError?: { code?: string };
+      } | undefined)?.lastError;
 
-      // Log the actual state for documentation
-      // currentAction may or may not be "run" depending on Host's cleanup behavior
-      // pending should be "intent-A" (patched by the first compute)
+      expect(currentAction).toBeNull();
+      expect(pending).toBeNull();
+      expect(hostLastError?.code).toBe("LOOP_MAX_ITERATIONS");
 
       // 2nd dispatch: same action type, different intentId
       const result2 = await host.dispatch(
         { type: "run", intentId: "intent-B", input: undefined }
       );
 
-      // VERIFIED: max-iterations exit DOES leak currentAction into shared snapshot.
-      // This confirms the reviewer's concern is technically reachable.
-      expect(currentAction).toBe("run");
-      expect(pending).toBe("intent-A");
-
-      // Intent B arrives on this dirty snapshot — type-only guard treats it as re-entry.
-      // Availability IS bypassed. But the flow's state guard prevents harmful side effects:
-      // pending is "intent-A" → if isNull(pending) is false → branch skipped → no-op.
-      expect(result2.snapshot.system.lastError?.code).not.toBe("ACTION_UNAVAILABLE");
-      expect((result2.snapshot.state as Record<string, unknown>).pending).toBe("intent-A");
+      expect(result2.status).toBe("error");
+      expect(result2.error?.code).toBe("LOOP_MAX_ITERATIONS");
+      expect(result2.snapshot.system.currentAction).toBeNull();
+      expect((result2.snapshot.state as Record<string, unknown>).pending).toBeNull();
     });
 
     it("SCENARIO: normal sequential dispatch does NOT leak currentAction", async () => {

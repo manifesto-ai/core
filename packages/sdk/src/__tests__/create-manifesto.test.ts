@@ -120,7 +120,7 @@ describe("createManifesto()", () => {
     const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
     const app = manifesto.activate();
 
-    expect(app.actions.increment.info().name).toBe("increment");
+    expect(app.action.increment.info().name).toBe("increment");
     expect(app.snapshot().state.count).toBe(0);
     expect(() => manifesto.activate()).toThrow(AlreadyActivatedError);
   });
@@ -145,7 +145,7 @@ describe("createManifesto()", () => {
   it("packs bound action intents from schema parameter metadata", () => {
     const app = createManifesto<TodoDomain>(createTodoSchema(), {}).activate();
 
-    const bound = app.actions.addTodo.bind("Write docs", "todo-1");
+    const bound = app.action.addTodo.bind("Write docs", "todo-1");
 
     expect(bound.input).toEqual(["Write docs", "todo-1"]);
     expect(bound.intent()).toMatchObject({
@@ -161,7 +161,7 @@ describe("createManifesto()", () => {
       { annotations: { addTodo: { title: "Add Todo", "ui:button": true } } },
     ).activate();
 
-    expect(app.actions.addTodo.info()).toMatchObject({
+    expect(app.action.addTodo.info()).toMatchObject({
       name: "addTodo",
       title: "Add Todo",
       description: "Add a todo",
@@ -171,13 +171,13 @@ describe("createManifesto()", () => {
       ],
       annotations: { title: "Add Todo", "ui:button": true },
     });
-    expect(app.inspect.action("addTodo")).toEqual(app.actions.addTodo.info());
+    expect(app.inspect.action("addTodo")).toEqual(app.action.addTodo.info());
   });
 
   it("compiles MEL source strings before activation", async () => {
     const app = createManifesto<MelCounterDomain>(counterMelSource, {}).activate();
 
-    const result = await app.actions.increment.submit();
+    const result = await app.action.increment.submit();
 
     expect(result.ok && result.after.state.count).toBe(1);
   });
@@ -185,7 +185,7 @@ describe("createManifesto()", () => {
   it("surfaces MEL @meta annotations through ActionHandle.info()", () => {
     const app = createManifesto<MelCounterDomain>(annotatedMelSource, {}).activate();
 
-    expect(app.actions.increment.info()).toMatchObject({
+    expect(app.action.increment.info()).toMatchObject({
       name: "increment",
       annotations: {
         "ui:button": { variant: "primary" },
@@ -208,7 +208,7 @@ describe("createManifesto()", () => {
       },
     ).activate();
 
-    expect(app.actions.increment.info()).toMatchObject({
+    expect(app.action.increment.info()).toMatchObject({
       title: "Caller Increment",
       annotations: {
         title: "Caller Increment",
@@ -221,7 +221,7 @@ describe("createManifesto()", () => {
   it("does not infer annotations from DomainSchema inputs without options.annotations", () => {
     const app = createManifesto<TodoDomain>(createTodoSchema(), {}).activate();
 
-    expect(app.actions.addTodo.info()).not.toHaveProperty("annotations");
+    expect(app.action.addTodo.info()).not.toHaveProperty("annotations");
   });
 
   it("throws CompileError for invalid MEL source", () => {

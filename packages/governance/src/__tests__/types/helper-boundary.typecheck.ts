@@ -27,7 +27,7 @@ function submitGoverned<
   action: K,
   ...args: ActionArgs<T, K>
 ): Promise<GovernanceSubmissionResult<T, K>> {
-  return runtime.action(action).bind(...args).submit();
+  return runtime.action[action].bind(...args).submit();
 }
 
 const governed = withGovernance<CounterDomain>(

@@ -44,7 +44,7 @@ function getAvailableActionRefs<T extends ManifestoDomainShape>(
 
   return Object.freeze(
     ext.getAvailableActionsFor(snapshot).map(
-      (name) => ext.MEL.actions[name],
+      (name) => ext.refs.actions[name],
     ) as readonly SimulationActionRef<T>[],
   );
 }

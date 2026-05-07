@@ -20,21 +20,28 @@ import {
   type BoundAction,
   type CanonicalSnapshot,
   type ChangedPath,
+  type ComputedReadSurface,
+  type ComputedRef,
   type DispatchBlocker,
   type DispatchExecutionOutcome,
   type ExecutionDiagnostics,
   type ExecutionOutcome,
   type ExecutionView,
+  type FieldRef,
   type LineageSubmissionResult,
   type LineageWriteReport,
   type ManifestoDomainShape,
+  type ObserveSurface,
   type PreviewDiagnosticsMode,
   type PreviewResult,
+  type ProjectedReadHandle,
   type ProjectedSnapshot,
+  type StateReadSurface,
   type SubmitReportMode,
   type TypedActionMetadata,
   type TypedActionRef,
   type TypedIntent,
+  type Unsubscribe,
   type WorldRecord,
 } from "@manifesto-ai/sdk";
 import {
@@ -79,7 +86,6 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
   let runtimeView = freezeRuntimeView(view);
   const controller = createLineageRuntimeController(kernel, service, config);
   const actionInfoByName = new Map<ActionName<T>, ActionInfo<ActionName<T>>>();
-  const actionHandleByName = new Map<ActionName<T>, ActionHandle<T, ActionName<T>, "lineage">>();
 
   for (const metadata of kernel.getActionMetadata()) {
     actionInfoByName.set(
@@ -88,11 +94,10 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
     );
   }
 
-  const actions = Object.create(null) as ActionSurface<T, "lineage">;
+  const action = Object.create(null) as ActionSurface<T, "lineage">;
   for (const name of actionInfoByName.keys()) {
     const handle = createActionHandle(name);
-    actionHandleByName.set(name, handle);
-    Object.defineProperty(actions, name, {
+    Object.defineProperty(action, name, {
       enumerable: true,
       configurable: false,
       writable: false,
@@ -100,50 +105,43 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
     });
   }
 
-  function action<Name extends ActionName<T>>(
-    name: Name,
-  ): ActionHandle<T, Name, "lineage"> {
-    const handle = actionHandleByName.get(name);
-    if (!handle) {
-      throw new ManifestoError(
-        "UNKNOWN_ACTION",
-        `Action "${String(name)}" is not declared by this Manifesto schema`,
-      );
+  function observeState<S>(
+    selector: (snapshot: ProjectedSnapshot<T>) => S,
+    listener: (next: S, prev: S) => void,
+  ): Unsubscribe {
+    if (kernel.isDisposed()) {
+      return () => {};
     }
-    return handle as ActionHandle<T, Name, "lineage">;
+
+    let previous: S;
+    try {
+      previous = selector(kernel.getSnapshot());
+    } catch {
+      previous = undefined as S;
+    }
+
+    return kernel.subscribe(selector, (next) => {
+      const prev = previous;
+      previous = next;
+      listener(next, prev);
+    });
   }
 
+  const observe: ObserveSurface<T> = Object.freeze({
+    state: observeState,
+    event(event, listener) {
+      if (kernel.isDisposed()) {
+        return () => {};
+      }
+      return kernel.on(event, listener);
+    },
+  });
+
   const runtime = {
-    actions: Object.freeze(actions),
-    observe: Object.freeze({
-      state<S>(
-        selector: (snapshot: ProjectedSnapshot<T>) => S,
-        listener: (next: S, prev: S) => void,
-      ) {
-        if (kernel.isDisposed()) {
-          return () => {};
-        }
-
-        let previous: S;
-        try {
-          previous = selector(kernel.getSnapshot());
-        } catch {
-          previous = undefined as S;
-        }
-
-        return kernel.subscribe(selector, (next) => {
-          const prev = previous;
-          previous = next;
-          listener(next, prev);
-        });
-      },
-      event(event, listener) {
-        if (kernel.isDisposed()) {
-          return () => {};
-        }
-        return kernel.on(event, listener);
-      },
-    }),
+    action: Object.freeze(action),
+    state: createStateReadSurface(),
+    computed: createComputedReadSurface(),
+    observe,
     inspect: Object.freeze({
       graph: kernel.getSchemaGraph,
       canonicalSnapshot: kernel.getCanonicalSnapshot,
@@ -192,7 +190,6 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
         true,
       );
     },
-    action,
     dispose: kernel.dispose,
     restore: controller.restore,
     getWorld: controller.getWorld,
@@ -207,6 +204,57 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
   } satisfies LineageInstance<T>;
 
   return Object.freeze(attachExtensionKernel(runtime, kernel));
+
+  function createReadHandle<TValue, TRef>(
+    name: string,
+    ref: TRef,
+    select: (snapshot: ProjectedSnapshot<T>) => TValue,
+  ): ProjectedReadHandle<TValue, TRef> {
+    return Object.freeze({
+      name,
+      ref,
+      value: () => select(kernel.getSnapshot()),
+      observe: (listener) => observeState(select, listener),
+    });
+  }
+
+  function createStateReadSurface(): StateReadSurface<T> {
+    const surface: Record<PropertyKey, unknown> = Object.create(null);
+    for (const name of Object.keys(kernel.MEL.state) as Array<keyof T["state"] & string>) {
+      const ref = kernel.MEL.state[name] as FieldRef<T["state"][typeof name]>;
+      Object.defineProperty(surface, name, {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: createReadHandle(
+          name,
+          ref,
+          (snapshot) => snapshot.state[name],
+        ),
+      });
+    }
+
+    return Object.freeze(surface) as StateReadSurface<T>;
+  }
+
+  function createComputedReadSurface(): ComputedReadSurface<T> {
+    const surface: Record<PropertyKey, unknown> = Object.create(null);
+    for (const name of Object.keys(kernel.MEL.computed) as Array<keyof T["computed"] & string>) {
+      const ref = kernel.MEL.computed[name] as ComputedRef<T["computed"][typeof name]>;
+      Object.defineProperty(surface, name, {
+        enumerable: true,
+        configurable: false,
+        writable: false,
+        value: createReadHandle(
+          name,
+          ref,
+          (snapshot) => snapshot.computed[name],
+        ),
+      });
+    }
+
+    return Object.freeze(surface) as ComputedReadSurface<T>;
+  }
 
   function createActionHandle<Name extends ActionName<T>>(
     name: Name,
@@ -250,8 +298,8 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
     args: ActionArgs<T, Name>,
   ): Candidate<T, Name> {
     const actionRef = kernel.MEL.actions[name] as TypedActionRef<T, Name>;
-    const publicInput = toPublicInput(args);
-    const stableInput = tryCloneAndFreezeActionPayload(publicInput);
+    const publicInput = toPublicInput<Name>(name, args);
+    const stableInput = tryCloneAndFreezeActionPayload<ActionInput<T, Name>>(publicInput);
     if (!stableInput.ok) {
       return Object.freeze({
         actionName: name,
@@ -288,10 +336,16 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
   }
 
   function toPublicInput<Name extends ActionName<T>>(
+    name: Name,
     args: readonly unknown[],
   ): ActionInput<T, Name> {
     if (args.length === 0) {
       return undefined as ActionInput<T, Name>;
+    }
+
+    const metadata = kernel.getActionMetadata(name);
+    if (metadata.publicArity > 1) {
+      return Object.freeze([...args]) as ActionInput<T, Name>;
     }
 
     if (args.length === 1) {
@@ -433,6 +487,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
         ...(runtimeView.report !== "none"
           ? {
             report: createLineageReport(
+              runtimeView.report,
               candidate.actionName,
               sealed.preparedCommit.worldId,
               sealed.preparedCommit.branchId,
@@ -759,6 +814,7 @@ function toBlocker(blocker: DispatchBlocker, code: Blocker["code"]): Blocker {
 }
 
 function createLineageReport(
+  reportMode: SubmitReportMode | undefined,
   action: string,
   worldId: string,
   branchId: string,
@@ -781,7 +837,7 @@ function createLineageReport(
     sealedSnapshotHash,
     changes,
     requirements,
-    diagnostics,
+    ...(reportMode === "full" ? { diagnostics } : {}),
   });
 }
 

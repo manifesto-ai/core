@@ -77,6 +77,13 @@ describe("Golden: Determinism Verification", () => {
           },
         },
         setValueA: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              value: { type: "number", required: true },
+            },
+          },
           flow: {
             kind: "patch",
             op: "set", path: pp("valueA"),
@@ -84,6 +91,13 @@ describe("Golden: Determinism Verification", () => {
           },
         },
         setValueB: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              value: { type: "number", required: true },
+            },
+          },
           flow: {
             kind: "patch",
             op: "set", path: pp("valueB"),
@@ -91,6 +105,13 @@ describe("Golden: Determinism Verification", () => {
           },
         },
         setFlag: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              flag: { type: "boolean", required: true },
+            },
+          },
           flow: {
             kind: "patch",
             op: "set", path: pp("flag"),
@@ -98,6 +119,13 @@ describe("Golden: Determinism Verification", () => {
           },
         },
         setLabel: {
+          input: {
+            type: "object",
+            required: true,
+            fields: {
+              label: { type: "string", required: true },
+            },
+          },
           flow: {
             kind: "patch",
             op: "set", path: pp("label"),

@@ -23,35 +23,35 @@ type EffectsDomain = {
   };
 };
 
-const effects = defineEffects<EffectsDomain>(({ set, unset, merge }, MEL) => ({
+const effects = defineEffects<EffectsDomain>(({ set, unset, merge }, refs) => ({
   "api.fetchUser": async () => [
-    set(MEL.state.loading, false),
-    set(MEL.state.user, { id: "123", name: "Ada" }),
-    unset(MEL.state.user),
-    merge(MEL.state.profile, { name: "Ada", source: "api" }),
+    set(refs.state.loading, false),
+    set(refs.state.user, { id: "123", name: "Ada" }),
+    unset(refs.state.user),
+    merge(refs.state.profile, { name: "Ada", source: "api" }),
   ],
 }));
 
 void effects;
 
-defineEffects<EffectsDomain>(({ set, merge }, MEL) => {
+defineEffects<EffectsDomain>(({ set, merge }, refs) => {
   // @ts-expect-error wrong value type for boolean field
-  void set(MEL.state.loading, "oops");
+  void set(refs.state.loading, "oops");
 
   // @ts-expect-error set must derive its value type from the referenced field
-  void set(MEL.state.loading, undefined);
+  void set(refs.state.loading, undefined);
 
   // @ts-expect-error merge rejects primitive fields
-  void merge(MEL.state.loading, { nope: true });
+  void merge(refs.state.loading, { nope: true });
 
   // @ts-expect-error merge rejects array fields
-  void merge(MEL.state.tags, { 0: "tag" });
+  void merge(refs.state.tags, { 0: "tag" });
 
   // @ts-expect-error merge rejects computed refs
-  void merge(MEL.computed.userCount, { nope: true });
+  void merge(refs.computed.userCount, { nope: true });
 
   // @ts-expect-error set rejects action refs
-  void set(MEL.actions.fetchUser, { id: "123", name: "Ada" });
+  void set(refs.actions.fetchUser, { id: "123", name: "Ada" });
 
   return {};
 });

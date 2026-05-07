@@ -11,6 +11,12 @@ import {
 import { typeDefinitionToDomainType } from "./domain-type-definition.js";
 
 const PLUGIN_NAME = "codegen-plugin-domain";
+const RESERVED_PUBLIC_ACTION_NAMES = new Set([
+  "then",
+  "constructor",
+  "prototype",
+  "__proto__",
+]);
 
 export interface DomainPluginOptions {
   readonly fileName?: string;
@@ -58,6 +64,22 @@ export function createDomainPlugin(options?: DomainPluginOptions): CodegenPlugin
       );
 
       const actionNames = Object.keys(ctx.schema.actions).sort();
+      const reservedActionNames = actionNames.filter((name) =>
+        RESERVED_PUBLIC_ACTION_NAMES.has(name)
+      );
+      if (reservedActionNames.length > 0) {
+        diagnostics.push({
+          level: "error",
+          plugin: PLUGIN_NAME,
+          message: `Reserved public action name${
+            reservedActionNames.length === 1 ? "" : "s"
+          } ${reservedActionNames.map((name) => `"${name}"`).join(", ")} cannot be emitted in SDK v5 facade output`,
+        });
+        return {
+          patches: [],
+          diagnostics,
+        };
+      }
       const actionLines = actionNames.map((name) => {
         const action = ctx.schema.actions[name];
         return `    ${name}: ${renderActionSignature(action, schemaTypes, diagnostics)}`;
@@ -93,12 +115,12 @@ export function createDomainPlugin(options?: DomainPluginOptions): CodegenPlugin
         `export type ${facadePrefix}ActionArgs<Name extends keyof ${interfaceName}["actions"] & string> =`,
         `  ActionArgs<${interfaceName}, Name>;`,
         "",
-        `export type ${facadePrefix}Actions<TMode extends RuntimeMode> = {`,
+        `export type ${facadePrefix}ActionSurface<TMode extends RuntimeMode> = {`,
         `  readonly [Name in keyof ${interfaceName}["actions"] & string]:`,
         `    ActionHandle<${interfaceName}, Name, TMode>;`,
         "};",
         "",
-        `export type ${facadePrefix}ActionAccessor<TMode extends RuntimeMode> =`,
+        `export type ${facadePrefix}ActionSurfaceFromApp<TMode extends RuntimeMode> =`,
         `  ManifestoApp<${interfaceName}, TMode>["action"];`,
         "",
         `export type ${facadePrefix}App<TMode extends RuntimeMode> =`,

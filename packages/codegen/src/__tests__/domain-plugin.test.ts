@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +15,151 @@ function makeCtx(overrides: Parameters<typeof createTestSchema>[0] = {}): Codege
   return {
     schema: createTestSchema(overrides),
     sourceId: "src/domain/hello.mel",
+    outDir: "/tmp/out",
+    artifacts: {},
+    helpers: { stableHash },
+  };
+}
+
+function stripGeneratedHeader(content: string): string {
+  const lines = content.split("\n");
+  if (lines[0]?.startsWith("// @generated") && lines[1]?.startsWith("// Source:")) {
+    return lines.slice(2).join("\n");
+  }
+  return content;
+}
+
+function makeTodoFacadeCtx(): CodegenContext {
+  const stringType = { kind: "primitive" as const, type: "string" };
+  const booleanType = { kind: "primitive" as const, type: "boolean" };
+  const filterModeType = {
+    kind: "union" as const,
+    types: [
+      { kind: "literal" as const, value: "all" },
+      { kind: "literal" as const, value: "active" },
+      { kind: "literal" as const, value: "completed" },
+    ],
+  };
+
+  return {
+    schema: createTestSchema({
+      meta: { name: "TodoDomain" },
+      types: {
+        Todo: {
+          name: "Todo",
+          definition: {
+            kind: "object",
+            fields: {
+              completed: { type: booleanType, optional: false },
+              id: { type: stringType, optional: false },
+              title: { type: stringType, optional: false },
+            },
+          },
+        },
+      },
+      state: {
+        fields: {
+          todos: {
+            type: "array",
+            required: true,
+            default: [],
+            items: {
+              type: "object",
+              required: true,
+              fields: {
+                completed: { type: "boolean", required: true },
+                id: { type: "string", required: true },
+                title: { type: "string", required: true },
+              },
+            },
+          },
+          filterMode: { type: "string", required: true, default: "all" },
+        },
+        fieldTypes: {
+          todos: { kind: "array", element: { kind: "ref", name: "Todo" } },
+          filterMode: filterModeType,
+        },
+      },
+      computed: {
+        fields: {
+          todoCount: {
+            deps: ["todos"],
+            expr: { kind: "len", arg: { kind: "get", path: "todos" } },
+          },
+          completedCount: {
+            deps: ["todos"],
+            expr: {
+              kind: "len",
+              arg: {
+                kind: "filter",
+                array: { kind: "get", path: "todos" },
+                predicate: { kind: "get", path: "$item.completed" },
+              },
+            },
+          },
+          activeCount: {
+            deps: ["todoCount", "completedCount"],
+            expr: {
+              kind: "sub",
+              left: { kind: "get", path: "todoCount" },
+              right: { kind: "get", path: "completedCount" },
+            },
+          },
+          hasCompleted: {
+            deps: ["completedCount"],
+            expr: {
+              kind: "gt",
+              left: { kind: "get", path: "completedCount" },
+              right: { kind: "lit", value: 0 },
+            },
+          },
+        },
+      },
+      actions: {
+        addTodo: {
+          flow: { kind: "seq", steps: [] },
+          params: ["title"],
+          inputType: {
+            kind: "object",
+            fields: {
+              title: { type: stringType, optional: false },
+            },
+          },
+        },
+        clearCompleted: { flow: { kind: "seq", steps: [] } },
+        removeTodo: {
+          flow: { kind: "seq", steps: [] },
+          params: ["id"],
+          inputType: {
+            kind: "object",
+            fields: {
+              id: { type: stringType, optional: false },
+            },
+          },
+        },
+        setFilter: {
+          flow: { kind: "seq", steps: [] },
+          params: ["newFilter"],
+          inputType: {
+            kind: "object",
+            fields: {
+              newFilter: { type: filterModeType, optional: false },
+            },
+          },
+        },
+        toggleTodo: {
+          flow: { kind: "seq", steps: [] },
+          params: ["id"],
+          inputType: {
+            kind: "object",
+            fields: {
+              id: { type: stringType, optional: false },
+            },
+          },
+        },
+      },
+    }),
+    sourceId: "src/domain/todo.mel",
     outDir: "/tmp/out",
     artifacts: {},
     helpers: { stableHash },
@@ -173,15 +318,29 @@ describe("createDomainPlugin", () => {
     expect(out.patches[0].content).toContain("ActionInput<HelloDomain, Name>;");
     expect(out.patches[0].content).toContain("export type HelloActionArgs<Name extends keyof HelloDomain[\"actions\"] & string> =");
     expect(out.patches[0].content).toContain("ActionArgs<HelloDomain, Name>;");
-    expect(out.patches[0].content).toContain("export type HelloActions<TMode extends RuntimeMode> = {");
+    expect(out.patches[0].content).toContain("export type HelloActionSurface<TMode extends RuntimeMode> = {");
     expect(out.patches[0].content).toContain("ActionHandle<HelloDomain, Name, TMode>;");
-    expect(out.patches[0].content).toContain("export type HelloActionAccessor<TMode extends RuntimeMode> =");
+    expect(out.patches[0].content).toContain("export type HelloActionSurfaceFromApp<TMode extends RuntimeMode> =");
     expect(out.patches[0].content).toContain("ManifestoApp<HelloDomain, TMode>[\"action\"];");
     expect(out.patches[0].content).toContain("export type HelloApp<TMode extends RuntimeMode> =");
     expect(out.patches[0].content).toContain("ManifestoApp<HelloDomain, TMode>;");
     expect(out.patches[0].content).not.toContain("dispatchAsync");
     expect(out.patches[0].content).not.toContain("commitAsync");
     expect(out.patches[0].content).not.toContain("proposeAsync");
+  });
+
+  it("keeps the todo example facade fresh against the current domain plugin", () => {
+    const plugin = createDomainPlugin({ interfaceName: "TodoDomain" });
+    const out = plugin.generate(makeTodoFacadeCtx());
+    const checkedIn = readFileSync(
+      join(REPO_ROOT, "examples/todo-react/src/domain/todo.domain.ts"),
+      "utf8",
+    );
+
+    expect(out.diagnostics).toEqual([]);
+    expect(out.patches).toHaveLength(1);
+    expect(out.patches[0].path).toBe("src/domain/todo.domain.ts");
+    expect(out.patches[0].content).toBe(stripGeneratedHeader(checkedIn));
   });
 
   it("prefers precise state.fieldTypes and warns when TypeDefinition metadata degrades", () => {
@@ -316,15 +475,13 @@ describe("createDomainPlugin", () => {
     }));
   });
 
-  it("keeps colliding action names reachable through typed action(name) facade aliases", () => {
+  it("keeps root-like valid action names reachable through typed static action facade aliases", () => {
     const plugin = createDomainPlugin();
     const out = plugin.generate(
       makeCtx({
         meta: { name: "CollisionDomain" },
         actions: {
-          then: { flow: { kind: "seq", steps: [] } },
           bind: { flow: { kind: "seq", steps: [] } },
-          constructor: { flow: { kind: "seq", steps: [] } },
           inspect: { flow: { kind: "seq", steps: [] } },
           snapshot: { flow: { kind: "seq", steps: [] } },
           dispose: { flow: { kind: "seq", steps: [] } },
@@ -333,15 +490,34 @@ describe("createDomainPlugin", () => {
       })
     );
 
-    expect(out.patches[0].content).toContain("then: () => void");
     expect(out.patches[0].content).toContain("bind: () => void");
-    expect(out.patches[0].content).toContain("constructor: () => void");
     expect(out.patches[0].content).toContain("inspect: () => void");
     expect(out.patches[0].content).toContain("snapshot: () => void");
     expect(out.patches[0].content).toContain("dispose: () => void");
     expect(out.patches[0].content).toContain("action: () => void");
-    expect(out.patches[0].content).toContain("export type CollisionActionAccessor<TMode extends RuntimeMode> =");
+    expect(out.patches[0].content).toContain("export type CollisionActionSurfaceFromApp<TMode extends RuntimeMode> =");
     expect(out.patches[0].content).toContain("ManifestoApp<CollisionDomain, TMode>[\"action\"];");
+  });
+
+  it("rejects reserved public action names before emitting facade output", () => {
+    const plugin = createDomainPlugin();
+    const out = plugin.generate(
+      makeCtx({
+        meta: { name: "ReservedDomain" },
+        actions: Object.fromEntries(
+          ["then", "constructor", "prototype", "__proto__"].map((name) => [
+            name,
+            { flow: { kind: "seq", steps: [] } },
+          ]),
+        ),
+      }),
+    );
+
+    expect(out.patches).toHaveLength(0);
+    expect(out.diagnostics).toContainEqual(expect.objectContaining({
+      level: "error",
+      message: expect.stringContaining("Reserved public action names"),
+    }));
   });
 
   it("emits SDK v5 facade aliases that typecheck against the public SDK surface", () => {
@@ -378,7 +554,6 @@ describe("createDomainPlugin", () => {
               },
             },
           },
-          then: { flow: { kind: "seq", steps: [] } },
           bind: { flow: { kind: "seq", steps: [] } },
           action: { flow: { kind: "seq", steps: [] } },
         },
@@ -390,17 +565,17 @@ describe("createDomainPlugin", () => {
       "consumer.ts": `
         import type { ActionHandle, ManifestoApp } from "@manifesto-ai/sdk";
         import type {
-          TypecheckActionAccessor,
           TypecheckActionArgs,
           TypecheckActionInput,
-          TypecheckActions,
+          TypecheckActionSurface,
+          TypecheckActionSurfaceFromApp,
           TypecheckApp,
           TypecheckDomain,
         } from "./typecheck.domain.js";
 
         declare const app: TypecheckApp<"base">;
-        declare const actions: TypecheckActions<"base">;
-        declare const action: TypecheckActionAccessor<"base">;
+        declare const action: TypecheckActionSurface<"base">;
+        declare const appAction: TypecheckActionSurfaceFromApp<"base">;
 
         const renameArgs: TypecheckActionArgs<"rename"> = ["Ada", true];
         const configureArgs: TypecheckActionArgs<"configure"> = [{ retries: 3 }];
@@ -409,15 +584,14 @@ describe("createDomainPlugin", () => {
         const configureInput: TypecheckActionInput<"configure"> = { retries: 3 };
         const decrementInput: TypecheckActionInput<"decrement"> = undefined;
         const typedApp: ManifestoApp<TypecheckDomain, "base"> = app;
-        const renameHandle: ActionHandle<TypecheckDomain, "rename", "base"> = actions.rename;
+        const renameHandle: ActionHandle<TypecheckDomain, "rename", "base"> = action.rename;
 
-        typedApp.action("rename").preview(...renameArgs);
+        typedApp.action.rename.preview(...renameArgs);
         renameHandle.bind(...renameArgs);
-        actions.configure.submit(...configureArgs);
-        actions.decrement.check(...decrementArgs);
-        action("then").info();
-        action("bind").available();
-        action("action").check();
+        action.configure.submit(...configureArgs);
+        action.decrement.check(...decrementArgs);
+        appAction.bind.available();
+        appAction.action.check();
 
         void renameInput;
         void configureInput;

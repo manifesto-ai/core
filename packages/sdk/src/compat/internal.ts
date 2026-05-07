@@ -34,12 +34,13 @@ import type {
   ManifestoDomainShape,
   ManifestoEvent,
   ManifestoEventPayloadMap,
+  ProjectedSnapshot,
   SchemaGraph,
   SimulationDiagnostics,
   SimulateResult as ProjectedSimulateResult,
-  Snapshot,
   TypedActionMetadata,
   TypedCreateIntent,
+  TypedDomainRefs,
   TypedGetActionMetadata,
   TypedGetIntentBlockers,
   TypedIntent,
@@ -92,11 +93,13 @@ export type SimulateResult<
 
 export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly schema: DomainSchema;
+  readonly refs: TypedDomainRefs<T>;
+  /** @deprecated Use refs. */
   readonly MEL: TypedMEL<T>;
   readonly createIntent: TypedCreateIntent<T>;
   readonly subscribe: TypedSubscribe<T>;
   readonly on: TypedOn<T>;
-  readonly getSnapshot: () => Snapshot<T["state"]>;
+  readonly getSnapshot: () => ProjectedSnapshot<T>;
   readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
   readonly getAvailableActionsFor: (
     snapshot: CanonicalSnapshot<T["state"]>,
@@ -135,7 +138,7 @@ export interface RuntimeKernel<T extends ManifestoDomainShape> {
   readonly setVisibleSnapshot: (
     snapshot: CoreSnapshot,
     options?: { readonly notify?: boolean },
-  ) => Snapshot<T["state"]>;
+  ) => ProjectedSnapshot<T>;
   readonly rehydrateSnapshot: (snapshot: CoreSnapshot) => CoreSnapshot;
   readonly restoreVisibleSnapshot: () => void;
   readonly emitEvent: <K extends ManifestoEvent>(

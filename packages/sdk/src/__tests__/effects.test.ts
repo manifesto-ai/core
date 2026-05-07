@@ -135,12 +135,12 @@ function createEffectsSchema(): DomainSchema {
 describe("@manifesto-ai/sdk/effects", () => {
   it("lowers set, unset, and merge to concrete top-level patch paths in order", async () => {
     const user: User = { id: "123", name: "Ada" };
-    const effects = defineEffects<EffectsDomain>(({ set, unset, merge }, MEL) => ({
+    const effects = defineEffects<EffectsDomain>(({ set, unset, merge }, refs) => ({
       "api.fetchUser": async () => [
-        set(MEL.state.user, user),
-        set(MEL.state.loading, false),
-        unset(MEL.state.error),
-        merge(MEL.state.profile, { name: user.name, source: "api" }),
+        set(refs.state.user, user),
+        set(refs.state.loading, false),
+        unset(refs.state.error),
+        merge(refs.state.profile, { name: user.name, source: "api" }),
       ],
     }));
 
@@ -194,15 +194,15 @@ describe("@manifesto-ai/sdk/effects", () => {
     const user: User = { id: "123", name: "Ada" };
     const app = createManifesto<EffectsDomain>(
       createEffectsSchema(),
-      defineEffects<EffectsDomain>(({ set, unset, merge }, MEL) => ({
+      defineEffects<EffectsDomain>(({ set, unset, merge }, refs) => ({
         "api.fetchUser": async (params) => {
           const { id } = params as { id: string };
 
           return [
-            set(MEL.state.user, { ...user, id }),
-            set(MEL.state.loading, false),
-            unset(MEL.state.error),
-            merge(MEL.state.profile, { name: user.name }),
+            set(refs.state.user, { ...user, id }),
+            set(refs.state.loading, false),
+            unset(refs.state.error),
+            merge(refs.state.profile, { name: user.name }),
           ];
         },
         "api.raw": async () => [{
@@ -213,14 +213,14 @@ describe("@manifesto-ai/sdk/effects", () => {
       })),
     ).activate();
 
-    const loaded = await app.actions.fetchUser.submit("123");
+    const loaded = await app.action.fetchUser.submit("123");
 
     expect(loaded.ok && loaded.after.state.user).toEqual(user);
     expect(loaded.ok && loaded.after.state.loading).toBe(false);
     expect(loaded.ok && loaded.after.state.profile).toEqual({ name: "Ada" });
     expect(loaded.ok && loaded.after.state).not.toHaveProperty("error");
 
-    const rawHandled = await app.actions.markRawHandled.submit();
+    const rawHandled = await app.action.markRawHandled.submit();
 
     expect(rawHandled.ok && rawHandled.after.state.rawHandled).toBe(true);
 
@@ -228,8 +228,8 @@ describe("@manifesto-ai/sdk/effects", () => {
   });
 
   it("rejects non-FieldRef inputs and reserved platform namespaces at runtime", () => {
-    const effects = defineEffects<EffectsDomain>(({ set, merge }, MEL) => {
-      expect(() => set(MEL.computed as never, true as never)).toThrowError(
+    const effects = defineEffects<EffectsDomain>(({ set, merge }, refs) => {
+      expect(() => set(refs.computed as never, true as never)).toThrowError(
         expect.objectContaining({
           code: "SCHEMA_ERROR",
         }),
@@ -241,7 +241,7 @@ describe("@manifesto-ai/sdk/effects", () => {
         }),
       );
 
-      expect(() => merge(MEL.state.profile, [] as never)).toThrowError(
+      expect(() => merge(refs.state.profile, [] as never)).toThrowError(
         expect.objectContaining({
           code: "SCHEMA_ERROR",
         }),
@@ -254,16 +254,16 @@ describe("@manifesto-ai/sdk/effects", () => {
   });
 
   it("surfaces helpful ManifestoError messages for runtime misuse", async () => {
-    const effects = defineEffects<EffectsDomain>(({ set }, MEL) => ({
+    const effects = defineEffects<EffectsDomain>(({ set }, refs) => ({
       "api.fetchUser": async () => {
-        set(MEL.actions.fetchUser as never, null as never);
+        set(refs.actions.fetchUser as never, null as never);
         return [];
       },
     }));
 
     await expect(effects["api.fetchUser"]({}, { snapshot: {} as never })).rejects.toMatchObject({
       code: "SCHEMA_ERROR",
-      message: "PatchBuilder.set() expects a FieldRef from defineEffects(..., MEL.state.*)",
+      message: "PatchBuilder.set() expects a FieldRef from defineEffects(..., refs.state.*)",
     });
   });
 });

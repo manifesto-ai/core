@@ -4,6 +4,7 @@ import {
   hashSchemaSync,
   semanticPathToPatchPath,
   type DomainSchema,
+  type Snapshot,
 } from "@manifesto-ai/core";
 import { createManifesto } from "@manifesto-ai/sdk";
 import {
@@ -65,6 +66,57 @@ function createCounterSchema(): DomainSchema {
 }
 
 describe("@manifesto-ai/lineage internal runtime controller", () => {
+  it("migrates legacy stored snapshots for canonical lookup and normalizes restore", async () => {
+    const store = createInMemoryLineageStore();
+    await store.putWorld({
+      worldId: "world-legacy",
+      schemaHash: "schema-legacy",
+      snapshotHash: "hash-legacy",
+      parentWorldId: null,
+      terminalStatus: "completed",
+    });
+    await store.putSnapshot("world-legacy", {
+      data: {
+        count: 1,
+        $host: { lastError: { code: "OLD" } },
+      },
+      computed: { doubled: 2 },
+      system: {
+        status: "error",
+        lastError: {
+          code: "DOMAIN_FAIL",
+          message: "failed",
+          source: { actionId: "fail", nodePath: "actions.fail.flow" },
+          timestamp: 10,
+        },
+        pendingRequirements: [],
+        currentAction: "fail",
+      },
+      input: { stale: true },
+      meta: {
+        version: 3,
+        timestamp: 10,
+        randomSeed: "old-seed",
+        schemaHash: "schema-legacy",
+      },
+    } as unknown as Snapshot);
+
+    const service = createLineageService(store);
+    const canonical = await service.getSnapshot("world-legacy");
+    const restored = await service.restore("world-legacy");
+
+    expect(canonical?.state).toEqual({ count: 1 });
+    expect(canonical?.namespaces).toEqual({
+      host: { lastError: { code: "OLD" } },
+    });
+    expect(restored.state).toEqual({ count: 1 });
+    expect(restored.input).toBeNull();
+    expect(restored.meta.timestamp).toBe(0);
+    expect(restored.meta.randomSeed).toBe("");
+    expect(restored.system.currentAction).toBeNull();
+    expect(restored.namespaces).toEqual({ host: {} });
+  });
+
   it("forwards explicit execution keys into host dispatch", async () => {
     const base = createManifesto<CounterDomain>(createCounterSchema(), {});
     const kernel = getRuntimeKernelFactory(base)();

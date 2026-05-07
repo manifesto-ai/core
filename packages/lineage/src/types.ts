@@ -78,6 +78,7 @@ export interface SealNextInput {
   readonly computeEnvelope: ComputeEnvelope;
   readonly terminalSnapshot: Snapshot;
   readonly createdAt: number;
+  readonly advanceHead?: boolean;
   readonly patchDelta?: PersistedPatchDeltaV2;
   readonly proposalRef?: ProvenanceRef;
   readonly decisionRef?: ProvenanceRef;

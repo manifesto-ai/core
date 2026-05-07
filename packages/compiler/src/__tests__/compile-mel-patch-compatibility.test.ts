@@ -57,7 +57,7 @@ async function runLegacyCycle(
   const result = await core.compute(
     schema,
     snapshot,
-    createIntent("probe", input ?? {}, intentId),
+    createIntent("probe", input, intentId),
     HOST_CONTEXT
   );
 

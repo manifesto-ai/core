@@ -17,13 +17,14 @@
  * - ERR-FE-2: Apply failure does NOT exempt from clear obligation
  * - ERR-FE-3: If clear itself fails, escalate to ExecutionKey-level fatal
  * - ERR-FE-4: Any FulfillEffect error MUST prevent requirementId from being re-executed
- * - ERR-FE-5: Error patch recording is best-effort; failure MUST NOT block continue
+ * - ERR-FE-5: Error patch recording failure escalates to ExecutionKey-level fatal
  */
 
-import { toJcs, type Patch, type Requirement, type Snapshot } from "@manifesto-ai/core";
+import { toJcs, type ErrorValue, type NamespaceDelta, type Patch, type Requirement, type Snapshot } from "@manifesto-ai/core";
 import type { ExecutionContext } from "../types/execution.js";
 import type { FulfillEffectJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";
+import { getHostState } from "../types/host-state.js";
 
 /**
  * Handle FulfillEffect job
@@ -97,9 +98,13 @@ export function handleFulfillEffect(
       const afterPatches = ctx.applyPatches(job.resultPatches, "effect");
       applyError = getApplyReportedError(beforePatches, afterPatches);
     }
-    const beforeNamespace = ctx.getSnapshot();
-    const afterNamespace = ctx.applyNamespaceDeltas(job.namespaceDelta ?? [], "effect-namespace");
-    applyError ??= getApplyReportedError(beforeNamespace, afterNamespace);
+    const partitionedNamespaceDelta = partitionHostNamespaceDeltas(job.namespaceDelta ?? []);
+    if (partitionedNamespaceDelta.hostDeltas.length > 0) {
+      const beforeNamespace = ctx.getSnapshot();
+      const afterNamespace = ctx.applyNamespaceDeltas(partitionedNamespaceDelta.hostDeltas, "effect-namespace");
+      applyError ??= getApplyReportedError(beforeNamespace, afterNamespace);
+    }
+    applyError ??= partitionedNamespaceDelta.error;
     ctx.trace({
       t: "effect:fulfill:apply",
       key: ctx.key,
@@ -159,17 +164,18 @@ export function handleFulfillEffect(
     return; // Cannot continue - state is inconsistent
   }
 
-  // Step 3: Record error if apply failed (best-effort) (ERR-FE-5)
+  let errorRecordingFailure: Error | null = null;
+
+  // Step 3: Record error if apply failed (ERR-FE-5)
   if (applyError) {
     try {
-      applyHostErrorPatch(
+      errorRecordingFailure = applyHostErrorPatch(
         job.intentId,
         requirement,
         { code: "EFFECT_APPLY_FAILED", message: applyError.message },
         ctx
       );
     } catch (patchError) {
-      // ERR-FE-5: Error patch failure is logged but does NOT block continue
       ctx.trace({
         t: "effect:fulfill:error",
         key: ctx.key,
@@ -177,13 +183,16 @@ export function handleFulfillEffect(
         phase: "error-patch",
         error: patchError instanceof Error ? patchError.message : String(patchError),
       });
+      errorRecordingFailure = patchError instanceof Error
+        ? patchError
+        : new Error(String(patchError));
     }
   }
 
-  // Step 3b: Record effect execution error if present (best-effort)
-  if (job.effectError) {
+  // Step 3b: Record effect execution error if present
+  if (job.effectError && !errorRecordingFailure) {
     try {
-      applyHostErrorPatch(job.intentId, requirement, job.effectError, ctx);
+      errorRecordingFailure = applyHostErrorPatch(job.intentId, requirement, job.effectError, ctx);
     } catch (patchError) {
       ctx.trace({
         t: "effect:fulfill:error",
@@ -192,7 +201,28 @@ export function handleFulfillEffect(
         phase: "error-patch",
         error: patchError instanceof Error ? patchError.message : String(patchError),
       });
+      errorRecordingFailure = patchError instanceof Error
+        ? patchError
+        : new Error(String(patchError));
     }
+  }
+
+  if (errorRecordingFailure) {
+    ctx.trace({
+      t: "effect:fulfill:error",
+      key: ctx.key,
+      requirementId: job.requirementId,
+      phase: "error-patch",
+      error: errorRecordingFailure.message,
+    });
+    ctx.escalateToFatal(job.intentId, errorRecordingFailure);
+    ctx.trace({
+      t: "job:end",
+      key: ctx.key,
+      jobType: "FulfillEffect",
+      jobId: job.id,
+    });
+    return;
   }
 
   // Step 4: Continue (FULFILL-3) - MUST happen
@@ -212,6 +242,28 @@ export function handleFulfillEffect(
   });
 }
 
+function partitionHostNamespaceDeltas(
+  deltas: readonly NamespaceDelta[],
+): { readonly hostDeltas: readonly NamespaceDelta[]; readonly error: Error | null } {
+  const hostDeltas = deltas.filter((delta) => delta.namespace === "host");
+  const rejectedNamespaces = [...new Set(
+    deltas
+      .filter((delta) => delta.namespace !== "host")
+      .map((delta) => delta.namespace),
+  )];
+
+  if (rejectedNamespaces.length === 0) {
+    return { hostDeltas, error: null };
+  }
+
+  return {
+    hostDeltas,
+    error: new Error(
+      `Effect namespaceDelta may only target namespaces.host; received ${rejectedNamespaces.join(", ")}`,
+    ),
+  };
+}
+
 /**
  * Apply error patch for effect failure
  *
@@ -222,11 +274,11 @@ function applyHostErrorPatch(
   requirement: Requirement,
   error: { code: string; message: string },
   ctx: ExecutionContext
-): void {
+): Error | null {
   const snapshot = ctx.getSnapshot();
   const frozenContext = ctx.getFrozenContext();
 
-  const errorValue = {
+  const errorValue: ErrorValue = {
     code: error.code,
     message: error.message,
     source: {
@@ -241,7 +293,7 @@ function applyHostErrorPatch(
     },
   };
 
-  ctx.applyNamespaceDeltas(
+  const after = ctx.applyNamespaceDeltas(
     [{
       namespace: "host",
       patches: [{
@@ -251,6 +303,18 @@ function applyHostErrorPatch(
       }],
     }],
     "error",
+  );
+
+  const recorded = getHostState(after)?.lastError ?? null;
+  if (isSameErrorValue(recorded, errorValue)) {
+    return null;
+  }
+
+  const reported = getApplyReportedError(snapshot, after);
+  return new Error(
+    reported
+      ? `Failed to record host error: ${reported.message}`
+      : "Failed to record host error in namespaces.host.lastError",
   );
 }
 
@@ -266,11 +330,14 @@ function getApplyReportedError(before: Snapshot, after: Snapshot): Error | null 
   return new Error(after.system.lastError.message);
 }
 
-function isSameErrorValue(left: Snapshot["system"]["lastError"], right: Snapshot["system"]["lastError"]): boolean {
+function isSameErrorValue(
+  left: ErrorValue | null | undefined,
+  right: ErrorValue | null | undefined,
+): boolean {
   if (left === right) {
     return true;
   }
-  if (left === null || right === null) {
+  if (left == null || right == null) {
     return false;
   }
   return toJcs(left) === toJcs(right);

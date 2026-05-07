@@ -34,7 +34,7 @@ const unsubscribeEvent = app.observe.event("submission:settled", (payload) => {
   void mode;
   void schemaHashFromPayload;
 });
-const preview = app.actions.increment.preview();
+const preview = app.action.increment.preview();
 const changedPaths: readonly { readonly path: readonly (string | number)[]; readonly kind: "set" | "unset" | "changed" }[] = preview.admitted ? preview.changes : [];
 
 void graph.traceUp("state:count");

@@ -28,17 +28,17 @@ export function computeSync(
   intent: Intent,
   context: CoreContext
 ): ComputeResult {
-  const parsedContext = Context.safeParse(context);
-  if (!parsedContext.success) {
+  const parsedContext = parseCoreContext(context);
+  if (!parsedContext.ok) {
     return createErrorResult(
       snapshot,
       intent,
       "INVALID_INPUT",
-      `Invalid context: ${parsedContext.error.issues.map((issue) => issue.message).join("; ")}`,
+      parsedContext.message,
       snapshot.meta.timestamp
     );
   }
-  const coreContext = parsedContext.data;
+  const coreContext = parsedContext.value;
   const timestamp = coreContext.runtime.time.timestamp;
   const externalContextValidation = validateExternalContext(schema, coreContext.external);
   if (!externalContextValidation.valid) {
@@ -95,7 +95,7 @@ export function computeSync(
   const isReEntry = currentSnapshot.system.currentAction === intent.type;
 
   if (action.available && !isReEntry) {
-    const availability = evaluateActionAvailability(schema, currentSnapshot, intent.type);
+    const availability = evaluateActionAvailability(schema, currentSnapshot, intent.type, timestamp);
     if (availability.kind === "error") {
       return createErrorResult(
         currentSnapshot,
@@ -181,6 +181,35 @@ export async function compute(
   return computeSync(schema, snapshot, intent, context);
 }
 
+function parseCoreContext(
+  context: CoreContext
+): { ok: true; value: CoreContext } | { ok: false; message: string } {
+  try {
+    const parsedContext = Context.safeParse(context);
+    if (!parsedContext.success) {
+      return {
+        ok: false,
+        message: `Invalid context: ${parsedContext.error.issues.map((issue) => issue.message).join("; ")}`,
+      };
+    }
+
+    return { ok: true, value: parsedContext.data };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Invalid context: ${describeContextParseFailure(error)}`,
+    };
+  }
+}
+
+function describeContextParseFailure(error: unknown): string {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
+  }
+
+  return "context validation failed";
+}
+
 /**
  * Validate only the caller-provided input portion of an intent.
  * Returns an error message when the intent is malformed, or null when valid.
@@ -199,7 +228,9 @@ export function validateIntentInput(
   }
 
   if (!action.input && !action.inputType) {
-    return null;
+    return intent.input === undefined
+      ? null
+      : `Action "${intent.type}" does not accept input`;
   }
 
   return validateInput(schema, action.inputType, action.input, intent.input);

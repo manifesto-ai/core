@@ -114,6 +114,26 @@ type ObjectInputDomain = {
   computed: {};
 };
 
+type MultiArgDomain = {
+  actions: {
+    rename: (name: string, force?: boolean) => void;
+  };
+  state: {
+    name: string;
+  };
+  computed: {};
+};
+
+type DomainFailureDomain = {
+  actions: {
+    fail: () => void;
+  };
+  state: {
+    count: number;
+  };
+  computed: {};
+};
+
 function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
@@ -218,6 +238,39 @@ function createContextCounterSchema(): DomainSchema {
   });
 }
 
+function createMultiArgSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:governance-v5-multi-arg",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        name: { type: "string", required: false, default: "" },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      rename: {
+        params: ["name", "force"],
+        input: {
+          type: "object",
+          required: true,
+          fields: {
+            name: { type: "string", required: true },
+            force: { type: "boolean", required: false },
+          },
+        },
+        flow: {
+          kind: "patch",
+          op: "set",
+          path: pp("name"),
+          value: { kind: "get", path: "input.name" },
+        },
+      },
+    },
+  });
+}
+
 function createDispatchabilitySchema(): DomainSchema {
   return withHash({
     id: "manifesto:governance-v3-dispatchability",
@@ -302,6 +355,29 @@ function createObjectInputSchema(): DomainSchema {
   });
 }
 
+function createDomainFailureSchema(): DomainSchema {
+  return withHash({
+    id: "manifesto:governance-domain-failure",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: false, default: 0 },
+      },
+    },
+    computed: { fields: {} },
+    actions: {
+      fail: {
+        flow: {
+          kind: "fail",
+          code: "DOMAIN_FAIL",
+          message: { kind: "lit", value: "domain failed" },
+        },
+      },
+    },
+  });
+}
+
 function createAutoBinding(): ActorAuthorityBinding {
   return {
     actorId: "actor:auto",
@@ -359,7 +435,7 @@ async function getStoredProposal<T extends CounterDomain | ContextCounterDomain 
 async function submitIncrement(
   governed: GovernanceInstance<CounterDomain>,
 ) {
-  const result = await governed.actions.increment.submit();
+  const result = await governed.action.increment.submit();
   if (!result.ok) {
     throw new Error(result.admission.message);
   }
@@ -370,7 +446,7 @@ async function submitAdd(
   governed: GovernanceInstance<CounterDomain>,
   amount: number,
 ) {
-  const result = await governed.actions.add.submit(amount);
+  const result = await governed.action.add.submit(amount);
   if (!result.ok) {
     throw new Error(result.admission.message);
   }
@@ -380,7 +456,7 @@ async function submitAdd(
 async function submitLoad(
   governed: GovernanceInstance<CounterDomain>,
 ) {
-  const result = await governed.actions.load.submit();
+  const result = await governed.action.load.submit();
   if (!result.ok) {
     throw new Error(result.admission.message);
   }
@@ -447,10 +523,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect("proposeAsync" in governed).toBe(false);
     expect("createIntent" in governed).toBe(false);
     expect("MEL" in governed).toBe(false);
-    expect(typeof governed.actions.increment.submit).toBe("function");
+    expect(typeof governed.action.increment.submit).toBe("function");
     expect(typeof governed.waitForSettlement).toBe("function");
+    expect(Object.isFrozen(governed)).toBe(true);
 
-    expect(governed.actions.increment.check()).toEqual({
+    expect(governed.action.increment.check()).toEqual({
       ok: true,
       action: "increment",
     });
@@ -464,6 +541,84 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     expect(head).not.toBeNull();
     expect(sealedSnapshot?.state.count).toBe(1);
+  });
+
+  it("preserves optional trailing multi-arg public input on governed bound actions", () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<MultiArgDomain>(createMultiArgSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:multi-arg",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:multi-arg",
+          }),
+        },
+      },
+    ).activate();
+
+    const bound = governed.action.rename.bind("Ada");
+
+    expect(bound.input).toEqual(["Ada"]);
+    expect(bound.intent()).toMatchObject({
+      type: "rename",
+      input: { name: "Ada" },
+    });
+  });
+
+  it("reports sealed domain failures as settled failure outcomes", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<DomainFailureDomain>(createDomainFailureSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:domain-fail",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:domain-fail",
+          }),
+        },
+      },
+    ).activate();
+
+    const pending = await governed.action.fail.submit();
+    expect(pending.ok).toBe(true);
+    if (!pending.ok) {
+      throw new Error("expected governed fail proposal");
+    }
+
+    const settled = await pending.waitForSettlement();
+    expect(settled).toMatchObject({
+      ok: true,
+      status: "settled",
+      outcome: {
+        kind: "fail",
+      },
+    });
+
+    const proposal = await governed.getProposal(pending.proposal);
+    expect(proposal).toMatchObject({
+      status: "failed",
+      resultWorld: expect.any(String),
+      terminalOutcome: {
+        kind: "fail",
+      },
+    });
   });
 
   it("captures object-valued bound input immutably before governed settlement", async () => {
@@ -490,7 +645,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     ).activate();
     const original = { id: "before" };
 
-    const bound = governed.actions.choose.bind(original);
+    const bound = governed.action.choose.bind(original);
     original.id = "after";
     const pending = await bound.submit();
     if (!pending.ok) {
@@ -538,19 +693,19 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       callback: () => undefined,
     };
 
-    expect(governed.actions.choose.check(invalid)).toMatchObject({
+    expect(governed.action.choose.check(invalid)).toMatchObject({
       ok: false,
       layer: "input",
       code: "INVALID_INPUT",
     });
-    expect(governed.actions.choose.preview(invalid)).toMatchObject({
+    expect(governed.action.choose.preview(invalid)).toMatchObject({
       admitted: false,
       admission: {
         layer: "input",
         code: "INVALID_INPUT",
       },
     });
-    await expect(governed.actions.choose.submit(invalid)).resolves.toMatchObject({
+    await expect(governed.action.choose.submit(invalid)).resolves.toMatchObject({
       ok: false,
       mode: "governance",
       action: "choose",
@@ -559,7 +714,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
         code: "INVALID_INPUT",
       },
     });
-    expect(governed.actions.choose.bind(invalid).intent()).toBeNull();
+    expect(governed.action.choose.bind(invalid).intent()).toBeNull();
     await expect(governed.getProposals()).resolves.toHaveLength(0);
   });
 
@@ -597,7 +752,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const pending = await governed.actions.increment.submit();
+    const pending = await governed.action.increment.submit();
 
     expect(pending).toMatchObject({
       ok: true,
@@ -642,7 +797,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     ).activate();
     const quiet = governed.with({ report: "none" });
 
-    const pending = await quiet.actions.increment.submit();
+    const pending = await quiet.action.increment.submit();
     if (!pending.ok) {
       throw new Error("expected pending governance submission");
     }
@@ -756,9 +911,199 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     const secondResult = await submitAdd(governed, 2);
     const secondPending = await getStoredProposal(governed, secondResult.proposal);
     const rejected = await governed.reject(secondPending.proposalId, "manual stop");
+    const decision = await governed.getDecisionRecord(rejected.decisionId!);
+    const settlement = await governed.with({ report: "full" }).waitForSettlement(secondPending.proposalId);
 
     expect(rejected.status).toBe("rejected");
+    expect(settlement).toMatchObject({
+      ok: true,
+      status: "rejected",
+      decision,
+      report: {
+        status: "rejected",
+        decision,
+      },
+    });
     expect(governed.snapshot().state.count).toBe(1);
+  });
+
+  it("fails terminal observation when a referenced decision record is missing", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+    const hidingStore = new Proxy(governanceStore, {
+      get(target, property, receiver) {
+        if (property === "getDecisionRecord") {
+          return async () => null;
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as GovernanceStore;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: hidingStore,
+        bindings: [createHitlBinding()],
+        execution: {
+          projectionId: "proj:missing-decision-observation",
+          deriveActor: () => ({
+            actorId: "actor:human",
+            kind: "human",
+          }),
+          deriveSource: () => ({
+            kind: "ui",
+            eventId: "evt:missing-decision-observation",
+          }),
+        },
+      },
+    ).activate();
+
+    const pending = await pendingIncrementProposal(governed);
+    const rejected = await governed.reject(pending.proposalId, "manual stop");
+
+    expect(rejected.decisionId).toBeDefined();
+    expect(await governanceStore.getDecisionRecord(rejected.decisionId!)).not.toBeNull();
+
+    await expect(governed.with({ report: "full" }).waitForSettlement(pending.proposalId))
+      .resolves.toMatchObject({
+        ok: false,
+        status: "settlement_failed",
+        error: {
+          code: "GOVERNANCE_DECISION_RECORD_NOT_FOUND",
+        },
+        report: {
+          status: "settlement_failed",
+          stage: "observation",
+          error: {
+            code: "GOVERNANCE_DECISION_RECORD_NOT_FOUND",
+          },
+        },
+      });
+  });
+
+  it("seals approved HITL proposals on their proposal branch after an active branch switch", async () => {
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createHitlBinding()],
+        execution: {
+          projectionId: "proj:hitl-branch-target",
+          deriveActor: () => ({
+            actorId: "actor:human",
+            kind: "human",
+          }),
+          deriveSource: () => ({
+            kind: "ui",
+            eventId: "evt:hitl-branch-target",
+          }),
+        },
+      },
+    ).activate();
+
+    const pending = await pendingIncrementProposal(governed);
+    const proposalBranch = await governed.getActiveBranch();
+    const otherBranchId = await governed.createBranch("other");
+    await governed.switchActiveBranch(otherBranchId);
+
+    expect(governed.snapshot().state.count).toBe(0);
+
+    const approved = await governed.approve(pending.proposalId);
+
+    expect(approved.status).toBe("completed");
+    expect(governed.snapshot().state.count).toBe(0);
+
+    const settlement = await governed.with({ report: "full" }).waitForSettlement(pending.proposalId);
+    expect(settlement).toMatchObject({
+      ok: true,
+      status: "settled",
+      after: { state: { count: 1 } },
+    });
+    if (!settlement.ok || settlement.status !== "settled") {
+      throw new Error("expected settled proposal");
+    }
+    expect(settlement.report?.published).toBe(false);
+
+    await governed.switchActiveBranch(proposalBranch.id);
+    expect(governed.snapshot().state.count).toBe(1);
+
+    await governed.switchActiveBranch(otherBranchId);
+    expect(governed.snapshot().state.count).toBe(0);
+  });
+
+  it("resumes evaluating proposals from non-active branches after activation restart", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+    const lineageStore = createInMemoryLineageStore();
+    const first = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: lineageStore },
+      ),
+      {
+        governanceStore,
+        bindings: [createHitlBinding()],
+        execution: {
+          projectionId: "proj:restart-non-active-branch",
+          deriveActor: () => ({
+            actorId: "actor:human",
+            kind: "human",
+          }),
+          deriveSource: () => ({
+            kind: "ui",
+            eventId: "evt:restart-non-active-branch",
+          }),
+        },
+      },
+    ).activate();
+    const pending = await pendingIncrementProposal(first);
+    const proposalBranchId = pending.branchId;
+    const otherBranchId = await first.createBranch("other");
+    await first.switchActiveBranch(otherBranchId);
+    first.dispose();
+
+    const restarted = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: lineageStore },
+      ),
+      {
+        governanceStore,
+        bindings: [createAutoBindingForHuman()],
+        execution: {
+          projectionId: "proj:restart-non-active-branch",
+          deriveActor: () => ({
+            actorId: "actor:human",
+            kind: "human",
+          }),
+          deriveSource: () => ({
+            kind: "ui",
+            eventId: "evt:restart-non-active-branch-resumed",
+          }),
+        },
+      },
+    ).activate();
+
+    const settlement = await restarted.with({ report: "full" }).waitForSettlement(pending.proposalId);
+    expect(settlement).toMatchObject({
+      ok: true,
+      status: "settled",
+      after: { state: { count: 1 } },
+    });
+    if (!settlement.ok || settlement.status !== "settled") {
+      throw new Error("expected settled proposal");
+    }
+    expect(settlement.report?.published).toBe(false);
+    expect(restarted.snapshot().state.count).toBe(0);
+
+    await restarted.switchActiveBranch(proposalBranchId);
+    expect(restarted.snapshot().state.count).toBe(1);
   });
 
   it("settles governed proposals with the proposal-time context envelope", async () => {
@@ -790,7 +1135,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const pendingResult = await governed.actions.increment.submit();
+    const pendingResult = await governed.action.increment.submit();
     if (!pendingResult.ok) {
       throw new Error(pendingResult.admission.message);
     }
@@ -965,7 +1310,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const submission = await governed.actions.spend.submit(1);
+    const submission = await governed.action.spend.submit(1);
     expect(submission.ok).toBe(true);
     if (!submission.ok) {
       throw new Error("expected pending submission");
@@ -1306,6 +1651,42 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(decision?.decision.kind).toBe("approved");
   });
 
+  it("publishes the visible snapshot before emitting terminal governance events", async () => {
+    const visibleCounts: number[] = [];
+    let governed!: GovernanceInstance<CounterDomain>;
+    governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        bindings: [createAutoBinding()],
+        eventSink: {
+          emit(event) {
+            if (event.type === "execution:completed") {
+              visibleCounts.push(governed.snapshot().state.count);
+            }
+          },
+        },
+        execution: {
+          projectionId: "proj:event-visible-snapshot",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:event-visible-snapshot",
+          }),
+        },
+      },
+    ).activate();
+
+    await settledIncrementProposal(governed);
+
+    expect(visibleCounts).toEqual([1]);
+  });
+
   it("returns failed settlements with ErrorInfo and no visible snapshot fabrication", async () => {
     const governed = withGovernance(
       withLineage(
@@ -1544,7 +1925,73 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
   });
 
-  it("compensates to failed when decision record persistence fails after approval", async () => {
+  it("returns a durable proposal when submitted-to-evaluating persistence fails once", async () => {
+    const governanceStore = createInMemoryGovernanceStore();
+    let failEvaluatingProposal = true;
+
+    const flakyStore = new Proxy(governanceStore, {
+      get(target, property, receiver) {
+        if (property === "putProposal") {
+          return async (...args: Parameters<GovernanceStore["putProposal"]>) => {
+            const [proposal] = args;
+            if (proposal.status === "evaluating" && failEvaluatingProposal) {
+              failEvaluatingProposal = false;
+              throw new Error("evaluating proposal persist failed");
+            }
+            return target.putProposal(...args);
+          };
+        }
+
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as GovernanceStore;
+
+    const governed = withGovernance(
+      withLineage(
+        createManifesto<CounterDomain>(createCounterSchema(), {}),
+        { store: createInMemoryLineageStore() },
+      ),
+      {
+        governanceStore: flakyStore,
+        bindings: [createAutoBinding()],
+        execution: {
+          projectionId: "proj:evaluating-persist-failure",
+          deriveActor: () => ({
+            actorId: "actor:auto",
+            kind: "agent",
+          }),
+          deriveSource: () => ({
+            kind: "agent",
+            eventId: "evt:evaluating-persist-failure",
+          }),
+        },
+      },
+    ).activate();
+
+    const submission = await submitIncrement(governed);
+
+    expect(submission).toMatchObject({
+      ok: true,
+      status: "pending",
+      proposal: expect.any(String),
+    });
+    await expect(submission.waitForSettlement()).resolves.toMatchObject({
+      ok: true,
+      status: "settled",
+      proposal: submission.proposal,
+      outcome: { kind: "ok" },
+    });
+
+    const activeBranch = await governed.getActiveBranch();
+    const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.proposalId).toBe(submission.proposal);
+    expect(stored[0]?.status).toBe("completed");
+  });
+
+  it("does not persist an approved proposal when decision record persistence fails", async () => {
     const governanceStore = createInMemoryGovernanceStore();
     let failDecisionRecord = true;
 
@@ -1589,15 +2036,16 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     const submission = await submitIncrement(governed);
     await expect(submission.waitForSettlement()).resolves.toMatchObject({
-      ok: false,
-      status: "settlement_failed",
+      ok: true,
+      status: "superseded",
     });
 
     const activeBranch = await governed.getActiveBranch();
     const stored = await governanceStore.getProposalsByBranch(activeBranch.id);
 
     expect(stored).toHaveLength(1);
-    expect(stored[0]?.status).toBe("failed");
+    expect(stored[0]?.status).toBe("superseded");
+    expect(stored[0]?.decisionId).toBeUndefined();
     expect(await governanceStore.getExecutionStageProposal(activeBranch.id)).toBeNull();
   });
 
@@ -2030,7 +2478,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     const canonical = ext.getCanonicalSnapshot();
     const blockedSpend = ext.createIntent(ext.MEL.actions.spend, 15);
 
-    expect(governed.actions.spend.check(15)).toMatchObject({
+    expect(governed.action.spend.check(15)).toMatchObject({
       ok: false,
       layer: "dispatchability",
       code: "INTENT_NOT_DISPATCHABLE",
@@ -2047,7 +2495,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     });
     expect(ext.isIntentDispatchableFor(canonical, blockedSpend)).toBe(false);
 
-    expect(governed.actions.frozenSpend.check(1)).toMatchObject({
+    expect(governed.action.frozenSpend.check(1)).toMatchObject({
       ok: false,
       layer: "availability",
       code: "ACTION_UNAVAILABLE",
@@ -2179,7 +2627,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     governed.observe.event("submission:rejected", rejected);
     governed.observe.event("submission:failed", failed);
 
-    await expect(governed.actions.spend.submit(15)).resolves.toMatchObject({
+    await expect(governed.action.spend.submit(15)).resolves.toMatchObject({
       ok: false,
       admission: {
         code: "INTENT_NOT_DISPATCHABLE",
@@ -2226,7 +2674,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     governed.observe.event("submission:failed", failed);
 
     await expect(
-      governed.actions.spend.submit("oops" as unknown as number),
+      governed.action.spend.submit("oops" as unknown as number),
     ).resolves.toMatchObject({
       ok: false,
       admission: {

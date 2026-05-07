@@ -23,14 +23,14 @@ const lineage = withLineage<CounterDomain>(
 
 const app: ManifestoApp<CounterDomain, "lineage"> = lineage;
 const submitResult: Promise<LineageSubmissionResult<CounterDomain, "increment">> =
-  lineage.actions.increment.submit();
+  lineage.action.increment.submit();
 const submitResultFor: Promise<SubmitResultFor<"lineage", CounterDomain, "increment">> =
-  lineage.action("increment").submit();
+  lineage.action.increment.submit();
 const boundSubmitResult: Promise<LineageSubmissionResult<CounterDomain, "increment">> =
-  lineage.actions.increment.bind().submit();
+  lineage.action.increment.bind().submit();
 const lineageWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> | null> =
   lineage.getWorldSnapshot("world-1");
-const lineageAdmission = lineage.actions.increment.check();
+const lineageAdmission = lineage.action.increment.check();
 const lineageDispatchable: boolean = lineageAdmission.ok;
 const lineageBlockers: readonly Blocker[] = lineageAdmission.ok
   ? []

@@ -35,12 +35,16 @@ lineage.commitAsync;
 // @ts-expect-error lineage runtime removes v3 commitAsyncWithReport
 lineage.commitAsyncWithReport;
 
-const lineageSubmit: Promise<LineageSubmissionResult<CounterDomain, string>> =
-  lineage.actions.increment.submit();
-const lineageSubmitFor: Promise<SubmitResultFor<"lineage", CounterDomain, string>> =
-  lineage.action("increment").submit();
+const lineageSubmit: Promise<LineageSubmissionResult<CounterDomain, "increment">> =
+  lineage.action.increment.submit();
+const lineageSubmitFor: Promise<SubmitResultFor<"lineage", CounterDomain, "increment">> =
+  lineage.action.increment.submit();
 void lineageSubmit;
 void lineageSubmitFor;
+// @ts-expect-error lineage v5 runtime does not expose actions.*
+lineage.actions;
+// @ts-expect-error lineage v5 runtime does not expose action(name)
+lineage.action("increment");
 
 const lineageApp: ManifestoApp<CounterDomain, "lineage"> = lineage;
 // @ts-expect-error lineage app does not expose governance settlement re-attachment
@@ -90,11 +94,15 @@ void governed.waitForSettlement(proposalRef);
 void governedApp.waitForSettlement(proposalRef);
 void governed.getLatestHead();
 
-const governanceSubmit: Promise<GovernanceSubmissionResult<CounterDomain, string>> =
-  governed.actions.increment.submit();
-const governanceSubmitFor: Promise<SubmitResultFor<"governance", CounterDomain, string>> =
-  governed.action("increment").submit();
+const governanceSubmit: Promise<GovernanceSubmissionResult<CounterDomain, "increment">> =
+  governed.action.increment.submit();
+const governanceSubmitFor: Promise<SubmitResultFor<"governance", CounterDomain, "increment">> =
+  governed.action.increment.submit();
 void governanceSubmit;
 void governanceSubmitFor;
+// @ts-expect-error governed v5 runtime does not expose actions.*
+governed.actions;
+// @ts-expect-error governed v5 runtime does not expose action(name)
+governed.action("increment");
 
 export {};
