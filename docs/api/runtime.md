@@ -10,6 +10,7 @@ The base runtime returned by `createManifesto(...).activate()` exposes:
 |-----|---------|
 | `snapshot()` | Read projected app-facing state |
 | `action.<name>` | Use typed action handles for `info`, `available`, `check`, `preview`, `submit`, and `bind` |
+| `getAction(name)` | Resolve a declared action handle from a runtime string action id |
 | `observe.state(selector, listener)` | React to selected projected Snapshot values |
 | `observe.event(event, handler)` | Subscribe to compact `submission:*` lifecycle telemetry |
 | `inspect.graph()` | Inspect the projected schema graph |
@@ -34,6 +35,21 @@ console.log(app.inspect.availableActions());
 ```
 
 Treat `inspect.availableActions()` and `action.<name>.available()` as current-snapshot reads only. They are not durable capability tokens. The active runtime still revalidates legality when it submits work.
+
+Use `getAction(name)` when tooling receives an action id dynamically:
+
+```typescript
+const handle = app.getAction(actionId);
+
+if (handle) {
+  await handle.submit(...argsFromTooling);
+}
+```
+
+`getAction(name)` checks only whether the action is declared by the schema. It
+returns `undefined` for unknown action names and returns a handle for declared
+actions even when they are currently unavailable. Broad tooling runtimes still
+see the nullable dynamic handle type, so guard the lookup before submitting.
 
 `action.<name>.preview(...input)` is the non-mutating dry-run step after admission checks. It returns the projected next snapshot, dry-run requirements, current action availability changes, sorted `changedPaths`, and may also expose optional inspection-only diagnostics.
 

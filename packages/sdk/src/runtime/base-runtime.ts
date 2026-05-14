@@ -26,10 +26,12 @@ import type {
   ComputedRef,
   DispatchBlocker,
   DispatchExecutionOutcome,
+  DynamicActionHandle,
   ExecutionDiagnostics,
   ExecutionOutcome,
   ExecutionView,
   FieldRef,
+  GetAction,
   ManifestoApp,
   ManifestoDomainShape,
   ObserveSurface,
@@ -103,9 +105,11 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
   }
 
   const action = Object.create(null) as ActionSurface<T, BaseMode>;
+  const actionByName = new Map<string, DynamicActionHandle<T, BaseMode>>();
 
   for (const name of actionInfoByName.keys()) {
     const handle = createActionHandle(name);
+    actionByName.set(name, handle as unknown as DynamicActionHandle<T, BaseMode>);
     Object.defineProperty(action, name, {
       enumerable: true,
       configurable: false,
@@ -146,6 +150,9 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     },
   });
 
+  const getAction = ((name: string) =>
+    actionByName.get(name)) as GetAction<T, BaseMode>;
+
   const app = {
     action: Object.freeze(action),
     state: createStateReadSurface(),
@@ -168,6 +175,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       },
     }),
     snapshot: kernel.getSnapshot,
+    getAction,
     context: getViewExternalContext,
     injectContext(context) {
       if (isView) {

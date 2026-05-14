@@ -1,6 +1,8 @@
 import type {
   Blocker,
   CanonicalSnapshot,
+  DynamicActionHandle,
+  ActionName,
   LineageSubmissionResult,
   ManifestoApp,
   SubmitResultFor,
@@ -26,6 +28,10 @@ const submitResult: Promise<LineageSubmissionResult<CounterDomain, "increment">>
   lineage.action.increment.submit();
 const submitResultFor: Promise<SubmitResultFor<"lineage", CounterDomain, "increment">> =
   lineage.action.increment.submit();
+const dynamicLineageHandle: DynamicActionHandle<CounterDomain, "lineage"> | undefined =
+  lineage.getAction("increment" as string);
+const dynamicLineageSubmit: Promise<SubmitResultFor<"lineage", CounterDomain, ActionName<CounterDomain>>> =
+  lineage.getAction("increment" as string)!.submit(...([] as unknown[]));
 const boundSubmitResult: Promise<LineageSubmissionResult<CounterDomain, "increment">> =
   lineage.action.increment.bind().submit();
 const lineageWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> | null> =
@@ -39,6 +45,8 @@ const lineageBlockers: readonly Blocker[] = lineageAdmission.ok
 void app;
 void submitResult;
 void submitResultFor;
+void dynamicLineageHandle;
+void dynamicLineageSubmit;
 void boundSubmitResult;
 void lineageWorldSnapshot;
 void lineageAdmission;

@@ -365,23 +365,23 @@ export type ActionSurface<
 };
 ```
 
-`action.*` is the canonical action candidate namespace. It is deliberately
-the only public action-candidate entrypoint in v5, matching the static
-namespace rhythm of `state.*` and `computed.*`.
+`action.*` is the canonical static action candidate namespace, matching the
+static namespace rhythm of `state.*` and `computed.*`.
 
-`app.action(name)` is not part of the canonical surface. Dynamic string-based
-action lookup is intentionally dropped from the default runtime grammar. Tools
-that need action discovery use `inspect.availableActions()` and
-`inspect.action(name)` for read-only metadata; semantic writes remain routed
-through statically typed `action.*` handles.
+`app.action(name)` is not part of the canonical surface. Tooling-class callers
+that receive runtime action ids as strings use the root dynamic resolver
+`app.getAction(name)`. Tools that need action discovery use
+`inspect.availableActions()` and `inspect.action(name)` for read-only metadata;
+semantic writes remain routed through action handles reached by static
+`action.*` access or root `getAction(name)`.
 
-Because the collision-safe dynamic accessor is removed, action names that
-cannot be safely or clearly exposed as `action.<name>` are invalid public SDK
-action names. The SDK SPEC MUST define the exact reserved-name set and SDK
+Because dynamic lookup lives on the root instead of under `app.action`, domain
+action names do not become invalid merely because they match SDK root members.
+The SDK SPEC MUST define the exact reserved-name set and SDK
 activation/codegen MUST fail fast for those names. The minimum reserved set
 includes JavaScript prototype / thenable hazards such as `then`, `constructor`,
-`prototype`, and `__proto__`, plus any SDK-owned action namespace members
-introduced in the future.
+`prototype`, and `__proto__`. Future SDK-owned members MUST NOT be introduced
+under `app.action` without a new SPEC amendment.
 
 ### 4.3 Projected read handle surfaces
 
@@ -478,9 +478,10 @@ computed fields for v5.
 
 ```text
 SDK-ROOT-1 (MUST):
-ManifestoApp implementations MUST expose exactly one public action candidate
-namespace: `action.*`. `actions.*` and `app.action(name)` MUST NOT be part of
-the canonical v5 runtime surface.
+ManifestoApp implementations MUST expose the static public action candidate
+namespace `action.*` and the root dynamic declared-action lookup
+`getAction(name)`. `actions.*` and `app.action(name)` MUST NOT be part of the
+canonical v5 runtime surface.
 
 SDK-ROOT-2 (MUST):
 Action names that collide with reserved public action namespace members or
@@ -1487,10 +1488,10 @@ This ADR is NOT a multi-phase deployable rollout. It is a **single coordinated P
 ### 19.4 Reserved action-name tests
 
 Domains declaring reserved or hazardous public action names such as `then`,
-`constructor`, `prototype`, `__proto__`, or any SDK-owned action namespace
-member must fail before activation/codegen output is treated as valid. Valid
-action names remain accessible through `app.action.<name>`. No
-`app.action(name)` semantic fallback exists.
+`constructor`, `prototype`, or `__proto__` must fail before activation/codegen
+output is treated as valid. Valid action names remain accessible through
+`app.action.<name>` and may also be resolved dynamically through
+`app.getAction(name)`. No `app.action(name)` semantic fallback exists.
 
 ### 19.5 Observe tests
 
@@ -1541,7 +1542,7 @@ action names remain accessible through `app.action.<name>`. No
 
 This ADR is implemented when ALL of the following hold:
 
-1. `ManifestoApp` v5 root surface exists with `snapshot()`, `action.*`, `state.*`, `computed.*`, `observe.*`, `inspect.*`, `dispose()`.
+1. `ManifestoApp` v5 root surface exists with `snapshot()`, `getAction(name)`, `action.*`, `state.*`, `computed.*`, `observe.*`, `inspect.*`, `dispose()`.
 2. `ActionHandle` exposes `info`, `available`, `check`, `preview`, `submit`, `bind`.
 3. `BoundAction` exposes `check`, `preview`, `submit`, and method-style `intent()` returning nullable `Intent`.
 4. `check()` returns the `Admission` discriminated union with first-failing-layer semantics (SDK-ADMISSION-1~4).
@@ -1556,7 +1557,7 @@ This ADR is implemented when ALL of the following hold:
 13. `submission:*` and `proposal:*` event taxonomies are implemented.
 14. `inspect.canonicalSnapshot()`, `inspect.graph()`, `inspect.action()`, `inspect.availableActions()`, `inspect.schemaHash()` are implemented.
 15. Extension kernel remains under `@manifesto-ai/sdk/extensions` (SDK-EXT-1~4).
-16. Reserved action-name tests fail fast for JavaScript prototype / thenable hazards and SDK-owned action namespace members (SDK-ROOT-1~3).
+16. Reserved action-name tests fail fast for JavaScript prototype / thenable hazards, while root `getAction(name)` preserves valid root-name action lookup (SDK-ROOT-1~3).
 17. Codegen emits typed `action.x` handles matching `ActionHandle` shape.
 18. v3 public APIs `getSnapshot`, `getCanonicalSnapshot`, `getSchemaGraph`, `getActionMetadata`, `getAvailableActions`, `isActionAvailable`, `isIntentDispatchable`, `getIntentBlockers`, `why`, `whyNot`, `explainIntent`, `simulate`, `simulateIntent`, `dispatchAsync*`, `commitAsync*`, `proposeAsync`, `waitForProposal*`, `subscribe`, `on` are removed from the canonical public surface (compat treatment per PR-1 policy).
 19. AST codemod handles the §14 mapping table.
@@ -1719,6 +1720,13 @@ The grammar — `info / available / check / preview / submit` — is the surface
   - **Added reserved public action-name rejection**: action names that cannot be safely or clearly exposed as `action.<name>` fail before runtime activation/codegen output is treated as valid.
   - **Updated tests, acceptance criteria, and codegen guidance** from collision access to reserved-name rejection.
   - **Boundary recorded:** this amendment does not create `app.state.*.set()`, deep dynamic path observers, or any canonical-substrate read. All semantic mutation continues through `action.*.submit()` at the active runtime law boundary.
+- **revision 10 (2026-05-14):** Official dynamic action handle lookup.
+  - **Added root `getAction(name)`** for Studio, CLI, MCP, command palettes, and other tooling-class callers that receive runtime action ids as strings.
+  - **Kept `app.action` domain-only**: no SDK-owned helper members are added under `app.action`, and `app.action(name)` remains absent.
+  - **Defined lookup semantics**: unknown action names return `undefined`; declared action names return a handle even when unavailable; availability, input, dispatchability, and runtime law are checked later by the handle verbs.
+  - **Refined type overloads**: concrete generated domains keep precise `ActionHandle` lookup for known names, while broad tooling runtimes keep `DynamicActionHandle | undefined` for runtime strings.
+  - **Preserved view semantics**: `with(view).getAction(name)` resolves handles bound to that execution view.
+  - **Reserved-name boundary updated**: adding root `getAction` does not expand the reserved action-name set beyond `then`, `constructor`, `prototype`, and `__proto__`.
 
 ## Appendix B — Codex M0–M3 Usage Report Cross-Reference
 

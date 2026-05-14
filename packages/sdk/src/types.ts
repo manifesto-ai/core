@@ -421,6 +421,20 @@ export type ActionHandle<
   bind(...args: ActionArgs<T, K>): BoundAction<T, K, TMode>;
 };
 
+export type DynamicActionHandle<
+  T extends ManifestoDomainShape,
+  TMode extends RuntimeMode,
+> = {
+  info(): ActionInfo<ActionName<T>>;
+  available(): boolean;
+  check(...args: unknown[]): Admission<ActionName<T>>;
+  preview(...args: unknown[]): PreviewResult<T, ActionName<T>>;
+  submit(
+    ...args: unknown[]
+  ): Promise<SubmitResultFor<TMode, T, ActionName<T>>>;
+  bind(...args: unknown[]): DynamicBoundAction<T, TMode>;
+};
+
 export type BoundAction<
   T extends ManifestoDomainShape,
   K extends ActionName<T>,
@@ -434,11 +448,34 @@ export type BoundAction<
   intent(): Intent | null;
 };
 
+export type DynamicBoundAction<
+  T extends ManifestoDomainShape,
+  TMode extends RuntimeMode,
+> = {
+  readonly action: ActionName<T>;
+  readonly input: ActionInput<T, ActionName<T>>;
+  check(): Admission<ActionName<T>>;
+  preview(): PreviewResult<T, ActionName<T>>;
+  submit(): Promise<SubmitResultFor<TMode, T, ActionName<T>>>;
+  intent(): Intent | null;
+};
+
 export type ActionSurface<
   T extends ManifestoDomainShape,
   TMode extends RuntimeMode,
 > = {
   readonly [K in ActionName<T>]: ActionHandle<T, K, TMode>;
+};
+
+type PreciseActionName<T extends ManifestoDomainShape> =
+  string extends ActionName<T> ? never : ActionName<T>;
+
+export type GetAction<
+  T extends ManifestoDomainShape,
+  TMode extends RuntimeMode,
+> = {
+  <K extends PreciseActionName<T>>(name: K): ActionHandle<T, K, TMode>;
+  (name: string): DynamicActionHandle<T, TMode> | undefined;
 };
 
 export type ActionObjectBindingArgs<
@@ -839,6 +876,7 @@ export type BaseManifestoApp<
   readonly observe: ObserveSurface<T>;
   readonly inspect: InspectSurface<T>;
   snapshot(): ProjectedSnapshot<T>;
+  getAction: GetAction<T, TMode>;
   context(): DomainExternalContext<T>;
   injectContext(context: DomainExternalContext<T>): void;
   updateContext(

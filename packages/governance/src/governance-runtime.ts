@@ -22,9 +22,11 @@ import {
   type ComputedReadSurface,
   type ComputedRef,
   type DispatchBlocker,
+  type DynamicActionHandle,
   type ExecutionView,
   type ExecutionOutcome,
   type FieldRef,
+  type GetAction,
   type GovernanceSettlementResult,
   type GovernanceSubmissionResult,
   type ManifestoDomainShape,
@@ -124,8 +126,10 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
   }
 
   const action = Object.create(null) as ActionSurface<T, "governance">;
+  const actionByName = new Map<string, DynamicActionHandle<T, "governance">>();
   for (const name of actionInfoByName.keys()) {
     const handle = createActionHandle(name);
+    actionByName.set(name, handle as unknown as DynamicActionHandle<T, "governance">);
     Object.defineProperty(action, name, {
       enumerable: true,
       configurable: false,
@@ -166,6 +170,9 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     },
   });
 
+  const getAction = ((name: string) =>
+    actionByName.get(name)) as GetAction<T, "governance">;
+
   const runtime = {
     action: Object.freeze(action),
     state: createStateReadSurface(),
@@ -188,6 +195,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       },
     }),
     snapshot: kernel.getSnapshot,
+    getAction,
     context: getViewExternalContext,
     injectContext(context) {
       if (isView) {

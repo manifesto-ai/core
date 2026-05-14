@@ -1,17 +1,21 @@
 import type {
   ActionHandle,
   ActionInput,
+  ActionName,
   Admission,
   BaseSubmissionResult,
   BoundAction,
   ComputedReadSurface,
   ComputedRef,
+  DynamicActionHandle,
+  DynamicBoundAction,
   ExecutionView,
   FieldRef,
   GovernanceSettlementResult,
   GovernanceSubmissionResult,
   LineageSubmissionResult,
   ManifestoApp,
+  ManifestoDomainShape,
   PreviewDiagnosticsMode,
   PreviewResult,
   ProjectedReadHandle,
@@ -80,8 +84,24 @@ declare const objectApp: ManifestoApp<ObjectInputDomain, "base">;
 declare const multiArgApp: ManifestoApp<MultiArgDomain, "base">;
 declare const optionalSingleArgApp: ManifestoApp<OptionalSingleArgDomain, "base">;
 declare const contextApp: ManifestoApp<ContextTypedDomain, "base">;
+declare const broadApp: ManifestoApp<ManifestoDomainShape, "base">;
 
 const handle: ActionHandle<CounterDomain, "add", "base"> = app.action.add;
+const preciseLookup: ActionHandle<CounterDomain, "increment", "base"> =
+  app.getAction("increment");
+declare const knownActionName: ActionName<CounterDomain>;
+const knownLookup: ActionHandle<CounterDomain, ActionName<CounterDomain>, "base"> =
+  app.getAction(knownActionName);
+declare const unknownActionName: string;
+const dynamicLookup: DynamicActionHandle<CounterDomain, "base"> | undefined =
+  app.getAction(unknownActionName);
+const maybeMissingLookup = app.getAction("notDeclared");
+declare const broadActionName: string;
+const broadDynamicLookup: DynamicActionHandle<ManifestoDomainShape, "base"> | undefined =
+  broadApp.getAction(broadActionName);
+// @ts-expect-error broad dynamic lookup must be nullable even when action names widen to string
+const broadDynamicWithoutCheck: DynamicActionHandle<ManifestoDomainShape, "base"> =
+  broadApp.getAction(broadActionName);
 const input: ActionInput<CounterDomain, "add"> = 1;
 const bound: BoundAction<CounterDomain, "add", "base"> = handle.bind(input);
 const objectBound = objectApp.action.toggleTodo.bind({ id: "todo-1" });
@@ -96,6 +116,26 @@ const optionalSingleInput: string | undefined =
 const optionalSingleInputWithValue: string | undefined =
   optionalSingleArgApp.action.maybeRename.bind("Ada").input;
 const admission: Admission<"add"> = bound.check();
+if (dynamicLookup) {
+  const dynamicAdmission: Admission<ActionName<CounterDomain>> =
+    dynamicLookup.check(...([] as unknown[]));
+  const dynamicPreview: PreviewResult<CounterDomain, ActionName<CounterDomain>> =
+    dynamicLookup.preview(...([] as unknown[]));
+  const dynamicSubmit: Promise<SubmitResultFor<"base", CounterDomain, ActionName<CounterDomain>>> =
+    dynamicLookup.submit(...([] as unknown[]));
+  const dynamicBound: DynamicBoundAction<CounterDomain, "base"> =
+    dynamicLookup.bind(...([] as unknown[]));
+  void dynamicAdmission;
+  void dynamicPreview;
+  void dynamicSubmit;
+  void dynamicBound.submit();
+}
+if (maybeMissingLookup) {
+  void maybeMissingLookup.submit(...([] as unknown[]));
+}
+if (broadDynamicLookup) {
+  void broadDynamicLookup.submit(...([] as unknown[]));
+}
 const previewMode: PreviewDiagnosticsMode = "summary";
 const submitMode: SubmitReportMode = "summary";
 const view: ExecutionView = { diagnostics: previewMode, report: submitMode };
@@ -133,6 +173,8 @@ declare const unionModeFor: SubmitResultFor<"base" | "governance", CounterDomain
 declare const governedApp: ManifestoApp<CounterDomain, "governance">;
 
 void admission;
+void preciseLookup;
+void knownLookup;
 void preview;
 void baseResult;
 void projected.state.count;

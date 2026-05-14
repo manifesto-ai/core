@@ -22,6 +22,7 @@ const result = await app.action.increment.submit();
 const canIncrement = app.action.increment.available();
 const available = app.inspect.availableActions();
 const metadata = app.action.increment.info();
+const dynamic = app.getAction("increment");
 const snapshot = app.snapshot();
 const canonical = app.inspect.canonicalSnapshot();
 const graph = app.inspect.graph();
@@ -72,6 +73,20 @@ const intent = candidate.intent();
 ```
 
 Treat that as a low-level escape hatch, not as the ordinary app path.
+
+Use root `getAction(name)` when tooling receives an action id dynamically:
+
+```typescript
+const handle = app.getAction(actionId);
+
+if (handle) {
+  await handle.submit(...argsFromTooling);
+}
+```
+
+`getAction(name)` returns `undefined` only when the schema does not declare the
+action. A declared but currently unavailable action still returns a handle; call
+`available()`, `check()`, `preview()`, or `submit()` to evaluate current legality.
 
 ---
 

@@ -750,6 +750,8 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
     expect(app.action).toBeDefined();
     expect(app.action.increment.submit).toEqual(expect.any(Function));
     expect(app.action.add.submit).toEqual(expect.any(Function));
+    expect(app.getAction("increment")).toBe(app.action.increment);
+    expect(app.getAction("missing")).toBeUndefined();
     expect("commitAsync" in app).toBe(false);
     expect("commitAsyncWithReport" in app).toBe(false);
     expect("dispatchAsync" in app).toBe(false);
@@ -855,7 +857,7 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
     app.observe.state((snapshot) => snapshot.state.count, observedState);
     app.observe.event("submission:settled", settled);
 
-    const result = await app.action.increment.submit();
+    const result = await app.getAction("increment").submit();
 
     expect(result).toMatchObject({
       ok: true,

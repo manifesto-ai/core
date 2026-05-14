@@ -162,6 +162,8 @@ Current contract highlights:
 - Runtime verbs appear only after `activate()`.
 - `snapshot()` is the projected app-facing read surface.
 - `action.*` exposes typed action-candidate handles.
+- `getAction(name)` resolves a declared action handle from a runtime string
+  action id for tooling-class callers.
 - `actions.*` and `app.action(name)` are not canonical v5 semantic action
   accessors.
 - Action names `then`, `constructor`, `prototype`, and `__proto__` are rejected

@@ -592,14 +592,16 @@ field order from `inputType` or `input` is structural, not a public tuple order.
 ### 10.6 `action.*` and Reserved Public Action-Name Policy
 
 `action.*` is the canonical static action namespace on `ManifestoApp`.
-`actions.*` and `app.action(name)` are not canonical SDK v5 semantic action
-accessors.
+`getAction(name)` is the canonical SDK root-level dynamic action lookup for
+tooling-class callers. `actions.*` and `app.action(name)` are not canonical SDK
+v5 semantic action accessors.
 
 Generated facade output MUST model valid actions as static `action.x` handles.
-Dynamic collision-safe action access is intentionally absent. The current v5
-reserved public action-name set is exactly `then`, `constructor`, `prototype`,
-and `__proto__`; those names MUST fail before generated facade output is
-treated as valid.
+Generated facade output MUST NOT mint a second dynamic action accessor; facade
+app aliases rely on `ManifestoApp<TDomain, TMode>` to expose root
+`getAction(name)`. The current v5 reserved public action-name set is exactly
+`then`, `constructor`, `prototype`, and `__proto__`; those names MUST fail
+before generated facade output is treated as valid.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -607,6 +609,7 @@ treated as valid.
 | FAC-9 | MUST | Generated app/facade helper types MUST preserve typed static action namespace access through `ManifestoApp<TDomain, TMode>["action"]` or an exactly assignable helper. |
 | FAC-10 | MUST | Actions named `then`, `constructor`, `prototype`, or `__proto__` MUST be rejected before generated facade output is treated as valid. |
 | FAC-11 | MUST NOT | Generated output MUST NOT promise `action.x` property access or typed `action(name)` semantic access for reserved public action names. |
+| FAC-18 | MUST | Generated `ManifestoApp<TDomain, TMode>` aliases MUST preserve the SDK root `getAction(name)` surface without adding helper members under `action.*`. |
 
 ### 10.7 ADR-025 Snapshot Ontology Consequences
 
@@ -1016,6 +1019,7 @@ If `TypeDefinition` changes cause codegen failures **two or more times per quart
 | FAC-11 | MUST NOT | Do not promise action.x or action(name) access for reserved names |
 | FAC-12 | MUST | Use one object input argument when params is absent but input carrier exists |
 | FAC-13 | MUST | Use zero arguments when params and input carrier are absent |
+| FAC-18 | MUST | Preserve root getAction(name) through ManifestoApp aliases without adding action.* helpers |
 
 ### FilePatch Rules (FP-*)
 

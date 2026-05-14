@@ -24,10 +24,12 @@ import {
   type ComputedRef,
   type DispatchBlocker,
   type DispatchExecutionOutcome,
+  type DynamicActionHandle,
   type ExecutionDiagnostics,
   type ExecutionOutcome,
   type ExecutionView,
   type FieldRef,
+  type GetAction,
   type LineageSubmissionResult,
   type LineageWriteReport,
   type ManifestoDomainShape,
@@ -96,8 +98,10 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
   }
 
   const action = Object.create(null) as ActionSurface<T, "lineage">;
+  const actionByName = new Map<string, DynamicActionHandle<T, "lineage">>();
   for (const name of actionInfoByName.keys()) {
     const handle = createActionHandle(name);
+    actionByName.set(name, handle as unknown as DynamicActionHandle<T, "lineage">);
     Object.defineProperty(action, name, {
       enumerable: true,
       configurable: false,
@@ -138,6 +142,9 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
     },
   });
 
+  const getAction = ((name: string) =>
+    actionByName.get(name)) as GetAction<T, "lineage">;
+
   const runtime = {
     action: Object.freeze(action),
     state: createStateReadSurface(),
@@ -160,6 +167,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
       },
     }),
     snapshot: kernel.getSnapshot,
+    getAction,
     context: getViewExternalContext,
     injectContext(context) {
       if (isView) {

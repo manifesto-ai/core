@@ -68,6 +68,27 @@ export type CollisionDomain = {
   computed: {};
 };
 
+export type RootNameCollisionDomain = {
+  actions: {
+    get: () => void;
+    bind: () => void;
+    state: () => void;
+    computed: () => void;
+    inspect: () => void;
+    snapshot: () => void;
+    with: () => void;
+    dispose: () => void;
+    getAction: () => void;
+    toString: () => void;
+    hasOwnProperty: () => void;
+    valueOf: () => void;
+  };
+  state: {
+    count: number;
+  };
+  computed: {};
+};
+
 export function withHash(schema: Omit<DomainSchema, "hash">): DomainSchema {
   return {
     ...schema,
@@ -278,6 +299,48 @@ export function createCollisionSchema(): DomainSchema {
 
   return withHash({
     id: "manifesto:activation-cts-collisions",
+    version: "1.0.0",
+    types: {},
+    state: {
+      fields: {
+        count: { type: "number", required: false, default: 0 },
+      },
+    },
+    computed: { fields: {} },
+    actions: Object.fromEntries(
+      Object.entries(actionValues).map(([name, value]) => [
+        name,
+        {
+          flow: {
+            kind: "patch",
+            op: "set",
+            path: pp("count"),
+            value: { kind: "lit", value },
+          },
+        },
+      ]),
+    ),
+  });
+}
+
+export function createRootNameCollisionSchema(): DomainSchema {
+  const actionValues = {
+    get: 1,
+    bind: 2,
+    state: 3,
+    computed: 4,
+    inspect: 5,
+    snapshot: 6,
+    with: 7,
+    dispose: 8,
+    getAction: 9,
+    toString: 10,
+    hasOwnProperty: 11,
+    valueOf: 12,
+  } as const;
+
+  return withHash({
+    id: "manifesto:activation-cts-root-name-collisions",
     version: "1.0.0",
     types: {},
     state: {

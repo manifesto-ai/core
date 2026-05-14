@@ -1,13 +1,13 @@
 # SDK Version Index
 
 > **Package:** `@manifesto-ai/sdk`
-> **Last Updated:** 2026-05-07
+> **Last Updated:** 2026-05-14
 
 ## Current Contract
 
 | Version | Document | ADR | Notes | Status |
 |---------|----------|-----|-------|--------|
-| v5.0.0 | [SPEC](sdk-SPEC.md) | [ADR-025](../../../docs/internals/adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation.md), [ADR-026](../../../docs/internals/adr/026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress.md) | Action-candidate runtime surface with `snapshot()`, `state.*`, `computed.*`, static `action.*`, `observe.*`, `inspect.*`, and law-aware `submit()`. Canonical v3 root APIs, `actions.*`, and `app.action(name)` are removed from the v5 public surface; no `compat-v4` subpath is part of the current contract. | Current |
+| v5.0.0 | [SPEC](sdk-SPEC.md) | [ADR-025](../../../docs/internals/adr/025-snapshot-ontology-hard-cut-data-retirement-and-namespace-separation.md), [ADR-026](../../../docs/internals/adr/026-sdk-v5-action-candidate-surface-and-law-aware-submit-ingress.md) | Action-candidate runtime surface with `snapshot()`, `state.*`, `computed.*`, static `action.*`, root `getAction(name)`, `observe.*`, `inspect.*`, and law-aware `submit()`. Canonical v3 root APIs, `actions.*`, and `app.action(name)` are removed from the v5 public surface; no `compat-v4` subpath is part of the current contract. | Current |
 
 ## Superseded Contract
 
