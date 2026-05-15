@@ -11,10 +11,12 @@ import {
   createCounterSchema,
   createFailingSchema,
   createHaltingSchema,
+  createRootNameCollisionSchema,
   type CollisionDomain,
   type CounterDomain,
   type FailingDomain,
   type HaltingDomain,
+  type RootNameCollisionDomain,
 } from "../helpers/schema.js";
 
 describe("ACTS SDK v5 Action Candidate Suite", () => {
@@ -31,6 +33,7 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
         "computed",
         "context",
         "dispose",
+        "getAction",
         "injectContext",
         "inspect",
         "observe",
@@ -56,7 +59,51 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
         "preview",
         "submit",
       ]);
+      expect(app.getAction("increment")).toBe(app.action.increment);
+      expect(app.getAction("missing")).toBeUndefined();
       expect(app.action.increment.info().name).toBe("increment");
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE,
+      "root getAction() performs declared lookup without availability filtering.",
+    ),
+    async () => {
+      const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+
+      await app.action.increment.submit();
+      const handle = app.getAction("incrementIfEven");
+
+      expect(handle).toBe(app.action.incrementIfEven);
+      expect(handle.available()).toBe(false);
+      expect(handle.check()).toMatchObject({
+        ok: false,
+        layer: "availability",
+        code: "ACTION_UNAVAILABLE",
+      });
+      expect(app.getAction("missing")).toBeUndefined();
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE,
+      "root getAction() preserves the selected execution view.",
+    ),
+    async () => {
+      const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+      const result = await app.with({ report: "none" }).getAction("add").submit(2);
+
+      expect(result).toMatchObject({
+        ok: true,
+        mode: "base",
+        status: "settled",
+        action: "add",
+      });
+      expect(result.ok && "report" in result).toBe(false);
+      expect(app.snapshot().state.count).toBe(2);
     },
   );
 
@@ -69,6 +116,39 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
       expect(() => {
         createManifesto<CollisionDomain>(createCollisionSchema(), {}).activate();
       }).toThrow(/RESERVED_ACTION_NAME|reserved/);
+    },
+  );
+
+  it(
+    caseTitle(
+      ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE,
+      "valid root-name actions remain domain actions under action.* and getAction().",
+    ),
+    async () => {
+      const app = createManifesto<RootNameCollisionDomain>(
+        createRootNameCollisionSchema(),
+        {},
+      ).activate();
+
+      for (const [name, value] of Object.entries({
+        get: 1,
+        bind: 2,
+        state: 3,
+        computed: 4,
+        inspect: 5,
+        snapshot: 6,
+        with: 7,
+        dispose: 8,
+        getAction: 9,
+        toString: 10,
+        hasOwnProperty: 11,
+        valueOf: 12,
+      }) as Array<[keyof RootNameCollisionDomain["actions"], number]>) {
+        expect(app.action).toHaveProperty(name);
+        expect(app.getAction(name)).toBe(app.action[name]);
+        await app.action[name].submit();
+        expect(app.snapshot().state.count).toBe(value);
+      }
     },
   );
 

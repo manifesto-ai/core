@@ -595,6 +595,8 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect("createIntent" in governed).toBe(false);
     expect("MEL" in governed).toBe(false);
     expect(typeof governed.action.increment.submit).toBe("function");
+    expect(governed.getAction("increment")).toBe(governed.action.increment);
+    expect(governed.getAction("missing")).toBeUndefined();
     expect(typeof governed.waitForSettlement).toBe("function");
     expect(Object.isFrozen(governed)).toBe(true);
 
@@ -603,7 +605,18 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       action: "increment",
     });
 
-    const proposal = await settledIncrementProposal(governed);
+    const dynamicPending = await governed.getAction("increment").submit();
+    expect(dynamicPending).toMatchObject({
+      ok: true,
+      mode: "governance",
+      status: "pending",
+      action: "increment",
+    });
+    if (!dynamicPending.ok) {
+      throw new Error("expected dynamic governance submit to be pending");
+    }
+    await dynamicPending.waitForSettlement();
+    const proposal = await getStoredProposal(governed, dynamicPending.proposal);
     expect(proposal.status).toBe("completed");
     expect(governed.snapshot().state.count).toBe(1);
 

@@ -14,6 +14,7 @@ Use SDK when you want:
 
 - the shortest path to a running base runtime
 - typed action candidates through `action.<name>`
+- dynamic tooling action lookup through `getAction(name)`
 - typed effect authoring through `@manifesto-ai/sdk/effects`
 - projected Snapshot reads through `snapshot()`
 - typed projected field reads through `state.<name>` and `computed.<name>`
@@ -35,6 +36,7 @@ through `BoundAction.intent()`. It is not the primary app path.
   - `updateContext(updater)`
   - `with(view)`
   - `action.<name>`
+  - `getAction(name)`
   - `state.<name>.value()`
   - `state.<name>.observe(listener)`
   - `computed.<name>.value()`
@@ -74,8 +76,13 @@ const app = createManifesto<CounterDomain>(domainSchema, {}).activate();
 
 const info = app.action.increment.info();
 const admission = app.action.increment.check();
+const dynamic = app.getAction("increment");
 const preview = app.with({ diagnostics: "summary" }).action.increment.preview();
 const result = await app.with({ report: "summary" }).action.increment.submit();
+
+if (dynamic) {
+  await dynamic.submit();
+}
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state.count);

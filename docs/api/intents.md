@@ -10,9 +10,24 @@ Use typed action handles from `app.action.*`:
 const addTodo = app.action.addTodo;
 ```
 
-Do not use raw action-name strings as your app-facing write contract. Use
-`inspect.action(name)` and `inspect.availableActions()` only for read-only
-metadata or discovery. Semantic writes stay on `app.action.*`.
+Do not use raw action-name strings as your ordinary app-facing write contract.
+Use `inspect.action(name)` and `inspect.availableActions()` only for read-only
+metadata or discovery. Static app writes stay on `app.action.*`.
+
+Tooling-class callers that receive runtime action ids as strings use the root
+dynamic resolver:
+
+```typescript
+const handle = app.getAction(actionId);
+
+if (handle) {
+  await handle.submit(...args);
+}
+```
+
+`getAction(name)` is declared action lookup only. A returned handle still checks
+availability, input validity, dispatchability, and the active runtime law at
+`check()`, `preview()`, or `submit()` time.
 
 ## Binding Forms
 

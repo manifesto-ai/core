@@ -23,6 +23,7 @@ const pp = semanticPathToPatchPath;
 
 type CollisionDomain = {
   actions: {
+    get: () => void;
     bind: () => void;
     state: () => void;
     computed: () => void;
@@ -33,6 +34,10 @@ type CollisionDomain = {
     updateContext: () => void;
     with: () => void;
     dispose: () => void;
+    getAction: () => void;
+    toString: () => void;
+    hasOwnProperty: () => void;
+    valueOf: () => void;
     action: () => void;
   };
   state: {
@@ -128,6 +133,7 @@ function setCountFlow(value: number): DomainSchema["actions"][string]["flow"] {
 
 function createCollisionSchema(): DomainSchema {
   const actionValues = {
+    get: 1,
     bind: 2,
     state: 4,
     computed: 5,
@@ -138,7 +144,11 @@ function createCollisionSchema(): DomainSchema {
     updateContext: 10,
     with: 11,
     dispose: 12,
-    action: 13,
+    getAction: 13,
+    toString: 14,
+    hasOwnProperty: 15,
+    valueOf: 16,
+    action: 17,
   } as const;
 
   return withHash({
@@ -441,6 +451,7 @@ describe("SDK v5 action-candidate contract", () => {
       "computed",
       "context",
       "dispose",
+      "getAction",
       "injectContext",
       "inspect",
       "observe",
@@ -564,6 +575,75 @@ describe("SDK v5 action-candidate contract", () => {
     });
     expect(handle.available()).toBe(true);
     expect(handle.bind().intent()).toMatchObject({ type: "increment" });
+  });
+
+  it("resolves declared action handles from root getAction", () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+
+    const handle = app.getAction("increment");
+
+    expect(handle).toBeDefined();
+    expect(handle.info().name).toBe("increment");
+  });
+
+  it("returns undefined for unknown dynamic action names", () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+
+    expect(app.getAction("doesNotExist")).toBeUndefined();
+  });
+
+  it("returns handles for declared actions even when currently unavailable", async () => {
+    const app = createManifesto<DispatchabilityDomain>(
+      createDispatchabilitySchema(),
+      {},
+    ).activate();
+
+    await app.action.disable.submit();
+    const handle = app.getAction("incrementGuarded");
+
+    expect(handle).toBeDefined();
+    expect(handle!.available()).toBe(false);
+    expect(handle!.check(10)).toMatchObject({
+      ok: false,
+      layer: "availability",
+      code: "ACTION_UNAVAILABLE",
+    });
+  });
+
+  it("matches static action handle behavior for dynamic lookups", async () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const staticHandle = app.action.increment;
+    const dynamicHandle = app.getAction("increment");
+
+    expect(dynamicHandle).toBe(staticHandle);
+    expect(dynamicHandle.info()).toEqual(staticHandle.info());
+    expect(dynamicHandle.available()).toBe(staticHandle.available());
+
+    const result = await dynamicHandle.submit();
+    expect(result).toMatchObject({
+      ok: true,
+      mode: "base",
+      status: "settled",
+      action: "increment",
+    });
+    expect(app.snapshot().state.count).toBe(1);
+  });
+
+  it("preserves execution views selected before dynamic action lookup", async () => {
+    const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+    const handle = app.with({ report: "none" }).getAction("increment");
+
+    expect(handle).toBeDefined();
+    const result = await handle!.submit();
+
+    expect(result).toMatchObject({
+      ok: true,
+      mode: "base",
+      status: "settled",
+      action: "increment",
+    });
+    expect(result.ok && "report" in result).toBe(false);
+    expect(app.snapshot().state.count).toBe(1);
   });
 
   it("checks admission in first-failing-layer order: availability, input, dispatchability", async () => {
@@ -768,6 +848,7 @@ describe("SDK v5 action-candidate contract", () => {
       context: app.context,
       computed: app.computed,
       dispose: app.dispose,
+      getAction: app.getAction,
       injectContext: app.injectContext,
       inspect: app.inspect,
       observe: app.observe,
@@ -778,6 +859,7 @@ describe("SDK v5 action-candidate contract", () => {
     };
 
     for (const [name, value] of Object.entries({
+      get: 1,
       bind: 2,
       state: 4,
       computed: 5,
@@ -788,15 +870,21 @@ describe("SDK v5 action-candidate contract", () => {
       updateContext: 10,
       with: 11,
       dispose: 12,
-      action: 13,
+      getAction: 13,
+      toString: 14,
+      hasOwnProperty: 15,
+      valueOf: 16,
+      action: 17,
     }) as Array<[keyof CollisionDomain["actions"], number]>) {
       expect(app.action).toHaveProperty(name);
+      expect(app.getAction(name)).toBe(app.action[name]);
       await app.action[name].submit();
       expect(app.snapshot().state.count).toBe(value);
       expect(app.action).toBe(runtimeMembers.action);
       expect(app.context).toBe(runtimeMembers.context);
       expect(app.computed).toBe(runtimeMembers.computed);
       expect(app.dispose).toBe(runtimeMembers.dispose);
+      expect(app.getAction).toBe(runtimeMembers.getAction);
       expect(app.injectContext).toBe(runtimeMembers.injectContext);
       expect(app.inspect).toBe(runtimeMembers.inspect);
       expect(app.observe).toBe(runtimeMembers.observe);

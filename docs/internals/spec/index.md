@@ -115,6 +115,7 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
+| 05-14 | SDK/Lineage/Governance/Codegen | v5.0.0 | ADR-026 revision 10: root `getAction(name)` resolves declared action handles for tooling-class dynamic action ids while `app.action` remains domain-only |
 | 05-07 | Core/Compiler/Host | v5.0.0 | ADR-028 hard cut: Core owns dynamic Flow patch target resolution, Compiler lowers/preserves without runtime evaluation, and Host applies concrete patches only |
 | 05-07 | SDK/Lineage/Governance/Codegen | v5.0.0 | ADR-026 revision 9: canonical semantic action access is the static `action.*` namespace; `actions.*` and `app.action(name)` are removed from the current v5 SPEC surface and reserved public action names fail fast |
 | 05-07 | SDK | v5.0.0 | ADR-026 revision 8: SDK SPEC adds projected `state.*` / `computed.*` read handles with read-only `value()` and `observe((next, prev) => ...)` semantics |

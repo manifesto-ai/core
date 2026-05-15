@@ -1115,6 +1115,8 @@ _Source: `packages/sdk/src/index.ts`_
 - `DispatchReport`
 - `DomainExternalContext`
 - `DomainSchema`
+- `DynamicActionHandle`
+- `DynamicBoundAction`
 - `EffectContext`
 - `EffectHandler`
 - `ExecutionDiagnostics`
@@ -1123,6 +1125,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `ExecutionView`
 - `ExternalContext`
 - `FieldRef`
+- `GetAction`
 - `GovernanceLaws`
 - `GovernanceSettlementResult`
 - `GovernanceSettlementSurface`

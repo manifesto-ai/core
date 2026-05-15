@@ -547,6 +547,7 @@ export type BaseManifestoApp<
   readonly inspect: InspectSurface<TDomain>;
 
   snapshot(): ProjectedSnapshot<TDomain>;
+  getAction: GetAction<TDomain, TMode>;
   context(): DomainExternalContext<TDomain>;
   injectContext(context: DomainExternalContext<TDomain>): void;
   updateContext(
@@ -556,6 +557,22 @@ export type BaseManifestoApp<
 
   dispose(): void;
 };
+
+export type GetAction<
+  TDomain extends ManifestoDomainShape,
+  TMode extends RuntimeMode,
+> = {
+  <Name extends PreciseActionName<TDomain>>(
+    name: Name,
+  ): ActionHandle<TDomain, Name, TMode>;
+
+  (
+    name: string,
+  ): DynamicActionHandle<TDomain, TMode> | undefined;
+};
+
+type PreciseActionName<TDomain extends ManifestoDomainShape> =
+  string extends ActionName<TDomain> ? never : ActionName<TDomain>;
 
 export type GovernanceSettlementSurface<
   TDomain extends ManifestoDomainShape,
@@ -576,13 +593,31 @@ export type ManifestoApp<
       : EmptySurface);
 ```
 
-`action.*` is the only canonical semantic action namespace. `actions.*` and
+`action.*` is the canonical static semantic action namespace. `getAction(name)`
+is the canonical root-level dynamic semantic action lookup for tooling-class
+callers that receive runtime action ids as strings. `actions.*` and
 `app.action(name)` are not part of the SDK v5 runtime surface.
 
 Dynamic action discovery belongs to `inspect.availableActions()` and
 `inspect.action(name)`. Those inspection calls expose read-only metadata only;
-semantic action submission remains routed through statically typed
-`app.action.<name>` handles.
+semantic action submission remains routed through action handles reached by
+`app.action.<name>` or `app.getAction(name)`.
+
+`getAction(name)` is declared-action lookup only. It MUST return `undefined`
+when `name` is not declared by `schema.actions`; it MUST return an action handle
+when `name` is declared, even if the action is currently unavailable. It MUST
+NOT evaluate availability, input validity, dispatchability, governance policy,
+lineage continuity, or runtime mode settlement at lookup time. The returned
+handle is not a capability token; `check()`, `preview()`, and `submit()` MUST
+re-evaluate legality through the same active runtime boundary as the static
+`app.action.<name>` handle.
+
+Type precision MUST preserve runtime uncertainty for broad tooling runtimes. For
+concrete generated domain types, `app.getAction("knownName")` MAY return the
+precise `ActionHandle<TDomain, "knownName", TMode>`. When `ActionName<TDomain>`
+has widened to `string`, including `ManifestoApp<ManifestoDomainShape, TMode>`,
+`getAction(actionId)` MUST type as `DynamicActionHandle<TDomain, TMode> |
+undefined` so callers keep the unknown-action guard.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -599,6 +634,9 @@ semantic action submission remains routed through statically typed
 | SDK-ROOT-11 | MUST | `with(view)` MUST return an execution view for triggering transitions with the supplied context/report/diagnostics settings without mutating the source runtime view. |
 | SDK-ROOT-12 | MUST NOT | SDK MUST NOT provide `actions.*` or `app.action(name)` as canonical semantic action accessors. |
 | SDK-ROOT-13 | MUST | The current v5 reserved public action-name set is exactly `then`, `constructor`, `prototype`, and `__proto__`. Future SDK-owned members of the `action` namespace MUST update this SPEC before joining the reserved set. |
+| SDK-ROOT-14 | MUST | `getAction(name)` MUST perform declared action lookup only: unknown action names return `undefined`; declared action names return an action handle regardless of current availability. |
+| SDK-ROOT-15 | MUST | `getAction(name)` MUST preserve the execution view selected through `with(view)`. |
+| SDK-ROOT-16 | MUST NOT | SDK-owned helper members MUST NOT be added under `app.action`; `app.action` MUST remain a pure domain action namespace. |
 
 ### 7.1 Projected Read Handle Surface
 
@@ -678,7 +716,30 @@ export type ActionSurface<
 };
 ```
 
-### 8.2 Action Handle
+### 8.2 Dynamic Action Handle
+
+```typescript
+export type DynamicActionHandle<
+  TDomain extends ManifestoDomainShape,
+  TMode extends RuntimeMode,
+> = {
+  info(): ActionInfo<ActionName<TDomain>>;
+  available(): boolean;
+  check(...args: unknown[]): Admission<ActionName<TDomain>>;
+  preview(...args: unknown[]): PreviewResult<TDomain, ActionName<TDomain>>;
+  submit(
+    ...args: unknown[]
+  ): Promise<SubmitResultFor<TMode, TDomain, ActionName<TDomain>>>;
+  bind(...args: unknown[]): DynamicBoundAction<TDomain, TMode>;
+};
+```
+
+Dynamic handles are for tooling surfaces such as Studio, CLI, MCP, and command
+palettes. They preserve the same runtime law boundary as typed action handles,
+but their public input is `unknown[]` because the action name is only known at
+runtime.
+
+### 8.3 Action Handle
 
 ```typescript
 export type ActionHandle<
@@ -695,7 +756,7 @@ export type ActionHandle<
 };
 ```
 
-### 8.3 Bound Action
+### 8.4 Bound Action
 
 ```typescript
 export type BoundAction<
@@ -714,11 +775,25 @@ export type BoundAction<
 };
 ```
 
+```typescript
+export type DynamicBoundAction<
+  TDomain extends ManifestoDomainShape,
+  TMode extends RuntimeMode,
+> = {
+  readonly action: ActionName<TDomain>;
+  readonly input: ActionInput<TDomain, ActionName<TDomain>>;
+  check(): Admission<ActionName<TDomain>>;
+  preview(): PreviewResult<TDomain, ActionName<TDomain>>;
+  submit(): Promise<SubmitResultFor<TMode, TDomain, ActionName<TDomain>>>;
+  intent(): Intent | null;
+};
+```
+
 `bind()` makes an action candidate a first-class value. `intent()` is a method,
 not an always-present property, because invalid input cannot produce a valid raw
 protocol `Intent`.
 
-### 8.4 Action Info
+### 8.5 Action Info
 
 ```typescript
 export type ActionInfo<Name extends string = string> = {
@@ -753,12 +828,19 @@ runtime state.
 | SDK-ACTION-4 | MUST | `info()` MUST return static/public action contract metadata. |
 | SDK-ACTION-5 | MUST NOT | `info()` MUST NOT read hidden execution state or act as an authority decision channel. |
 | SDK-ACTION-6 | MUST | `ActionInfo.annotations` MUST be derived only from resolved action annotations. |
+| SDK-ACTION-11 | MUST | `getAction(name)` handles MUST expose the same `info`, `available`, `check`, `preview`, `submit`, and `bind` semantics as `app.action.<name>` for the same declared action. |
+| SDK-ACTION-12 | MUST | `getAction(name)` MUST return the same handle object as `app.action.<name>` when practical, or an observationally equivalent handle when identity cannot be preserved. |
 
-### 8.5 Execution View Order
+### 8.6 Execution View Order
 
 ```typescript
 app.with({ diagnostics: "summary" }).action.addTodo.preview({ title: "Ship v5" });
 await app.with({ report: "full" }).action.addTodo.submit({ title: "Ship v5" });
+
+const dynamic = app
+  .with({ context: { locale: "ko-KR" }, report: "full" })
+  .getAction("addTodo");
+await dynamic?.submit({ title: "Ship v5" });
 
 const candidate = app
   .with({ context: { locale: "ko-KR" }, report: "full" })
@@ -783,7 +865,7 @@ is always treated as domain action input according to the action's public arity.
 | SDK-ACTION-9 | MUST | Values passed to `preview()` and `submit()` MUST be treated as domain input, not SDK options. |
 | SDK-ACTION-10 | MUST | `bind(input)` MUST freeze the action payload after the execution view is selected. |
 
-### 8.6 ADR-027 Runtime Context Rules
+### 8.7 ADR-027 Runtime Context Rules
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|
@@ -1583,7 +1665,7 @@ export class ManifestoError extends Error {
 An implementation satisfies this SPEC when:
 
 - `createManifesto()` returns a composable manifesto and `activate()` returns `ManifestoApp<TDomain, TMode>`.
-- The root exposes `snapshot`, `context`, `injectContext`, `updateContext`, `with`, `action`, `state`, `computed`, `observe`, `inspect`, and `dispose`.
+- The root exposes `snapshot`, `getAction`, `context`, `injectContext`, `updateContext`, `with`, `action`, `state`, `computed`, `observe`, `inspect`, and `dispose`.
 - `ActionHandle` exposes `info`, `available`, `check`, `preview`, `submit`, and `bind`.
 - `state.*` and `computed.*` expose typed read-only `value()` and `observe((next, prev) => ...)` handles for top-level projected fields.
 - `BoundAction.intent()` returns `Intent | null`.
@@ -1620,7 +1702,7 @@ The SDK v5 CTS suite MUST cover:
 - Operational submit failure before terminal result rejects with `SubmissionFailedError` and emits `submission:failed`.
 - Governance-only `waitForSettlement(ref)` is type-level reachable only on governance runtimes.
 - `ProposalRef` can reattach settlement observation through a later governance runtime instance.
-- Action names `then`, `constructor`, `prototype`, and `__proto__` are rejected before activation/codegen output is treated as valid; no `app.action(name)` semantic fallback exists.
+- Action names `then`, `constructor`, `prototype`, and `__proto__` are rejected before activation/codegen output is treated as valid; no `app.action(name)` semantic fallback exists, and root `getAction(name)` resolves valid declared names dynamically.
 - `snapshot()` excludes canonical-only fields; `inspect.canonicalSnapshot()` includes the canonical substrate.
 - `state.*.value()` and `computed.*.value()` infer exact projected field value types.
 - `state.*` and `computed.*` handles do not expose write verbs.

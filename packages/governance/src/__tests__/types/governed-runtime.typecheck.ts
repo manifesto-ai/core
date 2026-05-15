@@ -2,6 +2,7 @@ import {
   createManifesto,
   type CanonicalSnapshot,
   type ActionName,
+  type DynamicActionHandle,
   type GovernanceSettlementResult,
   type GovernanceSubmissionResult,
   type ManifestoApp,
@@ -64,6 +65,10 @@ const submit: Promise<GovernanceSubmissionResult<CounterDomain, "increment">> =
   governed.action.increment.submit();
 const submitFor: Promise<SubmitResultFor<"governance", CounterDomain, "increment">> =
   governed.action.increment.submit();
+const dynamicGovernanceHandle: DynamicActionHandle<CounterDomain, "governance"> | undefined =
+  governed.getAction("increment" as string);
+const dynamicGovernanceSubmit: Promise<SubmitResultFor<"governance", CounterDomain, ActionName<CounterDomain>>> =
+  governed.getAction("increment" as string)!.submit(...([] as unknown[]));
 const runtimeSettlement: Promise<GovernanceSettlementResult<CounterDomain, ActionName<CounterDomain>>> =
   governed.waitForSettlement(proposalRef);
 const appSettlement: Promise<GovernanceSettlementResult<CounterDomain, ActionName<CounterDomain>>> =
@@ -73,6 +78,8 @@ const governedWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> |
 
 void submit;
 void submitFor;
+void dynamicGovernanceHandle;
+void dynamicGovernanceSubmit;
 void runtimeSettlement;
 void appSettlement;
 void governedWorldSnapshot;
