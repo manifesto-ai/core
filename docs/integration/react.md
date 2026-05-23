@@ -1,6 +1,6 @@
 # React Integration
 
-> Keep React focused on Snapshot reads. Activate the runtime once per app mount, then expose typed action helpers from a hook.
+> Keep React focused on rendering app state. Activate the runtime once per app mount, then expose typed action helpers from a hook.
 
 ---
 
@@ -8,12 +8,12 @@
 
 - one activated SDK runtime held in a ref
 - one React state value seeded from `snapshot()`
-- one `observe.state(...)` subscription that keeps React in sync with terminal snapshots
+- one `observe.state(...)` subscription that keeps React in sync with published snapshots
 - explicit action helpers such as `addTodo(title)` instead of `act("addTodo", input)`
 
-This page stays SDK-first. If your app later needs lineage or governance,
-compose those decorators before activation and keep the React layer on snapshot
-reads and action helpers.
+This page stays SDK-first. If your app later needs approval or history, compose
+those layers before activation and keep the React layer on snapshot reads and
+action helpers.
 
 ---
 
@@ -21,49 +21,57 @@ reads and action helpers.
 
 - You finished the [Tutorial](/tutorial/)
 - You know basic React hooks
+- You can import `.mel` files through your bundler
+- Your Vite setup emits `src/domain/todo.domain.ts` as shown in [Bundler Setup](/guides/bundler-setup)
+
+The runtime pattern below also works in plain JavaScript. The TypeScript
+snippets use the generated domain facade so React props stay aligned with the
+same `.mel` file the runtime imports.
 
 ---
 
-## 1. Define The Domain Shape
+## Starting Files
 
-Create `types.ts`:
+After [Building a Todo App](/tutorial/04-todo-app), keep the same domain file
+and add the generated facade plus React files:
 
-```typescript
-export type Todo = {
-  readonly id: string;
-  readonly title: string;
-  readonly completed: boolean;
-};
-
-export type FilterMode = "all" | "active" | "completed";
-
-export type TodoState = {
-  readonly todos: readonly Todo[];
-  readonly filterMode: FilterMode;
-};
-
-export type TodoComputed = {
-  readonly todoCount: number;
-  readonly completedCount: number;
-  readonly activeCount: number;
-  readonly hasCompleted: boolean;
-};
-
-export type TodoDomain = {
-  readonly actions: {
-    readonly addTodo: (title: string) => void;
-    readonly toggleTodo: (id: string) => void;
-    readonly removeTodo: (id: string) => void;
-    readonly setFilter: (newFilter: FilterMode) => void;
-    readonly clearCompleted: () => void;
-  };
-  readonly state: TodoState;
-  readonly computed: TodoComputed;
-};
+```text
+src/
+  domain/
+    todo.mel
+    todo.domain.ts
+  hooks/
+    use-manifesto.ts
+  app.tsx
 ```
 
-The hook uses this type to keep `action.*` aligned with the domain action
-signatures.
+The tutorial's `src/manifesto-app.ts` can stay for the Node script while you
+learn. The React hook below owns a browser-local runtime. When the UI and an
+agent must share state, move runtime ownership to the server shape in
+[Web App + Agent](./web-app-and-agent).
+
+---
+
+## 1. Import The Generated Domain Types
+
+Create the hook next to the Todo domain from [Building a Todo App](/tutorial/04-todo-app).
+The Vite/codegen setup emits `src/domain/todo.domain.ts` from
+`src/domain/todo.mel`:
+
+```typescript
+import type { TodoDomain } from "../domain/todo.domain";
+
+export type Todo = TodoDomain["state"]["todos"][number];
+export type FilterMode = TodoDomain["state"]["filterMode"];
+```
+
+The runtime imports `todo.mel`. React imports `todo.domain.ts` for types. Both
+come from the same domain source, so renaming an action or state field in MEL
+shows up in TypeScript.
+
+For this guide, the aliases live in the hook. If you split components into
+separate files, move `Todo` and `FilterMode` into `src/types.ts`; the runnable
+example uses that layout.
 
 ---
 
@@ -75,14 +83,20 @@ Create `hooks/use-manifesto.ts`:
 import { useEffect, useRef, useState } from "react";
 import {
   createManifesto,
+  type ActionName,
   type ManifestoApp,
-  type ProjectedSnapshot,
+  type SubmitResultFor,
 } from "@manifesto-ai/sdk";
-import todoSchema from "../domain/todo.mel";
-import type { FilterMode, TodoDomain } from "../types";
+import TodoMel from "../domain/todo.mel";
+import type { TodoDomain } from "../domain/todo.domain";
 
-type TodoSnapshot = ProjectedSnapshot<TodoDomain>;
+export type Todo = TodoDomain["state"]["todos"][number];
+export type FilterMode = TodoDomain["state"]["filterMode"];
+
 type TodoApp = ManifestoApp<TodoDomain, "base">;
+type TodoSnapshot = ReturnType<TodoApp["snapshot"]>;
+type TodoSubmitResult =
+  SubmitResultFor<"base", TodoDomain, ActionName<TodoDomain>>;
 
 type UseManifestoResult = {
   readonly state: TodoSnapshot | null;
@@ -94,13 +108,16 @@ type UseManifestoResult = {
   readonly clearCompleted: () => Promise<TodoSnapshot>;
 };
 
-async function submitOrThrow(
-  run: (app: TodoApp) => ReturnType<TodoApp["action"]["clearCompleted"]["submit"]>,
-  app: TodoApp,
-): Promise<TodoSnapshot> {
-  const result = await run(app);
+async function submitOrThrow(resultPromise: Promise<TodoSubmitResult>): Promise<TodoSnapshot> {
+  const result = await resultPromise;
   if (!result.ok) {
     throw new Error(result.admission.message);
+  }
+  if (result.outcome.kind === "fail") {
+    throw new Error(result.outcome.error.message);
+  }
+  if (result.outcome.kind === "stop") {
+    throw new Error(result.outcome.reason);
   }
   return result.after;
 }
@@ -110,7 +127,7 @@ export function useManifesto(): UseManifestoResult {
   const [state, setState] = useState<TodoSnapshot | null>(null);
 
   useEffect(() => {
-    const app = createManifesto<TodoDomain>(todoSchema as string, {}).activate();
+    const app = createManifesto<TodoDomain>(TodoMel, {}).activate();
     appRef.current = app;
     setState(app.snapshot());
 
@@ -136,19 +153,19 @@ export function useManifesto(): UseManifestoResult {
   };
 
   const addTodo = (title: string) =>
-    withApp((app) => submitOrThrow((runtime) => runtime.action.addTodo.submit(title), app));
+    withApp((app) => submitOrThrow(app.action.addTodo.submit(title)));
 
   const toggleTodo = (id: string) =>
-    withApp((app) => submitOrThrow((runtime) => runtime.action.toggleTodo.submit(id), app));
+    withApp((app) => submitOrThrow(app.action.toggleTodo.submit(id)));
 
   const removeTodo = (id: string) =>
-    withApp((app) => submitOrThrow((runtime) => runtime.action.removeTodo.submit(id), app));
+    withApp((app) => submitOrThrow(app.action.removeTodo.submit(id)));
 
   const setFilter = (newFilter: FilterMode) =>
-    withApp((app) => submitOrThrow((runtime) => runtime.action.setFilter.submit(newFilter), app));
+    withApp((app) => submitOrThrow(app.action.setFilter.submit(newFilter)));
 
   const clearCompleted = () =>
-    withApp((app) => submitOrThrow((runtime) => runtime.action.clearCompleted.submit(), app));
+    withApp((app) => submitOrThrow(app.action.clearCompleted.submit()));
 
   return {
     state,
@@ -165,16 +182,25 @@ export function useManifesto(): UseManifestoResult {
 The important runtime rules are:
 
 - `createManifesto(...).activate()` runs once per mounted hook instance
-- `observe.state(...)` pushes only later terminal snapshots
+- `observe.state(...)` pushes only later published snapshots
 - every action helper submits through `app.action.*`
 - React never calls retired root runtime verbs
+
+`submitOrThrow()` keeps the demo small by turning non-success writes into thrown
+errors. In a product UI, you can return a typed response instead, as shown in
+[Web App + Agent](./web-app-and-agent).
 
 ---
 
 ## 3. Render Snapshot State In Components
 
 ```tsx
-import { useManifesto } from "./hooks/use-manifesto";
+import { useState } from "react";
+import {
+  useManifesto,
+  type FilterMode,
+  type Todo,
+} from "./hooks/use-manifesto";
 
 export function App() {
   const {
@@ -232,6 +258,82 @@ export function App() {
 React only reads snapshots and calls typed helpers. The Manifesto runtime still
 owns state transitions, queueing, and action availability.
 
+Minimal versions of the child components can stay ordinary React components:
+
+```tsx
+function TodoInput(props: { readonly onAdd: (title: string) => void }) {
+  const [title, setTitle] = useState("");
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        props.onAdd(title);
+        setTitle("");
+      }}
+    >
+      <input value={title} onChange={(event) => setTitle(event.target.value)} />
+      <button type="submit">Add</button>
+    </form>
+  );
+}
+
+function TodoList(props: {
+  readonly todos: readonly Todo[];
+  readonly onToggle: (id: string) => void;
+  readonly onRemove: (id: string) => void;
+}) {
+  return (
+    <ul>
+      {props.todos.map((todo) => (
+        <li key={todo.id}>
+          <label>
+            <input
+              type="checkbox"
+              checked={todo.completed}
+              onChange={() => props.onToggle(todo.id)}
+            />
+            {todo.title}
+          </label>
+          <button type="button" onClick={() => props.onRemove(todo.id)}>
+            Remove
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function TodoFooter(props: {
+  readonly activeCount: number;
+  readonly hasCompleted: boolean;
+  readonly filterMode: FilterMode;
+  readonly onSetFilter: (filter: FilterMode) => void;
+  readonly onClearCompleted: () => void;
+}) {
+  return (
+    <footer>
+      <span>{props.activeCount} active</span>
+      {(["all", "active", "completed"] as const).map((filter) => (
+        <button
+          key={filter}
+          type="button"
+          disabled={props.filterMode === filter}
+          onClick={() => props.onSetFilter(filter)}
+        >
+          {filter}
+        </button>
+      ))}
+      {props.hasCompleted && (
+        <button type="button" onClick={props.onClearCompleted}>
+          Clear completed
+        </button>
+      )}
+    </footer>
+  );
+}
+```
+
 ---
 
 ## 4. Awaitable UI Flows Stay On The Same Helpers
@@ -242,12 +344,13 @@ If a form or modal needs to wait for completion, await the helper:
 await addTodo("Review the UI flow");
 ```
 
-The helper already uses `app.action.addTodo.submit(title)`, so you do not need
-a second generic dispatch layer.
+The helper already uses `app.action.addTodo.submit(title)` and checks whether
+the runtime accepted and settled the write, so you do not need a second generic
+dispatch layer.
 
 ---
 
-## 5. Treat Availability As Snapshot-Derived UI State
+## 5. Treat Availability As Current UI State
 
 `action.x.available()` is a point-in-time runtime read. If the UI needs a
 reactive boolean, recompute it in the same path that updates React state from
@@ -259,7 +362,7 @@ const syncAvailability = (app: TodoApp) => {
 };
 
 useEffect(() => {
-  const app = createManifesto<TodoDomain>(todoSchema as string, {}).activate();
+  const app = createManifesto<TodoDomain>(TodoMel, {}).activate();
   appRef.current = app;
   setState(app.snapshot());
   syncAvailability(app);
@@ -283,41 +386,34 @@ Do not treat `available()` itself as a subscription source.
 
 ---
 
-## 6. If The App Is Governed
+## 6. If You Are Not Using Codegen Yet
 
-Keep the same React shape. The only change is the runtime assembly before
-activation:
+For a one-file experiment, you can temporarily write a small local domain shape.
+Do that only as a fallback. The normal app path is to let [Code Generation](/guides/code-generation)
+emit the facade from `todo.mel`:
 
 ```typescript
-import { createManifesto } from "@manifesto-ai/sdk";
-import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
-import { createInMemoryGovernanceStore, withGovernance } from "@manifesto-ai/governance";
+import type { TodoDomain } from "../domain/todo.domain";
 
-const governed = withGovernance(
-  withLineage(createManifesto(todoSchema as string, effects), {
-    store: createInMemoryLineageStore(),
-  }),
-  {
-    governanceStore: createInMemoryGovernanceStore(),
-    bindings: [
-      {
-        actorId: "actor:auto",
-        authorityId: "authority:auto",
-        policy: { mode: "auto_approve" },
-      },
-    ],
-    execution: {
-      projectionId: "todo-ui",
-      deriveActor: () => ({ actorId: "actor:auto", kind: "human" }),
-      deriveSource: () => ({ kind: "ui", eventId: crypto.randomUUID() }),
-    },
-  },
-).activate();
+export type Todo = TodoDomain["state"]["todos"][number];
+export type FilterMode = TodoDomain["state"]["filterMode"];
 ```
 
-The component tree can still render snapshots the same way. What changes is the
-runtime contract behind the hook: governed `submit()` first returns a pending
-proposal result, and settlement is observed through `waitForSettlement()`.
+The runtime calls do not change. Code generation removes the hand-written
+domain shape and keeps React props aligned with the `.mel` file.
+
+---
+
+## 7. Add Review Later
+
+Keep the same React shape when the product later needs reviewed writes:
+activate once, store the runtime in a ref, render from snapshots, and submit
+through `app.action.*`.
+
+What changes is the runtime assembled before activation and the result your
+action helper returns. Do not add that complexity for a local UI demo. Use
+[When You Need Approval or History](/guides/approval-and-history) when writes
+need human review or durable history.
 
 ---
 
@@ -332,10 +428,10 @@ Activate once during mount, then keep the runtime in a ref.
 Prefer explicit helpers like `addTodo(title)` over `act("addTodo", input)`.
 That keeps the app path aligned with typed `action.*`.
 
-### Waiting for retired SDK APIs
+### Reintroducing an older generic dispatcher
 
-There is no dispatch-first path anymore. Await the action helper, which already
-delegates to `submit()`.
+Prefer the typed action helper. It already delegates to `submit()` and keeps
+component code out of generic string dispatch.
 
 ### Expecting `observe.state()` to emit immediately
 
@@ -358,5 +454,6 @@ listeners.
 ## Next
 
 - Read [AI Agents](./ai-agents) to drive the same runtime from an agent workflow
-- Read [When You Need Approval or History](/guides/approval-and-history) when the UI later needs lineage or approvals
+- Read [Web App + Agent](./web-app-and-agent) when the UI and agent must share one server runtime
+- Read [When You Need Approval or History](/guides/approval-and-history) when the UI later needs review or durable history
 - Read [Debugging](/guides/debugging) if a rendered snapshot does not match the action you submitted

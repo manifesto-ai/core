@@ -1,21 +1,30 @@
 # Manifesto
 
-**Semantic Layer for Deterministic Domain State**
+**One Domain Model For Apps And Agents**
 
-Manifesto gives you one semantic model for deterministic domain state and tooling surfaces built from the same schema. Approval, history, and governance come later only when the project needs them.
+Manifesto lets you define a domain once in MEL, then run the same actions from
+app code, UI, backend routes, and agents. Approval and history come later only
+when the project needs them.
 
-[![npm version](https://img.shields.io/npm/v/@manifesto-ai/core.svg)](https://www.npmjs.com/package/@manifesto-ai/core)
+[![npm version](https://img.shields.io/npm/v/@manifesto-ai/sdk.svg)](https://www.npmjs.com/package/@manifesto-ai/sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Install
+## Smallest Start
+
+```bash
+npm install @manifesto-ai/sdk
+npm install -D @manifesto-ai/compiler tsx typescript
+```
+
+That is enough for a direct Node/tsx script that imports `.mel` files through
+the MEL loader. For Vite or another bundler, add the compiler plugin shown in
+[Quick Start](./docs/guide/quick-start.md).
+
+Prefer an interactive setup? Use the optional CLI:
 
 ```bash
 npx @manifesto-ai/cli init
 ```
-
-That opens the interactive init flow. Prefer pnpm or bun? Use `pnpm dlx @manifesto-ai/cli init` or `bunx @manifesto-ai/cli init`.
-
-Prefer manual setup? Install `@manifesto-ai/sdk` for the app runtime. Install `@manifesto-ai/compiler` directly only when your project imports compiler entrypoints such as `@manifesto-ai/compiler/vite`.
 
 ## Quick Example
 
@@ -24,7 +33,7 @@ domain Counter {
   state { count: number = 0 }
 
   action increment() {
-    onceIntent { patch count = add(count, 1) }
+    onceIntent { patch count = count + 1 }
   }
 }
 ```
@@ -39,15 +48,37 @@ await app.action.increment.submit();
 console.log(app.snapshot().state.count); // 1
 ```
 
+Run a direct script with:
+
+```bash
+npx tsx --loader @manifesto-ai/compiler/node-loader main.ts
+```
+
 ## Start With The Docs
 
-- Build the first app: [Docs Home](./docs/index.md) -> [Guide Introduction](./docs/guide/introduction.md) -> [Quick Start](./docs/guide/quick-start.md)
-- Set up CLI, editor, AI, or Studio workflows: [Developer Tooling](./docs/guides/developer-tooling.md)
-- Add approval, review, or sealed history later: [When You Need Approval or History](./docs/guides/approval-and-history.md)
-- Look up a package you already know: [API Reference](./docs/api/index.md)
-- Go deeper into the model: [Concepts](./docs/concepts/index.md), [Architecture](./docs/architecture/index.md), [Internals](./docs/internals/index.md)
+Use this order if you are new:
 
-Start with the base SDK runtime. Add compiler entrypoints, Lineage, Governance, or the surrounding DX packages only when the project actually needs them.
+1. Run the smallest app: [Quick Start](./docs/guide/quick-start.md)
+2. Learn the file layout: [Project Anatomy](./docs/guide/project-anatomy.md)
+3. Learn the MEL file: [MEL Domain Basics](./docs/guide/essentials/mel-domain-basics.md) -> [MEL For App Developers](./docs/guide/essentials/mel-for-app-developers.md)
+4. Activate and read the app: [Creating an App](./docs/guide/essentials/creating-an-app.md)
+5. Build the Todo path: [Tutorial](./docs/tutorial/index.md)
+6. Turn the Todo domain into app-facing TypeScript: [Bundler Setup](./docs/guides/bundler-setup.md) -> [Code Generation](./docs/guides/code-generation.md)
+7. Add UI wiring, then compare with the example: [React](./docs/integration/react.md) -> [Runnable Examples](./docs/guide/runnable-examples.md)
+8. Put UI and agent writes behind one server runtime: [Web App + Agent](./docs/integration/web-app-and-agent.md)
+9. Go deeper on agent-only tool loops: [AI Agents](./docs/integration/ai-agents.md)
+10. Decide on review or history only when the product needs it: [When You Need Approval or History](./docs/guides/approval-and-history.md)
+
+Other entry points:
+
+- Set up CLI, editor, AI, or Studio workflows: [Developer Tooling](./docs/guides/developer-tooling.md)
+- Add approval, review, or durable history later: [When You Need Approval or History](./docs/guides/approval-and-history.md)
+- Look up a package you already know: [API Reference](./docs/api/index.md)
+- Go deeper into the model: [Concepts](./docs/concepts/index.md), [Architecture](./docs/architecture/index.md)
+- Work on the repository itself: [Internals](./docs/internals/index.md)
+
+Start with the base SDK runtime. Add approval/history packages or surrounding
+DX tools only when the project actually needs them.
 
 ## What Manifesto Is Not
 
@@ -57,8 +88,7 @@ Start with the base SDK runtime. Add compiler entrypoints, Lineage, Governance, 
 - Not a workflow engine
 
 ## Research & Citation
-Manifesto is a general-purpose declarative runtime. The underlying design philosophy and the initial empirical validation of its reflective protocol
-If you use this core framework in your research, please cite:
+If you use Manifesto in research, please cite:
 
 ```
 @misc{jung2026llmdoesselfrevisingagent,

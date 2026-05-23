@@ -1,8 +1,10 @@
 # @manifesto-ai/governance
 
-> Decorator runtime for legitimacy, approval, and governed execution.
+> Decorator runtime for approval, proposal review, and governed execution.
 
-`@manifesto-ai/governance` is the package that turns a composable manifesto into a governed world. Its canonical public entry is `withGovernance(manifesto, config)`.
+`@manifesto-ai/governance` is the package that turns a composable Manifesto app
+into an approval-gated runtime. Its canonical public entry is
+`withGovernance(manifesto, config)`.
 
 > **Current Contract Note:** The current package contract is [docs/governance-SPEC.md](docs/governance-SPEC.md). The v2.0.0 governance spec remains as the historical service-first baseline. The current runtime surface uses governance-mode `action.<name>.submit(...)` plus `waitForSettlement(ref)`.
 
@@ -12,15 +14,17 @@
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import { withGovernance } from "@manifesto-ai/governance";
+import TodoMel from "./domain/todo.mel";
+import type { TodoDomain } from "./domain/todo.domain";
 
 const governed = withGovernance(
-  withLineage(createManifesto<CounterDomain>(schema, effects), {
+  withLineage(createManifesto<TodoDomain>(TodoMel, effects), {
     store: createInMemoryLineageStore(),
   }),
   {
     bindings,
     execution: {
-      projectionId: "counter",
+      projectionId: "todo",
       deriveActor(intent) {
         return { actorId: "agent:demo", kind: "agent" };
       },
@@ -31,7 +35,7 @@ const governed = withGovernance(
   },
 ).activate();
 
-const pending = await governed.action.increment.submit();
+const pending = await governed.action.addTodo.submit("Review docs");
 const settlement = pending.ok
   ? await pending.waitForSettlement()
   : pending;
@@ -58,7 +62,7 @@ const settlement = pending.ok
 
 ## Low-Level Surface Still Available
 
-The provider entry point remains public for lower-level tooling and protocol tests:
+The provider entry point remains public for lower-level tooling and integration tests:
 
 - `@manifesto-ai/governance/provider`
 - `createGovernanceService()`

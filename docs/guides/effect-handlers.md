@@ -17,11 +17,31 @@ action fetchUser(id: string) {
 }
 ```
 
-At that point you need to register a handler in `createManifesto(schema, effects)`.
+At that point you need to register a handler when you activate the MEL domain:
+`createManifesto(DomainMel, effects)`.
+
+For a script or browser-only demo, `effects.ts` can sit next to
+`manifesto-app.ts`. For a web app plus agent, keep effects in the same
+server-side runtime used by both surfaces:
+
+```text
+src/
+  domain/
+    todo.mel
+  server/
+    effects.ts
+    manifesto-app.ts
+    todo-actions.ts
+    todo-agent-tools.ts
+```
+
+React and agent tools should not call effect handlers directly. They submit
+actions. The runtime invokes the matching handler, applies returned patches, and
+then both surfaces read the next Snapshot.
 
 ---
 
-## The Current Contract
+## Handler Shape
 
 An SDK effect handler looks like this:
 
@@ -47,24 +67,23 @@ Do not return raw values. Do not rely on a hidden callback channel.
 
 ```typescript
 import { defineEffects } from "@manifesto-ai/sdk/effects";
-import type { UserProfileDomain } from "./user-profile-types";
 
-export const effects = defineEffects<UserProfileDomain>(({ set, unset }, refs) => ({
+async function fetchUser(id: string) {
+  // Replace this with fetch(), a database call, or a model call in your app.
+  return { id, name: id === "123" ? "Ada" : "Unknown User" };
+}
+
+export const effects = defineEffects(({ set }, refs) => ({
   "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
 
     try {
-      const response = await fetch(`https://example.com/users/${id}`);
-      if (!response.ok) {
-        throw new Error(`Request failed with ${response.status}`);
-      }
-
-      const user = await response.json();
+      const user = await fetchUser(id);
 
       return [
         set(refs.state.user, user),
         set(refs.state.loading, false),
-        unset(refs.state.error),
+        set(refs.state.error, null),
       ];
     } catch (error) {
       return [
@@ -86,12 +105,82 @@ import { createManifesto } from "@manifesto-ai/sdk";
 import DomainMel from "./domain.mel";
 import { effects } from "./effects";
 
-const manifesto = createManifesto(DomainMel, effects);
+const app = createManifesto(DomainMel, effects).activate();
 ```
 
-`defineEffects()` is only an authoring helper. Each handler still returns concrete `Patch[]`, and raw patch literals are still valid when you want the low-level surface.
+This plain form works before you add generated TypeScript facades. When you
+later enable code generation, pass the generated domain shape to
+`defineEffects<...>()` for stronger `refs.state.*` autocomplete.
 
-## Low-Level Raw Patch Form
+`defineEffects()` is the recommended app-facing authoring helper. Stay with it
+until you need low-level runtime tests or adapter code.
+
+## Where Effects Fit With UI And Agents
+
+The same effect result should be visible to every caller through Snapshot:
+
+```text
+React UI -> server action -> app.action.saveDraft.submit()
+                                      |
+                                      v
+                              effect api.saveDraft
+                                      |
+                                      v
+Agent tool <- fresh context <- returned patches <- handler IO
+```
+
+Put product rules in MEL actions and `available when` / `dispatchable when`
+guards. Put IO details in the handler. That split keeps a human UI, a server
+route, and an agent tool from each inventing separate save/error semantics.
+
+Example server boundary:
+
+```typescript
+// src/server/manifesto-app.ts
+import { createManifesto } from "@manifesto-ai/sdk";
+
+import TodoMel from "../domain/todo.mel";
+import { effects } from "./effects";
+
+export const app = createManifesto(TodoMel, effects).activate();
+
+export function readContext() {
+  const snapshot = app.snapshot();
+
+  return {
+    state: snapshot.state,
+    computed: snapshot.computed,
+    availableActions: app.inspect.availableActions(),
+  };
+}
+```
+
+App-owned action functions can then return fresh context after writes:
+
+```typescript
+// src/server/todo-actions.ts
+import { app, readContext } from "./manifesto-app";
+
+export async function saveDraft(title: string) {
+  const result = await app.action.saveDraft.submit(title);
+
+  return {
+    status: result.ok
+      ? result.outcome.kind === "ok" ? "settled" : result.outcome.kind
+      : "admission_blocked",
+    context: readContext(),
+  };
+}
+```
+
+The UI and agent can both call `saveDraft()` through their own adapters. Neither
+side needs to know whether the effect handler used `fetch()`, a database client,
+or a model provider.
+
+## Advanced Raw Patch Form
+
+Skip this section on the first pass. It shows the lower-level shape that
+`defineEffects()` helps you avoid writing by hand.
 
 ```typescript
 import type { EffectHandler } from "@manifesto-ai/sdk";
@@ -104,7 +193,7 @@ export const effects = {
     return [
       { op: "set", path: [{ kind: "prop", name: "user" }], value: user },
       { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
-      { op: "unset", path: [{ kind: "prop", name: "error" }] },
+      { op: "set", path: [{ kind: "prop", name: "error" }], value: null },
     ];
   },
 } satisfies Record<string, EffectHandler>;
@@ -157,23 +246,30 @@ The handler still returns patches. The snapshot is input, not mutable shared sta
 You can test an effect handler directly because it is just an async function:
 
 ```typescript
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { Snapshot } from "@manifesto-ai/sdk";
 import { effects } from "./effects";
 
 describe("api.fetchUser", () => {
   it("returns patches for the success path", async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ id: "123", name: "Ada" }),
-    }) as typeof fetch;
-
-	    const snapshot = {
-	      state: { loading: true, user: null, error: null },
-	      computed: {},
-	      system: { status: "idle", lastError: null },
-	      meta: { schemaHash: "test-schema" },
-	    } as Snapshot;
+    const snapshot = {
+      state: { loading: true, user: null, error: null },
+      computed: {},
+      system: {
+        status: "idle",
+        lastError: null,
+        pendingRequirements: [],
+        currentAction: null,
+      },
+      input: null,
+      meta: {
+        version: 0,
+        timestamp: 0,
+        randomSeed: "test-seed",
+        schemaHash: "test-schema",
+      },
+      namespaces: {},
+    } as Snapshot;
 
     const patches = await effects["api.fetchUser"]({ id: "123" }, { snapshot });
 

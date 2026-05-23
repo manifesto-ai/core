@@ -76,7 +76,7 @@ manifesto scaffold counter
 manifesto doctor --json
 ```
 
-Use `runtime=lineage` or `runtime=gov` only when the project already needs approval, continuity, or sealing.
+Use `runtime=lineage` or `runtime=gov` only when the project already needs approval, history, or sealing.
 
 ## Interactive Init
 

@@ -16,15 +16,17 @@ caller -> SDK (`createManifesto` -> `activate`)
        -> terminal Snapshot
 ```
 
-If you need explicit governance, actor approval, or lineage, decorate the same manifesto with Lineage and Governance before activation.
+If you need review, actor approval, or sealed history, read [When You Need
+Approval or History](/guides/approval-and-history) before adding the advanced
+runtime.
 
 ## What Each Layer Owns
 
 | Layer | Responsibility |
 |-------|----------------|
 | SDK | Public entrypoint and runtime handle |
-| Lineage | Continuity, sealing, restore, branch/head history |
-| Governance | Legitimacy, proposal lifecycle, approval, rejection, decisions |
+| Lineage | Advanced history, sealing, restore, branch/head history |
+| Governance | Advanced proposal lifecycle, approval, rejection, decisions |
 | Compiler | MEL to `DomainSchema` conversion |
 | Host | Effect execution and patch application loop |
 | Core | Pure computation of the next semantic state |
@@ -34,7 +36,8 @@ If you need explicit governance, actor approval, or lineage, decorate the same m
 1. [Data Flow](./data-flow)
 2. [Determinism](./determinism)
 3. [Failure Model](./failure-model)
-4. [World Records and Governed Composition](/concepts/world)
+4. [When You Need Approval or History](/guides/approval-and-history)
+5. [World Records](/concepts/world), only after that decision guide says you need it
 
 ## When To Read This Section
 
@@ -42,6 +45,6 @@ Read the architecture pages when:
 
 - the tutorial examples make sense, but you want to know why
 - you are integrating Manifesto into a larger system
-- you need to decide whether to add Lineage or Governance
+- you need to decide whether to add approval or sealed history
 
 If you are still learning the APIs, go back to [Quick Start](/guide/quick-start) or [Tutorial](/tutorial/) first.

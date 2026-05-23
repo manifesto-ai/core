@@ -1,20 +1,31 @@
 # @manifesto-ai/codegen
 
-> **Codegen** generates canonical domain facade types from a Manifesto DomainSchema through a deterministic plugin pipeline.
+> **Codegen** generates app-facing SDK domain facades from MEL compiler output.
 
 ---
 
 ## What is Codegen?
 
-Codegen transforms a DomainSchema into type-safe code artifacts. It runs plugins sequentially, each producing file patches that are validated, collision-checked, and flushed to disk.
+Codegen emits the TypeScript facade that lets SDK app code stay typed against a
+MEL domain. Most apps use it through the compiler plugin, which writes a
+`<source>.domain.ts` file next to the `.mel` source during dev or build.
+
+For app developers, Codegen is the normal typed setup after the smallest
+no-build script works. Use it before React, route, or agent code so those files
+import generated `state`, `computed`, and `actions` facades instead of
+hand-maintained local TypeScript domain types.
+
+Under the hood, Codegen transforms a DomainSchema into type-safe code
+artifacts. It runs plugins sequentially, each producing file patches that are
+validated, collision-checked, and flushed to disk.
 
 In the Manifesto architecture:
 
 ```
-DomainSchema -> CODEGEN -> Generated Files
-                  |
-           Plugin pipeline
-           (deterministic, no runtime deps)
+MEL -> @manifesto-ai/compiler -> CODEGEN -> <domain>.domain.ts
+                                  |
+                           Plugin pipeline
+                           (deterministic, no runtime deps)
 ```
 
 ---
@@ -23,9 +34,10 @@ DomainSchema -> CODEGEN -> Generated Files
 
 | Responsibility | Description |
 |----------------|-------------|
-| Generate canonical domain facades | DomainSchema -> `<domain>.domain.ts` with `state` / `computed` / `actions` |
-| Generate legacy TS/Zod artifacts | Optional low-level `types.ts` / `base.ts` output |
-| Generate Zod schemas | DomainSchema types -> Zod validators with type annotations |
+| Generate app domain facades | MEL compiler output -> `<domain>.domain.ts` with `state` / `computed` / `actions` |
+| Integrate with compiler plugins | Emit facades beside `.mel` files during dev or build |
+| Run direct generation for tooling | Use compiled DomainSchema input in CI, repository tools, or custom build scripts |
+| Support legacy TS/Zod migration | Optional deprecated `types.ts` / `base.ts` output while older integrations migrate |
 | Plugin pipeline | Run plugins sequentially with shared artifacts |
 | Path safety | Validate and normalize output file paths |
 | Collision detection | Prevent multiple plugins from writing to the same file |
@@ -37,7 +49,7 @@ DomainSchema -> CODEGEN -> Generated Files
 
 | NOT Responsible For | Who Is |
 |--------------------|--------|
-| Define schemas | SDK / Compiler (DomainSchema authoring) |
+| Define app domains | MEL source compiled by `@manifesto-ai/compiler` |
 | Runtime validation | Application code using generated Zod schemas |
 | Bundling or compilation | Build tools (tsc, esbuild, etc.) |
 | Schema versioning | `@manifesto-ai/core` |
@@ -47,35 +59,19 @@ DomainSchema -> CODEGEN -> Generated Files
 ## Installation
 
 ```bash
-pnpm add @manifesto-ai/codegen
+pnpm add @manifesto-ai/core
+pnpm add -D @manifesto-ai/codegen
 # or
-npm install @manifesto-ai/codegen
+npm install @manifesto-ai/core
+npm install -D @manifesto-ai/codegen
 ```
 
-**Peer dependency:** `@manifesto-ai/core` must be installed separately.
+`@manifesto-ai/core` satisfies Codegen's peer dependency. App code usually
+imports the generated `<source>.domain.ts` facade, not Core APIs directly.
 
 ---
 
-## Quick Example
-
-```typescript
-import { generate, createDomainPlugin } from "@manifesto-ai/codegen";
-import type { DomainSchema } from "@manifesto-ai/core";
-
-const schema: DomainSchema = { /* your domain schema */ };
-
-const result = await generate({
-  schema,
-  outDir: "./generated",
-  sourceId: "src/domain/hello.mel",
-  plugins: [createDomainPlugin()],
-});
-
-// result.files -> [{ path: "src/domain/hello.domain.ts", content: "..." }]
-// result.diagnostics -> [] (empty = no warnings or errors)
-```
-
-For compiler-driven emission during dev or build, inject Codegen explicitly into the compiler plugin:
+## Quick Example: Compiler-Driven Facade
 
 ```typescript
 import { defineConfig } from "vite";
@@ -85,36 +81,62 @@ import { createCompilerCodegen } from "@manifesto-ai/codegen";
 export default defineConfig({
   plugins: [
     melPlugin({
-      codegen: {
-        emit: createCompilerCodegen(),
-        timing: "transform",
-      },
+      codegen: createCompilerCodegen(),
     }),
   ],
 });
 ```
 
-This produces a canonical domain facade:
+This produces an app-facing domain facade:
 
-**src/domain/hello.domain.ts**
+**src/domain/todo.domain.ts**
 ```typescript
-export interface HelloDomain {
+export interface TodoDomain {
   readonly state: {
-    counter: number
-    hello: string
+    filterMode: "all" | "active" | "completed"
+    todos: ReadonlyArray<{
+      completed: boolean
+      id: string
+      title: string
+    }>
   }
   readonly computed: {
-    canDecrement: boolean
-    doubled: number
+    activeCount: number
+    completedCount: number
+    hasCompleted: boolean
+    todoCount: number
   }
   readonly actions: {
-    decrement: () => void
-    increment: () => void
+    addTodo: (title: string) => void
+    clearCompleted: () => void
+    removeTodo: (id: string) => void
+    setFilter: (filter: "all" | "active" | "completed") => void
+    toggleTodo: (id: string) => void
   }
 }
 ```
 
 Legacy `createTsPlugin()` and `createZodPlugin()` remain available, but are deprecated in favor of `createDomainPlugin()`.
+
+If you want deterministic control from a build script, repository tool, or CI
+job, call `generate()` directly after compiling MEL to a DomainSchema:
+
+```typescript
+import { generate, createDomainPlugin } from "@manifesto-ai/codegen";
+import type { DomainSchema } from "@manifesto-ai/core";
+
+const schema: DomainSchema = await loadCompiledSchema();
+
+const result = await generate({
+  schema,
+  outDir: "./generated",
+  sourceId: "src/domain/todo.mel",
+  plugins: [createDomainPlugin()],
+});
+
+// result.files -> [{ path: "src/domain/todo.domain.ts", content: "..." }]
+// result.diagnostics -> [] (empty = no warnings or errors)
+```
 
 > See [GUIDE.md](docs/GUIDE.md) for the full tutorial.
 
@@ -125,12 +147,14 @@ Legacy `createTsPlugin()` and `createZodPlugin()` remain available, but are depr
 ### Main Exports
 
 ```typescript
-// Entry point
-function generate(options: GenerateOptions): Promise<GenerateResult>;
+// App-facing compiler integration
 function createCompilerCodegen(options?: CompilerCodegenOptions): CompilerCodegenEmitter;
-
-// Built-in plugins
 function createDomainPlugin(options?: DomainPluginOptions): CodegenPlugin;
+
+// Direct build-script/tooling entry point
+function generate(options: GenerateOptions): Promise<GenerateResult>;
+
+// Deprecated migration plugins
 /** @deprecated */
 function createTsPlugin(options?: TsPluginOptions): CodegenPlugin;
 /** @deprecated */
@@ -171,7 +195,7 @@ type CodegenPlugin = {
 
 ### Plugin Pipeline
 
-Plugins run in array order. Each plugin receives a context containing the schema and artifacts from all previous plugins. The canonical domain plugin is self-contained; the legacy TS plugin publishes type names and the legacy Zod plugin reads them to generate type-annotated schemas.
+Plugins run in array order. Each plugin receives a context containing the schema and artifacts from all previous plugins. The domain facade plugin is self-contained; the legacy TS plugin publishes type names and the legacy Zod plugin reads them to generate type-annotated schemas.
 
 ### Artifacts
 
@@ -186,26 +210,28 @@ Same DomainSchema always produces byte-identical output files. Fields and types 
 ## Relationship with Other Packages
 
 ```
-@manifesto-ai/core -> CODEGEN -> Generated .ts files
+MEL -> @manifesto-ai/compiler -> CODEGEN -> Generated .ts files
 ```
 
 | Relationship | Package | How |
 |--------------|---------|-----|
-| Depends on | `@manifesto-ai/core` | Reads DomainSchema, TypeDefinition, TypeSpec |
-| Used by | Build scripts / compiler plugin | Called during dev or build to generate type-safe code |
+| Depends on | `@manifesto-ai/core` | Reads compiled DomainSchema, TypeDefinition, TypeSpec |
+| Used by | Compiler plugin / build scripts | Called during dev or build to generate type-safe code |
 
 ---
 
 ## When to Use Codegen
 
 Use Codegen when:
-- You want a canonical `<domain>.domain.ts` facade for `createManifesto<T>()`
-- You want type-safe TypeScript interfaces from your DomainSchema
+- You want a generated `<domain>.domain.ts` facade for `createManifesto<T>()`
+- You are moving from a no-build script to typed React, route, or agent code
 - You want Zod runtime validators that match your schema types
 - You need deterministic, reproducible code generation in CI
 - You are building a custom plugin for additional output formats
 
-For schema authoring, see [`@manifesto-ai/core`](../core/).
+For app-facing schema authoring, start with MEL and the compiler plugin. Use
+the direct schema APIs only when you are writing tooling or custom build
+scripts.
 
 ---
 

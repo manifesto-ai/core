@@ -10,6 +10,25 @@
 
 Host is responsible for orchestrating Manifesto intent execution. It calls Core to compute, executes any resulting effects, applies patches, and repeats until the intent is complete.
 
+Most app developers should start with `@manifesto-ai/sdk`, not this package.
+The direct Host examples below are for custom runtime authors, Host behavior
+tests, and tools that need to own the execution loop.
+
+```typescript
+const app = createManifesto<TodoDomain>(TodoMel, effects).activate();
+await app.action.addTodo.submit("Review docs");
+console.log(app.snapshot().state.todos);
+```
+
+If you are deciding where to start:
+
+| Goal | Start Here |
+|------|------------|
+| Build a web app, backend route, script, or trusted agent | `@manifesto-ai/sdk` and the main Guide |
+| Fulfill declared effects from an app runtime | SDK effect handlers |
+| Debug why an app action did not settle | Runtime and Debugging guides first |
+| Own the compute/effect loop directly | This Host package |
+
 In the Manifesto architecture:
 
 ```text
@@ -44,6 +63,10 @@ SDK runtime / governed decorators -> HOST -> Core
 
 ## Installation
 
+Install Host directly only when you are building a custom runtime, testing Host
+behavior, or debugging the execution loop. App code gets Host through
+`@manifesto-ai/sdk`.
+
 ```bash
 npm install @manifesto-ai/host @manifesto-ai/core
 # or
@@ -52,7 +75,7 @@ pnpm add @manifesto-ai/host @manifesto-ai/core
 
 ---
 
-## Quick Example
+## Low-Level Host Fixture
 
 ```typescript
 import { createHost } from "@manifesto-ai/host";
@@ -79,7 +102,7 @@ console.log(result.status); // -> "complete"
 console.log(result.snapshot.state.user); // -> { id: "123", name: "..." }
 ```
 
-> See [GUIDE.md](GUIDE.md) for the full tutorial.
+> See [GUIDE.md](GUIDE.md) for the full low-level Host fixture guide.
 
 ---
 
@@ -151,6 +174,7 @@ SDK runtime / governed decorators -> HOST -> Core
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Uses compute() and apply() |
+| Used by | `@manifesto-ai/sdk` | SDK creates Host internally via `createManifesto()` |
 | Used by | `@manifesto-ai/lineage` / `@manifesto-ai/governance` | Governed decorators execute through the SDK/Host runtime chain |
 
 ---
@@ -164,7 +188,9 @@ Use Host directly when:
 - Testing effect handlers in isolation
 - Building CLI tools or scripts
 
-For typical usage with governance, see [`@manifesto-ai/lineage`](../lineage/) and [`@manifesto-ai/governance`](../governance/).
+For typical usage, see [`@manifesto-ai/sdk`](../../sdk/). Add
+[`@manifesto-ai/lineage`](../../lineage/) and [`@manifesto-ai/governance`](../../governance/)
+after the base runtime already works and the product needs review or history.
 
 ---
 
@@ -172,7 +198,7 @@ For typical usage with governance, see [`@manifesto-ai/lineage`](../lineage/) an
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](GUIDE.md) | Step-by-step usage guide |
+| [GUIDE.md](GUIDE.md) | Low-level Host fixture guide for custom runtimes, tests, and execution-loop debugging |
 | [host-SPEC.md](host-SPEC.md) | Current normative specification |
 | [host-SPEC-v4.0.0-draft.md](host-SPEC-v4.0.0-draft.md) | Historical pre-landing Host v4 draft context |
 | [VERSION-INDEX.md](VERSION-INDEX.md) | Current vs projected doc index |
@@ -181,4 +207,4 @@ For typical usage with governance, see [`@manifesto-ai/lineage`](../lineage/) an
 
 ## License
 
-[MIT](../../LICENSE)
+[MIT](../../../LICENSE)

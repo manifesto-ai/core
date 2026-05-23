@@ -1,30 +1,33 @@
-# Shared Semantic Model
+# Shared Domain Model
 
-> Manifesto is a semantic layer for deterministic domain state. Every surface reads from the same underlying snapshot substrate and speaks the same domain semantics.
+> Define the domain once, then let UI, routes, scripts, and agents call the same actions and read the same Snapshot shape.
 
 ---
 
 ## The Core Idea
 
-The important idea is not "multi-actor support" or "AI integration" as separate features. The important idea is that there is **one semantic model** for your domain, and every consumer works against it:
+The important idea is not "multi-actor support" or "AI integration" as separate
+features. The important idea is that there is **one domain model**, and every
+consumer works against it:
 
 - the same MEL domain declaration
-- the same request model for asking for change
-- the same snapshot substrate, exposed as projected Snapshot reads by default
-- the same deterministic compute equation
+- the same action names and input shapes
+- the same `snapshot()` read shape
+- the same deterministic transition rules
 
-This is what makes Manifesto a semantic layer rather than a state management library or an AI framework.
+This is what makes Manifesto useful underneath app state, server routes, and
+agent tools without becoming a state management library or an AI framework.
 
 ---
 
-## One Semantic Core, Two Runtime Surfaces
+## One Domain, One Starting Runtime
 
 ```text
 Base runtime -> activate() -> action.x.submit(...) -> next Snapshot
-Governed runtime -> withLineage() -> withGovernance() -> action.x.submit(...) -> proposal -> settlement -> sealed Snapshot
 ```
 
-The semantic core is shared. The runtime surface changes based on whether you need direct dispatch or governed composition.
+The base runtime is the place to start. It is enough for UI, backend routes,
+scripts, and trusted agent tools.
 
 The surfaces can be:
 
@@ -34,7 +37,16 @@ The surfaces can be:
 - a background job
 - an LLM-powered agent
 
-The contract stays the same. The same snapshot substrate is shared across surfaces, even when applications read it through the projected Snapshot boundary.
+The contract stays the same. In ordinary app code, every surface reads through
+`snapshot()` and writes through `app.action.<name>.submit(...)`.
+
+When the product later needs review or sealed history, you can add that runtime
+around the same domain. That is a later decision, not part of the first app
+path.
+
+```text
+base app -> approval/history runtime -> proposal -> settlement -> sealed Snapshot
+```
 
 ---
 
@@ -42,30 +54,25 @@ The contract stays the same. The same snapshot substrate is shared across surfac
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
-import TaskBoardMel from "./task-board.mel";
+import TodoMel from "./domain/todo.mel";
 
-const app = createManifesto(TaskBoardMel, {}).activate();
+const app = createManifesto(TodoMel, {}).activate();
 
 // UI surface
-await app.action.addTask.submit(
-  crypto.randomUUID(),
-  "Human-created task",
-);
+await app.action.addTodo.submit("Human-created todo");
 
-// Agent surface - same action-candidate contract
-await app.action.addTask.submit(
-  crypto.randomUUID(),
-  "Agent-created task",
-);
+// Agent surface - same action contract
+await app.action.addTodo.submit("Agent-created todo");
 ```
 
-The governed surface uses the same domain meaning, but it adds proposal and lineage semantics before publication.
+The approval/history surface uses the same domain actions, but adds review and
+history steps before the write becomes visible.
 
 ---
 
 ## Why This Matters
 
-Without a shared semantic layer, teams end up with:
+Without a shared domain model, teams end up with:
 
 - one state model for UI
 - another for the backend
@@ -73,26 +80,30 @@ Without a shared semantic layer, teams end up with:
 - another for agents
 - another for audits
 
-Each representation is a new inconsistency opportunity. Manifesto collapses these into one semantic contract.
+Each representation is a new inconsistency opportunity. Manifesto collapses
+those into one action and Snapshot contract.
 
 ---
 
-## Optional Governance
+## Optional Approval And History
 
-Sometimes the shared semantic model is enough. Sometimes you need stronger controls:
+Sometimes the shared domain model is enough. Sometimes you need stronger
+controls:
 
 - explicit actor identity
 - approval rules
 - proposal review
-- lineage and audit history
+- audit history
 
-That is where [World Records and Governed Composition](./world) comes in. Lineage provides sealed World records, while Governance authorizes and settles legitimacy on top of the same Snapshot and request model.
+Start with [When You Need Approval or History](/guides/approval-and-history).
+Read [World Records](./world) only when you want the in-depth record model
+behind that runtime.
 
 ---
 
 ## See Also
 
-- [Snapshot](./snapshot) for the projected read model and canonical substrate split
+- [Snapshot](./snapshot) for the default app read model and advanced full-snapshot reads
 - [Intent](./intent) for the unit of requested change
 - [Integration: AI Agents](../integration/ai-agents) for practical agent patterns
-- [World Records and Governed Composition](./world) for lineage records and governed runtime composition
+- [When You Need Approval or History](/guides/approval-and-history) for the review/history decision point

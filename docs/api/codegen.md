@@ -1,28 +1,87 @@
 # @manifesto-ai/codegen
 
-> Plugin-based code generation from DomainSchema (canonical domain facades plus optional legacy TS/Zod artifacts)
+> Generate app-facing SDK domain facades, with lower-level plugin APIs available when needed.
 
 ---
 
 ## Overview
 
-`@manifesto-ai/codegen` generates type-safe TypeScript code from a Manifesto DomainSchema through a deterministic plugin pipeline.
+`@manifesto-ai/codegen` generates the TypeScript facade that keeps SDK app
+code typed against a MEL domain. Most apps use it through the compiler plugin,
+which emits `<source>.domain.ts` beside the source `.mel` file. It can also run
+lower-level plugin pipelines from a compiled DomainSchema for tooling and CI.
 
 Use this package when you need:
 
-- Canonical SDK v5 domain facades from your domain schema
-- TypeScript type definitions and Zod validators through the canonical domain plugin
+- App-facing SDK domain facades from your MEL domain
+- Legacy TypeScript type definitions and Zod validators during migration
 - Deterministic, reproducible code generation in CI
 - Custom output formats via the plugin system
 - Explicit build-tool integration via injected emitters
 
 ---
 
+## App-Facing Path
+
+For app code, wire Codegen into the MEL compiler and import the generated
+facade at activation:
+
+```typescript
+import { createCompilerCodegen } from "@manifesto-ai/codegen";
+import { melPlugin } from "@manifesto-ai/compiler/vite";
+
+melPlugin({
+  codegen: createCompilerCodegen(),
+});
+```
+
+```typescript
+import { createManifesto } from "@manifesto-ai/sdk";
+import TodoMel from "./domain/todo.mel";
+import type { TodoDomain } from "./domain/todo.domain";
+
+const app = createManifesto<TodoDomain>(TodoMel, {}).activate();
+```
+
+Direct `generate()` usage is for build scripts, CI jobs, and custom tooling that
+already has a compiled DomainSchema.
+
+---
+
 ## Main Entry Points
+
+### createCompilerCodegen()
+
+Builds an explicit emitter for `@manifesto-ai/compiler` bundler plugins. This keeps the compiler decoupled from Codegen: the compiler only calls the emitter you provide.
+
+```typescript
+import { createCompilerCodegen } from "@manifesto-ai/codegen";
+import { melPlugin } from "@manifesto-ai/compiler/vite";
+
+melPlugin({
+  codegen: createCompilerCodegen(),
+});
+```
+
+Options are optional. By default, this uses `createDomainPlugin()` and emits an app-facing `<source>.domain.ts` facade next to the source `.mel` file.
+
+### createDomainPlugin()
+
+Generates the SDK v5 domain facade for `snapshot.state`, `computed`,
+`action.*`, `ActionInput`, and `ActionArgs`.
+
+```typescript
+import { createDomainPlugin } from "@manifesto-ai/codegen";
+
+const plugin = createDomainPlugin({
+  fileName: "todo.domain.ts",
+});
+```
 
 ### generate()
 
-Runs the codegen pipeline: plugins produce file patches, which are validated, collision-checked, and flushed to disk.
+Runs the codegen pipeline directly. Use this from build scripts or CI after MEL
+has already been compiled to a DomainSchema.
 
 ```typescript
 import { generate, createDomainPlugin } from "@manifesto-ai/codegen";
@@ -45,33 +104,7 @@ if (result.diagnostics.some((d) => d.level === "error")) {
 - `artifacts: Record<string, unknown>` -- plugin artifacts (namespaced by plugin name)
 - `diagnostics: Diagnostic[]` -- warnings and errors
 
-### createCompilerCodegen()
-
-Builds an explicit emitter for `@manifesto-ai/compiler` bundler plugins. This keeps the compiler decoupled from Codegen: the compiler only calls the emitter you provide.
-
-```typescript
-import { createCompilerCodegen } from "@manifesto-ai/codegen";
-import { melPlugin } from "@manifesto-ai/compiler/vite";
-
-melPlugin({
-  codegen: createCompilerCodegen(),
-});
-```
-
-Options are optional. By default, this uses `createDomainPlugin()` and emits a canonical `<source>.domain.ts` facade next to the source `.mel` file.
-
-### createDomainPlugin()
-
-Generates the canonical SDK v5 domain facade for `snapshot.state`, `computed`,
-`action.*`, `ActionInput`, and `ActionArgs`.
-
-```typescript
-import { createDomainPlugin } from "@manifesto-ai/codegen";
-
-const plugin = createDomainPlugin({
-  fileName: "todo.domain.ts",
-});
-```
+## Legacy Migration Plugins
 
 ### createTsPlugin() (deprecated)
 
@@ -103,6 +136,9 @@ const plugin = createZodPlugin({
 ---
 
 ## TypeDefinition Mapping
+
+This section is for direct tooling and custom plugin authors. App developers
+usually write MEL `type` definitions and consume the generated facade.
 
 | Kind | TypeScript | Zod |
 |------|-----------|-----|
@@ -145,8 +181,8 @@ const header = generateHeader({ schemaHash: "abc123" });
 
 | Package | Relationship |
 |---------|--------------|
-| [@manifesto-ai/core](./core) | Provides DomainSchema, TypeDefinition types |
-| [@manifesto-ai/compiler](./compiler) | Compiles MEL to DomainSchema (input to codegen) |
+| [@manifesto-ai/compiler](./compiler) | Compiles MEL and can call the injected codegen emitter |
+| [@manifesto-ai/core](./core) | Provides the compiled DomainSchema and TypeDefinition types used by direct tooling |
 
 ---
 

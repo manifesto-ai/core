@@ -18,20 +18,23 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
     items: [
       { text: 'Introduction', link: '/guide/introduction' },
       { text: 'Quick Start', link: '/guide/quick-start' },
+      { text: 'Project Anatomy', link: '/guide/project-anatomy' },
     ]
   },
   {
     text: 'Essentials',
     items: [
-      { text: 'Creating an App', link: '/guide/essentials/creating-an-app' },
       { text: 'MEL Domain Basics', link: '/guide/essentials/mel-domain-basics' },
+      { text: 'MEL For App Developers', link: '/guide/essentials/mel-for-app-developers' },
+      { text: 'Creating an App', link: '/guide/essentials/creating-an-app' },
+      { text: 'Reading Snapshots', link: '/guide/essentials/reading-snapshots' },
       { text: 'State', link: '/guide/essentials/state' },
       { text: 'Computed Values', link: '/guide/essentials/computed-values' },
-      { text: 'Actions and Intents', link: '/guide/essentials/actions-and-intents' },
-      { text: 'Reading Snapshots', link: '/guide/essentials/reading-snapshots' },
+      { text: 'Actions', link: '/guide/essentials/actions-and-intents' },
       { text: 'Subscriptions', link: '/guide/essentials/subscriptions' },
-      { text: 'Effects', link: '/guide/essentials/effects' },
       { text: 'Availability', link: '/guide/essentials/availability' },
+      { text: 'Todo App', link: '/guide/essentials/todo-app' },
+      { text: 'Effects', link: '/guide/essentials/effects' },
     ]
   },
   {
@@ -39,26 +42,27 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
     items: [
       { text: 'Your First App', link: '/tutorial/01-your-first-app' },
       { text: 'Actions and State', link: '/tutorial/02-actions-and-state' },
-      { text: 'Working with Effects', link: '/tutorial/03-effects' },
       { text: 'Building a Todo App', link: '/tutorial/04-todo-app' },
+      { text: 'Working with Effects', link: '/tutorial/03-effects' },
     ]
   },
   {
     text: 'Integrations',
     items: [
-      { text: 'React', link: '/integration/react' },
       { text: 'Bundler Setup', link: '/guides/bundler-setup' },
-      { text: 'Effect Handlers', link: '/guides/effect-handlers' },
-      { text: 'Tooling', link: '/guides/developer-tooling' },
-      { text: 'Runtime Tooling Surface', link: '/guides/runtime-tooling-surface' },
       { text: 'Code Generation', link: '/guides/code-generation' },
+      { text: 'React', link: '/integration/react' },
+      { text: 'Runnable Examples', link: '/guide/runnable-examples' },
+      { text: 'Web App + Agent', link: '/integration/web-app-and-agent' },
       { text: 'AI Agents', link: '/integration/ai-agents' },
+      { text: 'Effect Handlers', link: '/guides/effect-handlers' },
+      { text: 'Developer Tooling', link: '/guides/developer-tooling' },
     ]
   },
   {
     text: 'Scaling Up',
     items: [
-      { text: 'When You Need Approval', link: '/guides/approval-and-history' },
+      { text: 'When You Need Approval or History', link: '/guides/approval-and-history' },
       { text: 'Approval and History Setup', link: '/tutorial/05-governed-composition' },
       { text: 'Sealed History and Review', link: '/tutorial/06-governed-sealing-and-history' },
       { text: 'Advanced Runtime Assembly', link: '/guides/governed-composition' },
@@ -69,7 +73,7 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
   {
     text: 'In-Depth',
     items: [
-      { text: 'Shared Semantic Model', link: '/concepts/shared-semantic-model' },
+      { text: 'Shared Domain Model', link: '/concepts/shared-semantic-model' },
       { text: 'Snapshot', link: '/concepts/snapshot' },
       { text: 'Intent', link: '/concepts/intent' },
       { text: 'Flow', link: '/concepts/flow' },
@@ -81,6 +85,7 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
       { text: 'Layer Boundaries', link: '/architecture/layers' },
       { text: 'Re-entry Safety', link: '/guides/reentry-safe-flows' },
       { text: 'Debugging', link: '/guides/debugging' },
+      { text: 'Runtime Tooling Surface', link: '/guides/runtime-tooling-surface' },
     ]
   },
 ]
@@ -151,9 +156,10 @@ gtag('config', 'G-FW564PKJWF');`],
 
     nav: [
       { text: 'Guide', link: '/guide/introduction' },
+      { text: 'Tutorial', link: '/tutorial/' },
+      { text: 'Integrations', link: '/integration/' },
       { text: 'API', link: '/api/' },
       { text: 'Reference', link: '/mel/' },
-      { text: 'Internals', link: '/internals/' },
     ],
 
     sidebar: {
@@ -190,7 +196,7 @@ gtag('config', 'G-FW564PKJWF');`],
             { text: 'Intents', link: '/api/intents' },
             { text: 'Snapshots and Subscriptions', link: '/api/snapshots-and-subscriptions' },
             { text: 'Effects', link: '/api/effects' },
-            { text: 'Governed Runtime', link: '/api/governed-runtime' },
+            { text: 'Approval/History Runtime', link: '/api/governed-runtime' },
             { text: 'Bundler Adapters', link: '/api/bundler-adapters' },
             { text: 'Public Surface Inventory', link: '/api/public-surface' },
           ]

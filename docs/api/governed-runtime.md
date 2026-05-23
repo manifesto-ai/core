@@ -1,8 +1,8 @@
-# Governed Runtime
+# Approval/History Runtime
 
-> Compose Lineage and Governance before activation when writes need legitimacy.
+> Compose the advanced runtime before activation when writes need review or sealed history.
 
-## Activate a Governed Runtime
+## Activate the Advanced Runtime
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
@@ -11,9 +11,11 @@ import {
   createInMemoryGovernanceStore,
   withGovernance,
 } from "@manifesto-ai/governance";
+import TodoMel from "./domain/todo.mel";
+import type { TodoDomain } from "./domain/todo.domain";
 
 const app = withGovernance(
-  withLineage(createManifesto(schema, effects), {
+  withLineage(createManifesto<TodoDomain>(TodoMel, effects), {
     store: createInMemoryLineageStore(),
   }),
   {
@@ -24,12 +26,13 @@ const app = withGovernance(
 ).activate();
 ```
 
-Governance requires an explicitly lineage-composed manifesto.
+Approval requires an explicitly history-composed manifesto.
 
 ## Write With `action.<name>.submit()`
 
-Governed runtimes intentionally do not expose base-runtime execution verbs such as `dispatchAsync()` or `dispatchAsyncWithReport()`.
-They also omit historical lineage commit verbs, v3 proposal write verbs, raw `createIntent()`, and root `MEL` refs from the app-facing root.
+Approval/history runtimes intentionally keep app writes on action handles. They
+also omit historical root write verbs, raw `createIntent()`, and root `MEL`
+refs from the app-facing root.
 
 ```typescript
 const pending = await app.action.addTodo.submit("Review this");
@@ -64,7 +67,7 @@ if (settlement.ok && settlement.status === "settled" && settlement.outcome.kind 
 }
 ```
 
-## HITL Policy
+## Human Review Policy
 
 ```typescript
 const binding = {

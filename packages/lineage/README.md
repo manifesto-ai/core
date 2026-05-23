@@ -1,8 +1,9 @@
 # @manifesto-ai/lineage
 
-> Seal-aware continuity for the ADR-017 decorator runtime.
+> History and restore support for the activated runtime.
 
-`@manifesto-ai/lineage` is the package that adds time, history, and restore to a composable manifesto.
+`@manifesto-ai/lineage` is the package that adds time, history, and restore to
+a composable Manifesto app.
 
 > **Current Contract Note:** The current package contract is [docs/lineage-SPEC.md](docs/lineage-SPEC.md). The v2 lineage spec remains as the historical service-first baseline.
 
@@ -10,24 +11,26 @@
 
 - `withLineage(createManifesto(...), config).activate()`
 - lineage-mode `action.<name>.submit(...)` that seals before publication
-- restore, head, branch, and world queries on the activated runtime
-- `getWorldSnapshot(worldId)` for stored sealed canonical snapshot lookup
+- restore, head, branch, and history-record queries on the activated runtime
+- `getWorldSnapshot(worldId)` for stored snapshot lookup
 - `getLineage()` for DAG inspection on the activated runtime
-- sealing substrate and the provider surface
-- deterministic world identity, branch semantics, and restore normalization
+- low-level provider APIs
+- stable history record identity, branch semantics, and restore normalization
 
 ## Canonical Path
 
 ```ts
 import { createManifesto } from "@manifesto-ai/sdk";
 import { withLineage, createInMemoryLineageStore } from "@manifesto-ai/lineage";
+import TodoMel from "./domain/todo.mel";
+import type { TodoDomain } from "./domain/todo.domain";
 
-const manifesto = createManifesto<CounterDomain>(schema, effects);
+const manifesto = createManifesto<TodoDomain>(TodoMel, effects);
 const lineage = withLineage(manifesto, {
   store: createInMemoryLineageStore(),
 }).activate();
 
-await lineage.action.increment.submit();
+await lineage.action.addTodo.submit("Review docs");
 
 const head = await lineage.getLatestHead();
 if (head) {

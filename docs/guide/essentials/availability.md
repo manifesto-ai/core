@@ -7,36 +7,48 @@ Use `available when` when an action should only be available in some current dom
 ## Gate an Action
 
 ```mel
-domain Counter {
-  state {
-    count: number = 0
+domain TodoApp {
+  type Todo = {
+    id: string,
+    title: string,
+    completed: boolean
   }
 
-  computed canDecrement = count > 0
+  state {
+    todos: Array<Todo> = []
+  }
 
-  action decrement() available when canDecrement {
+  computed completedCount = len(filter(todos, $item.completed))
+  computed hasCompleted = completedCount > 0
+
+  action clearCompleted() available when hasCompleted {
     onceIntent {
-      patch count = count - 1
+      patch todos = filter(todos, !$item.completed)
     }
   }
 }
 ```
 
-`available when` reads current state and computed values. It is a good fit for rules like “only decrement above zero” or “only submit when the form is valid.”
+`available when` reads current state and computed values. It is a good fit for
+rules like “only clear completed todos when at least one completed item exists.”
 
 ## Keep Input-Specific Gates Separate
 
 ```mel
-action shoot(cellId: string)
-  available when gameIsRunning
-  dispatchable when cells[cellId] == "unknown" {
+action toggleTodo(id: string)
+  available when len(todos) > 0
+  dispatchable when len(filter(todos, $item.id == id)) > 0 {
   onceIntent {
-    patch cells[cellId] = "pending"
+    patch todos = map(todos,
+      $item.id == id
+        ? { id: $item.id, title: $item.title, completed: !$item.completed }
+        : $item
+    )
   }
 }
 ```
 
-Use `dispatchable when` for bound-intent checks that need the action parameters. Treat it as the next step after `available when` is comfortable.
+Use `dispatchable when` for input-specific checks that need the submitted action parameters. Treat it as the next step after `available when` is comfortable.
 
 ## Common Mistake
 
@@ -44,4 +56,6 @@ Do not reference action parameters in `available when`. If the gate depends on t
 
 ## Next
 
-Put the essential pieces together in [Building a Todo App](./todo-app). For exact syntax, read the [MEL Syntax Cookbook](/mel/SYNTAX#available-when-precondition).
+Put the essential pieces together in [Building a Todo App](./todo-app), then
+follow the hands-on [Todo tutorial](/tutorial/04-todo-app). For exact syntax,
+read the [MEL Syntax Cookbook](/mel/SYNTAX#available-when-precondition).

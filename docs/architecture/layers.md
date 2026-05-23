@@ -16,8 +16,8 @@ The current package story is:
 - `@manifesto-ai/sdk` is the default application entry
 - `@manifesto-ai/host` executes requirements and applies transitions
 - `@manifesto-ai/core` computes semantic meaning
-- `@manifesto-ai/lineage` adds continuity, sealing, restore, and history
-- `@manifesto-ai/governance` adds legitimacy, proposal flow, and authority
+- `@manifesto-ai/lineage` adds advanced continuity, sealing, restore, and history
+- `@manifesto-ai/governance` adds advanced proposal flow, approval, and authority
 
 There is no current top-level `@manifesto-ai/world` facade in the active public runtime story.
 
@@ -33,7 +33,7 @@ caller -> SDK (`createManifesto` -> `activate`)
        -> Core
 ```
 
-### Governed Composition
+### Approval/History Runtime
 
 ```text
 caller -> withLineage -> withGovernance -> activate
@@ -54,8 +54,8 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 
 1. **Core computes meaning.** It remains pure and deterministic.
 2. **Host fulfills declared work.** It executes effects and applies transitions.
-3. **SDK owns the direct-dispatch runtime.** It is the default application-facing surface.
-4. **Governance and Lineage are explicit decorators.** They add legitimacy and continuity without replacing Host/Core boundaries.
+3. **SDK owns the direct-submit runtime.** It is the default application-facing surface.
+4. **Approval and history are explicit decorators.** They add legitimacy and continuity without replacing Host/Core boundaries.
 5. **Snapshot remains the only medium.** Cross-layer information still flows through Snapshot, not hidden callbacks or side channels.
 
 ---
@@ -103,7 +103,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 |--------|------------|
 | **Role** | Compose the base runtime and present the public app-facing API |
 | **Primary API** | `createManifesto()`, `activate()`, `action.<name>.submit()`, `snapshot()` |
-| **Owns** | Runtime assembly, telemetry, projected reads, public action-candidate surface |
+| **Owns** | Runtime assembly, telemetry, projected reads, public action surface |
 | **Does NOT Know** | Core internals, authority policy internals, lineage storage internals |
 
 ### Lineage
@@ -135,7 +135,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 | Layer | Must Not Know |
 |-------|---------------|
 | **Compiler** | Runtime execution, dynamic patch target resolution, effect fulfillment, governance policy |
-| **Core** | IO, wall-clock behavior, execution loops, lineage/governance policy |
+| **Core** | IO, wall-clock behavior, execution loops, approval/history policy |
 | **Host** | Dynamic patch target resolution, authority decisions, proposal semantics, branch/head legitimacy |
 | **SDK** | Core internals, lineage storage internals, governance policy internals |
 | **Lineage** | Host execution micro-steps, authority logic |
@@ -157,7 +157,9 @@ Host -> Core
 Compiler -> Core (schema contract)
 ```
 
-The important current ownership rule is that governed composition builds on the SDK runtime. SDK no longer re-exports or owns a facade-level governed bootstrap package.
+The important current ownership rule is that the approval/history runtime builds
+on the SDK runtime. SDK no longer re-exports or owns a facade-level governed
+bootstrap package.
 
 ---
 
@@ -169,14 +171,14 @@ The base activated instance lives in SDK and owns:
 
 - projected `snapshot()`
 - canonical `inspect.canonicalSnapshot()`
-- action-candidate check, preview, and submit
+- action check, preview, and submit
 - availability queries through action handles and `inspect.availableActions()`
 - projected introspection such as `inspect.graph()`
 - execution telemetry for the base runtime
 
-### Governed Runtime Surface
+### Approval/History Runtime Surface
 
-When Lineage and Governance are composed in, they add:
+When the approval/history packages are composed in, they add:
 
 - continuity and sealing
 - restore and stored Lineage World snapshot lookup
@@ -212,12 +214,12 @@ const governed = withGovernance(lineage, governanceOptions).activate();
 
 - Host absorbs execution-side consequences
 - SDK surface adjusts only where public runtime exposure changes
-- Lineage and Governance adjust only if their stored/runtime contracts depend on the changed substrate
+- approval/history packages adjust only if their stored/runtime contracts depend on the changed substrate
 
 ### When Host Changes
 
 - SDK absorbs direct-runtime integration changes
-- Lineage and Governance adapt only as consumers of the SDK runtime/decorator chain
+- approval/history packages adapt only as consumers of the SDK runtime/decorator chain
 
 ### When Governance Or Lineage Changes
 
@@ -243,8 +245,8 @@ An implementation is aligned with the current architecture only if:
 
 - [ ] Core stays pure and deterministic
 - [ ] Host executes requirements without making legitimacy decisions
-- [ ] SDK remains the default direct-dispatch runtime entry
-- [ ] governed composition is expressed through `withLineage()` and `withGovernance()`
+- [ ] SDK remains the default direct-submit runtime entry
+- [ ] approval/history composition is explicit and happens before activation
 - [ ] no maintained public story depends on a top-level `@manifesto-ai/world` facade
 - [ ] Snapshot remains the only cross-compute communication medium
 
@@ -266,7 +268,8 @@ An implementation is aligned with the current architecture only if:
 ## Related Documents
 
 - [Architecture Index](/architecture/)
-- [World Records and Governed Composition](/concepts/world)
+- [When You Need Approval or History](/guides/approval-and-history)
+- [World Records](/concepts/world)
 - [SDK API](/api/sdk)
 - [Lineage API](/api/lineage)
 - [Governance API](/api/governance)

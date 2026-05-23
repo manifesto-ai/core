@@ -1,27 +1,29 @@
 # @manifesto-ai/governance
 
-`@manifesto-ai/governance` owns governed legitimacy for Manifesto runtimes.
+`@manifesto-ai/governance` owns approval-gated execution for Manifesto runtimes.
 
 > **Current Contract Note:** This page describes the current Governance v5
 > decorator surface: governance-mode `submit()`, durable `ProposalRef`,
 > `waitForSettlement(ref)`, and governance control methods. See
 > [packages/governance/docs/governance-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/governance/docs/governance-SPEC.md).
 
-## Canonical Surface
+## Runtime Surface
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import { withGovernance } from "@manifesto-ai/governance";
+import TodoMel from "./domain/todo.mel";
+import type { TodoDomain } from "./domain/todo.domain";
 
 const app = withGovernance(
-  withLineage(createManifesto<CounterDomain>(schema, effects), {
+  withLineage(createManifesto<TodoDomain>(TodoMel, effects), {
     store: createInMemoryLineageStore(),
   }),
   {
     bindings,
     execution: {
-      projectionId: "counter",
+      projectionId: "todo",
       deriveActor(intent) {
         return { actorId: "agent:demo", kind: "agent", meta: { action: intent.type } };
       },
@@ -35,10 +37,10 @@ const app = withGovernance(
 
 ## Submit And Settlement
 
-Governance-mode action submission uses the SDK v5 action-candidate surface:
+Governance-mode action submission uses the same SDK action handle surface:
 
 ```typescript
-const pending = await app.action.increment.submit({ by: 1 });
+const pending = await app.action.addTodo.submit("Review docs");
 const settlement = await pending.waitForSettlement();
 ```
 
@@ -73,7 +75,7 @@ Governance settlement statuses are:
 - `cancelled`
 - `settlement_failed`
 
-For `settled`, `before` and `after` are projected snapshots anchored on the
+For `settled`, `before` and `after` are app-facing snapshots anchored on the
 governance proposal's `baseWorld -> resultWorld` lineage transition. They are
 not arbitrary visible-head reads.
 
@@ -110,13 +112,13 @@ verbs and do not expose direct base or lineage execution.
 - Governance uses that explicit lineage setup.
 - Governance does not create lineage on behalf of the caller.
 - Lineage-owned query and restore methods remain lineage-owned when exposed
-  through a governed runtime.
+  through an approval runtime instance.
 
 ## Failure Observation
 
-Failed governed settlements observe semantic failure from the terminal
-Snapshot's `system.lastError` and pending requirements when a sealed result world
-exists. Canonical `namespaces.host.lastError` remains Host diagnostic data for
+Failed governed settlements observe failure from the terminal Snapshot's
+`system.lastError` and pending requirements when a sealed result exists.
+Canonical `namespaces.host.lastError` remains Host diagnostic data for
 deep debugging and is not merged into settlement `ErrorInfo`.
 
 ## V3 Migration Names
@@ -131,7 +133,7 @@ root methods:
 Use `action.x.submit(input)`, `pending.waitForSettlement()`, and
 `app.waitForSettlement(ref)` in current v5 code.
 
-## Low-Level Protocol Surface
+## Low-Level Provider Surface
 
 Use `@manifesto-ai/governance/provider` for low-level seams such as
 `createGovernanceService()`, `createGovernanceEventDispatcher()`,

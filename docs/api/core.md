@@ -8,12 +8,29 @@
 
 `@manifesto-ai/core` is the semantic compute layer.
 
+App and agent integrations normally start with the SDK:
+
+```typescript
+const app = createManifesto<TodoDomain>(TodoMel, effects).activate();
+await app.action.addTodo.submit("Review docs");
+console.log(app.snapshot().state.todos);
+```
+
+Use this page when you are writing runtime internals, low-level tests, or tools
+that need the pure compute/apply boundary directly.
+
+| Goal | Start Here |
+|------|------------|
+| Build an app, UI, backend route, or trusted agent | [Application](./application) and [Runtime Instance](./runtime) |
+| Fulfill external work from MEL effects | [Effects](./effects) |
+| Inspect or test pure compute/apply behavior | This Core page |
+
 - Same input -> same output
 - No IO or side effects
 - Owner-neutral `Context` input for captured runtime/external facts
 - ADR-025/ADR-027 hard cut: structured patch paths, explicit namespace transition channel, explicit `Context`
 
-> **Current Contract Note:** This page describes the current Core v5 surface. Domain patches are rooted at `snapshot.state`; platform/runtime/tooling writes use the namespace transition channel under `snapshot.namespaces`. Accumulated `system.errors` and `SystemDelta.appendErrors` are no longer part of the current contract. `available` remains the coarse action gate; `isIntentDispatchable()` adds the fine bound-intent gate; and `state.fieldTypes` / `action.inputType` are now the normative runtime typing seam when present.
+> **Current Contract Note:** This page describes the current Core v5 surface. Domain patches are rooted at `snapshot.state`; platform/runtime/tooling writes use the namespace transition channel under `snapshot.namespaces`. Accumulated `system.errors` and `SystemDelta.appendErrors` are no longer part of the current contract. `available` remains the coarse action gate; `isIntentDispatchable()` adds the fine input-specific gate; and `state.fieldTypes` / `action.inputType` are now the normative runtime typing seam when present.
 
 ---
 
@@ -196,7 +213,7 @@ Additional Core API rules:
 
 ---
 
-## Basic Usage
+## Direct API Example
 
 ```typescript
 const result = core.computeSync(schema, snapshot, intent, context);
@@ -222,5 +239,5 @@ next = core.applySystemDelta(next, result.systemDelta);
 |---------|--------------|
 | [@manifesto-ai/host](./host) | Executes requirements/effects produced by Core |
 | [@manifesto-ai/sdk](./sdk) | Activation-first runtime built on Core + Host |
-| [@manifesto-ai/lineage](./lineage) | Adds continuity and sealing over the same snapshot model |
-| [@manifesto-ai/governance](./governance) | Adds legitimacy and proposal flow over the same snapshot model |
+| [@manifesto-ai/lineage](./lineage) | Adds history and restore support over the same snapshot model |
+| [@manifesto-ai/governance](./governance) | Adds approval and proposal flow over the same snapshot model |

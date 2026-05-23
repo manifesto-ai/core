@@ -1,6 +1,6 @@
 # Working with Effects
 
-> Connect a pure domain to real IO without leaving the Snapshot model.
+> Add API, database, model, or queue IO after the first app path works.
 
 ---
 
@@ -15,8 +15,9 @@
 
 ## Prerequisites
 
-- You finished [Actions and State](./02-actions-and-state)
-- You are still using the activation-first SDK path from tutorial 1
+- You finished [Building a Todo App](./04-todo-app), or you are deliberately
+  pausing the Todo path to learn IO
+- You are still using the SDK app path from tutorial 1
 
 ---
 
@@ -37,8 +38,6 @@ domain UserProfile {
     error: string | null = null
     requestedId: string | null = null
   }
-
-  computed hasUser = user != null
 
   action fetchUser(id: string) {
     onceIntent {
@@ -66,7 +65,8 @@ The important part is this line:
 effect api.fetchUser({ id: id })
 ```
 
-That does not execute the request by itself. It declares a requirement for the Host layer to fulfill.
+That does not execute the request by itself. It declares a requirement for the
+activated runtime to fulfill.
 
 ---
 
@@ -76,24 +76,23 @@ Create `effects.ts`:
 
 ```typescript
 import { defineEffects } from "@manifesto-ai/sdk/effects";
-import type { UserProfileDomain } from "./user-profile-types";
 
-export const effects = defineEffects<UserProfileDomain>(({ set, unset }, refs) => ({
-  "api.fetchUser": async (params, ctx) => {
+async function fetchUser(id: string) {
+  // Replace this with fetch(), a database call, or a model call in your app.
+  return { id, name: id === "123" ? "Ada" : "Unknown User" };
+}
+
+export const effects = defineEffects(({ set }, refs) => ({
+  "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
 
     try {
-      const response = await fetch(`https://example.com/users/${id}`);
-      if (!response.ok) {
-        throw new Error(`Request failed with ${response.status}`);
-      }
-
-      const user = (await response.json()) as { id: string; name: string };
+      const user = await fetchUser(id);
 
       return [
         set(refs.state.user, user),
         set(refs.state.loading, false),
-        unset(refs.state.error),
+        set(refs.state.error, null),
       ];
     } catch (error) {
       return [
@@ -110,7 +109,8 @@ export const effects = defineEffects<UserProfileDomain>(({ set, unset }, refs) =
 
 Two details matter here:
 
-- The handler receives `params` plus `{ snapshot }`
+- The handler receives `params`; add a second `{ snapshot }` argument when the
+  handler needs to read current state
 - The handler returns concrete patches that update the domain
 
 It does not "return the fetched user to the action." The next snapshot carries that result.
@@ -143,7 +143,6 @@ async function run() {
   await app.action.fetchUser.submit("123");
 
   const snapshot = app.snapshot();
-  console.log("Has user:", snapshot.computed["hasUser"]);
   console.log("User data:", snapshot.state.user);
 
   app.dispose();
@@ -155,12 +154,27 @@ run().catch((error) => {
 });
 ```
 
+Run it:
+
+```bash
+npx tsx --loader @manifesto-ai/compiler/node-loader main.ts
+```
+
+You should see the fetched user in the final output:
+
+```text
+User data: { id: "123", name: "Ada" }
+```
+
+Depending on your terminal and runtime logging, you may also see one or more
+`View state:` lines as the effect patches publish updated state.
+
 ---
 
 ## What Just Happened
 
 1. `fetchUser` declared `api.fetchUser`
-2. Host invoked the registered handler
+2. The runtime invoked the registered handler
 3. The handler returned patches
 4. Those patches became part of the next snapshot
 5. `observe.state()` and `snapshot()` saw the updated state
@@ -176,7 +190,7 @@ A practical effect-driven domain usually keeps these fields in `state`:
 - The current value, such as `user`
 - A loading flag
 - A recoverable error message
-- Enough context to retry later, such as `requestedId`
+- Enough state to retry later, such as `requestedId`
 
 This makes the result visible to UI, scripts, tests, and AI agents through the same Snapshot.
 
@@ -206,4 +220,6 @@ If your UI needs `loading`, store it in domain state so every consumer sees the 
 
 ## Next
 
-Continue to [Building a Todo App](./04-todo-app) to assemble a larger example before adding a UI framework.
+Return to [Building a Todo App](./04-todo-app) if you have not built the base
+Todo path yet. Otherwise continue to [Bundler Setup](/guides/bundler-setup) and
+[Code Generation](/guides/code-generation) before wiring a typed UI.

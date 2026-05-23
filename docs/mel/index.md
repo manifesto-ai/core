@@ -8,22 +8,29 @@
 
 ## What is MEL?
 
-MEL (Manifesto Expression Language) is a declarative, typed language for defining Manifesto domains. It compiles to DomainSchema, which Core evaluates deterministically.
+MEL (Manifesto Expression Language) is the declarative, typed file format for a
+Manifesto domain. You write domain state, computed values, actions, and effect
+declarations in `.mel`; your app imports that domain through the compiler and
+activates it with the SDK runtime.
 
 MEL is designed for:
-- Human authored domain definitions
-- LLM authored domain definitions
-- Build-time validation and review
+- human-authored app domains
+- AI-assisted domain drafts that humans can review
+- build-time validation before runtime code runs
 
 ---
 
-## Where MEL fits
+## Where MEL Fits
 
 ```
-MEL source -> @manifesto-ai/compiler -> DomainSchema -> Core -> Host
+MEL source -> compiler integration -> createManifesto() -> app.action.* -> snapshot()
 ```
 
-MEL is a source format. It does not execute. It produces data that Core can compute on.
+MEL is a source format. It does not execute like JavaScript. App code activates
+the compiled domain, submits actions, and reads Snapshots.
+
+If you are writing your first app, read [MEL For App Developers](/guide/essentials/mel-for-app-developers)
+before using the complete reference pages.
 
 This docs section prefers the current sugar-first MEL surface in examples: `count + 1`, `items[id]`, `a ? b : c`, and `{ ...base, status: "done" }`. Equivalent function-form source is still documented, but it is folded into the reference instead of leading every example.
 
@@ -67,9 +74,11 @@ domain Counter {
 | **Human-readable** | Clean syntax that's easy to read and review |
 | **LLM-friendly** | Structured enough for AI to generate and validate |
 | **Build-time validation** | Catch errors before runtime with compiler checks |
-| **Deterministic output** | Same source always produces same DomainSchema |
+| **Deterministic output** | Same source always produces the same compiled domain |
 
-MEL compiles to DomainSchema, which Core evaluates deterministically.
+Under the hood, MEL compiles to a `DomainSchema`, which the runtime computes
+deterministically. App code normally stays on `.mel` imports, `createManifesto()`,
+`app.action.*`, and `snapshot()`.
 
 ---
 
@@ -85,10 +94,21 @@ pnpm exec mel compile path/to/domain.mel --stdout
 
 ## Read Next
 
-- [MEL Reference](/mel/REFERENCE) - **Complete function reference, patterns, and examples** (start here)
-- [MEL Syntax](/mel/SYNTAX) - Grammar, sugar, access forms, and quick lookup tables
+### App Path
+
+- [MEL For App Developers](/guide/essentials/mel-for-app-developers) - the shortest app-building syntax path
+- [MEL Domain Basics](/guide/essentials/mel-domain-basics) - first domain concepts
+- [Code Generation](/guides/code-generation) - generated TypeScript facades after the app works
+
+### Reference
+
+- [MEL Reference](/mel/REFERENCE) - complete construct and function lookup
+- [MEL Syntax](/mel/SYNTAX) - grammar, sugar, access forms, and quick lookup tables
 - [MEL Examples](/mel/EXAMPLES)
 - [MEL Error Guide](/mel/ERROR-GUIDE)
+
+### Maintainers And Tool Authors
+
 - [MEL LLM Context](/mel/LLM-CONTEXT)
-- [Specifications](/internals/spec/) - Package specifications including Compiler
-- [Design Rationale](/internals/fdr/) - Package FDRs including Compiler
+- [Specifications](/internals/spec/) - package specifications including Compiler
+- [Design Rationale](/internals/fdr/) - package FDRs including Compiler

@@ -36,9 +36,8 @@ It does not execute the fetch inline inside the domain.
 
 ```typescript
 import { defineEffects } from "@manifesto-ai/sdk/effects";
-import type { UserProfileDomain } from "./user-profile-types";
 
-export const effects = defineEffects<UserProfileDomain>(({ set }, refs) => ({
+export const effects = defineEffects(({ set }, refs) => ({
   "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
     const response = await fetch(`https://example.com/users/${id}`);
@@ -56,15 +55,17 @@ The handler performs IO and returns patches that become part of the next snapsho
 
 ---
 
-## The Same Effect Model Across Both Paths
+## The Same Effect Model When You Add Review
 
-The direct-dispatch runtime and the governed runtime use the same effect contract:
+The base runtime and the later approval/history runtime use the same effect contract:
 
 - effect declarations still live in MEL
 - handlers still return patches
 - the next Snapshot still carries the visible result
 
-Governance changes who can reach the execution step and when it is sealed. It does not change what an effect handler looks like or how it reports its result.
+Review and history change who can reach the execution step and when the result is
+published. They do not change what an effect handler looks like or how it
+reports its result.
 
 ---
 
@@ -81,19 +82,17 @@ That keeps UI, tests, scripts, and AI agents on the same truth.
 
 ---
 
-## A Special Case: Pure Array Effects
+## Pure Snapshot Array Updates
 
-Some effect-like flow nodes are pure array transforms and can run inline in Core:
+For normal state-only array updates, prefer expression-level `map()` and
+`filter()` in a `patch` statement:
 
 ```mel
-effect array.filter({
-  source: todos,
-  where: !$item.completed,
-  into: todos
-})
+patch todos = filter(todos, !$item.completed)
 ```
 
-These are still declared in flow form, but they do not require a user-supplied network or database handler.
+Reserve named effects for work that crosses a process boundary, such as API,
+database, queue, storage, or model calls.
 
 ---
 
@@ -117,4 +116,4 @@ Handlers should still return a precise patch story. That is what makes the syste
 
 - [Effect Handlers](/guides/effect-handlers) for the implementation guide
 - [Debugging](/guides/debugging) for troubleshooting effect-driven flows
-- [World Records and Governed Composition](./world) for Governance approval and Lineage sealing
+- [When You Need Approval or History](/guides/approval-and-history) before adding review or sealed history

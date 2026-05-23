@@ -8,9 +8,9 @@ Use `observe.state(selector, listener)` when UI, logs, scripts, or integrations 
 
 ```typescript
 const unsubscribe = app.observe.state(
-  (snapshot) => snapshot.state.count,
+  (snapshot) => snapshot.computed["todoCount"],
   (next, prev) => {
-    console.log("Count changed:", prev, next);
+    console.log("Todo count changed:", prev, next);
   },
 );
 ```
@@ -45,4 +45,7 @@ Do not subscribe to the whole snapshot when one field is enough. A focused selec
 
 ## Next
 
-Learn how Manifesto connects to external systems in [Effects](./effects).
+Learn when an action should be visible with [Availability](./availability), then
+put the pieces together in [Building a Todo App](./todo-app). Read
+[Effects](./effects) later when the domain needs API, database, model, or queue
+IO.

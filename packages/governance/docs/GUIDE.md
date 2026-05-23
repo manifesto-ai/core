@@ -6,9 +6,11 @@
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import { withGovernance } from "@manifesto-ai/governance";
+import TodoMel from "./domain/todo.mel";
+import type { TodoDomain } from "./domain/todo.domain";
 
 const app = withGovernance(
-  withLineage(createManifesto<CounterDomain>(schema, effects), {
+  withLineage(createManifesto<TodoDomain>(TodoMel, effects), {
     store: createInMemoryLineageStore(),
   }),
   {
@@ -20,7 +22,7 @@ const app = withGovernance(
       },
     ],
     execution: {
-      projectionId: "counter",
+      projectionId: "todo",
       deriveActor(intent) {
         return { actorId: "agent:demo", kind: "agent", meta: { action: intent.type } };
       },
@@ -39,12 +41,12 @@ lineage on behalf of the caller.
 ## 2. Submit To Governance
 
 ```typescript
-const pending = await app.action.increment.submit({ by: 1 });
+const pending = await app.action.addTodo.submit("Review docs");
 ```
 
 Governance-mode `submit()` creates or enters the proposal path. It does not mean
-direct execution, and it never exposes base `dispatchAsync()` or lineage
-`commitAsync()` as lower-authority backdoors.
+direct execution, and it does not expose direct-write shortcuts around the
+approval flow.
 
 The initial successful result is always pending:
 
@@ -65,7 +67,7 @@ timing is observed through `waitForSettlement()`.
 const settlement = await pending.waitForSettlement();
 
 if (settlement.ok && settlement.status === "settled" && settlement.outcome.kind === "ok") {
-  console.log(settlement.after.state.count);
+  console.log(settlement.after.state.todos);
   console.log(settlement.world.worldId);
 }
 ```
@@ -98,7 +100,7 @@ HITL and tribunal policies keep proposals pending until a governance control
 surface resolves them.
 
 ```typescript
-const pending = await app.action.increment.submit({ by: 1 });
+const pending = await app.action.addTodo.submit("Review docs");
 
 if (pending.ok) {
   await app.approve(pending.proposal);
@@ -125,24 +127,20 @@ methods through the lineage composition:
 - `switchActiveBranch(branchId)`
 - `createBranch(name, fromWorldId?)`
 
-The removed v3 names are direct or helper-style write/observation names:
-
-- `proposeAsync()`
-- `waitForProposal()`
-- `waitForProposalWithReport()`
-
-They are migration references, not the canonical v5 app-facing path.
+If you are migrating from older docs, do not follow old root proposal helpers.
+Current app code stays on action handles, then observes settlement through
+`pending.waitForSettlement()` or `app.waitForSettlement(ref)`.
 
 ## 6. Failure Observation
 
-Semantic failure observation comes from the terminal Snapshot's
+Failure observation comes from the terminal Snapshot's
 `system.lastError` and pending requirements. Canonical
 `namespaces.host.lastError` is Host-owned diagnostic state for deep debugging
 and is not merged into governance settlement `ErrorInfo`.
 
-## 7. Low-Level Governance Substrate
+## 7. Low-Level Governance APIs
 
-The provider entry point exists for protocol testing and lower-level
+The provider entry point exists for package testing and lower-level
 composition:
 
 - `@manifesto-ai/governance/provider`

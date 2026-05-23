@@ -1,6 +1,6 @@
 # @manifesto-ai/sdk
 
-> Activation-first base runtime entry point for Manifesto.
+> Base runtime entry point for Manifesto apps.
 
 ## Overview
 
@@ -13,46 +13,52 @@ createManifesto(schema, effects) -> activate() -> ManifestoApp
 Use SDK when you want:
 
 - the shortest path to a running base runtime
-- typed action candidates through `action.<name>`
-- dynamic tooling action lookup through `getAction(name)`
+- typed actions through `action.<name>`
 - typed effect authoring through `@manifesto-ai/sdk/effects`
-- projected Snapshot reads through `snapshot()`
-- typed projected field reads through `state.<name>` and `computed.<name>`
+- app-facing Snapshot reads through `snapshot()`
+- typed field reads through `state.<name>` and `computed.<name>`
 - observer and event subscriptions through `observe`
-- static/runtime inspection through `inspect`
-- safe post-activation arbitrary-snapshot tooling through `@manifesto-ai/sdk/extensions`
 
-Raw Intent construction remains available as an advanced protocol escape hatch
+It also exposes tooling reads when you need them:
+
+- dynamic tooling action lookup through `getAction(name)`
+- static/runtime inspection through `inspect`
+- low-level post-activation simulation helpers through `@manifesto-ai/sdk/extensions`
+
+Raw Intent construction remains available as an advanced low-level escape hatch
 through `BoundAction.intent()`. It is not the primary app path.
 
-## SDK-Owned Surface
+## Everyday SDK Surface
 
 - `createManifesto()`
 - `activate()`
 - activated base runtime:
   - `snapshot()`
-  - `context()`
-  - `injectContext(next)`
-  - `updateContext(updater)`
-  - `with(view)`
   - `action.<name>`
-  - `getAction(name)`
   - `state.<name>.value()`
   - `state.<name>.observe(listener)`
   - `computed.<name>.value()`
   - `computed.<name>.observe(listener)`
   - `observe.state(selector, listener)`
   - `observe.event(event, listener)`
-  - `inspect.graph()`
-  - `inspect.canonicalSnapshot()`
-  - `inspect.action(name)`
-  - `inspect.availableActions()`
-  - `inspect.schemaHash()`
   - `dispose()`
 - SDK error types
-- `@manifesto-ai/sdk/extensions` for safe arbitrary-snapshot read-only helpers
 - `@manifesto-ai/sdk/effects` for typed effect authoring helpers
-- `@manifesto-ai/sdk/provider` for decorator/provider authoring seams
+
+## Tooling And Advanced Surface
+
+- `context()`
+- `injectContext(next)`
+- `updateContext(updater)`
+- `with(view)`
+- `getAction(name)`
+- `inspect.graph()`
+- `inspect.canonicalSnapshot()` for full internal snapshot reads
+- `inspect.action(name)`
+- `inspect.availableActions()`
+- `inspect.schemaHash()`
+- `@manifesto-ai/sdk/extensions` for low-level read-only simulation helpers
+- `@manifesto-ai/sdk/provider` for package-author runtime seams
 
 ## Effect Authoring Helper
 
@@ -71,45 +77,52 @@ import { defineEffects } from "@manifesto-ai/sdk/effects";
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
+import TodoMel from "./domain/todo.mel";
+import type { TodoDomain } from "./domain/todo.domain";
 
-const app = createManifesto<CounterDomain>(domainSchema, {}).activate();
+const app = createManifesto<TodoDomain>(TodoMel, {}).activate();
 
-const info = app.action.increment.info();
-const admission = app.action.increment.check();
-const dynamic = app.getAction("increment");
-const preview = app.with({ diagnostics: "summary" }).action.increment.preview();
-const result = await app.with({ report: "summary" }).action.increment.submit();
-
-if (dynamic) {
-  await dynamic.submit();
-}
+const admission = app.action.addTodo.check("Review docs");
+const result = await app.action.addTodo.submit("Review docs");
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
-  console.log(result.after.state.count);
+  console.log(result.after.state.todos);
 }
 
-app.action.increment.available();
-app.state.count.value();
-app.state.count.observe((next, prev) => {
+app.action.clearCompleted.available();
+app.state.todos.value();
+app.computed.activeCount.value();
+app.state.todos.observe((next, prev) => {
   console.log(prev, next);
 });
-app.inspect.availableActions();
-app.inspect.action("increment");
 app.snapshot();
-app.inspect.canonicalSnapshot();
-app.inspect.graph();
-console.log(info.name, admission.ok, preview.admitted);
+console.log(admission.ok);
 ```
 
-## Action Candidate Binding Forms
+Add inspection and report detail when building UI capability lists, model-facing
+tools, or debugging infrastructure:
+
+```typescript
+const info = app.action.addTodo.info();
+const dynamic = app.getAction("addTodo");
+const preview = app.with({ diagnostics: "summary" }).action.addTodo.preview("Review docs");
+const resultWithReport = await app.with({ report: "summary" }).action.addTodo.submit("Review docs");
+
+app.inspect.availableActions();
+app.inspect.action("addTodo");
+app.inspect.graph();
+console.log(info.name, dynamic?.info().name, preview.admitted, resultWithReport.ok);
+```
+
+## Action Binding Forms
 
 Action handles keep argument shape typed from the domain.
 
 ```typescript
-app.action.increment.submit();
-app.action.add.submit(3);
-app.action.addTodo.submit("Review docs", "todo-1");
-app.action.configure.submit({ enabled: true, label: "Review" });
+app.action.clearCompleted.submit();
+app.action.addTodo.submit("Review docs");
+app.action.setFilter.submit("active");
+app.action.configureProject.submit({ enabled: true, label: "Review" });
 ```
 
 Rules:
@@ -119,20 +132,20 @@ Rules:
 - multi-parameter actions preserve ordered tuple input
 - hand-authored multi-field object inputs without positional metadata are object-only bindings
 
-`bind(...input)` returns a reusable candidate:
+`bind(...input)` returns a reusable bound action:
 
 ```typescript
-const candidate = app.action.addTodo.bind("Review docs", "todo-1");
+const boundAddTodo = app.action.addTodo.bind("Review docs");
 
-candidate.check();
-candidate.preview();
-await candidate.submit();
+boundAddTodo.check();
+boundAddTodo.preview();
+await boundAddTodo.submit();
 
-const rawIntent = candidate.intent();
+const rawIntent = boundAddTodo.intent();
 ```
 
-Treat `rawIntent` as a low-level protocol artifact. App code should prefer the
-candidate methods above.
+Treat `rawIntent` as a low-level record. App code should prefer the bound action
+methods above.
 
 ## Action Metadata And Availability
 
@@ -152,32 +165,32 @@ console.log(available.map((action) => action.name));
 ```
 
 `action.<name>.available()` remains the coarse legality query.
-`action.<name>.check(...input)` is the fine bound-candidate legality surface.
+`action.<name>.check(...input)` is the fine input-specific legality surface.
 
 Treat availability reads as current-snapshot observations, not durable
 capability grants. The runtime still revalidates legality at submit time.
 
 ## Preview And Submit
 
-Use the current-snapshot action ladder when you want one structured answer to:
+Use the current-state action ladder when you want one structured answer to:
 
 - is the action available right now?
 - if available, is this input admissible?
 - if admitted, what would the dry-run result look like?
-- if submitted, what terminal result did the active runtime law produce?
+- if submitted, what result did the active runtime mode produce?
 
 ```typescript
-const candidate = app.action.spend.bind({ amount: 20 });
+const addTodo = app.action.addTodo.bind("Review docs");
 
-const admission = candidate.check();
+const admission = addTodo.check();
 if (!admission.ok) {
   console.log(admission.code, admission.blockers);
 }
 
 const preview = app
   .with({ diagnostics: "trace" })
-  .action.spend
-  .bind({ amount: 20 })
+  .action.addTodo
+  .bind("Review docs")
   .preview();
 if (preview.admitted) {
   console.log(preview.after.state);
@@ -186,17 +199,17 @@ if (preview.admitted) {
 
 const result = await app
   .with({ report: "full" })
-  .action.spend
-  .bind({ amount: 20 })
+  .action.addTodo
+  .bind("Review docs")
   .submit();
 ```
 
-Preview is non-mutating. Submit revalidates at the write boundary. Base,
-Lineage, and Governance modes share this ladder and differ through result type:
+Preview is non-mutating. Submit revalidates immediately before the write. Base,
+history, and approval modes share this ladder and differ through result type:
 
 - base returns a settled `BaseSubmissionResult`
-- lineage returns a settled `LineageSubmissionResult` with sealed world data
-- governance returns a pending `GovernanceSubmissionResult`; observe settlement
+- history returns a settled `LineageSubmissionResult` with sealed world data
+- approval returns a pending `GovernanceSubmissionResult`; observe settlement
   with `pending.waitForSettlement()` or `app.waitForSettlement(ref)`
 
 Use `diagnostics: "none"` and `report: "none"` when an agent/tool path needs
@@ -206,25 +219,25 @@ diagnostics in addition to the summary report fields.
 
 ## Observability
 
-For top-level projected fields, use read handles when you want a typed current
+For top-level app-facing fields, use read handles when you want a typed current
 value or direct field observer:
 
 ```typescript
-const count = app.state.count.value();
+const todos = app.state.todos.value();
 
-const unsubscribeCount = app.state.count.observe((next, prev) => {
+const unsubscribeTodos = app.state.todos.observe((next, prev) => {
   console.log(prev, next);
 });
 ```
 
-Read handles are projected and read-only. Semantic writes still go through
+Read handles are app-facing and read-only. Writes still go through
 `action.<name>.submit(...)`.
 
 Use `observe.state()` when you need a custom selector:
 
 ```typescript
 const unsubscribe = app.observe.state(
-  (snapshot) => snapshot.state.count,
+  (snapshot) => snapshot.computed.activeCount,
   (next, prev) => {
     console.log(prev, next);
   },
@@ -239,8 +252,8 @@ Call the returned unsubscribe functions before disposing a long-lived runtime.
 
 ## Decorator/provider authoring seam
 
-Use `@manifesto-ai/sdk/provider` when you are composing activation-first
-runtimes or authoring decorators on top of the SDK. That subpath is for package
+Use `@manifesto-ai/sdk/provider` when you are composing runtime decorators on
+top of the SDK. That subpath is for package
 authors, not typical app code.
 
 The current public seam includes:
@@ -252,32 +265,31 @@ The current public seam includes:
   `activateComposable()`
 
 App-facing runtime work should stay on `@manifesto-ai/sdk`.
-`snapshot()` is the default projected read model for application code.
-`inspect.canonicalSnapshot()` is the full runtime substrate for persistence,
+`snapshot()` is the default app-facing read model for application code.
+`inspect.canonicalSnapshot()` is the full internal runtime snapshot for persistence,
 deep debugging, and infrastructure-aware tooling.
 
 ## Extension Kernel
 
-ADR-019 lands in the current SDK contract through
-`@manifesto-ai/sdk/extensions`.
+`@manifesto-ai/sdk/extensions` is the advanced read-only simulation surface.
 
-Its purpose is to give helper and tool authors a safe post-activation
-arbitrary-snapshot read-only surface without exposing the full provider seam.
+Its purpose is to give helper and tool authors a safe read-only surface after
+activation without exposing the full provider seam.
 
 ```typescript
 import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
 
 const ext = getExtensionKernel(app);
 const root = ext.getCanonicalSnapshot();
-const intent = app.action.increment.bind().intent();
+const intent = app.action.addTodo.bind("Review docs").intent();
 
 if (intent) {
   const explanation = ext.explainIntentFor(root, intent);
   const simulated = ext.simulateSync(root, intent);
-  const projected = ext.projectSnapshot(simulated.snapshot);
+  const appSnapshot = ext.projectSnapshot(simulated.snapshot);
 
   console.log(explanation.kind);
-  console.log(projected.state);
+  console.log(appSnapshot.state);
 }
 ```
 
@@ -290,5 +302,5 @@ The core analytical helpers on this seam are:
 - `explainIntentFor()`
 - `simulateSync()`
 
-Branching hypothetical futures stay on the same seam through
+Branching hypothetical futures stay on the same surface through
 `createSimulationSession(app)`.

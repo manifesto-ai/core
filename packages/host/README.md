@@ -12,65 +12,39 @@
 
 Host is the **effect execution runtime** of Manifesto. It orchestrates the compute-effect-apply loop using an event-loop model with Mailbox + Runner + Job architecture.
 
+Most app developers should start with `@manifesto-ai/sdk`, not this package.
+The direct Host examples below are for custom runtime authors, effect-runtime
+tests, and tools that need to own the execution loop.
+
+```typescript
+const app = createManifesto<TodoDomain>(TodoMel, effects).activate();
+await app.action.addTodo.submit("Review docs");
+console.log(app.snapshot().state.todos);
+```
+
+If you are deciding where to start:
+
+| Goal | Start Here |
+|------|------------|
+| Build a web app, backend route, script, or trusted agent | `@manifesto-ai/sdk` and the main Guide |
+| Fulfill declared effects from an app runtime | SDK effect handlers |
+| Debug why an app action did not settle | Runtime and Debugging guides first |
+| Own the compute/effect loop directly | This Host package |
+
 In the Manifesto architecture:
 
 ```text
-SDK runtime / governed decorators -> HOST -> Core
+SDK runtime / approval-history decorators -> HOST -> Core
                                      |
                             Executes effects, applies patches
                             Runs the mailbox-based execution model
 ```
 
----
-
-## Current Changelog Highlights
-
-### v5-aligned Contract Highlights
-
-- **ADR-015 Current Hard Cut**
-  - Host-facing Snapshot references now use `snapshot.state`
-  - accumulated `system.errors` is removed from the current Host contract
-  - `lastError` remains the sole current error surface
-- **ADR-025 Namespace Separation**
-  - Host-owned state lives in `snapshot.namespaces.host`
-  - domain patches remain rooted at `snapshot.state`
-
-### v3.0.0 New Features
-
-- **ADR-009 Interlock Alignment**
-  - Host applies `patches` before `systemDelta`
-  - Requirement clearing flows through `applySystemDelta({ removeRequirementIds })`
-  - `system.*` remains structurally non-patchable at the Core boundary
-
-### v2.0.2 New Features
-
-- **Snapshot Ownership Alignment (HOST-SNAP-1~4)**
-  - Host uses Core's canonical Snapshot type
-  - Host-owned state moves to `snapshot.namespaces.host`
-  - Snapshot field ownership invariants (INV-SNAP-1~7)
-
-### v2.0.1 Historical Feature
-
-- **Context Determinism (CTX-1~5)**
-  - pre-v5 host context was frozen at job start
-  - v5 materializes owner-neutral ADR-027 `Context` once per transition attempt
-
-- **Compiler/Translator Decoupling (FDR-H024)**
-  - Host no longer depends on `@manifesto-ai/compiler`
-  - Host receives only concrete `Patch[]` values
-  - Translator processing is now App layer responsibility
-
-### v2.0.0 Breaking Changes
-
-- **Mailbox + Runner + Job Execution Model**
-  - `ExecutionMailbox`: Single-writer queue per ExecutionKey
-  - Job types: `StartIntent`, `ContinueCompute`, `FulfillEffect`, `ApplyPatches`
-  - Run-to-completion semantics (job handlers MUST NOT await)
-  - Single-runner invariant with lost-wakeup prevention
-
----
-
 ## Installation
+
+Install Host directly only when you are building a custom runtime, testing Host
+behavior, or debugging the execution loop. App code gets Host through
+`@manifesto-ai/sdk`.
 
 ```bash
 npm install @manifesto-ai/host @manifesto-ai/core
@@ -80,7 +54,7 @@ pnpm add @manifesto-ai/host @manifesto-ai/core
 
 ---
 
-## Quick Example
+## Low-Level Host Fixture
 
 ```typescript
 import { ManifestoHost, createIntent, type DomainSchema } from "@manifesto-ai/host";
@@ -263,7 +237,7 @@ interface Runtime {
 
 // Host-owned context materialization helper.
 // The HostContextProvider name is retained as a package compatibility type;
-// the canonical Core boundary type is owner-neutral Context.
+// the Core boundary type is owner-neutral Context.
 interface HostContextProvider {
   createFrozenContext(intentId: string, external?: Record<string, JsonValue>): Context;
 }
@@ -308,8 +282,8 @@ host.registerEffect("api.get", async (type, params) => {
 
 ## Relationship with Other Packages
 
-```
-Runtime -> HOST (v2.0.2) -> Core
+```text
+SDK runtime -> HOST -> Core
 ```
 
 | Relationship | Package | How |
@@ -325,12 +299,23 @@ Runtime -> HOST (v2.0.2) -> Core
 **Most users don't need to use Host directly.**
 
 Use Host directly when:
-- Building a custom runtime without governed composition
+- Building a custom runtime without approval/history decorators
 - Testing effect handlers in isolation
 - Building CLI tools or scripts
 - Implementing custom execution policies
 
-For typical usage, see [`@manifesto-ai/sdk`](../sdk/) — the recommended entry point. For explicit governance workflows, see [`@manifesto-ai/lineage`](../lineage/) and [`@manifesto-ai/governance`](../governance/).
+For typical usage, see [`@manifesto-ai/sdk`](../sdk/) — the recommended entry point. For explicit approval/history workflows, see [`@manifesto-ai/lineage`](../lineage/) and [`@manifesto-ai/governance`](../governance/).
+
+---
+
+## Maintainer Contract Notes
+
+Host-facing Snapshot references use `snapshot.state` for domain state and
+`snapshot.namespaces.host` for Host-owned operational state. Accumulated
+`system.errors` is not part of the current Host contract; `lastError` remains
+the current error surface. Historical changelog details live in
+[`VERSION-INDEX.md`](./docs/VERSION-INDEX.md) and the archived FDR/MIGRATION
+documents.
 
 ---
 
@@ -338,7 +323,7 @@ For typical usage, see [`@manifesto-ai/sdk`](../sdk/) — the recommended entry 
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](./docs/GUIDE.md) | Step-by-step usage guide |
+| [GUIDE.md](./docs/GUIDE.md) | Low-level Host fixture guide for custom runtimes, tests, and execution-loop debugging |
 | [host-SPEC.md](./docs/host-SPEC.md) | Current living specification |
 | [VERSION-INDEX.md](./docs/VERSION-INDEX.md) | Current and historical document map |
 | [MIGRATION.md](./docs/MIGRATION.md) | Historical v1.x -> v2.0.2 migration guide |

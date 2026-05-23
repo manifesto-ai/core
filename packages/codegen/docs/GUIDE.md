@@ -1,7 +1,7 @@
 # Codegen Guide
 
-> **Purpose:** Practical guide for using @manifesto-ai/codegen
-> **Prerequisites:** Basic understanding of DomainSchema from @manifesto-ai/core
+> **Purpose:** Generate the app-facing `<domain>.domain.ts` facade for SDK apps
+> **Prerequisites:** A working MEL domain; compiled DomainSchema access only for advanced tooling
 > **Time to complete:** ~15 minutes
 
 ---
@@ -11,52 +11,91 @@
 1. [Getting Started](#getting-started)
 2. [Basic Usage](#basic-usage)
 3. [Common Patterns](#common-patterns)
-4. [Advanced Usage: Custom Plugins](#advanced-usage-custom-plugins)
-5. [Common Mistakes](#common-mistakes)
-6. [Troubleshooting](#troubleshooting)
-7. [Quick Reference](#quick-reference)
+4. [Migration-Only Legacy Plugins](#migration-only-legacy-plugins)
+5. [Advanced Usage: Custom Plugins](#advanced-usage-custom-plugins)
+6. [Common Mistakes](#common-mistakes)
+7. [Troubleshooting](#troubleshooting)
+8. [Quick Reference](#quick-reference)
 
 ---
 
 ## Getting Started
 
+Codegen is not required for the smallest no-build script. It is the normal typed
+app setup once React, agent, route, or server code needs domain types. Add it
+before those files start hand-maintaining the same `state`, `computed`, and
+`actions` that already exist in MEL.
+
+The app path is:
+
+```
+hello.mel -> compiler plugin -> hello.domain.ts -> createManifesto<HelloDomain>()
+```
+
+The direct `generate()` API is for build scripts, CI jobs, and custom tooling
+that already has a compiled DomainSchema.
+
 ### Installation
 
 ```bash
-pnpm add @manifesto-ai/codegen
-# Peer dependency
 pnpm add @manifesto-ai/core
+pnpm add -D @manifesto-ai/codegen
 ```
 
-### Minimal Example
+`@manifesto-ai/core` satisfies Codegen's peer dependency. Normal app code
+should import the generated `<domain>.domain.ts` facade rather than Core APIs.
+
+### Minimal App Example
+
+For app projects, inject Codegen into the MEL compiler plugin:
+
+```typescript
+import { defineConfig } from "vite";
+import { melPlugin } from "@manifesto-ai/compiler/vite";
+import { createCompilerCodegen } from "@manifesto-ai/codegen";
+
+export default defineConfig({
+  plugins: [
+    melPlugin({
+      codegen: createCompilerCodegen(),
+    }),
+  ],
+});
+```
+
+Compiling `src/domain/hello.mel` emits `src/domain/hello.domain.ts`.
+
+Generated **src/domain/hello.domain.ts**:
+
+```typescript
+export interface HelloDomain {
+  readonly state: {}
+  readonly computed: {}
+  readonly actions: {}
+}
+```
+
+Use the generated facade with the SDK:
+
+```typescript
+import { createManifesto } from "@manifesto-ai/sdk";
+import HelloSchema from "./domain/hello.mel";
+import type { HelloDomain } from "./domain/hello.domain";
+
+const app = createManifesto<HelloDomain>(HelloSchema, {}).activate();
+```
+
+### Advanced Direct Build-Script Example
+
+Call `generate()` directly when a build script or CI job already has a compiled
+DomainSchema.
 
 ```typescript
 import { generate, createDomainPlugin } from "@manifesto-ai/codegen";
 import type { DomainSchema } from "@manifesto-ai/core";
 
-// 1. Define a schema with one type
-const schema: DomainSchema = {
-  id: "example:app",
-  version: "1.0.0",
-  hash: "...", // Use hashSchemaSync() to compute
-  types: {
-    User: {
-      name: "User",
-      definition: {
-        kind: "object",
-        fields: {
-          id: { type: { kind: "primitive", type: "string" }, optional: false },
-          name: { type: { kind: "primitive", type: "string" }, optional: false },
-        },
-      },
-    },
-  },
-  state: { fields: {} },
-  computed: { fields: {} },
-  actions: {},
-};
+const schema: DomainSchema = await loadCompiledSchema();
 
-// 2. Generate
 const result = await generate({
   schema,
   outDir: "./generated",
@@ -64,25 +103,19 @@ const result = await generate({
   plugins: [createDomainPlugin()],
 });
 
-// 3. Check result
 console.log(result.diagnostics); // → [] (no errors)
 console.log(result.files.map(f => f.path)); // → ["src/domain/hello.domain.ts"]
-```
-
-Generated **src/domain/hello.domain.ts**:
-```typescript
-export interface ExampleDomain {
-  readonly state: {}
-  readonly computed: {}
-  readonly actions: {}
-}
 ```
 
 ---
 
 ## Basic Usage
 
-### Use Case 1: Canonical Domain Facade
+For app developers, basic usage is the compiler-driven facade shown above. The
+direct examples below are for tooling authors or repositories that need explicit
+control over when generated files are emitted.
+
+### Use Case 1: Direct Canonical Domain Facade
 
 **Goal:** Generate the recommended `<domain>.domain.ts` shape for SDK consumers.
 
@@ -107,7 +140,43 @@ The domain plugin emits one facade interface with:
 
 Computed values are inferred from Core expression nodes when possible. Unsupported expressions degrade to `unknown` with a warning diagnostic.
 
-### Use Case 2: Legacy TypeScript + Zod Together
+### Use Case 2: Checking Diagnostics
+
+**Goal:** Handle warnings and errors from the pipeline.
+
+```typescript
+const result = await generate({
+  schema,
+  outDir: "./generated",
+  plugins: [createDomainPlugin()],
+});
+
+// Check for errors
+const errors = result.diagnostics.filter(d => d.level === "error");
+if (errors.length > 0) {
+  console.error("Generation failed:");
+  errors.forEach(e => console.error(`  [${e.plugin}] ${e.message}`));
+  // Note: when errors occur, no files are written to disk
+}
+
+// Check for warnings
+const warnings = result.diagnostics.filter(d => d.level === "warn");
+warnings.forEach(w => console.warn(`  [${w.plugin}] ${w.message}`));
+```
+
+When any error-level diagnostic exists, `generate()` returns without writing
+files to disk. The `result.files` array still contains the generated content
+for inspection.
+
+---
+
+## Migration-Only Legacy Plugins
+
+Use these APIs only while migrating older code that still expects separate
+`types.ts` and Zod schema files. New SDK, React, route, and agent integrations
+should use `createCompilerCodegen()` or `createDomainPlugin()`.
+
+### Legacy TypeScript + Zod Together
 
 **Goal:** Keep the old low-level artifact flow during migration.
 
@@ -130,9 +199,9 @@ When the Zod plugin runs after the TS plugin, it reads the TS plugin's artifacts
 - Add `z.ZodType<TypeName>` type annotations
 - Generate `import type { ... } from "./types"` imports
 
-### Use Case 3: Custom File Names
+### Legacy Custom File Names
 
-**Goal:** Change output file paths.
+**Goal:** Change output file paths for the deprecated TS/Zod artifact flow.
 
 ```typescript
 const result = await generate({
@@ -148,35 +217,13 @@ console.log(result.files.map(f => f.path));
 // → ["domain-types.ts", "validators.ts"]
 ```
 
-### Use Case 4: Checking Diagnostics
-
-**Goal:** Handle warnings and errors from the pipeline.
-
-```typescript
-const result = await generate({
-  schema,
-  outDir: "./generated",
-  plugins: [createTsPlugin(), createZodPlugin()],
-});
-
-// Check for errors
-const errors = result.diagnostics.filter(d => d.level === "error");
-if (errors.length > 0) {
-  console.error("Generation failed:");
-  errors.forEach(e => console.error(`  [${e.plugin}] ${e.message}`));
-  // Note: when errors occur, no files are written to disk
-}
-
-// Check for warnings
-const warnings = result.diagnostics.filter(d => d.level === "warn");
-warnings.forEach(w => console.warn(`  [${w.plugin}] ${w.message}`));
-```
-
-When any error-level diagnostic exists, `generate()` returns without writing files to disk. The `result.files` array still contains the generated content for inspection.
-
 ---
 
 ## Common Patterns
+
+These patterns are for low-level schema/plugin users. App developers usually
+write the same concepts as MEL `type` definitions and let the compiler-driven
+facade hide the DomainSchema representation.
 
 ### Pattern 1: Nullable Types
 
@@ -454,7 +501,7 @@ return {
 };
 ```
 
-### Mistake 3: Using Zod Plugin Without TS Plugin
+### Mistake 3: Using Legacy Zod Plugin Without TS Plugin
 
 **What people do:**
 
@@ -529,13 +576,20 @@ Fix the underlying issue (collision, invalid path, plugin exception) and re-run.
 
 ## Quick Reference
 
-### API
+### App-Facing API
 
 | Export | Purpose |
 |--------|---------|
-| `generate(options)` | Run the codegen pipeline |
-| `createTsPlugin(options?)` | TypeDefinition -> TypeScript types |
-| `createZodPlugin(options?)` | TypeDefinition -> Zod schemas |
+| `createCompilerCodegen(options?)` | Emit generated app facades from compiler plugins |
+| `createDomainPlugin(options?)` | Generate `<domain>.domain.ts` facade output |
+| `generate(options)` | Run the codegen pipeline directly from a compiled schema |
+
+### Migration And Plugin-Author API
+
+| Export | Purpose |
+|--------|---------|
+| `createTsPlugin(options?)` | Deprecated migration plugin: TypeDefinition -> TypeScript types |
+| `createZodPlugin(options?)` | Deprecated migration plugin: TypeDefinition -> Zod schemas |
 | `validatePath(path)` | Check if a file path is safe (for plugin authors) |
 | `stableHash(input)` | Deterministic hash (for plugin authors) |
 | `generateHeader(options)` | Create `@generated` file header (for plugin authors) |

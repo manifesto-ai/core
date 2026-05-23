@@ -4,6 +4,9 @@
 
 Examples in this directory prefer the current sugar-first MEL surface for operators, access, ternaries, and object spread. Equivalent function-form source is documented in [MEL Reference](/mel/REFERENCE) and [MEL Syntax](/mel/SYNTAX).
 
+If you are building your first app, start with [MEL For App Developers](/guide/essentials/mel-for-app-developers)
+and the [Tutorial](/tutorial/) before browsing this directory as a reference.
+
 ---
 
 ## Directory Layout

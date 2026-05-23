@@ -2,7 +2,23 @@
 
 > Do not start here unless the base runtime already makes sense.
 
-Most projects should begin with `@manifesto-ai/sdk` and stay there. This page is for the moment when the team realizes plain base-runtime submit is no longer enough.
+Most projects should begin with `@manifesto-ai/sdk` and stay there. This page
+is for the moment when direct action submission is no longer enough.
+
+## Stay On The Base Runtime When
+
+Do not add approval/history just because the packages exist. Stay with the SDK
+runtime when the product only needs:
+
+- a UI, route, script, or trusted agent that can submit actions immediately
+- current-state reads through `snapshot()` or subscriptions
+- ordinary server logs, analytics, or database persistence outside Manifesto
+- local undo/redo or draft UI state that does not need sealed continuity
+- simple allow/deny checks that MEL or app code can enforce before calling an
+  action
+
+Those are app concerns. They do not require proposal records, authority
+decisions, or branch history.
 
 ## Typical Signals
 
@@ -14,7 +30,7 @@ Open the advanced runtime only when one or more of these become true:
 - branch/head continuity matters after commits
 - an agent or workflow should propose work rather than execute it directly
 
-If none of those are true, stay on the base runtime.
+If none of those are true, stay on the base SDK runtime.
 
 ## What Changes
 
@@ -33,7 +49,18 @@ That adds:
 
 - continuity through `@manifesto-ai/lineage`
 - review and decision flow through `@manifesto-ai/governance`
-- sealed history on top of the same semantic model
+- sealed history on top of the same domain model
+
+## What Does Not Change
+
+- Keep the same MEL domain.
+- Keep the same app-owned action names.
+- Keep UI and agent code reading snapshots and calling action helpers.
+- Keep effect handlers returning patches.
+
+The approval/history runtime changes what `submit()` means. It does not ask
+React components, route handlers, or agent tools to learn low-level package
+internals.
 
 ## Recommended Reading Order
 
@@ -44,7 +71,8 @@ That adds:
 
 ## Good Defaults
 
-- Keep app onboarding, UI wiring, and simple agents on the base runtime until reviewability is an actual requirement.
+- Keep app onboarding, UI wiring, and simple agents on the base SDK runtime
+  until reviewability is an actual requirement.
 - Introduce the advanced runtime because of an operational need, not because the architecture exists.
 - Use tooling like [`@manifesto-ai/studio-cli`](/api/studio-cli) and [`@manifesto-ai/studio-mcp`](/api/studio-mcp) to inspect the model before deciding that approval/history layers are necessary.
 

@@ -16,17 +16,34 @@ domain TodoApp {
 
   state {
     todos: Array<Todo> = []
+    filterMode: "all" | "active" | "completed" = "all"
   }
 
-  computed totalCount = len(todos)
+  computed todoCount = len(todos)
+  computed completedCount = len(filter(todos, $item.completed))
+  computed activeCount = todoCount - completedCount
+  computed hasCompleted = completedCount > 0
 
-  action addTodo(title: string, id: string) {
+  action addTodo(title: string)
+    dispatchable when trim(title) != "" {
     onceIntent {
       patch todos = append(todos, {
-        id: id,
-        title: title,
+        id: $runtime.random.uuid,
+        title: trim(title),
         completed: false
       })
+    }
+  }
+
+  action toggleTodo(id: string)
+    available when todoCount > 0
+    dispatchable when len(filter(todos, $item.id == id)) > 0 {
+    onceIntent {
+      patch todos = map(todos,
+        $item.id == id
+          ? { id: $item.id, title: $item.title, completed: !$item.completed }
+          : $item
+      )
     }
   }
 }
@@ -35,9 +52,12 @@ domain TodoApp {
 ## Runtime
 
 ```typescript
-export const app = createManifesto(TodoAppSchema, {}).activate();
+import { createManifesto } from "@manifesto-ai/sdk";
+import TodoMel from "./todo.mel";
 
-await app.action.addTodo.submit("Write a domain", crypto.randomUUID());
+export const app = createManifesto(TodoMel, {}).activate();
+
+await app.action.addTodo.submit("Write a domain");
 ```
 
 ## Presentation
@@ -46,7 +66,8 @@ await app.action.addTodo.submit("Write a domain", crypto.randomUUID());
 function renderTodos() {
   const snapshot = app.snapshot();
   console.log(snapshot.state.todos);
-  console.log(snapshot.computed.totalCount);
+  console.log(snapshot.computed["todoCount"]);
+  console.log(snapshot.computed["activeCount"]);
 }
 
 renderTodos();
@@ -57,4 +78,7 @@ Keep framework code outside MEL. The same domain can sit behind React, a backend
 
 ## Next
 
-Try the [hands-on todo tutorial](/tutorial/04-todo-app), then choose an [Integration](/integration/react) or continue to the [In-Depth shared semantic model](/concepts/shared-semantic-model).
+Try the [hands-on todo tutorial](/tutorial/04-todo-app), then add
+[Bundler Setup](/guides/bundler-setup) and [Code Generation](/guides/code-generation).
+After that, connect [React](/integration/react) and compare with
+[Runnable Examples](/guide/runnable-examples).

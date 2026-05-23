@@ -1,49 +1,60 @@
 # Creating an App
 
-> Create an activated runtime from a MEL domain.
+> Create a runtime from a MEL domain.
 
-A Manifesto app starts as a composable manifesto and becomes runnable after `activate()`.
+A Manifesto app starts from a MEL domain and becomes runnable after `activate()`.
 
 ## The App Shape
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
-import CounterSchema from "./counter.mel";
+import TodoMel from "./domain/todo.mel";
 
-const app = createManifesto(CounterSchema, {}).activate();
+const app = createManifesto(TodoMel, {}).activate();
 ```
 
-`app` is the base runtime handle. It can submit action candidates, publish snapshots, notify observers, expose inspection reads, and clean itself up.
+`app` is the base runtime handle. It can submit actions, publish snapshots,
+notify observers, expose read-only inspection data, and clean itself up.
 
-## Schema and Effects
+For normal app code, start with three verbs:
 
-The first argument is your domain schema. The second argument is the effect handler map.
+- `app.action.<name>.submit(...)` changes state through a domain action.
+- `app.snapshot()` reads the current public Snapshot.
+- `app.dispose()` shuts the runtime down when the app unmounts or exits.
+
+## Add The Generated Domain Type
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
-import { defineEffects } from "@manifesto-ai/sdk/effects";
-import UserProfileSchema from "./user-profile.mel";
-import type { UserProfileDomain } from "./user-profile-types";
+import type { TodoDomain } from "./domain/todo.domain";
+import TodoMel from "./domain/todo.mel";
 
-const app = createManifesto(
-  UserProfileSchema,
-  defineEffects<UserProfileDomain>(({ set }, refs) => ({
-    "api.fetchUser": async () => [
-      set(refs.state.loading, false),
-    ],
-  })),
-).activate();
+const app = createManifesto<TodoDomain>(TodoMel, {}).activate();
 ```
 
-Pass `{}` when the domain does not declare external effects.
+That generic type comes from the generated facade in [Code Generation](/guides/code-generation).
+You can omit it while learning the runtime shape.
+
+## Domain And Effects
+
+The first argument is the compiled MEL domain. The second argument is the
+effect handler map.
+
+```typescript
+const app = createManifesto(TodoMel, {}).activate();
+```
+
+Pass `{}` while the domain does not declare external effects. Add a handler map
+later when you reach the [Effects](./effects) guide or
+[Effect Handlers](/guides/effect-handlers).
 
 ## The Minimal Loop
 
 ```typescript
-const result = await app.action.increment.submit();
+const result = await app.action.addTodo.submit("Create the app");
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
-  console.log(result.after.state.count);
+  console.log(result.after.state.todos);
 }
 app.dispose();
 ```
@@ -54,4 +65,10 @@ app.dispose();
 
 ## Next
 
-Learn the domain file in [MEL Domain Basics](./mel-domain-basics), or walk through the longer [first app tutorial](/tutorial/01-your-first-app).
+Read the current and returned state in [Reading Snapshots](./reading-snapshots),
+then learn how domain [State](./state), [Computed Values](./computed-values),
+and [Actions](./actions-and-intents) appear from app code. After that, keep
+later publications in sync with [Subscriptions](./subscriptions) and learn
+action gates in [Availability](./availability). Walk through the longer
+[first app tutorial](/tutorial/01-your-first-app) when you want to build the
+same path step by step.

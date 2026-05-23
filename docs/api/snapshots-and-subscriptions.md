@@ -4,7 +4,7 @@
 
 ## `snapshot()`
 
-Reads the projected app-facing Snapshot.
+Reads the app-facing Snapshot.
 
 ```typescript
 const snapshot = app.snapshot();
@@ -18,7 +18,7 @@ Use this in UI, routes, tools, tests, and agent context builders.
 ## Submit Result
 
 `action.<name>.submit()` resolves with an explicit submit result. Settled
-results include projected `before` and `after` snapshots.
+results include app-facing `before` and `after` snapshots.
 
 ```typescript
 const result = await app.action.toggleTodo.submit("todo-1");
@@ -43,22 +43,24 @@ const unsubscribe = app.observe.state(
 render(app.snapshot().state.todos);
 ```
 
-Seed initial UI with `snapshot()`. The observer listener is for later
-projected Snapshot publications.
+Seed initial UI with `snapshot()`. The observer listener is for later Snapshot
+publications.
 
-## `inspect.canonicalSnapshot()`
+## Advanced: `inspect.canonicalSnapshot()`
 
-Reads the full canonical runtime substrate.
+Reads the full internal runtime snapshot.
 
 ```typescript
 const canonical = app.inspect.canonicalSnapshot();
 await saveRuntimeSnapshot(canonical);
 ```
 
-Use this for restore/persistence, seal-aware tooling, Studio overlays, and deep debugging. Prefer `snapshot()` for normal application rendering.
+Use this for restore/persistence, seal-aware tooling, Studio overlays, and deep
+debugging. Prefer `snapshot()` for normal application rendering and agent
+context.
 
 ## Next
 
 - Connect state to React in [React](/integration/react)
 - Read [Snapshot](/concepts/snapshot)
-- Debug canonical state in [Debugging](/guides/debugging)
+- Escalate only when needed in [Debugging](/guides/debugging)

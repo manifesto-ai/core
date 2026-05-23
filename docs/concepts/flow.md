@@ -4,24 +4,30 @@
 
 ## What is Flow?
 
-Flow describes what should happen when an Intent is processed. It's a data structure that Core interprets, not code that executes directly.
+In MEL, Flow is the body of an action: the `patch`, `when`, `fail`, and
+`effect` statements that describe the next Snapshot transition.
+
+```mel
+action addTodo(title: string) {
+  onceIntent {
+    patch todos = append(todos, {
+      id: $runtime.random.uuid,
+      title: trim(title),
+      completed: false
+    })
+  }
+}
+```
+
+Underneath that MEL source, Flow is a data structure that Core interprets. App
+code normally stays at the MEL and `app.action.<name>.submit(...)` level.
 
 Flows are **not Turing-complete**. They always terminate in finite steps. This guarantees predictable resource usage and enables static analysis. For unbounded iteration, Host controls the loop.
 
-The key insight: there is no suspended Flow context. When Flow declares an Effect, computation stops. Host executes the effect, applies patches, then calls `compute()` again. The Flow runs from the beginning, checking Snapshot to see what's already done.
-
-## Structure
-
-```typescript
-type FlowNode =
-  | { kind: 'seq'; steps: readonly FlowNode[] }
-  | { kind: 'if'; cond: ExprNode; then: FlowNode; else?: FlowNode }
-  | { kind: 'patch'; op: 'set' | 'unset' | 'merge'; path: string; value?: ExprNode }
-  | { kind: 'effect'; type: string; params: Record<string, ExprNode> }
-  | { kind: 'call'; flow: string }
-  | { kind: 'halt'; reason?: string }
-  | { kind: 'fail'; code: string; message?: ExprNode };
-```
+The key insight: there is no suspended Flow context. When Flow declares an
+Effect, computation stops. Host executes the effect, applies patches, then calls
+`compute()` again. The Flow runs from the beginning, checking Snapshot to see
+what is already done.
 
 ## Key Properties
 
@@ -36,22 +42,25 @@ type FlowNode =
 
 ```mel
 domain TodoDomain {
+  type Todo = {
+    id: string,
+    title: string,
+    completed: boolean,
+    syncStatus: "pending" | "synced"
+  }
+
   state {
     todos: Array<Todo> = []
   }
 
-  action addTodo(title: string, localId: string) {
-    // Validation
-    when len(title) == 0 {
-      fail "EMPTY_TITLE"
-    }
-
-    // Guarded execution
+  action addTodo(title: string)
+    dispatchable when trim(title) != "" {
     onceIntent {
       // Optimistic update
       patch todos = append(todos, {
-        id: localId,
-        title: title,
+        id: $runtime.random.uuid,
+        title: trim(title),
+        completed: false,
         syncStatus: "pending"
       })
 
@@ -62,44 +71,7 @@ domain TodoDomain {
 }
 ```
 
-### Compiled JSON (Internal Representation)
-
-MEL compiles to JSON Flow structures that Core interprets:
-
-```json
-{
-  "kind": "seq",
-  "steps": [
-    {
-      "kind": "if",
-      "cond": { "kind": "eq", "left": { "kind": "len", "arg": { "kind": "input", "path": "title" } }, "right": 0 },
-      "then": { "kind": "fail", "code": "EMPTY_TITLE" }
-    },
-    {
-      "kind": "if",
-      "cond": { "kind": "causalGuard", "key": "addTodo_0" },
-      "then": {
-        "kind": "seq",
-        "steps": [
-          {
-            "kind": "patch",
-            "op": "set",
-            "path": "todos",
-            "value": { "kind": "append", "arr": { "kind": "get", "path": "todos" }, "item": "..." }
-          },
-          {
-            "kind": "effect",
-            "type": "api.createTodo",
-            "params": { "title": { "kind": "input", "path": "title" } }
-          }
-        ]
-      }
-    }
-  ]
-}
-```
-
-## Common Patterns
+## Common MEL Patterns
 
 ### Re-entry Safe Flow with `onceIntent`
 
@@ -148,7 +120,18 @@ action checkAccess() {
 }
 ```
 
-### Validation with Fail
+### Validation
+
+```mel
+action createUser(email: string)
+  dispatchable when trim(email) != "" {
+  onceIntent {
+    effect api.createUser({ email: email })
+  }
+}
+```
+
+For lower-level Flow examples you may still see explicit `fail` statements:
 
 ```mel
 action createUser(email: string) {
@@ -173,7 +156,63 @@ action load() {
 }
 ```
 
-## Flow Node Types
+## For Tool Authors And Deep Debugging
+
+You can skip the rest of this page while learning app development. It is useful
+when building tools, inspecting compiler output, or debugging Core-level
+behavior.
+
+### Compiled JSON
+
+MEL compiles to JSON Flow structures that Core interprets:
+
+```json
+{
+  "kind": "seq",
+  "steps": [
+    {
+      "kind": "if",
+      "cond": { "kind": "eq", "left": { "kind": "len", "arg": { "kind": "input", "path": "title" } }, "right": 0 },
+      "then": { "kind": "fail", "code": "EMPTY_TITLE" }
+    },
+    {
+      "kind": "if",
+      "cond": { "kind": "causalGuard", "key": "addTodo_0" },
+      "then": {
+        "kind": "seq",
+        "steps": [
+          {
+            "kind": "patch",
+            "op": "set",
+            "path": "todos",
+            "value": { "kind": "append", "arr": { "kind": "get", "path": "todos" }, "item": "..." }
+          },
+          {
+            "kind": "effect",
+            "type": "api.createTodo",
+            "params": { "title": { "kind": "input", "path": "title" } }
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+### FlowNode Structure
+
+```typescript
+type FlowNode =
+  | { kind: 'seq'; steps: readonly FlowNode[] }
+  | { kind: 'if'; cond: ExprNode; then: FlowNode; else?: FlowNode }
+  | { kind: 'patch'; op: 'set' | 'unset' | 'merge'; path: string; value?: ExprNode }
+  | { kind: 'effect'; type: string; params: Record<string, ExprNode> }
+  | { kind: 'call'; flow: string }
+  | { kind: 'halt'; reason?: string }
+  | { kind: 'fail'; code: string; message?: ExprNode };
+```
+
+### Flow Node Types
 
 | Node | Purpose | MEL Syntax |
 |------|---------|------------|
@@ -185,7 +224,7 @@ action load() {
 | `halt` | Normal termination | `stop` |
 | `fail` | Error termination | `fail "CODE"` |
 
-## How Core Interprets Flow
+### How Core Interprets Flow
 
 ```
 Intent arrives

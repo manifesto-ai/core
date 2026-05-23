@@ -44,15 +44,15 @@ The hardening gate is package-first. It exercises the current shipped packages i
 
 - `@manifesto-ai/sdk` base runtime tests and build
 - `@manifesto-ai/lineage` continuity runtime tests and build
-- `@manifesto-ai/governance` legitimacy runtime tests and build
+- `@manifesto-ai/governance` approval runtime tests and build
 - `@manifesto-ai/compiler` active package tests and build
 - maintained docs checks and site build
 
 Representative runtime scenarios:
 
 - happy path: approved governed proposal seals and publishes
-- rejection path: legitimacy constraints block publication
-- base path: activation-first runtime still submits action candidates deterministically
+- rejection path: approval constraints block publication
+- base path: SDK runtime still submits actions deterministically
 
 ## Known Limitations
 
