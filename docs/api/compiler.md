@@ -1,19 +1,45 @@
 # @manifesto-ai/compiler
 
-> MEL compiler package (MEL text -> `DomainSchema` / tooling sidecars / patch IR / schema-only module code)
+> MEL compiler package for importing `.mel` domains into SDK apps and tooling.
 
 ---
 
 ## Overview
 
-`@manifesto-ai/compiler` provides the MEL compilation seams used by runtime creation, tooling, and bundler integration.
+`@manifesto-ai/compiler` provides the MEL compilation seams used by runtime
+creation, tooling, and bundler integration.
+
+Most app code reaches it through a bundler plugin:
+
+```typescript
+import { melPlugin } from "@manifesto-ai/compiler/vite";
+
+export default {
+  plugins: [melPlugin()],
+};
+```
+
+Then the app imports the MEL domain and activates the SDK runtime:
+
+```typescript
+import { createManifesto } from "@manifesto-ai/sdk";
+import TodoMel from "./todo.mel";
+
+const app = createManifesto(TodoMel, {}).activate();
+```
+
+For normal app code, stop at the bundler plugin and import the `.mel` file from
+your SDK runtime module. Use the direct compile APIs below when you are writing
+build scripts, editor tooling, Studio-style inspection, or tests.
 
 The current canonical compiler contract is documented in the [current SPEC index](../internals/spec/index.md), with the compiler aligned to v5.0.0 in `packages/compiler/docs/SPEC-v1.2.0.md`.
 
 Current compiler responsibilities include:
-- schema-only compilation through `compileMelDomain()`
+- bundler and loader seams for importing `.mel` domains into apps
+- optional generated domain facades for SDK/React/agent TypeScript code
+- schema-only compilation through `compileMelDomain()` for tooling
 - tooling-only module compilation through `compileMelModule()`
-- projected `SchemaGraph` extraction
+- `SchemaGraph` extraction for tools
 - structural annotations via `@meta` as an out-of-schema `AnnotationIndex` sidecar
 - declaration-level source locations as an out-of-schema `SourceMapIndex` sidecar
 - authoring-time source edits through `compileFragmentInContext()`
@@ -27,7 +53,7 @@ Current compiler highlights include:
 - optional spread-result reads observed as `T | null`, requiring explicit normalization before non-null sinks
 - compiler-owned MEL source-fragment editing for authoring-time tooling
 
-## Main Entry Points
+## Direct Tooling Entry Points
 
 ### `compileMelDomain()`
 

@@ -1,12 +1,12 @@
 # Data Flow
 
-> Follow one intent from caller input to the next terminal snapshot.
+> Follow one action from caller input to the next terminal snapshot.
 
 ---
 
 ## Default SDK Flow
 
-In the default path, a caller submits an action candidate through the SDK:
+In the default path, a caller submits an action through the SDK:
 
 ```text
 caller
@@ -25,7 +25,7 @@ That is the core loop a new developer should keep in mind.
 
 ## Step by Step
 
-### 1. The caller activates the runtime and binds an action candidate
+### 1. The caller activates the runtime and submits an action
 
 Usually with `app.action.someAction.submit(...args)` or `app.action.someAction.submit({ ...params })`, depending on the action shape.
 
@@ -72,9 +72,10 @@ The effect handler does not bypass Snapshot. Its output still lands as patches.
 
 ---
 
-## Optional Governed Flow
+## Optional Approval/History Flow
 
-When you need explicit legitimacy and continuity, decorate before activation:
+When you need review, actor approval, or sealed history, add the advanced
+runtime before activation:
 
 ```text
 participant
@@ -83,11 +84,11 @@ participant
   -> withGovernance()
   -> activate()
   -> action.<name>.submit(input?)
-  -> governance proposal / authority flow
+  -> proposal / authority flow
   -> Host
   -> Core
   -> terminal Snapshot
-  -> lineage seal
+  -> history seal
   -> published snapshot + history
 ```
 
@@ -100,6 +101,6 @@ That is a deliberate deployment choice, not an implicit part of the basic SDK on
 - `action.<name>.submit()` submits runtime work
 - Snapshot is the visible result
 - Effects still resolve through patches
-- governed composition is optional and explicit
+- approval/history composition is optional and explicit
 
 If those four points are clear, the rest of the architecture follows naturally.

@@ -9,20 +9,23 @@
 ```ts
 import { createManifesto } from "@manifesto-ai/sdk";
 import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
+import TodoMel from "./domain/todo.mel";
+import type { TodoDomain } from "./domain/todo.domain";
 
-const manifesto = createManifesto<CounterDomain>(schema, effects);
+const manifesto = createManifesto<TodoDomain>(TodoMel, effects);
 
 const lineage = withLineage(manifesto, {
   store: createInMemoryLineageStore(),
 }).activate();
 ```
 
-Lineage does not decorate a running instance. It decorates the composable manifesto and participates in the activation pipeline.
+Lineage does not decorate a running instance. It decorates the app definition
+and participates in the activation pipeline.
 
 ## 2. Submit Means Execute And Seal
 
 ```ts
-await lineage.action.increment.submit();
+await lineage.action.addTodo.submit("Review docs");
 ```
 
 On a lineage runtime, `submit()` means:
@@ -36,7 +39,7 @@ If seal commit fails, the Promise rejects and the new snapshot does not become v
 ## 3. Use The Additive Report Companion When Tooling Needs More Context
 
 ```ts
-const result = await lineage.with({ report: "full" }).action.increment.submit();
+const result = await lineage.with({ report: "full" }).action.addTodo.submit("Review docs");
 ```
 
 Execution view report settings keep the same seal/publication law and package additive result detail as data.
@@ -64,9 +67,12 @@ if (latestHead) {
 }
 ```
 
-These APIs project the backing continuity truth through the activated runtime.
-`snapshot()` remains the projected runtime read. `inspect.canonicalSnapshot()` reads the current visible canonical substrate. `getWorldSnapshot(worldId)` reads the stored sealed canonical snapshot substrate. `restore(worldId)` remains the normalized runtime resume path.
-The activated lineage runtime also keeps the inherited SDK action-candidate legality queries: `action.x.available()` and `action.x.check(...)`.
+These APIs project the stored history state through the activated runtime.
+`snapshot()` remains the projected runtime read. `inspect.canonicalSnapshot()`
+reads the current visible full internal snapshot. `getWorldSnapshot(worldId)`
+reads the stored full snapshot for a committed history record.
+`restore(worldId)` remains the normalized runtime resume path.
+The activated lineage runtime also keeps the inherited SDK legality queries: `action.x.available()` and `action.x.check(...)`.
 
 ## 5. Restore A Sealed Lineage World
 

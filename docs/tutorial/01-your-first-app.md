@@ -1,16 +1,16 @@
-# Your First Activated Manifesto
+# Your First App
 
-> Create a small counter and learn the current SDK base-runtime surface.
+> Create a small counter and submit actions through the SDK.
 
 ---
 
 ## What You'll Learn
 
 - How to write a tiny MEL domain
-- How to activate a manifesto runtime
+- How to activate a Manifesto runtime
 - How to submit typed actions from `action.*`
 - How to observe state through `observe.state()` and `snapshot()`
-- Why `onceIntent` matters
+- The small MEL pattern for one submitted action
 
 ---
 
@@ -52,7 +52,7 @@ This domain already shows the basic Manifesto shape:
 - `state` stores source-of-truth values
 - `computed` derives values from state
 - `action` describes legal transitions
-- `onceIntent` keeps the action safe across the compute loop
+- `onceIntent` wraps the patches for one submitted action
 
 ---
 
@@ -96,35 +96,52 @@ run().catch((error) => {
 Run it:
 
 ```bash
-npx tsx main.ts
+npx tsx --loader @manifesto-ai/compiler/node-loader main.ts
+```
+
+You should see output in this shape:
+
+```text
+Initial count: 0
+Count changed: 0 1
+Count changed: 1 2
+Count changed: 2 1
+Final count: 1
+Doubled: 2
 ```
 
 ---
 
 ## What Just Happened
 
-- `createManifesto()` built a composable manifesto from your domain
-- `activate()` opened the runtime surface
+- `createManifesto()` prepared your domain for the app runtime
+- `activate()` opened the runtime helpers
 - `action.*.submit()` gave you a typed, app-facing write path
-- `submit()` resolved after each terminal snapshot was published
+- `submit()` resolved after each state change was published
 - `observe.state()` fired after each published change
 - `snapshot()` let you read the latest terminal state directly
 
-The important shift is this: you do not call a method that "does the action and returns a value." You submit an action candidate to the runtime, and read the next snapshot.
+The important shift is this: app code submits an action, then reads the latest
+snapshot. The domain owns how state changes.
 
 ---
 
-## Why `onceIntent` Is in Every Action
+## What To Know About `onceIntent`
 
-The compute loop can revisit an action while processing requirements and patches. Without a guard, the same patch can re-run.
+For the first app, use `onceIntent` around patches that should happen once for
+one submitted action:
 
 ```mel
 action increment() {
-  patch count = count + 1
+  onceIntent {
+    patch count = count + 1
+  }
 }
 ```
 
-That action is unsafe. It describes an unconditional state change with no marker. `onceIntent` makes the operation idempotent for a single intent.
+That is the normal beginner pattern. You do not need the lower-level execution
+model to keep going; read the re-entry safety guide later when you are building
+custom flows or reviewing advanced domains.
 
 ---
 
@@ -132,7 +149,8 @@ That action is unsafe. It describes an unconditional state change with no marker
 
 ### Calling runtime verbs before activation
 
-`createManifesto()` returns a composable manifesto. Runtime verbs appear only after `activate()`.
+Runtime verbs appear only after `activate()`. Call `activate()` before using
+`action`, `snapshot()`, `observe`, or other app runtime helpers.
 
 ### Reaching for raw string action names in app code
 
@@ -140,11 +158,11 @@ The preferred app-facing path is `app.action.someAction.submit(...args)` or `app
 
 ### Reading stale state without awaiting execution
 
-`submit()` resolves after publication. If you skip the `await`, your next read may still be the previous terminal snapshot.
+`submit()` resolves after publication. If you skip the `await`, your next read may still be the previous Snapshot.
 
 ### Mutating the snapshot object
 
-The snapshot is a read model. Submit a new action candidate instead.
+The snapshot is a read model. Submit a new action instead.
 
 ---
 

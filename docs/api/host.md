@@ -8,11 +8,28 @@
 
 `@manifesto-ai/host` executes intents against Core and fulfills effect requirements.
 
+App and agent integrations normally use Host through the SDK:
+
+```typescript
+const app = createManifesto<TodoDomain>(TodoMel, effects).activate();
+await app.action.addTodo.submit("Review docs");
+console.log(app.snapshot().state.todos);
+```
+
+Use this page when you are writing a custom runtime, testing Host behavior, or
+debugging the low-level compute/effect loop.
+
+| Goal | Start Here |
+|------|------------|
+| Submit app actions and read app-facing Snapshots | [Application](./application) and [Runtime Instance](./runtime) |
+| Fulfill API/database work in app code | [Effects](./effects) |
+| Own or test the compute/effect loop directly | This Host page |
+
 - Runtime orchestration (Mailbox + Runner + Jobs)
 - Applies domain patches and system transitions in interlocked order
 - Produces terminal snapshot/status per dispatch
 
-> **Current Contract Note:** This page describes the current Host v5-aligned surface. Host-facing Snapshot references follow the current Core v5 canonical contract and no longer include accumulated `system.errors` or retired `data` roots. This is the full Core/Host substrate, not the projected SDK `snapshot()` read model.
+> **Current Contract Note:** This page describes the current Host v5-aligned surface. Host-facing Snapshot references use the full Core/Host internal snapshot and no longer include accumulated `system.errors` or retired `data` roots. This is not the SDK `snapshot()` app read model.
 
 ---
 
@@ -64,7 +81,8 @@ class ManifestoHost {
 }
 ```
 
-`ManifestoHost.getSnapshot()` returns the Host's canonical snapshot substrate. If you are working at the SDK layer, `app.snapshot()` means the projected application-facing read instead.
+`ManifestoHost.getSnapshot()` returns the Host's full internal snapshot. If you
+are working at the SDK layer, use the app-facing `app.snapshot()` read instead.
 
 ### HostResult
 
@@ -77,11 +95,16 @@ interface HostResult {
 }
 ```
 
-`HostResult.snapshot` is likewise canonical Host/Core state, not the SDK projection.
+`HostResult.snapshot` is likewise Host/Core internal state, not the SDK app
+Snapshot.
 
 ---
 
 ## Effect Handlers
+
+App effect handlers normally use the SDK `defineEffects()` helper shown in
+[Effects](./effects). The raw Host registry below is for custom runtimes and
+Host tests.
 
 ```typescript
 import { createEffectRegistry, createEffectExecutor } from "@manifesto-ai/host";
@@ -116,7 +139,9 @@ type EffectHandler = (
 ) => Promise<Patch[]>;
 ```
 
-The Host effect-handler context carries the canonical snapshot substrate. The SDK wraps this separately and presents a projected `EffectContext.snapshot` to application effect handlers.
+The Host effect-handler context carries the full internal snapshot. The SDK
+wraps this separately and presents an app-facing `EffectContext.snapshot` to
+application effect handlers.
 
 ---
 
@@ -135,5 +160,5 @@ The Host effect-handler context carries the canonical snapshot substrate. The SD
 |---------|--------------|
 | [@manifesto-ai/core](./core) | Pure semantic computation |
 | [@manifesto-ai/sdk](./sdk) | Activation-first app runtime over Host |
-| [@manifesto-ai/lineage](./lineage) | Seal-aware continuity decorator layered over SDK + Host |
+| [@manifesto-ai/lineage](./lineage) | History decorator layered over SDK + Host |
 | [@manifesto-ai/governance](./governance) | Proposal/approval decorator layered over Lineage + SDK + Host |

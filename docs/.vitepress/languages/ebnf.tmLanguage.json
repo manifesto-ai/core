@@ -1,0 +1,74 @@
+{
+  "name": "ebnf",
+  "scopeName": "source.ebnf",
+  "displayName": "EBNF",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#identifiers"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.ebnf",
+          "match": "#.*$"
+        },
+        {
+          "name": "comment.line.double-slash.ebnf",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.ebnf",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.ebnf",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.ebnf",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.ebnf",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "operators": {
+      "name": "keyword.operator.ebnf",
+      "match": "::=|:=|=|\\||\\?|\\*|\\+|-"
+    },
+    "identifiers": {
+      "name": "variable.other.ebnf",
+      "match": "\\b[A-Za-z_][A-Za-z0-9_-]*\\b"
+    },
+    "punctuation": {
+      "name": "punctuation.separator.ebnf",
+      "match": "[\\{\\}\\[\\]\\(\\),;.]"
+    }
+  }
+}

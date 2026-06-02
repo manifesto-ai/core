@@ -6,12 +6,9 @@ import { melPlugin } from "@manifesto-ai/compiler/vite";
 export default defineConfig({
   plugins: [
     melPlugin({
-      codegen: {
-        emit: createCompilerCodegen({
-          plugins: [createDomainPlugin({ interfaceName: "TodoDomain" })],
-        }),
-        timing: "transform",
-      },
+      codegen: createCompilerCodegen({
+        plugins: [createDomainPlugin({ interfaceName: "TodoDomain" })],
+      }),
     }),
     react(),
   ],

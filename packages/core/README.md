@@ -8,6 +8,25 @@
 
 Core is responsible for evaluating domain semantics. Given a schema, snapshot, intent, and context, it computes what patches and requirements should result—but never executes them.
 
+Most app developers should start with `@manifesto-ai/sdk`, not this package.
+The direct Core examples below are for custom runtime authors, test harnesses,
+and developer tooling that needs the pure compute/apply boundary.
+
+```typescript
+const app = createManifesto<TodoDomain>(TodoMel, effects).activate();
+await app.action.addTodo.submit("Review docs");
+console.log(app.snapshot().state.todos);
+```
+
+If you are deciding where to start:
+
+| Goal | Start Here |
+|------|------------|
+| Build a web app, backend route, script, or trusted agent | `@manifesto-ai/sdk` and the main Guide |
+| Fulfill API/database work from MEL effects | SDK effect handlers |
+| Add approval or sealed history | Lineage/Governance after the base runtime works |
+| Test pure domain computation or build runtime tooling | This Core package |
+
 In the Manifesto architecture:
 
 ```
@@ -44,6 +63,10 @@ Host -> CORE -> ComputeResult
 
 ## Installation
 
+Install Core directly only when you need direct compute fixtures, custom
+runtime internals, or low-level tooling. App code gets Core through
+`@manifesto-ai/sdk`.
+
 ```bash
 npm install @manifesto-ai/core
 # or
@@ -52,7 +75,7 @@ pnpm add @manifesto-ai/core
 
 ---
 
-## Quick Example
+## Direct Core Fixture
 
 ```typescript
 import { createCore, createSnapshot, createIntent } from "@manifesto-ai/core";
@@ -200,7 +223,7 @@ For typical usage, see [`@manifesto-ai/sdk`](../sdk/) — the recommended entry 
 
 | Document | Purpose |
 |----------|---------|
-| [GUIDE.md](docs/GUIDE.md) | Step-by-step usage guide |
+| [GUIDE.md](docs/GUIDE.md) | Direct Core fixture guide for tests, custom runtimes, and tooling |
 | [core-SPEC.md](docs/core-SPEC.md) | Current living specification |
 | [VERSION-INDEX.md](docs/VERSION-INDEX.md) | Current and historical document map |
 | [FDR-v1.0.0.md](docs/FDR-v1.0.0.md) | Historical design rationale |

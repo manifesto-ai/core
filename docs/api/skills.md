@@ -9,8 +9,8 @@
 The installed guidance is aligned to:
 
 - base runtime via `@manifesto-ai/sdk`
-- continuity via `@manifesto-ai/lineage`
-- legitimacy via `@manifesto-ai/governance`
+- history via `@manifesto-ai/lineage`
+- approval via `@manifesto-ai/governance`
 - terminal inspection via `@manifesto-ai/studio-cli`
 - projection-first analysis via `@manifesto-ai/studio-core`
 

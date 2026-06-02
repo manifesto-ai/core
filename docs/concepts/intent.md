@@ -1,33 +1,21 @@
 # Intent
 
-> An Intent is the low-level request object behind an action candidate.
+> An Intent is the low-level request object behind an action submission.
 
 ---
 
 ## What An Intent Is
 
 In Manifesto, you do not call domain methods that mutate state directly. You
-submit an action candidate and let the runtime compute the next terminal
+submit an action and let the runtime compute the next terminal
 Snapshot.
 
-At the protocol level, a raw `Intent` is the packed request that Core and Host
-understand. In v5, ordinary application code does not need to construct that
-object directly.
+```typescript
+const result = await app.action.addTodo.submit("Review the docs");
+```
 
----
-
-## Intent vs IntentInstance
-
-The app path and low-level governed path use related but different inputs:
-
-| Type | Used By | Purpose |
-|------|---------|---------|
-| `BoundAction` | SDK, Lineage, and Governance activated runtimes | Typed app-facing candidate for check, preview, submit, and optional raw intent access |
-| `Intent` | Core/Host protocol seams and extension tooling | Packed Snapshot transition request |
-| `IntentInstance` | Governance low-level helpers | Carry actor, source, and projection context before proposal orchestration |
-
-`Intent` remains a protocol object. `IntentInstance` exists when you need to
-materialize governed provenance outside the activated runtime methods.
+A raw `Intent` is the packed request that the lower runtime layers understand.
+Ordinary application code does not need to construct that object directly.
 
 ---
 
@@ -38,24 +26,22 @@ The safest path is to use action handles from the activated runtime:
 ```typescript
 const app = createManifesto(schema, effects).activate();
 
-const result = await app.action.addTodo.submit(
-  crypto.randomUUID(),
-  "Review the docs",
-);
+const result = await app.action.addTodo.submit("Review the docs");
 ```
 
 Object-shaped actions bind with a single object argument:
 
 ```typescript
-const result = await app.action.addTodo.submit({
-  id: crypto.randomUUID(),
-  title: "Review the docs",
+const result = await app.action.configureProject.submit({
+  label: "Docs",
+  reviewRequired: true,
 });
 ```
 
-That keeps the public call typed while letting the runtime own canonical input
-packing. Base, Lineage, and Governance all use `action.<name>.submit(...)`;
-their result unions express the active runtime law.
+That keeps the public call typed while letting the runtime pack the input for
+lower layers. Base, Lineage, and Governance all use
+`action.<name>.submit(...)`; their result unions express the active runtime
+mode.
 
 ---
 
@@ -76,9 +62,27 @@ Current SDK rules are:
 
 ---
 
+## Low-Level Escape Hatches
+
+Skip this section while learning the app path. Use it when you are building a
+runtime bridge, extension, low-level test, or governed service helper.
+
+The app path and low-level governed path use related but different inputs:
+
+| Type | Used By | Purpose |
+|------|---------|---------|
+| `BoundAction` | SDK, Lineage, and Governance activated runtimes | Typed app-facing action for check, preview, submit, and optional raw intent access |
+| `Intent` | Core/Host seams and extension tooling | Packed Snapshot transition request |
+| `IntentInstance` | Governance low-level helpers | Carry actor and source context before proposal handling |
+
+`Intent` remains a low-level object. `IntentInstance` exists when you need to
+build proposal metadata outside the activated runtime methods.
+
+---
+
 ## Raw Intent Escape Hatch
 
-Use `bind(...).intent()` only when a bridge, extension, or protocol test needs
+Use `bind(...).intent()` only when a bridge, extension, or low-level test needs
 the packed raw shape:
 
 ```typescript
@@ -93,15 +97,15 @@ If the candidate input is not valid, `intent()` returns `null`.
 ## The Governed Shape
 
 Use `createIntentInstance()` when you need actor identity, source metadata, or a
-service-level governed proposal path:
+service-level proposal path:
 
 ```typescript
 import { createIntentInstance } from "@manifesto-ai/governance";
 
 const intentInstance = await createIntentInstance({
   body: {
-    type: "addTodo",
-    input: { id: crypto.randomUUID(), title: "Review the docs" },
+    type: "configureProject",
+    input: { label: "Docs", reviewRequired: true },
   },
   schemaHash: "todo-v1",
   projectionId: "todo-ui",
@@ -111,7 +115,7 @@ const intentInstance = await createIntentInstance({
 ```
 
 The decorator runtime usually creates proposal metadata for you. Reach for
-`IntentInstance` when you are working below that runtime boundary.
+`IntentInstance` only when you are working below the normal runtime methods.
 
 ---
 
@@ -149,10 +153,7 @@ import TodoMel from "./todo.mel";
 
 const app = createManifesto(TodoMel, {}).activate();
 
-await app.action.addTodo.submit({
-  id: crypto.randomUUID(),
-  title: "Ship the rewrite",
-});
+await app.action.addTodo.submit("Ship the rewrite");
 
 console.log(app.snapshot().state);
 ```
@@ -168,12 +169,12 @@ The intent is the request. The snapshot is the result.
 ### Starting with raw Intent construction
 
 You can get the object through `bind(...).intent()` when you need it, but action
-candidates are the safer and clearer path for current SDK usage.
+handles are the safer and clearer path for current SDK usage.
 
 ### Assuming `submit()` returns a hidden business payload
 
 `submit()` returns a runtime result union. It does not bypass Snapshot-first
-semantics or hand you raw effect results directly.
+state or hand you raw effect results directly.
 
 ---
 
@@ -181,4 +182,4 @@ semantics or hand you raw effect results directly.
 
 - [Tutorial](/tutorial/) for the first end-to-end examples
 - [Effect](./effect) for what happens when an action declares external work
-- [World Records and Governed Composition](./world) for lineage records and governed runtime composition
+- [When You Need Approval or History](/guides/approval-and-history) before adding review or sealed history

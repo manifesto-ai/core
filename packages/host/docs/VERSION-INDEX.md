@@ -25,7 +25,7 @@
 
 ## Archived Versions
 
-Previous versioned SPEC and FDR files are preserved in the [`archive/`](archive/) subdirectory.
+Previous versioned SPEC and FDR files are preserved in the `archive/` subdirectory.
 
 | File | Type | Notes |
 |------|------|-------|

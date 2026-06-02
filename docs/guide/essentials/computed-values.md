@@ -7,13 +7,21 @@ Use `computed` for values that can be recalculated from `state`: counts, boolean
 ## Declare Computed Values
 
 ```mel
-domain Counter {
-  state {
-    count: number = 0
+domain TodoApp {
+  type Todo = {
+    id: string,
+    title: string,
+    completed: boolean
   }
 
-  computed doubled = count * 2
-  computed canDecrement = count > 0
+  state {
+    todos: Array<Todo> = []
+  }
+
+  computed todoCount = len(todos)
+  computed completedCount = len(filter(todos, $item.completed))
+  computed activeCount = todoCount - completedCount
+  computed hasCompleted = completedCount > 0
 }
 ```
 
@@ -24,16 +32,16 @@ Computed values are not separate storage. They describe how to derive a value fr
 ```typescript
 const snapshot = app.snapshot();
 
-console.log(snapshot.computed.doubled);
-console.log(snapshot.computed.canDecrement);
+console.log(snapshot.computed["todoCount"]);
+console.log(snapshot.computed["activeCount"]);
 ```
 
 ## Use Them in the Domain
 
 ```mel
-action decrement() available when canDecrement {
+action clearCompleted() available when hasCompleted {
   onceIntent {
-    patch count = count - 1
+    patch todos = filter(todos, !$item.completed)
   }
 }
 ```
@@ -44,4 +52,4 @@ Do not patch a computed value. If the value must be stored, put it in `state`. I
 
 ## Next
 
-Learn how callers request transitions in [Actions and Intents](./actions-and-intents).
+Learn how callers request transitions in [Actions](./actions-and-intents).

@@ -1,6 +1,6 @@
 # AI Agent Integration
 
-> Let agents see the current Snapshot, see the actions that are available now, and submit domain changes through the runtime.
+> Let agents read current app state, see the actions available now, and submit domain changes through the runtime.
 
 An agent should not guess your domain API from prompt text. It should read the
 current state, read the currently legal action contracts, call an app-owned
@@ -11,11 +11,36 @@ Snapshot + inspect.availableActions()
   -> agent context for this step
   -> model chooses a stable app-owned tool
   -> tool re-reads runtime availability
-  -> tool submits an action candidate
+  -> tool submits an action
   -> fresh context returns for the next step
 ```
 
-This guide uses a Todo app. Build that domain first in [Building a Todo App](/guide/essentials/todo-app).
+This guide uses a Todo app. Build that domain first in
+[Building a Todo App](/tutorial/04-todo-app), then emit the generated
+`TodoDomain` facade with [Bundler Setup](/guides/bundler-setup) and
+[Code Generation](/guides/code-generation).
+
+If you are coming from the React path and want UI plus agent writes in one
+product, read [Web App + Agent](./web-app-and-agent) first. Use this page when
+you want the deeper server-worker or agent-only tool-loop shape.
+
+## Install Agent Dependencies
+
+The examples below use the Vercel AI SDK tool shape. Install the AI SDK
+packages and `zod`, then set your provider credentials and model name in the
+environment:
+
+```bash
+npm install ai @ai-sdk/openai zod
+```
+
+```bash
+export OPENAI_API_KEY="..."
+export OPENAI_MODEL="..."
+```
+
+Run these tools from a server route, worker, CLI, or MCP server. Do not expose
+provider credentials to browser components.
 
 The examples assume action-level gates are modeled with MEL `available when`.
 `inspect.availableActions()` reflects those current-snapshot action gates.
@@ -25,15 +50,73 @@ token; tools still re-check legality at submit time.
 
 ---
 
-## 1. Give The Agent Runtime Context
+## 1. Create The Agent Runtime Boundary
+
+Run agent tools in a server route, worker, CLI, or MCP server. Keep one runtime
+module there:
+
+```typescript
+// src/server/manifesto-app.ts
+import { createManifesto } from "@manifesto-ai/sdk";
+
+import TodoMel from "../domain/todo.mel";
+import type { TodoDomain } from "../domain/todo.domain";
+
+export const app = createManifesto<TodoDomain>(TodoMel, {}).activate();
+```
+
+For serverless, multi-user, or durable products, decide persistence and runtime
+ownership before treating this singleton as production storage.
+
+If this server process imports `.mel` directly, run it through a bundler with the
+MEL plugin or through the Node/tsx MEL loader:
+
+```bash
+npx tsx --loader @manifesto-ai/compiler/node-loader src/server/agent-worker.ts
+```
+
+---
+
+## 2. Give The Agent Runtime Context
 
 `snapshot()` tells the agent what is true. `inspect.availableActions()` tells
 the agent what the domain allows now.
 
 ```typescript
+// src/server/agent-context.ts
+import type { ActionInfo, AdmissionFailure, ExecutionOutcome } from "@manifesto-ai/sdk";
+import type { TodoDomain } from "../domain/todo.domain";
 import { app } from "./manifesto-app";
 
-export function readAgentContext() {
+export type TodoAgentContext = {
+  readonly state: TodoDomain["state"];
+  readonly computed: TodoDomain["computed"];
+  readonly availableActions: readonly ActionInfo[];
+};
+
+export type TodoWriteResponse =
+  | {
+      readonly status: "settled";
+      readonly outcome: Extract<ExecutionOutcome, { readonly kind: "ok" }>;
+      readonly context: TodoAgentContext;
+    }
+  | {
+      readonly status: "stop";
+      readonly outcome: Extract<ExecutionOutcome, { readonly kind: "stop" }>;
+      readonly context: TodoAgentContext;
+    }
+  | {
+      readonly status: "fail";
+      readonly outcome: Extract<ExecutionOutcome, { readonly kind: "fail" }>;
+      readonly context: TodoAgentContext;
+    }
+  | {
+      readonly status: "admission_blocked";
+      readonly admission: AdmissionFailure;
+      readonly context: TodoAgentContext;
+    };
+
+export function readAgentContext(): TodoAgentContext {
   const snapshot = app.snapshot();
 
   return {
@@ -42,37 +125,78 @@ export function readAgentContext() {
     availableActions: app.inspect.availableActions(),
   };
 }
+
+export function blocked(admission: AdmissionFailure): TodoWriteResponse {
+  return {
+    status: "admission_blocked",
+    admission,
+    context: readAgentContext(),
+  };
+}
+
+export function toWriteResponse(result: {
+  readonly ok: true;
+  readonly outcome: ExecutionOutcome;
+} | {
+  readonly ok: false;
+  readonly admission: AdmissionFailure;
+}): TodoWriteResponse {
+  if (!result.ok) {
+    return blocked(result.admission);
+  }
+
+  if (result.outcome.kind === "ok") {
+    return {
+      status: "settled",
+      outcome: result.outcome,
+      context: readAgentContext(),
+    };
+  }
+
+  if (result.outcome.kind === "stop") {
+    return {
+      status: "stop",
+      outcome: result.outcome,
+      context: readAgentContext(),
+    };
+  }
+
+  return {
+    status: "fail",
+    outcome: result.outcome,
+    context: readAgentContext(),
+  };
+}
 ```
 
 This is the agent's starting point: state plus the runtime's current public
 action contract. Do not maintain a parallel "actions the agent may call" list
 in prompt text.
 
+When you later add a browser UI, move the shared read shape into
+`src/shared/todo-contract.ts` as a `TodoView`, rename write-response
+`context` fields to `view`, and keep those write responses beside the read
+shape. [Web App + Agent](./web-app-and-agent) shows that shared layout.
+
 ---
 
-## 2. Map Runtime Actions To Tools
+## 3. Map Runtime Actions To Tools
 
-Start with app-owned tools. Each writer submits a typed Manifesto action
-candidate.
+Start with app-owned tools. Each writer submits a typed Manifesto action.
 
 ```typescript
 import { tool } from "ai";
 import { z } from "zod";
 
+import type { TodoDomain } from "../domain/todo.domain";
 import { app } from "./manifesto-app";
-import { readAgentContext } from "./agent-context";
+import { blocked, readAgentContext, toWriteResponse } from "./agent-context";
 
-function unavailable(actionName: "addTodo" | "clearCompleted") {
-  return {
-    status: "admission_blocked" as const,
-    reason: `${actionName} is not available in the current Snapshot.`,
-    context: readAgentContext(),
-  };
-}
+type FilterMode = TodoDomain["state"]["filterMode"];
 
 export const todoTools = {
   readTodoContext: tool({
-    description: "Read Todo Snapshot state, computed values, and available actions.",
+    description: "Read Todo state, computed values, and available actions.",
     inputSchema: z.object({}),
     execute: async () => readAgentContext(),
   }),
@@ -83,19 +207,56 @@ export const todoTools = {
     execute: async ({ title }) => {
       const admission = app.action.addTodo.check(title);
       if (!admission.ok) {
-        return unavailable("addTodo");
+        return blocked(admission);
       }
 
       const result = await app.with({ report: "none" }).action.addTodo.submit(title);
+      return toWriteResponse(result);
+    },
+  }),
 
-      return {
-        status: result.ok
-          ? result.outcome.kind === "ok" ? "settled" as const : result.outcome.kind
-          : "admission_blocked" as const,
-        admission: result.ok ? undefined : result.admission,
-        outcome: result.ok ? result.outcome : undefined,
-        context: readAgentContext(),
-      };
+  toggleTodo: tool({
+    description: "Toggle one todo through the Manifesto runtime.",
+    inputSchema: z.object({ id: z.string().min(1) }),
+    execute: async ({ id }) => {
+      const admission = app.action.toggleTodo.check(id);
+      if (!admission.ok) {
+        return blocked(admission);
+      }
+
+      const result = await app.with({ report: "none" }).action.toggleTodo.submit(id);
+      return toWriteResponse(result);
+    },
+  }),
+
+  removeTodo: tool({
+    description: "Remove one todo through the Manifesto runtime.",
+    inputSchema: z.object({ id: z.string().min(1) }),
+    execute: async ({ id }) => {
+      const admission = app.action.removeTodo.check(id);
+      if (!admission.ok) {
+        return blocked(admission);
+      }
+
+      const result = await app.with({ report: "none" }).action.removeTodo.submit(id);
+      return toWriteResponse(result);
+    },
+  }),
+
+  setFilter: tool({
+    description: "Set the Todo filter through the Manifesto runtime.",
+    inputSchema: z.object({
+      filter: z.enum(["all", "active", "completed"]),
+    }),
+    execute: async ({ filter }) => {
+      const nextFilter: FilterMode = filter;
+      const admission = app.action.setFilter.check(nextFilter);
+      if (!admission.ok) {
+        return blocked(admission);
+      }
+
+      const result = await app.with({ report: "none" }).action.setFilter.submit(nextFilter);
+      return toWriteResponse(result);
     },
   }),
 
@@ -105,19 +266,11 @@ export const todoTools = {
     execute: async () => {
       const admission = app.action.clearCompleted.check();
       if (!admission.ok) {
-        return unavailable("clearCompleted");
+        return blocked(admission);
       }
 
       const result = await app.with({ report: "none" }).action.clearCompleted.submit();
-
-      return {
-        status: result.ok
-          ? result.outcome.kind === "ok" ? "settled" as const : result.outcome.kind
-          : "admission_blocked" as const,
-        admission: result.ok ? undefined : result.admission,
-        outcome: result.ok ? result.outcome : undefined,
-        context: readAgentContext(),
-      };
+      return toWriteResponse(result);
     },
   }),
 };
@@ -128,31 +281,26 @@ Keep tool results fresh. A multi-step agent should receive updated
 returned by that write, decide the next tool.
 
 Do not cache `inspect.availableActions()` for a whole agent turn. It is a read
-against the current Snapshot; every submit or approved proposal can change it.
-The runtime still checks again during submit, so a stale agent step cannot force
-an unavailable action through.
+against the current Snapshot; every successful submit can change it. If you add
+review later, reviewer decisions can change it too. The runtime still
+checks again during submit, so a stale agent step cannot force an unavailable
+action through.
 
-If a tool needs first-party admission data, before/after snapshots, or projected
-diffs in-band, keep the default report detail:
+If a tool needs first-party admission data, before/after snapshots, or change
+details in-band, keep the default report detail:
 
 ```typescript
 const result = await app.with({ report: "full" }).action.addTodo.submit(title);
 
-if (!result.ok) {
-  return result;
-}
-
 return {
-  status: result.outcome.kind === "ok" ? "settled" as const : result.outcome.kind,
-  outcome: result.outcome,
-  changedPaths: result.report?.changes,
-  context: readAgentContext(),
+  ...toWriteResponse(result),
+  changedPaths: result.ok ? result.report?.changes ?? [] : [],
 };
 ```
 
 ---
 
-## 3. Run A Multi-Step AI SDK Turn
+## 4. Run A Multi-Step AI SDK Turn
 
 Pass the current context to the model. Pass stable tools that re-check runtime
 availability during `execute`.
@@ -166,9 +314,13 @@ import { todoTools } from "./todo-agent-tools";
 
 export async function runTodoAgent(prompt: string) {
   const context = readAgentContext();
+  const modelName = process.env.OPENAI_MODEL;
+  if (!modelName) {
+    throw new Error("Set OPENAI_MODEL before running the Todo agent.");
+  }
 
   return generateText({
-    model: openai("gpt-5.2"),
+    model: openai(modelName),
     system:
       "You are a Todo agent. Use the provided context and tools. " +
       "Tool results include fresh Manifesto context. " +
@@ -191,109 +343,34 @@ inside Manifesto.
 
 ---
 
-## 4. Add HITL With Governance
+## 5. Keep Review Out Of The First Agent
 
-When the agent's writes need review, swap the activated runtime. The MEL domain
-and action-candidate calls stay the same.
+Start with direct action submission. Add human review only when the product
+needs an agent to propose changes instead of applying them immediately.
 
-```typescript
-import { createManifesto } from "@manifesto-ai/sdk";
-import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
-import {
-  createInMemoryGovernanceStore,
-  withGovernance,
-} from "@manifesto-ai/governance";
+When that happens, keep the same MEL domain and app-owned tool names. The
+runtime behind `app` changes, and tool results should report that a write is
+waiting for review instead of claiming the Snapshot changed.
 
-export const app = withGovernance(
-  withLineage(createManifesto(todoSchema, {}), {
-    store: createInMemoryLineageStore(),
-  }),
-  {
-    governanceStore: createInMemoryGovernanceStore(),
-    bindings: [
-      {
-        actorId: "actor:todo-agent",
-        authorityId: "authority:human-reviewer",
-        policy: {
-          mode: "hitl",
-          delegate: {
-            actorId: "actor:reviewer",
-            kind: "human",
-            name: "Reviewer",
-          },
-        },
-      },
-    ],
-    execution: {
-      projectionId: "todo-agent",
-      deriveActor: () => ({ actorId: "actor:todo-agent", kind: "agent" }),
-      deriveSource: (intent) => ({ kind: "agent", eventId: intent.intentId }),
-    },
-  },
-).activate();
-```
+Read [When You Need Approval or History](/guides/approval-and-history) when
+one of these becomes true:
 
-Now writer tools submit and receive a pending proposal result.
+- agent writes must wait for a human reviewer
+- actor attribution or decision records are product requirements
+- the team needs durable history or audit queries
 
-```typescript
-const addTodoForReview = tool({
-  description: "Propose a todo. A human reviewer must approve before it changes state.",
-  inputSchema: z.object({ title: z.string().min(1) }),
-  execute: async ({ title }) => {
-    const pending = await app.action.addTodo.submit(title);
-
-    if (!pending.ok) {
-      return {
-        status: "admission_blocked" as const,
-        admission: pending.admission,
-        context: readAgentContext(),
-      };
-    }
-
-    return {
-      status: "needs_review" as const,
-      proposalId: pending.proposal,
-      context: readAgentContext(),
-    };
-  },
-});
-```
-
-With `mode: "hitl"`, the proposal remains pending and the visible Snapshot does
-not change until a reviewer approves it.
-
-```typescript
-export async function approveAgentProposal(proposalId: string) {
-  await app.approve(proposalId);
-  const settlement = await app.waitForSettlement(proposalId);
-
-  return {
-    settlement,
-    context: readAgentContext(),
-  };
-}
-```
-
-That is the upgrade path: direct tools use `action.x.submit()`. Reviewable
-tools use the same call shape and receive a `ProposalRef`; a reviewer calls
-`approve()` when policy requires it, then observes settlement through
-`pending.waitForSettlement()` or `app.waitForSettlement(ref)`.
-
-For audit or replay tooling around agent actions, do not invent a private
-runtime-value log. Lineage attempts and Governance proposals record the
-submitted `computeEnvelope.intent` plus the full ADR-027
-`computeEnvelope.context`. Use that recorded envelope with the stored sealed
-snapshot when a tool needs deterministic replay evidence.
+Do not build a private audit log into prompts or tool return values. Let the
+runtime own review and history when the product reaches that point.
 
 ---
 
 ## What Manifesto Adds To Agents
 
 - `inspect.availableActions()` exposes current action availability.
-- Tools submit typed action candidates.
+- Tools submit typed actions.
 - Tool results return fresh Snapshot context.
-- `withGovernance()` adds review without changing the MEL domain.
-- Lineage/Governance preserve replay inputs for audited agent writes.
+- Review can be added later without changing the MEL domain.
+- The same tool names can stay stable as the runtime grows.
 
 ---
 
@@ -306,11 +383,14 @@ surface.
 
 ### Letting the agent edit state directly
 
-Do not let the agent write state directly. Submit an action candidate.
+Do not let the agent write state directly. Submit an action.
 
 ### Hiding approval logic in prompt text
 
-Use Governance or app policy for review. Do not rely on prompt text.
+Model simple allow/deny checks in MEL with `available when` and
+`dispatchable when`, then re-check with `action.x.check()` in tools. Add the
+approval/history runtime when writes need durable review. Do not rely on prompt
+text.
 
 ### Returning effect results as the action outcome
 
@@ -320,8 +400,9 @@ Read the resulting Snapshot. Effects report back through patches.
 
 ## Next
 
-- Build the domain first in [Building a Todo App](/guide/essentials/todo-app)
+- Build the domain first in [Building a Todo App](/tutorial/04-todo-app)
 - Connect the same runtime to a UI with [React](./react)
+- Share one server-side runtime with [Web App + Agent](./web-app-and-agent)
 - Learn action inspection in [SDK API](/api/sdk)
-- Read [When You Need Approval or History](/guides/approval-and-history) before adding sealed history to the product
-- Use [`@manifesto-ai/studio-mcp`](/api/studio-mcp) when an agent should inspect graph, findings, trace, lineage, or governance over MCP
+- Read [When You Need Approval or History](/guides/approval-and-history) before adding durable history to the product
+- Use [Developer Tooling](/guides/developer-tooling) when an agent or CLI should inspect the domain before writing

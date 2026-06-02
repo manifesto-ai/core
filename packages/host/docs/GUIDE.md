@@ -1,19 +1,42 @@
 # Host Guide
 
 > **Version:** Current v5-aligned surface
-> **Purpose:** Practical guide for using @manifesto-ai/host
-> **Prerequisites:** Basic understanding of Core
+> **Purpose:** Low-level runtime and Host-loop guide for @manifesto-ai/host
+> **Prerequisites:** You already know the SDK app path and Core boundary
 > **Time to complete:** ~20 minutes
 
 > **Current Contract Note:** This guide follows the current v5-aligned Host surface. Host-facing Snapshot references use `snapshot.state` for domain state and `snapshot.namespaces.host` for Host-owned operational state; accumulated `system.errors` is not part of the current contract.
+
+Most app and agent integrations should use Host through the SDK:
+
+```typescript
+const app = createManifesto<TodoDomain>(TodoMel, effects).activate();
+await app.action.addTodo.submit("Review docs");
+```
+
+Use this guide when you need a custom runtime, Host behavior tests, or
+low-level execution-loop debugging.
+
+If your goal is to build a web app, backend route, or agent workflow, read the
+main [Guide](../../../docs/guide/introduction.md), [Tutorial](../../../docs/tutorial/index.md),
+and [Effect Handlers](../../../docs/guides/effect-handlers.md) first. The rest
+of this file intentionally uses raw `DomainSchema`, `Intent`, and Host
+execution fixtures.
+
+| You Want To | Read |
+|-------------|------|
+| Submit app actions and read projected Snapshots | Main Guide + SDK API |
+| Fulfill API/database effects in app code | Effect Handlers guide |
+| Connect React or agent tools | Integration docs |
+| Own or test the compute/effect loop directly | This Host guide |
 
 ---
 
 ## Table of Contents
 
-1. [Getting Started](#getting-started)
+1. [Low-Level Fixtures](#low-level-fixtures)
 2. [Understanding the Execution Model](#understanding-the-execution-model)
-3. [Basic Usage](#basic-usage)
+3. [Direct Host Examples](#direct-host-examples)
 4. [Effect Handlers](#effect-handlers)
 5. [Job Types and Lifecycle](#job-types-and-lifecycle)
 6. [Context Determinism](#context-determinism)
@@ -25,9 +48,9 @@
 
 ---
 
-## Getting Started
+## Low-Level Fixtures
 
-### Installation
+### Install Only For Direct Host Fixtures
 
 ```bash
 npm install @manifesto-ai/host @manifesto-ai/core
@@ -35,7 +58,7 @@ npm install @manifesto-ai/host @manifesto-ai/core
 pnpm add @manifesto-ai/host @manifesto-ai/core
 ```
 
-### Minimal Setup
+### Low-Level Host Fixture
 
 ```typescript
 import { ManifestoHost, createIntent, type DomainSchema } from "@manifesto-ai/host";
@@ -128,7 +151,7 @@ Four job types handle different operations:
 
 ---
 
-## Basic Usage
+## Direct Host Examples
 
 ### Use Case 1: Dispatching an Intent
 

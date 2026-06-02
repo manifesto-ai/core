@@ -17,10 +17,10 @@ This is not a stylistic choice—it is an architectural requirement that follows
 
 That rule stays the same across both public runtime paths:
 
-- direct-dispatch through `@manifesto-ai/sdk`
-- governed composition through `withLineage()` / `withGovernance()`
+- direct action submission through `@manifesto-ai/sdk`
+- the optional approval/history runtime
 
-The runtime entry differs, but failures still become state and protocol records rather than control-flow escapes.
+The runtime entry differs, but failures still become state and runtime records rather than control-flow escapes.
 
 ---
 

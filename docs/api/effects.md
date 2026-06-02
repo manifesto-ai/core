@@ -2,42 +2,19 @@
 
 > SDK effect handlers fulfill declared MEL effects and return patches.
 
-## Handler Contract
-
-```typescript
-import type { EffectHandler } from "@manifesto-ai/sdk";
-
-type Handler = EffectHandler;
-```
-
-An SDK effect handler receives effect params and a projected Snapshot context.
-
-```typescript
-const effects = {
-  "api.fetchUser": async (params, ctx) => {
-    console.log(params);
-    console.log(ctx.snapshot.state);
-
-    return [];
-  },
-} satisfies Record<string, EffectHandler>;
-```
-
-Register handlers before activation:
-
-```typescript
-const app = createManifesto(schema, effects).activate();
-```
-
 ## Builder-First Authoring
 
-`defineEffects()` gives handlers typed top-level `refs.state.*` refs while keeping the runtime contract unchanged.
+Use `defineEffects()` for normal app code. It gives handlers top-level
+`refs.state.*` refs while keeping the runtime contract unchanged.
 
 ```typescript
 import { defineEffects } from "@manifesto-ai/sdk/effects";
-import type { UserProfileDomain } from "./user-profile-types";
 
-const effects = defineEffects<UserProfileDomain>(({ set, unset }, refs) => ({
+async function fetchUser(id: string) {
+  return { id, name: id === "123" ? "Ada" : "Unknown User" };
+}
+
+const effects = defineEffects(({ set }, refs) => ({
   "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
     const user = await fetchUser(id);
@@ -45,13 +22,48 @@ const effects = defineEffects<UserProfileDomain>(({ set, unset }, refs) => ({
     return [
       set(refs.state.user, user),
       set(refs.state.loading, false),
-      unset(refs.state.error),
+      set(refs.state.error, null),
     ];
   },
 }));
 ```
 
-`defineEffects()` is an SDK authoring helper only. The returned value is still `Record<string, EffectHandler>`, and each handler still returns concrete `Patch[]`.
+In normal typed apps, pass the generated domain facade as the generic so
+`refs.state.*` autocomplete follows the same `.mel` file as the runtime. For a
+one-file no-build experiment, you can omit the generic temporarily.
+
+Register handlers before activation:
+
+```typescript
+import { createManifesto } from "@manifesto-ai/sdk";
+import schema from "./domain.mel";
+
+const app = createManifesto(schema, effects).activate();
+```
+
+`defineEffects()` is an SDK authoring helper only. The returned value is still
+`Record<string, EffectHandler>`, and each handler still returns concrete
+`Patch[]`.
+
+## Handler Contract
+
+An SDK effect handler receives effect params and an app-facing Snapshot context.
+The raw handler type is useful for adapters, tests, and low-level code.
+
+```typescript
+import type { EffectHandler } from "@manifesto-ai/sdk";
+
+const effects = {
+  "api.fetchUser": async (params) => {
+    const { id } = params as { id: string };
+    const user = await fetchUser(id);
+
+    return [
+      { op: "set", path: [{ kind: "prop", name: "user" }], value: user },
+    ];
+  },
+} satisfies Record<string, EffectHandler>;
+```
 
 ## Low-Level Raw Patch Form
 
@@ -66,7 +78,7 @@ const effects = {
     return [
       { op: "set", path: [{ kind: "prop", name: "user" }], value: user },
       { op: "set", path: [{ kind: "prop", name: "loading" }], value: false },
-      { op: "unset", path: [{ kind: "prop", name: "error" }] },
+      { op: "set", path: [{ kind: "prop", name: "error" }], value: null },
     ];
   },
 } satisfies Record<string, EffectHandler>;

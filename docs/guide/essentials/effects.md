@@ -2,7 +2,9 @@
 
 > Effects declare external work; effect handlers fulfill it and return patches.
 
-Core does not fetch, write databases, call APIs, or send messages. A MEL action declares an effect requirement, then the activated runtime calls the handler you registered.
+MEL actions do not fetch, write databases, call APIs, or send messages
+directly. A MEL action declares external work, then the activated runtime calls
+the handler you registered.
 
 ## Declare an Effect
 
@@ -29,18 +31,23 @@ The effect type is the name after `effect`. In this example, the type is `api.fe
 | Need | Use | Runtime Behavior |
 |------|-----|------------------|
 | Call an API, database, queue, storage layer, or model | your own named effect such as `api.fetchUser`, `db.saveTodo`, `agent.summarize` | Register a TypeScript handler with the same effect type |
-| Update each item in an array from existing Snapshot data | `effect array.map({ source, select, into })` | Pure runtime transform; no network handler |
-| Keep only matching array items from existing Snapshot data | `effect array.filter({ source, where, into })` | Pure runtime transform; no network handler |
 
-Start with a named effect when the work crosses a process boundary. Start with `array.map` or `array.filter` when you are transforming an array already in Snapshot.
+Start with a named effect when the work crosses a process boundary. For array
+updates that stay inside Snapshot, use `patch todos = map(...)` or
+`patch todos = filter(...)` as shown in the state tutorials.
 
 ## Register a Handler
 
 ```typescript
+import { createManifesto } from "@manifesto-ai/sdk";
 import { defineEffects } from "@manifesto-ai/sdk/effects";
-import type { UserProfileDomain } from "./user-profile-types";
+import UserProfileMel from "./user-profile.mel";
 
-const app = createManifesto(UserProfileSchema, defineEffects<UserProfileDomain>(({ set }, refs) => ({
+async function fetchUser(id: string) {
+  return { id, name: id === "123" ? "Ada" : "Unknown User" };
+}
+
+const effects = defineEffects(({ set }, refs) => ({
   "api.fetchUser": async (params) => {
     const { id } = params as { id: string };
     const user = await fetchUser(id);
@@ -50,38 +57,38 @@ const app = createManifesto(UserProfileSchema, defineEffects<UserProfileDomain>(
       set(refs.state.loading, false),
     ];
   },
-}))).activate();
+}));
+
+const app = createManifesto(UserProfileMel, effects).activate();
 ```
 
 Handlers return patches. The next Snapshot carries the visible result.
 
-## Low-Level Patch Ops Returned by Handlers
+This form works before you add generated TypeScript facades. When you later
+enable code generation, pass the generated domain shape to `defineEffects<...>()`
+for stronger field autocomplete.
 
-`defineEffects()` still lowers to concrete `Patch[]`. If you want the low-level form directly, use the smallest raw patch that describes the visible result:
+If a handler fetches data, patch the fetched data into domain state. If the UI
+needs `loading`, `error`, `saved`, or retry state, patch those fields too.
 
-| Patch op | Use When | Example |
-|----------|----------|---------|
-| `set` | Replace a value, or create it when missing | `{ op: "set", path: [{ kind: "prop", name: "userName" }], value: "Ada" }` |
-| `unset` | Remove a property from domain state | `{ op: "unset", path: [{ kind: "prop", name: "error" }] }` |
-| `merge` | Shallow-merge fields into an object | `{ op: "merge", path: [{ kind: "prop", name: "profile" }], value: { name: "Ada" } }` |
+## Where To Put Handlers
 
-If a handler fetches data, patch the fetched data into domain state. If the UI needs `loading`, `error`, `saved`, or retry context, patch those fields too.
+For a script or local browser demo, keep `effects.ts` beside the runtime module.
+For a UI plus agent app, keep `effects.ts` on the server side with the shared
+runtime:
 
-## Array Transform Example
-
-```mel
-action completeTodo(id: string) {
-  onceIntent {
-    effect array.map({
-      source: todos,
-      select: $item.id == id ? { ...$item, completed: true } : $item,
-      into: todos
-    })
-  }
-}
+```text
+src/
+  server/
+    effects.ts
+    manifesto-app.ts
+    todo-actions.ts
+    todo-agent-tools.ts
 ```
 
-Use `$item` inside `select` or `where` to refer to the current array item.
+React components and agent tools should submit actions, not call effect handlers
+directly. The effect result becomes visible when the handler returns patches and
+the next Snapshot is published.
 
 ## Common Mistake
 
@@ -89,4 +96,7 @@ Do not `return user` from the handler. Return precise patches for the domain sta
 
 ## Next
 
-Learn how to expose or hide actions with [Availability](./availability). For a deeper handler guide, read [Effect Handlers](/guides/effect-handlers). For the broader MEL effect reference, read [MEL Syntax: Effects](/mel/SYNTAX#effects).
+For a deeper handler guide, read [Effect Handlers](/guides/effect-handlers).
+For the broader MEL effect reference, read [MEL Syntax: Effects](/mel/SYNTAX#effects).
+Return to [Web App + Agent](/integration/web-app-and-agent) when UI and agent
+writes must share one server runtime.

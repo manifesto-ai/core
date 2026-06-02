@@ -2,15 +2,15 @@
 
 > Assemble the approval-and-history runtime directly from SDK, Lineage, and Governance.
 
-Only read this after [When You Need Approval or History](/guides/approval-and-history) has already told you that the project needs these layers. If you only need direct base-runtime submits, stay on `@manifesto-ai/sdk` and `createManifesto()`.
+Only read this after [When You Need Approval or History](/guides/approval-and-history) has already told you that the project needs these layers. If you only need direct action submission, stay on `@manifesto-ai/sdk` and `createManifesto()`.
 
 ## The Current Path
 
 The current advanced-runtime path is:
 
-1. create a composable manifesto with `createManifesto(schema, effects)`
-2. add continuity with `withLineage(...)`
-3. add legitimacy with `withGovernance(...)`
+1. create the app runtime definition with `createManifesto(schema, effects)`
+2. add history with `withLineage(...)`
+3. add approval with `withGovernance(...)`
 4. call `activate()`
 5. submit reviewable work with `action.<name>.submit(...)`
 
@@ -46,12 +46,14 @@ const governed = withGovernance(
 ## Canonical Flow
 
 1. Activate the decorated runtime.
-2. Submit a typed action candidate with `governed.action.<name>.submit(...)`.
+2. Submit a typed action with `governed.action.<name>.submit(...)`.
 3. Observe the returned pending proposal.
 4. Observe the pending proposal, then wait for auto-approved or human-resolved settlement.
 5. Read sealed history through Lineage queries such as `getLatestHead()` and `restore()`.
 
-Use `getWorldSnapshot(worldId)` when you need the stored sealed canonical snapshot substrate for a committed world. Use `restore(worldId)` when you need the normalized runtime resume path.
+Use `getWorldSnapshot(worldId)` when you need the stored snapshot for a
+committed history record. Use `restore(worldId)` when you need the normalized
+runtime resume path.
 
 ## Store Choices
 

@@ -7,7 +7,7 @@
 The v5 app-facing surface exposes actions through typed handles:
 
 ```typescript
-const increment = app.action.increment;
+const addTodo = app.action.addTodo;
 ```
 
 Each handle supports:
@@ -16,14 +16,14 @@ Each handle supports:
 - `available()` for coarse current availability
 - `check(...input)` for first-failing-layer admission
 - `preview(...input)` for a non-mutating dry run after admission checks
-- `submit(...input)` for law-aware runtime ingress
-- `bind(...input)` for reusable candidates and advanced raw intent access
+- `submit(...input)` for runtime writes
+- `bind(...input)` for reusable bound actions and advanced raw intent access
 
 Execution view settings such as `context`, `report`, and `diagnostics` are
 selected before action handle use:
 
 ```typescript
-await app.with({ report: "summary" }).action.increment.submit();
+await app.with({ report: "summary" }).action.addTodo.submit("Review docs");
 ```
 
 ## Coarse Availability
@@ -31,13 +31,13 @@ await app.with({ report: "summary" }).action.increment.submit();
 `available()` checks the action-family gate in the current visible Snapshot.
 
 ```typescript
-if (app.action.decrement.available()) {
-  await app.action.decrement.submit();
+if (app.action.clearCompleted.available()) {
+  await app.action.clearCompleted.submit();
 }
 ```
 
-Do not cache this value for a long agent loop. A submit, approved governed
-settlement, or restore can change the next availability result.
+Do not cache this value for a long agent loop. A submit, approved proposal, or
+restore can change the next availability result.
 
 Use `inspect.availableActions()` when tooling needs the currently available
 action contracts:
@@ -47,7 +47,7 @@ const available = app.inspect.availableActions();
 ```
 
 Treat returned action info as observational reads, not capability tokens. Base,
-lineage, and governed `action.<name>.submit()` calls still re-check legality
+history, and approval `action.<name>.submit()` calls still re-check legality
 against the then-current runtime state.
 
 ## Action Metadata
@@ -63,13 +63,13 @@ console.log(addTodo.parameters);
 console.log(addTodo.description);
 ```
 
-## Bound-Candidate Legality
+## Input-Specific Legality
 
-Availability does not know action input. Use `check()` when the candidate input
+Availability does not know action input. Use `check()` when the bound action input
 matters.
 
 ```typescript
-const admission = app.action.spend.check({ amount: 20 });
+const admission = app.action.addTodo.check("");
 
 if (!admission.ok) {
   console.log(admission.code);

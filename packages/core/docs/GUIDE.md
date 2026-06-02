@@ -1,15 +1,38 @@
 # Core Guide
 
-> **Purpose:** Practical guide for using @manifesto-ai/core
-> **Prerequisites:** Basic understanding of Manifesto concepts
+> **Purpose:** Substrate, tooling, and direct-compute guide for @manifesto-ai/core
+> **Prerequisites:** You already know the SDK app path
 > **Time to complete:** ~15 minutes
+
+Most app and agent integrations should start with the SDK:
+
+```typescript
+const app = createManifesto<TodoDomain>(TodoMel, effects).activate();
+await app.action.addTodo.submit("Review docs");
+```
+
+Use this guide when you need direct Core fixtures for custom runtimes,
+determinism tests, or developer tooling.
+
+If your goal is to build a web app, backend route, or agent workflow, read the
+main [Guide](../../../docs/guide/introduction.md), [Tutorial](../../../docs/tutorial/index.md),
+and [SDK API](../../../docs/api/sdk.md) first. The rest of this file
+intentionally uses raw `DomainSchema`, `Snapshot`, `Intent`, and `Context`
+fixtures.
+
+| You Want To | Read |
+|-------------|------|
+| Submit app actions and read state | Main Guide + SDK API |
+| Connect API/database effects | Effect Handlers guide |
+| Render React or expose actions to agents | Integration docs |
+| Verify pure compute/apply behavior | This Core guide |
 
 ---
 
 ## Table of Contents
 
-1. [Getting Started](#getting-started)
-2. [Basic Usage](#basic-usage)
+1. [Direct Fixtures](#direct-fixtures)
+2. [Direct Compute Examples](#direct-compute-examples)
 3. [Common Patterns](#common-patterns)
 4. [Advanced Usage](#advanced-usage)
 5. [Common Mistakes](#common-mistakes)
@@ -17,15 +40,15 @@
 
 ---
 
-## Getting Started
+## Direct Fixtures
 
-### Installation
+### Install Only For Direct Fixtures
 
 ```bash
 npm install @manifesto-ai/core
 ```
 
-### Minimal Setup
+### Direct Core Fixture
 
 ```typescript
 import { createCore, createSnapshot, createIntent } from "@manifesto-ai/core";
@@ -85,7 +108,7 @@ console.log(snapshot.state.count);
 
 ---
 
-## Basic Usage
+## Direct Compute Examples
 
 ### Use Case 1: Computing a State Transition
 

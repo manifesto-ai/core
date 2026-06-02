@@ -180,5 +180,5 @@ Determinism verified!
 
 - [GUIDE.md](../docs/GUIDE.md) — Full usage guide
 - [MIGRATION.md](../docs/MIGRATION.md) — v1.x → v2.0.1 migration
-- [host-SPEC-v2.0.1.md](../docs/host-SPEC-v2.0.1.md) — Specification
-- [host-FDR-v2.0.1.md](../docs/host-FDR-v2.0.1.md) — Design rationale
+- [host-SPEC-v2.0.1.md](../docs/archive/host-SPEC-v2.0.1.md) — Specification
+- [host-FDR-v2.0.1.md](../docs/archive/host-FDR-v2.0.1.md) — Design rationale

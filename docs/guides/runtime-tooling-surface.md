@@ -2,7 +2,7 @@
 
 > A curated contract map for Studio, agent adapters, and runtime-aware tools.
 
-Use this guide when you are building a tool that reads Manifesto runtime state, explains action candidates, previews transitions, or inspects lineage-backed history. The owning API and SPEC pages remain the normative source; this page connects the public seams that tooling consumers usually need together.
+Use this guide when you are building a tool that reads Manifesto runtime state, explains action handles, previews transitions, or inspects lineage-backed history. The owning API and SPEC pages remain the normative source; this page connects the public seams that tooling consumers usually need together.
 
 ## Contract Map
 
@@ -20,26 +20,26 @@ Use this guide when you are building a tool that reads Manifesto runtime state, 
 | Replay input inspection | `computeEnvelope.intent + computeEnvelope.context` on Lineage attempts or Governance proposals | [Lineage API](/api/lineage), [Governance API](/api/governance) |
 | Visible runtime resume | `restore(worldId)` | [Lineage API](/api/lineage) |
 
-## Action-Candidate Tooling Loop
+## Action Tooling Loop
 
-Tooling should normalize a candidate operation into one typed action candidate, then reuse that same value across admission, preview, and the runtime write verb.
+Tooling should normalize a requested operation into one bound action, then reuse that same value across admission, preview, and the runtime write verb.
 
 ```typescript
-const candidate = app.action.spend.bind({ amount: 20 });
-const admission = candidate.check();
+const boundSpend = app.action.spend.bind({ amount: 20 });
+const admission = boundSpend.check();
 
 if (!admission.ok) {
   console.log(admission.blockers);
 }
 
-const preview = candidate.preview();
+const preview = boundSpend.preview();
 if (preview.admitted) {
   console.log(preview.changes);
-  await candidate.submit();
+  await boundSpend.submit();
 }
 ```
 
-`preview()` is the action-candidate dry-run path. Use `bind(...input)` when your tool wants to reuse the same candidate across checks and submit.
+`preview()` is the action dry-run path. Use `bind(...input)` when your tool wants to reuse the same bound action across checks and submit.
 
 The admission order is stable:
 
@@ -48,7 +48,7 @@ The admission order is stable:
 3. dispatchability
 
 After admission, `preview()` performs a non-mutating dry-run and `submit()`
-enters the active runtime law boundary.
+uses the active runtime's submit path.
 
 Unavailable actions reject dry-run with `ACTION_UNAVAILABLE`. Available actions with invalid input reject with `INVALID_INPUT` before dispatchability. Available actions with valid input but a failing fine gate reject with `INTENT_NOT_DISPATCHABLE`.
 
@@ -68,11 +68,14 @@ Runtime entry points consume `DomainSchema`. `DomainModule` sidecars, including 
 
 | Snapshot Role | Read With | Meaning |
 |---------------|-----------|---------|
-| Projected runtime snapshot | `snapshot()` | Default app-facing read model |
-| Current visible canonical snapshot | `inspect.canonicalSnapshot()` | Full substrate for persistence, debugging, and extension-kernel reads |
-| Stored sealed world snapshot | `getWorldSnapshot(worldId)` | Historical canonical snapshot sealed by Lineage |
+| App-facing runtime snapshot | `snapshot()` | Default app-facing read model |
+| Current visible internal snapshot | `inspect.canonicalSnapshot()` | Full snapshot for persistence, debugging, and extension-kernel reads |
+| Stored history snapshot | `getWorldSnapshot(worldId)` | Historical full snapshot sealed by Lineage |
 
-Use `snapshot()` for normal UI and application reads. Use `inspect.canonicalSnapshot()` when a tool needs the full substrate for extension-kernel analysis. Use `getWorldSnapshot(worldId)` to inspect a stored lineage world without changing the visible runtime.
+Use `snapshot()` for normal UI and application reads. Use
+`inspect.canonicalSnapshot()` when a tool needs the full internal snapshot for
+extension-kernel analysis. Use `getWorldSnapshot(worldId)` to inspect a stored
+history record without changing the visible runtime.
 
 ## Lineage-Backed Inspection
 
@@ -85,14 +88,14 @@ const ext = getExtensionKernel(app);
 const sealed = await app.getWorldSnapshot(worldId);
 
 if (sealed) {
-  const projected = ext.projectSnapshot(sealed);
+  const appView = ext.projectSnapshot(sealed);
   const intent = ext.createIntent(ext.refs.actions.spend, { amount: 20 });
   const explanation = ext.explainIntentFor(sealed, intent);
 
   if (explanation.kind === "admitted") {
     const simulated = ext.simulateSync(sealed, intent);
-    const simulatedProjected = ext.projectSnapshot(simulated.snapshot);
-    console.log(projected, simulatedProjected);
+    const simulatedAppView = ext.projectSnapshot(simulated.snapshot);
+    console.log(appView, simulatedAppView);
   }
 }
 ```

@@ -8,7 +8,7 @@
 
 When debugging Manifesto, reduce the problem to this loop:
 
-1. Bind or call an action candidate from `app.action.*`
+1. Call an action helper from `app.action.*`
 2. Submit it from the activated runtime
 3. Observe telemetry
 4. Read the next snapshot
@@ -38,7 +38,7 @@ app.observe.event("submission:failed", (event) => {
 This immediately tells you which class of failure you are dealing with:
 
 - `submission:settled`: the runtime reached a terminal result
-- `submission:rejected`: availability, input validation, or dispatchability rejected the candidate before publication
+- `submission:rejected`: availability, input validation, or an input-specific rule rejected the request before publication
 - `submission:failed`: execution or settlement failed
 
 ---
@@ -47,24 +47,19 @@ This immediately tells you which class of failure you are dealing with:
 
 ```typescript
 const before = app.snapshot();
-const beforeCanonical = app.inspect.canonicalSnapshot();
 const result = await app.action.fetchUser.submit("123");
-const afterCanonical = app.inspect.canonicalSnapshot();
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log("before", before.state);
   console.log("after", result.after.state);
 }
-
-console.log("before canonical", beforeCanonical.system.pendingRequirements);
-console.log("after canonical", afterCanonical.system.pendingRequirements);
 ```
 
 If the snapshot did not change, ask:
 
 - Was the submit result blocked with `ACTION_UNAVAILABLE`, `INVALID_INPUT`, or `INTENT_NOT_DISPATCHABLE`?
 - Did the action become unavailable by the time it was submitted?
-- Did the action stay available, but the specific bound input fail dispatchability?
+- Did the action stay available, but the specific input fail its input-specific rule?
 - Did the selector you observed stay equal by `Object.is`?
 - Did the effect handler return patches for the fields you expected?
 
@@ -79,7 +74,12 @@ if (!admission.ok) {
 ```
 
 `available()` answers the coarse question. `check(...input)` answers the fine
-bound-candidate question.
+input question.
+
+If the public Snapshot and submit result still do not explain the issue, move
+to [Runtime Tooling Surface](./runtime-tooling-surface). Normal app debugging
+should stay on `snapshot()` and the `result.after` Snapshot returned from
+`submit()`.
 
 ---
 
@@ -101,7 +101,7 @@ await app.action.addTodo.submit({
 ```
 
 That keeps app code on the typed `action.*` surface and lets the runtime pack
-the canonical input expected by the compiled action.
+the input expected by the compiled action.
 
 If you need to see exactly what the runtime thinks the action contract is,
 inspect it directly:
@@ -132,8 +132,8 @@ are right but state still does not look right, the problem is higher in the
 flow.
 
 Use `app.snapshot()` here when you want to mirror the SDK-facing effect
-contract. Use `app.inspect.canonicalSnapshot()` separately only if you are
-debugging hidden host/runtime state.
+contract. Use the runtime tooling guide only if you are debugging hidden
+runtime state.
 
 ---
 
@@ -188,14 +188,13 @@ test.
 
 ### Looking only at UI behavior
 
-Start with telemetry and the projected Snapshot. UI bugs and domain bugs are
-easier to separate once you know whether the public read model actually
-changed. Escalate to `inspect.canonicalSnapshot()` only when you need hidden
-runtime detail.
+Start with telemetry and the app-facing Snapshot. UI bugs and domain bugs are
+easier to separate once you know whether the public read model actually changed.
+Move to runtime tooling only when you need hidden runtime detail.
 
 ### Debugging the whole app at once
 
-Reduce the problem to one action candidate and one expected snapshot transition.
+Reduce the problem to one action and one expected snapshot transition.
 
 ### Assuming an effect returned a value directly
 
@@ -208,4 +207,4 @@ debug the returned patches.
 
 - Read [Effect Handlers](./effect-handlers) for IO issues
 - Read [Re-entry Safety](./reentry-safe-flows) for duplicate work
-- Read [SDK API](/api/sdk) for the current activation-first runtime surface
+- Read [SDK API](/api/sdk) for the current runtime surface

@@ -1,8 +1,8 @@
 # Intents
 
-> In v5, ordinary callers work with action candidates; raw Intents are an advanced protocol escape hatch.
+> Ordinary callers submit actions through action handles; raw Intents are an advanced low-level escape hatch.
 
-## Action Candidates
+## Action Handles
 
 Use typed action handles from `app.action.*`:
 
@@ -26,7 +26,7 @@ if (handle) {
 ```
 
 `getAction(name)` is declared action lookup only. A returned handle still checks
-availability, input validity, dispatchability, and the active runtime law at
+availability, input validity, dispatchability, and the active runtime mode at
 `check()`, `preview()`, or `submit()` time.
 
 ## Binding Forms
@@ -62,11 +62,11 @@ const result = await app.action.moveTodo.submit({
 previews, or submission:
 
 ```typescript
-const candidate = app.action.addTodo.bind("Write API docs");
+const boundAddTodo = app.action.addTodo.bind("Write API docs");
 
-const admission = candidate.check();
-const preview = candidate.preview();
-const result = await candidate.submit();
+const admission = boundAddTodo.check();
+const preview = boundAddTodo.preview();
+const result = await boundAddTodo.submit();
 ```
 
 ## Submit Result
@@ -93,8 +93,8 @@ const result = await app.with({ report: "none" }).action.addTodo.submit("Write A
 ## Before Submit
 
 ```typescript
-const candidate = app.action.addTodo.bind("");
-const admission = candidate.check();
+const boundAddTodo = app.action.addTodo.bind("");
+const admission = boundAddTodo.check();
 
 if (!admission.ok) {
   console.log("not admitted", admission.blockers);
@@ -105,24 +105,24 @@ if (!admission.ok) {
     .bind("")
     .preview();
   console.log(preview.admitted ? preview.changes : preview.admission.code);
-  await candidate.submit();
+  await boundAddTodo.submit();
 }
 ```
 
 ## Raw Intent Escape Hatch
 
-`BoundAction.intent()` exposes the packed raw `Intent` for low-level protocol
+`BoundAction.intent()` exposes the packed raw `Intent` for low-level tooling
 bridges. It is not the primary app path.
 
 ```typescript
 const rawIntent = app.action.addTodo.bind("Write API docs").intent();
 ```
 
-Reach for this only when an extension, protocol bridge, or test needs the
-serialized intent shape. App code should stay on action candidates.
+Reach for this only when an extension, integration bridge, or test needs the
+serialized intent shape. App code should stay on action handles.
 
 ## Next
 
 - Read the submit result in [Snapshots and Subscriptions](./snapshots-and-subscriptions)
 - Inspect legality in [Actions and Availability](./actions-and-availability)
-- Upgrade writes in [Governed Runtime](./governed-runtime)
+- Add approval only when needed in [Approval/History Runtime](./governed-runtime)

@@ -14,18 +14,31 @@
 - You already know the advanced runtime assembly
 - You want to understand the operational flow after a proposal is created
 
+## Vocabulary Before The Flow
+
+| Term | Meaning in this tutorial |
+|------|--------------------------|
+| Proposal | A submitted request waiting for approval or rejection |
+| Seal | The history write that makes a terminal app snapshot durable |
+| Head | The latest sealed record for a branch |
+| Restore | Reading the app snapshot stored for a sealed record |
+| Branch | A named line of history with its own latest head |
+
 ## 1. Create The Reviewable Request
 
 ```typescript
-const candidate = governed.action.addTodo.bind("Ship the history tutorial");
+import { governed } from "./server/governed-runtime";
+
+const request = governed.action.addTodo.bind("Ship the history tutorial");
 ```
 
-This is still a typed action candidate. Governance adds legitimacy and proposal semantics when the runtime receives it.
+This is still a typed runtime request. Governance adds an approval policy and
+proposal record when the runtime receives it.
 
 ## 2. Submit And Inspect The Proposal
 
 ```typescript
-const pending = await candidate.submit();
+const pending = await request.submit();
 ```
 
 At this point the result is either blocked, or it contains a pending proposal reference.
@@ -57,7 +70,8 @@ const branch = await governed.getActiveBranch();
 const heads = await governed.getHeads();
 ```
 
-These queries let you inspect the sealed continuity state after proposal execution.
+These queries let you inspect the committed history state after proposal
+execution.
 
 ## Next
 

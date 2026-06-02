@@ -20,11 +20,11 @@
     count: <span class="type">number</span> = <span class="num">0</span>
   }
 
-  <span class="kw">computed</span> doubled = <span class="fn">mul</span>(count, <span class="num">2</span>)
+  <span class="kw">computed</span> doubled = count * <span class="num">2</span>
 
   <span class="kw">action</span> <span class="fn">increment</span>() {
     <span class="kw">onceIntent</span> {
-      <span class="kw">patch</span> count = <span class="fn">add</span>(count, <span class="num">1</span>)
+      <span class="kw">patch</span> count = count + <span class="num">1</span>
     }
   }
 }</code></pre>
@@ -32,13 +32,14 @@
         <div v-else class="code-block">
           <div class="code-lang">typescript</div>
           <pre><code><span class="kw">import</span> { createManifesto } <span class="kw">from</span> <span class="str">"@manifesto-ai/sdk"</span>;
-<span class="kw">import</span> CounterSchema <span class="kw">from</span> <span class="str">"./counter.mel"</span>;
+<span class="kw">import</span> CounterMel <span class="kw">from</span> <span class="str">"./counter.mel"</span>;
 
-<span class="kw">const</span> app = <span class="fn">createManifesto</span>(CounterSchema, {}).<span class="fn">activate</span>();
-<span class="kw">await</span> app.<span class="fn">dispatchAsync</span>(app.<span class="fn">createIntent</span>(app.MEL.actions.increment));
+<span class="kw">const</span> app = <span class="fn">createManifesto</span>(CounterMel, {}).<span class="fn">activate</span>();
+<span class="kw">await</span> app.action.increment.<span class="fn">submit</span>();
 
-console.<span class="fn">log</span>(app.<span class="fn">getSnapshot</span>().data.count);        <span class="cmt">// 1</span>
-console.<span class="fn">log</span>(app.<span class="fn">getSnapshot</span>().computed.doubled);  <span class="cmt">// 2</span></code></pre>
+<span class="kw">const</span> snapshot = app.<span class="fn">snapshot</span>();
+console.<span class="fn">log</span>(snapshot.state.count);       <span class="cmt">// 1</span>
+console.<span class="fn">log</span>(snapshot.computed.doubled); <span class="cmt">// 2</span></code></pre>
         </div>
       </div>
     </Transition>

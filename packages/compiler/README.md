@@ -1,16 +1,22 @@
 # @manifesto-ai/compiler
 
-> **Compiler** translates MEL (Manifesto Expression Language) into DomainSchema for Manifesto Core.
+> **Compiler** lets apps import MEL domains and can emit generated SDK domain facades.
 
 ---
 
 ## What is the Compiler?
 
-The compiler is the MEL frontend for Manifesto. It tokenizes, parses, validates, and lowers MEL source into a DomainSchema that Core can evaluate deterministically.
+The compiler is the MEL frontend for Manifesto. For app developers, it lets a
+bundler import `.mel` files and optionally emit the generated
+`<source>.domain.ts` facade used by `createManifesto<TDomain>()`.
 
+```text
+.mel source -> compiler plugin -> createManifesto()
+                              -> optional generated <source>.domain.ts facade
 ```
-MEL source -> Compiler -> DomainSchema -> Core
-```
+
+Internally, the compiler tokenizes, parses, validates, and lowers MEL source
+into the runtime schema consumed behind the SDK app path.
 
 ---
 
@@ -19,9 +25,10 @@ MEL source -> Compiler -> DomainSchema -> Core
 | Responsibility | Description |
 | --- | --- |
 | Parse MEL | Tokenize and parse MEL into an AST |
-| Validate | Scope, typing, and semantic checks aligned to the current compiler contract |
-| Generate IR | Produce DomainSchema for Core |
-| Lower runtime/context expressions | Lower ADR-027 `$runtime.*` and `$context.*` references into Core expressions |
+| Validate | Scope, typing, and domain-rule checks aligned to the current compiler contract |
+| Emit runtime schema | Produce the schema imported by `createManifesto()` |
+| Emit optional TypeScript facade | Write generated domain types for larger SDK apps |
+| Lower runtime/context expressions | Lower `$runtime.*` and `$context.*` references for deterministic runtime evaluation |
 
 ---
 
@@ -29,15 +36,15 @@ MEL source -> Compiler -> DomainSchema -> Core
 
 | NOT Responsible For | Who Is |
 | --- | --- |
-| Execute effects | Host |
-| Apply patches | Core |
+| Execute external work | Runtime effect handlers |
+| Apply domain transitions | Manifesto runtime |
 | Govern authority or seal history | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
 | Bind UI or caller integrations | SDK / application layer |
 
 Current MEL/compiler highlights:
 
 - `available when` remains the coarse action gate.
-- `dispatchable when` is the fine bound-intent legality gate.
+- `dispatchable when` is the fine input-specific legality gate.
 - Expression-level collection builtins include `filter`, `map`, `find`, `every`, and `some`.
 - Bounded parser-free sugar includes `absDiff`, `clamp`, `idiv`, `streak`, `match`, `argmax`, and `argmin`.
 - Current schema-position lowering supports `Record<string, T>` and `T | null`.
@@ -122,30 +129,31 @@ import { createCompilerCodegen } from "@manifesto-ai/codegen";
 
 melPlugin({
   include: /\.mel$/,           // File filter (default: /\.mel$/)
-  codegen: {
-    emit: createCompilerCodegen(),
-    timing: "transform",       // default: run during dev/build transforms
-  },
+  codegen: createCompilerCodegen(),
 });
 ```
 
-`codegen` is an explicit emitter hook. `@manifesto-ai/compiler` does not import `@manifesto-ai/codegen` for you; install it only if you want MEL artifacts written during dev or build and inject the emitter yourself.
+`codegen` is an explicit emitter hook. `@manifesto-ai/compiler` does not import
+`@manifesto-ai/codegen` for you; install it only if you want MEL artifacts
+written during dev or build and inject the emitter yourself.
 
-`createCompilerCodegen()` can be called with no options. In that default mode it uses the canonical domain plugin and writes `<source>.domain.ts` next to the compiled `.mel` file during transform. If you prefer build-end emission, set `timing: "build"` or `timing: "both"`. You can still customize the pipeline:
+`createCompilerCodegen()` can be called with no options. In that default mode
+it writes `<source>.domain.ts` next to the compiled `.mel` file during
+transform. You can still customize the generated facade:
 
 ```typescript
 import { createCompilerCodegen, createDomainPlugin } from "@manifesto-ai/codegen";
 
 melPlugin({
-  codegen: {
-    emit: createCompilerCodegen({
-      outDir: "src/generated",
-      plugins: [createDomainPlugin({ interfaceName: "CounterDomain" })],
-    }),
-    timing: "build",
-  },
+  codegen: createCompilerCodegen({
+    outDir: "src/generated",
+    plugins: [createDomainPlugin({ interfaceName: "TodoDomain" })],
+  }),
 });
 ```
+
+Advanced build setups can still pass `{ emit, timing }` when they need build-end
+or dual transform/build emission.
 
 ### Subpath Exports
 
@@ -181,7 +189,7 @@ const source = `
 domain Counter {
   state { count: number = 0 }
   action increment() {
-    when true { patch count = add(count, 1) }
+    onceIntent { patch count = count + 1 }
   }
 }
 `;

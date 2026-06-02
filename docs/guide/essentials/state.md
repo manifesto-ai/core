@@ -16,7 +16,7 @@ domain TodoApp {
 
   state {
     todos: Array<Todo> = []
-    filter: "all" | "active" | "completed" = "all"
+    filterMode: "all" | "active" | "completed" = "all"
     selectedTodoId: string | null = null
   }
 }
@@ -28,7 +28,7 @@ domain TodoApp {
 const snapshot = app.snapshot();
 
 console.log(snapshot.state.todos);
-console.log(snapshot.state.filter);
+console.log(snapshot.state.filterMode);
 console.log(snapshot.state.selectedTodoId);
 ```
 
@@ -37,9 +37,10 @@ Application code reads state through `snapshot.state`.
 ## Change State with Actions
 
 ```mel
-action setFilter(nextFilter: string) {
+action setFilter(nextFilter: "all" | "active" | "completed")
+  dispatchable when filterMode != nextFilter {
   onceIntent {
-    patch filter = nextFilter
+    patch filterMode = nextFilter
   }
 }
 ```
@@ -48,7 +49,7 @@ State changes happen through patches declared by the domain, or through patches 
 
 ## Common Mistake
 
-Do not mutate `snapshot.state` in UI, server, or agent code. A snapshot is the read result. To request change, submit an action candidate.
+Do not mutate `snapshot.state` in UI, server, or agent code. A snapshot is the read result. To request change, submit an action.
 
 ## Next
 

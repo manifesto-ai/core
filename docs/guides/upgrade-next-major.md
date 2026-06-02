@@ -27,7 +27,7 @@ If you are moving old governed code forward, align to these surfaces:
 
 The current advanced-runtime path is:
 
-1. Create the composable manifesto
+1. Create the app definition
 2. Add Lineage
 3. Add Governance
 4. Activate
@@ -35,7 +35,9 @@ The current advanced-runtime path is:
 6. Observe settlement with `waitForSettlement(...)`
 7. Read history through Lineage queries such as `getLatestHead()` and `restore()`
 
-Use `getWorldSnapshot(worldId)` when you need the stored sealed canonical snapshot substrate. Use `restore(worldId)` when you need the normalized runtime resume path.
+Use `getWorldSnapshot(worldId)` when you need the stored snapshot for a
+committed history record. Use `restore(worldId)` when you need the normalized
+runtime resume path.
 
 ## What Not to Carry Forward
 

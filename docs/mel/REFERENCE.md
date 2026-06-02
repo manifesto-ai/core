@@ -1,10 +1,13 @@
 # MEL Reference
 
-> **Purpose:** The single document a user reads to learn and use MEL. Covers every function, construct, and pattern with examples.
-> **Audience:** Developers writing MEL domains. Both beginners and experienced users.
+> **Purpose:** Complete lookup for MEL constructs, functions, and patterns after the app-building path is clear.
+> **Audience:** Developers writing MEL domains who need exact syntax or function details.
 > **Normative sources:** SPEC-v1.2.0.md (current full compiler contract), validator.ts (function signatures), lower-expr.ts (supported functions).
 
 This reference treats the current MEL surface as the set of source forms that survive the compiler's parse -> validate -> lower -> compile path in this repo. Historical docs may mention broader helper names; when they conflict with this page, prefer the compile-verified surface documented here.
+
+If you are new to Manifesto, start with [MEL For App Developers](/guide/essentials/mel-for-app-developers)
+and the [Tutorial](/tutorial/) before reading this page end to end.
 
 ---
 
@@ -44,13 +47,17 @@ This reference treats the current MEL surface as the set of source forms that su
 
 ## 1. Overview
 
-MEL (Manifesto Expression Language) is a **declarative, typed language for defining Manifesto domains**. It compiles to DomainSchema, which Core evaluates deterministically.
+MEL (Manifesto Expression Language) is a **declarative, typed language for
+defining Manifesto domains**. App code imports `.mel`, activates it through the
+SDK runtime, submits actions, and reads Snapshots.
 
 ```
-MEL source -> @manifesto-ai/compiler -> DomainSchema -> Core -> Host
+MEL source -> compiler integration -> createManifesto() -> app.action.* -> snapshot()
 ```
 
-MEL is a **source format**. It does not execute. It produces data that Core computes on.
+MEL is a **source format**. It does not execute like JavaScript. Under the hood,
+the compiler produces a `DomainSchema` that the runtime computes
+deterministically, but ordinary app code does not need to handle that object.
 
 The builtin meanings documented in this reference are the current MEL surface. If the compiler later admits extra source-level sugar, it must do so explicitly and lower through the existing MEL → Core boundary without silently changing the meaning of the builtins documented here.
 
@@ -1072,7 +1079,7 @@ action process(x: number) available when $input.x > 0 {  // Error E005
 
 ### 6.5 `dispatchable when`
 
-Declares the **fine bound-intent gate**. The action may be available in general, but a specific bound intent can still be rejected by `dispatchable when`.
+Declares the **fine input-specific gate**. The action may be available in general, but a specific submitted input can still be rejected by `dispatchable when`.
 
 ```mel
 action shoot(cellIndex: number)

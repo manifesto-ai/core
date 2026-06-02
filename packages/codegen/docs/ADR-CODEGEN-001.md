@@ -535,7 +535,7 @@ jobs:
 - MEL SPEC v0.5.x: MEL-first + `compileMelDomain()` + guards semantics
 - Host Contract v2.x: handler boundary + `Patch[]` 기반 오류 모델
 - App SPEC v2.x: `$mel` namespace injection, `$mel` hash exclusion
-- [ADR-001: Layer Separation](../../docs/internals/adr/001-layer-separation.md)
+- [ADR-001: Layer Separation](../../../docs/internals/adr/001-layer-separation.md)
 
 ---
 

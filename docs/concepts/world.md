@@ -1,40 +1,53 @@
-# World Records and Governed Composition
+# World Records
 
-> Lineage's sealed historical record model, plus the governed composition that can create those records under authority.
+> In-depth record model for the approval/history runtime.
 
 ## What World Means Now
 
-In the current contract, **World** is not a top-level package or governance layer. A World is a Lineage-owned, immutable record for a sealed canonical Snapshot, identified by `WorldId`.
+This is an advanced concept. You do not need World records to build a normal
+Manifesto app, React integration, backend route, or trusted agent worker. Read
+[When You Need Approval or History](/guides/approval-and-history) first if you
+are still deciding whether the product needs this runtime.
 
-Governed composition is the runtime path created by composing:
+In the current contract, **World** is not a top-level package or governance layer.
+A World is a Lineage-owned, immutable record for a sealed full Snapshot,
+identified by `WorldId`.
 
-- Governance for legitimacy
-- Lineage for continuity and sealed World records
+The approval/history runtime is created by composing:
+
+- Governance for proposal and approval rules
+- Lineage for durable history records
 - the same SDK runtime for execution
 
-The underlying semantics live in explicit protocol packages. Governed composition is expressed directly through `withLineage()` and `withGovernance()`.
+The advanced runtime is expressed directly through `withLineage()` and
+`withGovernance()`.
 
 ## When To Use It
 
 Use Lineage World records when you need one or more of these:
 
-- immutable history and branch/head semantics
+- immutable history and branch/head behavior
 - seal-aware publication and restore
-- stored canonical Snapshot lookup by `WorldId`
+- stored full Snapshot lookup by `WorldId`
 
 Add Governance when you also need:
 
-- explicit proposal and authority flow
+- explicit proposal and reviewer/authority flow
 - approval and decision visibility without bypassing runtime boundaries
 
-If you only need direct-dispatch application runtime, stay on `@manifesto-ai/sdk`.
+If you only need direct action submission in an application runtime, stay on
+`@manifesto-ai/sdk`.
 
 ## Mental Model
 
+At the app boundary, callers still use `app.action.<name>.submit(...)`. The
+additional proposal, authority, and sealing steps happen around that same submit
+surface.
+
 ```text
 actor
-  -> typed intent
-  -> Governance decides legitimacy
+  -> action.x.submit(...)
+  -> Governance accepts or rejects the proposal
   -> SDK runtime submits approved work
   -> Host executes declared requirements
   -> Core computes terminal Snapshot
@@ -43,10 +56,10 @@ actor
 
 More concretely:
 
-1. A caller creates a typed intent from the activated runtime.
+1. A caller submits an action from the activated runtime.
 2. Governance creates and advances a proposal.
-3. SDK and Host execute the approved intent against the current visible canonical Snapshot.
-4. Lineage seals the terminal Snapshot as a World record and advances visible history only when continuity rules allow it.
+3. SDK and Host execute the approved intent against the current runtime state.
+4. Lineage seals the terminal Snapshot as a World record and advances visible history only when history rules allow it.
 
 ## Public Assembly
 
@@ -64,12 +77,13 @@ const governed = withGovernance(
 ## Key Properties
 
 - Lineage Worlds are immutable sealed records.
-- Governance and Lineage stay explicit protocol packages.
+- Approval and history stay in explicit packages.
 - Sealing is ordered and publication-aware.
-- Legitimacy and continuity are explicit, not hidden in a facade.
+- Approval and history behavior are explicit, not hidden in a facade.
 
 ## See Also
 
 - [Governance API](../api/governance.md)
 - [Lineage API](../api/lineage.md)
+- [When You Need Approval or History](../guides/approval-and-history.md)
 - [Advanced Runtime Assembly](../guides/governed-composition.md)

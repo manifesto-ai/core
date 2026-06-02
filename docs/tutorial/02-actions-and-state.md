@@ -9,14 +9,14 @@
 - How to model arrays and objects in MEL
 - How to derive UI-ready values in `computed`
 - How to observe only the slice of state you care about
-- How typed action handles map positional arguments into the domain input shape
+- How action inputs stay close to what the user actually means
 
 ---
 
 ## Prerequisites
 
-- You finished [Your First Activated Manifesto](./01-your-first-app)
-- You are using the activation-first SDK path from tutorial 1
+- You finished [Your First App](./01-your-first-app)
+- You are using the SDK app path from tutorial 1
 
 ---
 
@@ -24,8 +24,17 @@
 
 Create `todo.mel`:
 
+This example uses a few MEL helpers:
+
+| Name | Meaning |
+|------|---------|
+| `$item` | The current item inside `filter(...)` or `map(...)` |
+| `$runtime.random.uuid` | A deterministic id supplied by the runtime for this submitted action |
+| `available when` | Makes an action visible only when it applies |
+| `dispatchable when` | Rejects invalid input even if a caller submits it |
+
 ```mel
-domain TodoList {
+domain TodoApp {
   type Todo = {
     id: string,
     title: string,
@@ -34,45 +43,47 @@ domain TodoList {
 
   state {
     todos: Array<Todo> = []
-    filter: "all" | "active" | "completed" = "all"
+    filterMode: "all" | "active" | "completed" = "all"
   }
 
-  computed totalCount = len(todos)
-  computed hasTodos = totalCount > 0
+  computed todoCount = len(todos)
+  computed completedCount = len(filter(todos, $item.completed))
+  computed activeCount = todoCount - completedCount
+  computed hasCompleted = completedCount > 0
 
-  action addTodo(title: string, id: string) {
+  action addTodo(title: string)
+    dispatchable when trim(title) != "" {
     onceIntent {
       patch todos = append(todos, {
-        id: id,
-        title: title,
+        id: $runtime.random.uuid,
+        title: trim(title),
         completed: false
       })
     }
   }
 
-  action toggleTodo(id: string) {
+  action toggleTodo(id: string)
+    available when todoCount > 0
+    dispatchable when len(filter(todos, $item.id == id)) > 0 {
     onceIntent {
-      effect array.map({
-        source: todos,
-        select: $item.id == id ? { ...$item, completed: !$item.completed } : $item,
-        into: todos
-      })
+      patch todos = map(todos,
+        $item.id == id
+          ? { id: $item.id, title: $item.title, completed: !$item.completed }
+          : $item
+      )
     }
   }
 
-  action setFilter(value: string) {
+  action setFilter(newFilter: "all" | "active" | "completed")
+    dispatchable when filterMode != newFilter {
     onceIntent {
-      patch filter = value
+      patch filterMode = newFilter
     }
   }
 
-  action clearCompleted() available when hasTodos {
+  action clearCompleted() available when hasCompleted {
     onceIntent {
-      effect array.filter({
-        source: todos,
-        where: !$item.completed,
-        into: todos
-      })
+      patch todos = filter(todos, !$item.completed)
     }
   }
 }
@@ -80,7 +91,7 @@ domain TodoList {
 
 This domain keeps the rules close to the data:
 
-- `todos` and `filter` live in `snapshot.state`
+- `todos` and `filterMode` live in `snapshot.state`
 - simple derived flags and counts live in `snapshot.computed`
 - actions describe legal transitions against the current snapshot
 
@@ -94,31 +105,30 @@ Create `main.ts`:
 import { createManifesto } from "@manifesto-ai/sdk";
 import TodoMel from "./todo.mel";
 
+type Todo = {
+  readonly id: string;
+  readonly title: string;
+  readonly completed: boolean;
+};
+
 const app = createManifesto(TodoMel, {}).activate();
 
 app.observe.state(
-  (snapshot) => snapshot.computed["totalCount"],
-  (totalCount) => {
-    console.log("Total todos:", totalCount);
+  (snapshot) => snapshot.computed["todoCount"],
+  (todoCount) => {
+    console.log("Total todos:", todoCount);
   },
 );
 
 async function run() {
-  await app.action.addTodo.submit(
-    "Learn Manifesto",
-    crypto.randomUUID(),
-  );
-
-  await app.action.addTodo.submit(
-    "Ship the first tutorial rewrite",
-    crypto.randomUUID(),
-  );
+  await app.action.addTodo.submit("Learn Manifesto");
+  await app.action.addTodo.submit("Ship the first tutorial rewrite");
 
   let snapshot = app.snapshot();
-  console.log("Total todos:", snapshot.computed["totalCount"]);
-  console.log("Has todos:", snapshot.computed["hasTodos"]);
+  console.log("Total todos:", snapshot.computed["todoCount"]);
+  console.log("Active todos:", snapshot.computed["activeCount"]);
 
-  const firstTodoId = (snapshot.state.todos as Array<{ id: string }>)[0].id;
+  const firstTodoId = (snapshot.state.todos as Todo[])[0].id;
   await app.action.toggleTodo.submit(firstTodoId);
 
   snapshot = app.snapshot();
@@ -138,6 +148,16 @@ run().catch((error) => {
 });
 ```
 
+Run it:
+
+```bash
+npx tsx --loader @manifesto-ai/compiler/node-loader main.ts
+```
+
+You should see `todoCount` move from one to two, then a completed todo in the
+printed array, then an empty array after `clearCompleted()`. The generated todo
+ids are runtime-provided, so they do not need to match the docs exactly.
+
 ---
 
 ## What to Notice
@@ -148,11 +168,18 @@ Use `state` for stored domain state. Use `computed` for values you want to deriv
 
 ### Selector-based subscriptions
 
-This tutorial subscribes to `totalCount`, not the full snapshot. That keeps the reaction focused on one meaningful value.
+This tutorial subscribes to `todoCount`, not the full snapshot. That keeps the reaction focused on one meaningful value.
 
-### Action inputs can be positional or object-shaped in app code
+### Action inputs should match the caller's goal
 
-`app.action.addTodo.submit(title, id)` is typed from the MEL action signature. Object-shaped actions use one object argument. The runtime still owns canonical input packing.
+`app.action.addTodo.submit(title)` asks the caller for the title only. The
+domain can still derive runtime-owned fields such as `$runtime.random.uuid`.
+
+### Local types are temporary
+
+This tutorial uses a small local `Todo` type only because it is a no-build
+script. In normal typed app code, use [Code Generation](/guides/code-generation)
+to generate the domain facade instead of maintaining local types by hand.
 
 ### Actions stay small
 
@@ -175,7 +202,7 @@ Do not do this:
 
 ```typescript
 const snapshot = app.snapshot();
-(snapshot.state.todos as Array<{ completed: boolean }>)[0].completed = true;
+(snapshot.state.todos as Todo[])[0].completed = true;
 ```
 
 That changes your local copy, not the domain. Submit an action instead.
@@ -192,4 +219,6 @@ It does not emit the current value on registration. Read `snapshot()` once if yo
 
 ## Next
 
-Continue to [Working with Effects](./03-effects) to connect the domain to external systems and return patches from effect handlers.
+Continue to [Building a Todo App](./04-todo-app) to organize the same ideas into
+a small app before adding a UI framework. Open [Working with Effects](./03-effects)
+later when your domain needs API, database, model, or queue IO.

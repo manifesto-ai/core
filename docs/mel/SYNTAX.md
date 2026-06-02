@@ -1,8 +1,11 @@
 # MEL Syntax Cookbook
 
 > **Purpose:** Hands-on syntax reference for writing correct MEL code.
-> **Audience:** Developers learning MEL syntax.
-> **Not covered here:** Philosophy, rationale, or design decisions — see SPEC.md and FDR.md.
+> **Audience:** Developers who already have the app path in mind and need syntax lookup.
+> **Not covered here:** First-app setup, runtime wiring, philosophy, rationale, or design decisions.
+
+If you are new to Manifesto, start with [MEL For App Developers](/guide/essentials/mel-for-app-developers)
+and come back here when you need exact grammar or quick lookup tables.
 
 ---
 

@@ -1,7 +1,6 @@
 # Governance Docs
 
-> Governance v5 is the legitimacy-owning decorator for the SDK v5
-> action-candidate runtime.
+> Governance v5 is the approval and proposal decorator for the SDK v5 action runtime.
 
 > **Current Contract Note:** The current governance contract is
 > [governance-SPEC.md](governance-SPEC.md). The canonical v5 governed write
@@ -18,5 +17,5 @@
 ## Historical References
 
 - [governance-SPEC-2.0.0v.md](governance-SPEC-2.0.0v.md) - service-first split package baseline
-- [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) - original extracted protocol baseline
+- [governance-SPEC-1.0.0v.md](governance-SPEC-1.0.0v.md) - original extracted low-level baseline
 - [VERSION-INDEX.md](VERSION-INDEX.md) - version map and reading order

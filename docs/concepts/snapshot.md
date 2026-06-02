@@ -4,23 +4,38 @@
 
 ## What Snapshot Means Now
 
-In current SDK runtimes, `snapshot()` returns a projected Snapshot for ordinary
-application code.
+In current SDK runtimes, `snapshot()` returns the app-facing Snapshot for
+ordinary application code.
 
-That projected Snapshot is intentionally smaller than the full runtime
-substrate:
+Use it for rendering, selectors, agent context, server responses, and tests that
+assert visible domain behavior:
+
+```typescript
+const snapshot = app.snapshot();
+
+console.log(snapshot.state.todos);
+console.log(snapshot.computed.activeCount);
+```
+
+That Snapshot is intentionally smaller than the full internal runtime state:
 
 - it includes domain `state`
 - it includes public `computed` values
-- it includes `system.status` and `system.lastError`
+- it includes a small `system` area for runtime status and errors
 - it includes `meta.schemaHash`
 - it excludes infrastructure residue such as `namespaces.host`,
   `namespaces.mel`, `system.pendingRequirements`, `system.currentAction`,
-  `input`, and canonical runtime counters
+  `input`, and internal runtime counters
 
-If you need the full substrate, use `inspect.canonicalSnapshot()`.
+You only need the full internal state for persistence, restore, history-aware
+tooling, or deep runtime debugging.
 
-## Snapshot vs CanonicalSnapshot
+## Snapshot vs Full Internal Snapshot
+
+Skip this section while learning app development. App code should stay on
+`snapshot()` and the `result.after` Snapshot returned from `submit()`. The SDK
+also exposes `inspect.canonicalSnapshot()` for advanced tooling; the name is
+part of the API, not something most app code needs to use.
 
 ```typescript
 type Snapshot<TState = unknown> = {
@@ -61,23 +76,14 @@ type CanonicalSnapshot<TState = unknown> = {
 
 The distinction is by layer:
 
-- Core and Host operate on the canonical full substrate
-- SDK and application code default to the projected Snapshot
-- Lineage persistence and restore operate on canonical snapshots
+- Core and Host operate on the full internal snapshot
+- SDK and application code default to the app-facing Snapshot
+- history persistence and restore operate on full internal snapshots
 
 ## Reading State
 
-Use the projected Snapshot for normal UI and application logic:
-
-```typescript
-const snapshot = app.snapshot();
-
-console.log(snapshot.state.todos);
-console.log(snapshot.computed.activeCount);
-console.log(snapshot.system.lastError);
-```
-
-Escalate to the canonical substrate only when you need infrastructure detail:
+Escalate to the full internal snapshot only when you need infrastructure
+detail:
 
 ```typescript
 const canonical = app.inspect.canonicalSnapshot();
@@ -89,25 +95,24 @@ console.log(canonical.meta.version);
 
 ## Persistence and Restore
 
-Projected Snapshot is not a persistence substrate.
+The app-facing Snapshot is not the persistence record.
 
 - use `snapshot()` for rendering, selectors, and public application reads
-- use canonical snapshots for hashing, sealing, restore, and forensic inspection
+- use full internal snapshots for hashing, sealing, restore, and forensic inspection
 
-In practice, lineage storage and governed-history APIs work with canonical
-snapshots, while the active SDK runtime keeps `snapshot()` as the safe default
-read.
+In practice, history APIs work with full internal snapshots, while the active
+SDK runtime keeps `snapshot()` as the safe default read.
 
 ## Key Properties
 
-- **Immutable**: both projected and canonical snapshot reads are mutation-safe
-- **Projected by default**: ordinary app code does not see namespaces or orchestration residue unless it asks for canonical state
-- **Canonical underneath**: the full substrate still exists and remains the only Core/Host communication medium
-- **Schema-aware**: `meta.schemaHash` stays visible in the projected Snapshot because it identifies the read model's schema without leaking runtime residue
+- **Immutable**: both default and full snapshot reads are mutation-safe
+- **App-facing by default**: ordinary app code does not see namespaces or orchestration residue unless it asks for the full internal snapshot
+- **Full state underneath**: the full internal snapshot still exists and remains the Core/Host communication medium
+- **Schema-aware**: `meta.schemaHash` stays visible in the app-facing Snapshot because it identifies the read model's schema without leaking runtime residue
 
 ## See Also
 
 - [Intent](./intent.md) - How changes are requested
 - [Effect](./effect.md) - How external operations work
-- [World Records and Governed Composition](./world) - How Lineage seals canonical snapshots and Governance settles legitimacy
-- [Flow](./flow.md) - How computations modify canonical state
+- [When You Need Approval or History](/guides/approval-and-history) - When history becomes a product need
+- [Flow](./flow.md) - How computations modify state

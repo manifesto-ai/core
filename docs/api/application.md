@@ -1,6 +1,6 @@
 # Application
 
-> Create a composable manifesto, then activate exactly one runtime handle from it.
+> Create an app definition, then activate exactly one runtime handle from it.
 
 ## `createManifesto(schema, effects)`
 
@@ -10,7 +10,7 @@
 import { createManifesto } from "@manifesto-ai/sdk";
 
 import todoMel from "./todo.mel";
-import type { TodoDomain } from "./todo-types";
+import type { TodoDomain } from "./todo.domain";
 
 const manifesto = createManifesto<TodoDomain>(todoMel, {});
 const app = manifesto.activate();
@@ -21,7 +21,7 @@ const app = manifesto.activate();
 | `schema` | A compiled `DomainSchema` or MEL source string |
 | `effects` | A record of SDK effect handlers, keyed by effect type. You can author it directly or via `@manifesto-ai/sdk/effects`. |
 
-`createManifesto()` returns a composable object. Runtime reads and writes such as `snapshot()`, `action.<name>.submit()`, `observe`, and `inspect` exist only after `activate()`.
+`createManifesto()` returns an app definition. Runtime reads and writes such as `snapshot()`, `action.<name>.submit()`, `observe`, and `inspect` exist only after `activate()`.
 
 Compiler tooling artifacts such as `DomainModule` are outside this seam. If you compile through `compileMelModule()`, pass `module.schema` to `createManifesto()`, not the whole module.
 
@@ -41,7 +41,7 @@ const sourceMap = module.sourceMap;
 
 - `createManifesto()` accepts MEL source or `DomainSchema`.
 - `createManifesto()` does not accept `DomainModule`.
-- tooling may read `module.annotations`, `module.sourceMap`, and `module.graph`, but runtime remains sidecar-blind.
+- tooling may read `module.annotations`, `module.sourceMap`, and `module.graph`, but the runtime still starts from the schema.
 - importing a `.mel` file through the default loader/bundler path still yields schema-only output, even when the MEL source uses `@meta`.
 
 ## Activation Boundary
@@ -52,11 +52,12 @@ const app = createManifesto(schema, effects).activate();
 
 Activation owns the host loop, Snapshot projection, observers, action handles, and runtime inspection surface.
 
-Do not activate the same composable more than once. Create a new composable if you need a separate runtime instance.
+Do not activate the same app definition more than once. Create a new app definition if you need a separate runtime instance.
 
 ## Decorate Before Activation
 
-Lineage and Governance wrap the composable before it is activated.
+Optional approval and history layers wrap the app definition before it is activated.
+Skip this section when you only need the base runtime.
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
@@ -75,10 +76,10 @@ const app = withGovernance(
 ).activate();
 ```
 
-The MEL domain stays the same. Base, Lineage, and Governance modes all expose the v5 action-candidate surface; their `submit()` result types express the active runtime law.
+The MEL domain stays the same. Base, history, and approval modes all expose the same action handles; their `submit()` result types express the active runtime mode.
 
 ## Next
 
 - Inspect the activated handle in [Runtime Instance](./runtime)
-- Submit work with [Intents](./intents)
-- Add approval in [Governed Runtime](./governed-runtime)
+- Submit work with [Actions and Availability](./actions-and-availability)
+- Add approval in [Approval/History Runtime](./governed-runtime)

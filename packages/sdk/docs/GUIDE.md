@@ -1,9 +1,9 @@
 # SDK Guide
 
-> Practical guide for the activation-first `@manifesto-ai/sdk` path.
+> Practical guide for the current `@manifesto-ai/sdk` app path.
 
 > **Current Contract Note:** This guide follows the current SDK v5 living
-> contract. `createManifesto()` returns a composable manifesto, runtime verbs
+> contract. `createManifesto()` returns an app definition, runtime verbs
 > appear only after `activate()`, and the app-facing write path is
 > `action.<name>.submit(...)`.
 
@@ -11,65 +11,74 @@
 
 ```typescript
 import { createManifesto } from "@manifesto-ai/sdk";
+import TodoMel from "./domain/todo.mel";
+import type { TodoDomain } from "./domain/todo.domain";
 
-const manifesto = createManifesto<CounterDomain>(domainSchema, {});
+const manifesto = createManifesto<TodoDomain>(TodoMel, {});
 const app = manifesto.activate();
 
-const admission = app.action.increment.check();
-const preview = app.action.increment.preview();
-const result = await app.action.increment.submit();
+const admission = app.action.addTodo.check("Review docs");
+const preview = app.action.addTodo.preview("Review docs");
+const result = await app.action.addTodo.submit("Review docs");
 
-const canIncrement = app.action.increment.available();
-const available = app.inspect.availableActions();
-const metadata = app.action.increment.info();
-const dynamic = app.getAction("increment");
+const canClearCompleted = app.action.clearCompleted.available();
 const snapshot = app.snapshot();
-const canonical = app.inspect.canonicalSnapshot();
-const graph = app.inspect.graph();
 ```
 
 This is the normal SDK lifecycle:
 
-1. create one composable manifesto
+1. create one app definition
 2. activate it once
-3. submit typed action candidates from `action.*`
+3. submit typed action handles from `action.*`
 4. optionally query admission, availability, metadata, or preview
 5. read the next terminal Snapshot
 
 `createManifesto()` does not return a ready-to-run runtime instance. The
-activated app is the canonical public surface.
+activated app is the public surface your app calls.
 
-`snapshot()` is the normal projected read for app code.
-`inspect.canonicalSnapshot()` is the explicit full-substrate read for
+`snapshot()` is the normal read for app code.
+`inspect.canonicalSnapshot()` is the explicit full internal snapshot read for
 persistence-aware or infrastructure-aware debugging.
+
+Keep normal app code on `action.*`, `snapshot()`, and `observe.*`. Add
+inspection reads when you are building UI capability lists, model-facing tools,
+or debugging infrastructure:
+
+```typescript
+const available = app.inspect.availableActions();
+const metadata = app.action.addTodo.info();
+const dynamic = app.getAction("addTodo");
+const fullSnapshot = app.inspect.canonicalSnapshot();
+const graph = app.inspect.graph();
+```
 
 ---
 
-## 2. Bind Typed Action Candidates
+## 2. Bind Typed Actions
 
 ```typescript
-await app.action.increment.submit();
-await app.action.add.submit(3);
-await app.action.addTodo.submit("Review docs", "todo-1");
-await app.action.configure.submit({ enabled: true, label: "Review" });
+await app.action.clearCompleted.submit();
+await app.action.addTodo.submit("Review docs");
+await app.action.setFilter.submit("active");
+await app.action.configureProject.submit({ enabled: true, label: "Review" });
 ```
 
 `action.*` is typed from the activated runtime's domain surface.
 
-Use `bind(...input)` when a tool or UI wants to reuse the same candidate:
+Use `bind(...input)` when a tool or UI wants to reuse the same action input:
 
 ```typescript
-const candidate = app.action.addTodo.bind("Review docs", "todo-1");
+const boundAddTodo = app.action.addTodo.bind("Review docs");
 
-candidate.check();
-candidate.preview();
-await candidate.submit();
+boundAddTodo.check();
+boundAddTodo.preview();
+await boundAddTodo.submit();
 ```
 
-Raw Intent access is still available for protocol bridges:
+Raw Intent access is still available for tooling bridges:
 
 ```typescript
-const intent = candidate.intent();
+const intent = boundAddTodo.intent();
 ```
 
 Treat that as a low-level escape hatch, not as the ordinary app path.
@@ -106,14 +115,14 @@ Use `info()` or `inspect.action()` when an adapter, model-facing tool, or UI
 needs the public action contract without maintaining a parallel registry.
 
 `action.x.available()` answers “what is legal right now?”
-`action.x.check(input)` answers “is this bound candidate admitted?”
+`action.x.check(input)` answers “is this bound input admitted?”
 
 ---
 
 ## 4. Preview Outcomes
 
 ```typescript
-const preview = app.with({ diagnostics: "summary" }).action.increment.preview();
+const preview = app.with({ diagnostics: "summary" }).action.addTodo.preview("Review docs");
 
 if (preview.admitted) {
   console.log(preview.after);
@@ -122,8 +131,8 @@ if (preview.admitted) {
 }
 ```
 
-`preview()` performs a non-committing dry-run against the current canonical
-snapshot and returns projected before/after snapshots, requirements, new
+`preview()` performs a non-committing dry-run against the current runtime
+state and returns before/after snapshots, requirements, new
 availability, sorted `changes`, and optional debug-grade diagnostics. Treat
 `changes` and diagnostics as explanation/debug output rather than the branching
 API.
@@ -138,7 +147,7 @@ const tenantApp = app.with({
   report: "full",
 });
 
-const result = await tenantApp.action.increment.submit();
+const result = await tenantApp.action.addTodo.submit("Review docs");
 
 if (result.ok && result.status === "settled" && result.outcome.kind === "ok") {
   console.log(result.after.state);
@@ -166,8 +175,8 @@ The runtime maps public context values to `Context.external` and materializes
 For failure observation, keep the surfaces distinct:
 
 - use the submit result for this execution attempt
-- use `snapshot().system.lastError` for the current semantic error state
-- use canonical `namespaces.host.lastError` only for deep Host/effect diagnostics
+- use the app-facing Snapshot's system error field for current runtime error state
+- use the full internal `namespaces.host.lastError` only for deep Host/effect diagnostics
 
 ---
 
@@ -175,9 +184,9 @@ For failure observation, keep the surfaces distinct:
 
 ```typescript
 const off = app.observe.state(
-  (snapshot) => snapshot.state.count,
+  (snapshot) => snapshot.computed.activeCount,
   (next, prev) => {
-    console.log("Count changed:", prev, next);
+    console.log("Active count changed:", prev, next);
   },
 );
 
@@ -197,14 +206,14 @@ let them return patches that describe the visible result.
 ## 7. Activation Is One-Shot
 
 ```typescript
-const manifesto = createManifesto<CounterDomain>(domainSchema, {});
+const manifesto = createManifesto<TodoDomain>(TodoMel, {});
 const app = manifesto.activate();
 ```
 
 After activation:
 
 - runtime verbs exist on `app`
-- the composable manifesto cannot be activated again
+- the app definition cannot be activated again
 - there is no path back to the pre-activation phase
 
 ---
@@ -218,20 +227,20 @@ import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
 
 const ext = getExtensionKernel(app);
 const root = ext.getCanonicalSnapshot();
-const intent = app.action.increment.bind().intent();
+const intent = app.action.addTodo.bind("Review docs").intent();
 
 if (intent) {
   const simulated = ext.simulateSync(root, intent);
-  const projected = ext.projectSnapshot(simulated.snapshot);
-  console.log(projected.state);
+  const appSnapshot = ext.projectSnapshot(simulated.snapshot);
+  console.log(appSnapshot.state);
 }
 ```
 
 Use this seam when you need:
 
-- arbitrary-snapshot dry-runs after activation
-- availability checks against hypothetical canonical snapshots
-- pure projection of hypothetical canonical snapshots back to public `Snapshot`
+- dry-runs against a caller-provided snapshot after activation
+- availability checks against hypothetical full internal snapshots
+- pure projection of hypothetical full internal snapshots back to public `Snapshot`
 - helper/tool authoring without importing the full provider seam
 
 The first-party `createSimulationSession(app)` helper is built directly on this
@@ -256,8 +265,9 @@ The stable authoring seam is the activation/runtime composition layer:
 - `assertComposableNotActivated()`
 
 For decorators that need hypothetical planning or availability checks against
-non-live state, `RuntimeKernel` also exposes pure arbitrary-snapshot helpers.
-These operate on caller-provided canonical snapshots. They do not publish,
+non-live state, `RuntimeKernel` also exposes pure caller-provided snapshot
+helpers.
+These operate on caller-provided full internal snapshots. They do not publish,
 commit, or mutate the runtime's visible snapshot.
 
 App-facing integrations should stay on `@manifesto-ai/sdk`.
@@ -270,13 +280,13 @@ Stay on the SDK when:
 
 - you need the present-only base runtime
 - Snapshot reads, observers, availability queries, and action metadata inspection are enough
-- you do not need lineage or governance semantics
+- you do not need approval or durable history behavior
 
-The public direction for governed composition is:
+The public direction for approval/history composition is:
 
 `createManifesto() -> withLineage() -> withGovernance() -> activate()`
 
-Those runtime contracts belong to the owning Lineage and Governance packages.
+Those runtime contracts belong to the owning approval/history packages.
 This guide intentionally focuses on the landed base SDK contract.
 
 ---
@@ -288,5 +298,5 @@ This guide intentionally focuses on the landed base SDK contract.
 - [SDK Version Index](VERSION-INDEX.md)
 - [SDK API](../../../docs/api/sdk.md)
 - [API Index](../../../docs/api/index.md)
-- [World Records and Governed Composition](../../../docs/concepts/world.md)
+- [When You Need Approval or History](../../../docs/guides/approval-and-history.md)
 - [Tutorial](../../../docs/tutorial/)
