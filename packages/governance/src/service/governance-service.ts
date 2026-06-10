@@ -2,8 +2,8 @@ import type {
   BranchInfo,
   LineageService,
   PreparedLineageCommit,
-  World,
   WorldId,
+  WorldRecord,
 } from "@manifesto-ai/lineage/provider";
 import {
   getValidTransitions,
@@ -374,7 +374,7 @@ export class DefaultGovernanceService implements GovernanceService {
   }
 
   createWorldCreatedEvent(
-    world: World,
+    world: WorldRecord,
     proposalId: ProposalId,
     from: WorldId,
     outcome: "completed" | "failed",

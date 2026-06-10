@@ -1,6 +1,6 @@
 # Concepts
 
-> Second-pass vocabulary and mental-model reference.
+> Second-pass vocabulary for the deterministic domain runtime.
 
 If you are still trying to get the first app running, go back to [Quick Start](/guide/quick-start) and [Tutorial](/tutorial/). This section is for when the app path mostly makes sense and you want the vocabulary to click.
 
@@ -13,14 +13,19 @@ If you are still trying to get the first app running, go back to [Quick Start](/
 | [Intent](./intent.md) | Low-level request behind an action submission | App code submits actions, tooling may inspect intents |
 | [Flow](./flow.md) | Declarative computation as data | Flows describe, they do not execute |
 | [Effect](./effect.md) | Declaration of external operation | Core declares, Host fulfills |
-| [World Records](./world.md) | In-depth record model for approval/history runtimes | Read it after the approval/history decision guide |
 
-## Two Runtime Shapes
+## Optional Extension Concepts
+
+| Concept | Definition | Read When |
+|---------|------------|-----------|
+| [Lineage Records](./lineage-records.md) | Lineage-owned immutable records for stored full Snapshots | You need history, restore, audit, or approval/history runtime details |
+
+## Base And Extensions
 
 | Path | Use It When |
 |------|-------------|
 | Base runtime | You want direct action submission through `createManifesto() -> activate()` |
-| Approval/history runtime | You need review, branch history, or sealed records on top of the same domain model |
+| Optional extension runtime | You need review, branch history, audit, restore, or sealed records on top of the same domain model |
 
 ## The Fundamental Equation
 
@@ -38,6 +43,6 @@ compute(schema, snapshot, intent, context) -> ComputeResult
 
 - [Quick Start](/guide/quick-start) for the runnable path
 - [Tutorial](/tutorial/) for the learning path
-- [When You Need Approval or History](/guides/approval-and-history) before reading World records
+- [When You Need Approval or History](/guides/approval-and-history) before reading Lineage records
 - [Architecture](/architecture/) for the system-level picture
 - [Internals](/internals/) for specs and historical decisions

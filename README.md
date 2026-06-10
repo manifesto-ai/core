@@ -1,10 +1,17 @@
 # Manifesto
 
-**One Domain Model For Apps And Agents**
+Manifesto computes deterministic domain state transitions.
 
-Manifesto lets you define a domain once in MEL, then run the same actions from
-app code, UI, backend routes, and agents. Approval and history come later only
-when the project needs them.
+MEL declares domain transition rules. Core computes semantic transitions from
+schema, snapshot, intent, and context. Host fulfills declared effects and
+converges the next Snapshot.
+
+Most applications use the SDK as the public runtime surface: activate a domain,
+submit typed actions, observe snapshots, and share the same state contract
+across UI, backend routes, and agents.
+
+Lineage and Governance are optional protocol extensions. Add them only when a
+product needs history, restore, audit, approval, policy, or delegation.
 
 [![npm version](https://img.shields.io/npm/v/@manifesto-ai/sdk.svg)](https://www.npmjs.com/package/@manifesto-ai/sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

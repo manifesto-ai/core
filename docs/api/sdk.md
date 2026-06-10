@@ -204,8 +204,9 @@ const result = await app
   .submit();
 ```
 
-Preview is non-mutating. Submit revalidates immediately before the write. Base,
-history, and approval modes share this ladder and differ through result type:
+Preview is non-mutating. Submit revalidates immediately before the write. The
+base runtime uses this ladder directly. Optional history and approval extensions
+keep the same action-handle shape and differ through result type:
 
 - base returns a settled `BaseSubmissionResult`
 - history returns a settled `LineageSubmissionResult` with sealed world data

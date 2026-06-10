@@ -1,9 +1,16 @@
 # ADR-003: World Owns Persistence
 
-> **Status:** Proposed
+> **Status:** Superseded
 > **Date:** 2026-02-03
 > **Deciders:** Manifesto Architecture Team
 > **Scope:** App, World layer boundaries
+
+::: warning Historical ADR
+This pre-split draft is superseded by [ADR-014](./014-split-world-protocol).
+There is no current `@manifesto-ai/world` package. Current persistence and
+continuity ownership lives in `@manifesto-ai/lineage`; current legitimacy
+ownership lives in `@manifesto-ai/governance`.
+:::
 
 ---
 

@@ -8,11 +8,18 @@
 > **Depends On:** Core SPEC v2.x (`DomainSchema`), MEL SPEC v0.5.x (`compileMelDomain()` output), ADR-001 (Layer Separation)
 > **Related:** Host Contract v2.x (Host boundary validation), App SPEC v2.x (platform namespaces)
 
+::: warning Historical ADR
+This ADR records the original codegen package decision before the v5 hard cut.
+Its App/facade-era runtime references are historical. Current generated domain
+facades target the SDK v5 action-candidate surface, ADR-025 `snapshot.state` /
+`snapshot.namespaces`, and explicit Lineage/Governance decorators.
+:::
+
 ---
 
 ## 1. Context
 
-Manifesto는 Domain을 선언(DSL/IR)로 정의하고, 런타임은 Host boundary에서 검증하며, 실행은 App → Proposal → Authority → World 경로로만 일어나도록 설계되어 있다.
+Manifesto는 Domain을 선언(DSL/IR)로 정의하고, 현재 런타임은 SDK action surface를 통해 Host/Core 경로로 실행하며, 필요한 경우 Lineage와 Governance decorator가 연속성과 정당성을 추가하도록 설계되어 있다.
 
 ProofFlow 등 실제 앱 구현에서 다음 요구가 반복적으로 발생한다:
 
@@ -534,7 +541,7 @@ jobs:
 - Core SPEC v2.x: `DomainSchema` / `TypeSpec` / `TypeDefinition` / `StateSpec` / `ComputedSpec` / `ActionSpec`
 - MEL SPEC v0.5.x: MEL-first + `compileMelDomain()` + guards semantics
 - Host Contract v2.x: handler boundary + `Patch[]` 기반 오류 모델
-- App SPEC v2.x: `$mel` namespace injection, `$mel` hash exclusion
+- Historical App SPEC v2.x: pre-v5 `$mel` namespace injection and hash exclusion context
 - [ADR-001: Layer Separation](../../../docs/internals/adr/001-layer-separation.md)
 
 ---

@@ -1,16 +1,16 @@
 # Governance Docs
 
-> Governance v5 is the approval and proposal decorator for the SDK v5 action runtime.
+> Governance v5 is the optional approval and proposal decorator for the SDK v5 action runtime.
 
 > **Current Contract Note:** The current governance contract is
-> [governance-SPEC.md](governance-SPEC.md). The canonical v5 governed write
+> [governance-SPEC.md](governance-SPEC.md). The v5 governance-mode write
 > ingress is `action.x.submit()`, and settlement is
 > observed through `pending.waitForSettlement()` or `app.waitForSettlement(ref)`.
 > The v2.0.0 and v1.0.0 specs remain as historical references.
 
 ## Read First
 
-- [../README.md](../README.md) - package landing and canonical usage
+- [../README.md](../README.md) - package landing and extension usage
 - [GUIDE.md](GUIDE.md) - practical `withGovernance()`, governance-mode `submit()`, and `waitForSettlement(ref)` composition guide
 - [governance-SPEC.md](governance-SPEC.md) - current normative governance contract
 

@@ -13,7 +13,7 @@ import type {
   BranchSwitchResult,
   LineageService,
   LineageStore,
-  World,
+  WorldRecord,
   WorldHead,
   WorldId,
   WorldLineage,
@@ -40,7 +40,7 @@ export type LineageComposableLaws = BaseLaws & LineageLaws & {
 
 export type LineageContinuitySurface<T extends ManifestoDomainShape> = {
   readonly restore: (worldId: WorldId) => Promise<void>;
-  readonly getWorld: (worldId: WorldId) => Promise<World | null>;
+  readonly getWorld: (worldId: WorldId) => Promise<WorldRecord | null>;
   readonly getWorldSnapshot: (
     worldId: WorldId,
   ) => Promise<CanonicalSnapshot<T["state"]> | null>;

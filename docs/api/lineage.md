@@ -1,11 +1,12 @@
 # @manifesto-ai/lineage
 
-> History and restore package for the runtime.
+> Optional history and restore extension for the runtime.
 
 ## Overview
 
-`@manifesto-ai/lineage` adds time, sealing, history, and restore to a Manifesto
-app definition.
+`@manifesto-ai/lineage` is an optional protocol extension that adds history,
+restore, audit, branch/head queries, and sealed records to a Manifesto app
+definition. It is not part of the base runtime ontology.
 
 > **Current Contract Note:** This page describes the Lineage v5 action handle surface. The package contract is [packages/lineage/docs/lineage-SPEC.md](https://github.com/manifesto-ai/core/blob/main/packages/lineage/docs/lineage-SPEC.md).
 

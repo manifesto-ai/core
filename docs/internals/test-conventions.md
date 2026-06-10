@@ -23,7 +23,7 @@ Both `.test.ts` and `.spec.ts` are valid test files. vitest discovers both.
 | `src/__tests__/*.test.ts` | Default — tests for internal modules |
 | `src/<module>/<module>.test.ts` | Co-located — test tightly coupled to one module |
 | `__tests__/` (outside src) | Integration / E2E tests that span multiple modules |
-| `src/__tests__/compliance/` | Host/World/Compiler compliance suite |
+| `src/__tests__/compliance/` | Package compliance suites |
 | `src/__tests__/golden/` | Golden trace replay tests |
 
 ## Discovery Rules

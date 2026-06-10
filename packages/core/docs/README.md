@@ -24,7 +24,7 @@ If you are deciding where to start:
 |------|------------|
 | Build a web app, backend route, script, or trusted agent | `@manifesto-ai/sdk` and the main Guide |
 | Fulfill API/database work from MEL effects | SDK effect handlers |
-| Add approval or sealed history | Lineage/Governance after the base runtime works |
+| Add approval, audit history, or restore | Lineage/Governance after the base runtime works |
 | Test pure domain computation or build runtime tooling | This Core package |
 
 In the Manifesto architecture:
@@ -56,7 +56,7 @@ Host -> CORE -> ComputeResult
 | Execute effects | Host |
 | Perform IO (network, filesystem) | Host |
 | Persist snapshots | Host |
-| Govern authority/proposals | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
+| Add optional approval/history protocols | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
 | Handle UI/event bindings | SDK |
 
 ---

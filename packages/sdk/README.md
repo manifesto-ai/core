@@ -43,8 +43,9 @@ them.
 
 Effect authoring helpers live on the dedicated `@manifesto-ai/sdk/effects` subpath. The root package stays centered on `createManifesto()`.
 
-If you need review, approval, or sealed history later, compose
-`@manifesto-ai/lineage` and `@manifesto-ai/governance` before `activate()`.
+If you need review, approval, policy, audit history, or restore later,
+compose optional `@manifesto-ai/lineage` and `@manifesto-ai/governance`
+extensions before `activate()`.
 If you are building low-level runtime tooling after activation, use
 `@manifesto-ai/sdk/extensions`.
 

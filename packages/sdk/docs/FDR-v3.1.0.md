@@ -56,7 +56,7 @@ SchemaGraph supports subgraph extraction via `traceUp()` and `traceDown()`. Type
 
 #### The Problem
 
-Manifesto's DomainSchema contains all information needed to understand a World's causal structure - computed dependencies, action mutations, availability conditions. However, this information is distributed across `ComputedSpec.fields[*].deps`, `ActionSpec.statements`, and `ActionSpec.available`, requiring consumers to manually traverse and correlate multiple structures.
+Manifesto's DomainSchema contains all information needed to understand a domain's causal structure - computed dependencies, action mutations, availability conditions. However, this information is distributed across `ComputedSpec.fields[*].deps`, `ActionSpec.statements`, and `ActionSpec.available`, requiring consumers to manually traverse and correlate multiple structures.
 
 #### Ablation Evidence
 
@@ -256,7 +256,7 @@ Expression references `confidence` -> emit edge `{ from: "confidence", to: "refi
 SchemaGraph represents the **domain-level** causal structure. Platform-owned namespaces (`data.$host`, `data.$mel`, and any `data.$*`) are compiler/host infrastructure - guard markers, system-value slots, session state - not domain semantics. Including them would:
 
 1. **Leak compiler internals.** Every `onceIntent` action would show `mutates -> $mel.guards.intent.*` edges. This exposes the compiler's guard-lowering mechanism, which is an implementation detail the domain consumer should never see.
-2. **Create nodes with no domain meaning.** `$mel.sys.__sys__addTask__uuid` is a compiler-generated system-value slot. It has no place in a graph meant to answer "what does my World do?"
+2. **Create nodes with no domain meaning.** `$mel.sys.__sys__addTask__uuid` is a compiler-generated system-value slot. It has no place in a graph meant to answer "what does my domain do?"
 3. **Break the projection boundary.** `getSnapshot()` and `simulate().changedPaths` already exclude `data.$*`. SchemaGraph must enforce the same boundary, or consumers would see static edges referencing nodes that never appear in any runtime API.
 
 SGRAPH-11/12/13 align SchemaGraph with the SDK projection boundary established by ADR-015 section 2.8 and PROJ-COMP-1/2. The canonical DomainSchema retains all `$*` information. SchemaGraph is the projected view.
@@ -269,7 +269,7 @@ SGRAPH-11/12/13 align SchemaGraph with the SDK projection boundary established b
 interface ManifestoBaseInstance<T> {
   // ... existing surface ...
 
-  /** Static dependency graph of this World's schema. Cached at activation time. */
+  /** Static dependency graph of this domain schema. Cached at activation time. */
   getSchemaGraph(): SchemaGraph;
 }
 ```
@@ -345,15 +345,15 @@ Kind-prefixed string node ids remain useful for debugging, REPL work, and serial
 | Enables | Constrains |
 |---------|------------|
 | Agent self-model at about 100x compression vs full MEL | SchemaGraph is may-affect, not did-affect |
-| Studio auto-visualization of World structure | Guard-level edges deferred |
-| Cross-world causal reasoning in Federation | Schema changes require SchemaGraph recomputation |
+| Studio auto-visualization of domain structure | Guard-level edges deferred |
+| Cross-domain causal reasoning in Federation | Schema changes require SchemaGraph recomputation |
 | Impact analysis without reading MEL source | |
 | LLM knowledge packages (`@manifesto-ai/skills`) | |
 | Automated testing boundary detection | |
 
 #### Canonical Statement
 
-> **SchemaGraph is the projected static dependency graph of a DomainSchema. It contains only domain-level nodes and edges; platform-owned `$*` paths are excluded. All edges flow in the direction of influence: `feeds` (data propagation), `mutates` (action effect), `unlocks` (availability control). `traceDown` follows influence forward; `traceUp` follows it backward. This is the World's self-knowledge at rest.**
+> **SchemaGraph is the projected static dependency graph of a DomainSchema. It contains only domain-level nodes and edges; platform-owned `$*` paths are excluded. All edges flow in the direction of influence: `feeds` (data propagation), `mutates` (action effect), `unlocks` (availability control). `traceDown` follows influence forward; `traceUp` follows it backward. This is the domain's self-knowledge at rest.**
 
 ---
 
@@ -385,7 +385,7 @@ An agent deciding between actions needs to predict outcomes. Without simulation,
 1. Reason abstractly about effects, which is error-prone and requires full MEL comprehension
 2. Actually execute and observe, which is irreversible and consumes real resources
 
-With simulation, the agent can evaluate multiple candidate actions, compare their outcomes, and choose optimally - analogous to Monte Carlo Tree Search on a Manifesto World.
+With simulation, the agent can evaluate multiple candidate actions, compare their outcomes, and choose optimally - analogous to Monte Carlo Tree Search over a Manifesto domain.
 
 #### Core Contract Requirements
 
@@ -586,4 +586,4 @@ The following APIs collectively form the **Manifesto Introspection API**:
 | `getAvailableActions(schema, snapshot)` | Core | None (current snapshot) | `string[]` | Runtime availability |
 | `isActionAvailable(schema, snapshot, name)` | Core | Action name | `boolean` | Runtime availability |
 
-Together, these enable any consumer - agent, developer, tool, or other World - to understand a Manifesto World's structure, predict action outcomes, and explain current state without reading MEL source.
+Together, these enable any consumer - agent, developer, tool, or other runtime - to understand a Manifesto domain's structure, predict action outcomes, and explain current state without reading MEL source.

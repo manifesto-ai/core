@@ -147,6 +147,8 @@ new state.
 - `activate()` opened the runtime helpers.
 - `action.increment.submit()` validated the request and updated the app state
   you can read with `snapshot()`.
+- Under the SDK surface, Core computed the semantic transition and Host
+  converged the next Snapshot.
 
 ## Next
 

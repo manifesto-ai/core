@@ -25,7 +25,7 @@ This guide defines core documentation operations for Manifesto. These rules alig
 ### 1-3. FDR = Rationale Layer
 
 - FDRs capture motivation and reasoning.
-- For Core/Host/World, keep key rationale inline in SPEC `Rationale` blocks whenever possible.
+- For maintained Core/Host/Lineage/Governance contracts, keep key rationale inline in SPEC `Rationale` blocks whenever possible.
 - Standalone FDR files are for supplemental, academic, or historical context.
 
 ### 1-4. Reading Order
@@ -106,7 +106,7 @@ Other statuses: `Deprecated`, `Superseded`, `Withdrawn`
 Operational checks for maintained docs:
 
 1. `pnpm docs:governance-check`
-   - verifies the core governance/index documents exist, current package docs keep accepted status labels, retired World terminology stays out of current-surface docs, and failure-observation anchors remain present.
+   - verifies the core governance/index documents exist, current package docs keep accepted status labels, retired facade terminology stays out of current-surface docs, and failure-observation anchors remain present.
 2. `pnpm docs:check:maintained`
    - verifies maintained docs do not mention removed APIs, compatibility aliases, or stale example signatures.
 3. `pnpm docs:check`

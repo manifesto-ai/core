@@ -15,13 +15,13 @@ Do not mix them into a single bootstrap story.
 
 ## Hard-Cut Changes
 
-If you are moving old governed code forward, align to these surfaces:
+If you are moving old approval/history code forward, align to these surfaces:
 
 - use `createManifesto(schema, effects)` instead of config-style runtime factories
 - use `withLineage(...)` and `withGovernance(...)` before `activate()`
 - use `action.<name>.submit(...)` on the activated runtime. Base, Lineage, and Governance modes share that call shape and differ through their result unions.
 - use package-owned stores and services from Lineage and Governance directly
-- treat the old world facade, adapter subpaths, and facade-owned coordinator/runtime as removed
+- treat the retired facade, adapter subpaths, and facade-owned coordinator/runtime as removed
 
 ## Advanced Runtime Bootstrap
 
@@ -43,8 +43,8 @@ runtime resume path.
 
 Do not reintroduce the removed transition surfaces from earlier drafts:
 
-- `createWorld`
-- world adapter subpaths
+- retired facade entrypoints
+- retired facade adapter subpaths
 - facade-owned coordinator/runtime types
 - facade-owned execution seams
 - config-first `createManifesto(...)` bootstraps

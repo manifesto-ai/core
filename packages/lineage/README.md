@@ -1,9 +1,10 @@
 # @manifesto-ai/lineage
 
-> History and restore support for the activated runtime.
+> Optional history and restore support for the activated runtime.
 
-`@manifesto-ai/lineage` is the package that adds time, history, and restore to
-a composable Manifesto app.
+`@manifesto-ai/lineage` is an optional protocol extension that adds history,
+restore, audit, branch/head queries, and sealed records to a composable
+Manifesto app. It is not part of the base runtime ontology.
 
 > **Current Contract Note:** The current package contract is [docs/lineage-SPEC.md](docs/lineage-SPEC.md). The v2 lineage spec remains as the historical service-first baseline.
 
@@ -17,7 +18,7 @@ a composable Manifesto app.
 - low-level provider APIs
 - stable history record identity, branch semantics, and restore normalization
 
-## Canonical Path
+## Extension Runtime Path
 
 ```ts
 import { createManifesto } from "@manifesto-ai/sdk";

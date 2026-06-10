@@ -1004,10 +1004,10 @@ _Source: `packages/lineage/src/index.ts`_
 - `LineageConfig`
 - `LineageContinuitySurface`
 - `LineageInstance`
-- `World`
 - `WorldHead`
 - `WorldId`
 - `WorldLineage`
+- `WorldRecord`
 
 ### @manifesto-ai/lineage/provider
 
@@ -1050,11 +1050,11 @@ _Source: `packages/lineage/src/provider.ts`_
 - `SealIntentOptions`
 - `SealNextInput`
 - `SnapshotHashInput`
-- `World`
 - `WorldEdge`
 - `WorldHead`
 - `WorldId`
 - `WorldLineage`
+- `WorldRecord`
 
 ## @manifesto-ai/sdk
 

@@ -116,4 +116,4 @@ Handlers should still return a precise patch story. That is what makes the syste
 
 - [Effect Handlers](/guides/effect-handlers) for the implementation guide
 - [Debugging](/guides/debugging) for troubleshooting effect-driven flows
-- [When You Need Approval or History](/guides/approval-and-history) before adding review or sealed history
+- [When You Need Approval or History](/guides/approval-and-history) before adding review, audit history, or restore

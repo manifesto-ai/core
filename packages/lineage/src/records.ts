@@ -17,13 +17,13 @@ import type {
   SealNextInput,
   Snapshot,
   SnapshotHashInput,
-  World,
   WorldEdge,
   WorldId,
+  WorldRecord,
 } from "./types.js";
 
 export interface WorldRecordResult {
-  readonly world: World;
+  readonly world: WorldRecord;
   readonly hashInput: SnapshotHashInput;
   readonly worldId: WorldId;
 }

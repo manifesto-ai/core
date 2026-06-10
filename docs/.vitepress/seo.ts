@@ -17,7 +17,7 @@ const PAGE_DESCRIPTION_OVERRIDES: Record<string, string> = {
   'guide/introduction.md': 'Learn Manifesto through the core model: deterministic domain state, typed intents, explicit effects, and a snapshot-first runtime path.',
   'guide/quick-start.md': 'Start a Manifesto app in minutes with the CLI or SDK, wire MEL into your bundler, and run your first deterministic domain.',
   'api/index.md': 'Browse the Manifesto API reference for SDK, runtime, intents, snapshots, effects, governance, compiler, CLI, Studio, and AI tooling.',
-  'concepts/index.md': 'Understand Manifesto concepts including Snapshot, Intent, Flow, Effect, World, and the shared semantic model across every runtime surface.',
+  'concepts/index.md': 'Understand Manifesto concepts including Snapshot, Intent, Flow, Effect, Lineage records, and the shared semantic model across every runtime surface.',
   'architecture/index.md': 'Study Manifesto architecture through deterministic compute, snapshot data flow, failure modeling, and layer boundaries across SDK, Host, Core, and governance.',
   'integration/index.md': 'Integrate Manifesto with React, agent workflows, CLI and Studio tooling, and later-stage approval or history flows on the same semantic model.',
   'guides/index.md': 'Use Manifesto guides for bundlers, effect handlers, debugging, code generation, developer tooling, governance setup, release hardening, and upgrades.',

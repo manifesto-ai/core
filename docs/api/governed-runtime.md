@@ -1,6 +1,6 @@
-# Approval/History Runtime
+# Optional Approval/History Runtime
 
-> Compose the advanced runtime before activation when writes need review or sealed history.
+> Compose the optional extension runtime before activation when writes need review, audit history, restore, or approval policy.
 
 ## Activate the Advanced Runtime
 
@@ -109,10 +109,10 @@ const proposals = await app.getProposals();
 const sameProposal = await app.getProposal(pending.proposal);
 ```
 
-Use lineage queries such as `getLatestHead()`, `getWorldSnapshot(worldId)`, `getBranches()`, and `restore(worldId)` when sealed history matters.
+Use lineage queries such as `getLatestHead()`, `getWorldSnapshot(worldId)`, `getBranches()`, and `restore(worldId)` when durable history or restore matters.
 
 ## Next
 
 - Read the decision guide in [When You Need Approval or History](/guides/approval-and-history)
-- Assemble the advanced runtime in [Governed Composition](/guides/governed-composition)
+- Assemble the advanced runtime in [Advanced Runtime Assembly](/guides/governed-composition)
 - See package details in [@manifesto-ai/governance](./governance)

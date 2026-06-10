@@ -38,7 +38,7 @@ This creates DX friction for the common case of "run this block once per intent.
 ### Consequences
 
 - `onceIntent` desugars to `once($mel.guards.intent.<guardId>)` with auto-generated marker patch
-- Guard state is excluded from World hash (WORLD-HASH-4b)
+- Guard state is excluded from semantic lineage identity (LIN-HASH-4b)
 - Existing `once()` behavior is unchanged
 - Migration is optional (both syntaxes coexist)
 
@@ -72,7 +72,7 @@ ADR-002 needed a place to store compiler-generated guard state. Options consider
 
 ### Consequences
 
-- World SPEC must exclude `$mel` from hash (WORLD-HASH-4b)
+- Lineage/Snapshot identity rules must exclude `$mel` from semantic hash input (LIN-HASH-4b)
 - App must inject `$mel` into schemas (APP-NS-1)
 - Domain schemas cannot use `$mel` (SCHEMA-RESERVED-1)
 

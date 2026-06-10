@@ -9,9 +9,9 @@ import type {
   SealAttempt,
   Snapshot,
   SnapshotHashInput,
-  World,
   WorldEdge,
   WorldId,
+  WorldRecord,
 } from "../types.js";
 
 function cloneBranch(branch: PersistedBranchEntry): PersistedBranchEntry {
@@ -33,7 +33,7 @@ function sortAttempts(attempts: readonly SealAttempt[]): readonly SealAttempt[] 
 }
 
 type InMemoryLineageStoreState = {
-  worlds: Map<WorldId, World>;
+  worlds: Map<WorldId, WorldRecord>;
   snapshots: Map<WorldId, Snapshot>;
   hashInputs: Map<string, SnapshotHashInput>;
   edges: Map<string, WorldEdge>;
@@ -46,7 +46,7 @@ type InMemoryLineageStoreState = {
 };
 
 export class InMemoryLineageStore implements LineageStore {
-  private readonly worlds = new Map<WorldId, World>();
+  private readonly worlds = new Map<WorldId, WorldRecord>();
   private readonly snapshots = new Map<WorldId, Snapshot>();
   private readonly hashInputs = new Map<string, SnapshotHashInput>();
   private readonly edges = new Map<string, WorldEdge>();
@@ -57,11 +57,11 @@ export class InMemoryLineageStore implements LineageStore {
   private readonly branches = new Map<BranchId, PersistedBranchEntry>();
   private activeBranchId: BranchId | null = null;
 
-  async putWorld(world: World): Promise<void> {
+  async putWorld(world: WorldRecord): Promise<void> {
     this.worlds.set(world.worldId, cloneValue(world));
   }
 
-  async getWorld(worldId: WorldId): Promise<World | null> {
+  async getWorld(worldId: WorldId): Promise<WorldRecord | null> {
     return cloneValue(this.worlds.get(worldId) ?? null);
   }
 
@@ -266,7 +266,7 @@ export class InMemoryLineageStore implements LineageStore {
     this.activeBranchId = nextActiveBranchId;
   }
 
-  listWorlds(): readonly World[] {
+  listWorlds(): readonly WorldRecord[] {
     return [...this.worlds.values()].map((world) => cloneValue(world));
   }
 

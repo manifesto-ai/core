@@ -19,7 +19,7 @@ export type {
   SealGenesisInput,
   SealNextInput,
   SnapshotHashInput,
-  World,
+  WorldRecord,
   WorldEdge,
   WorldHead,
   WorldId,

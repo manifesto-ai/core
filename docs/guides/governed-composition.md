@@ -1,6 +1,6 @@
 # Advanced Runtime Assembly
 
-> Assemble the approval-and-history runtime directly from SDK, Lineage, and Governance.
+> Assemble the optional approval-and-history runtime directly from SDK, Lineage, and Governance.
 
 Only read this after [When You Need Approval or History](/guides/approval-and-history) has already told you that the project needs these layers. If you only need direct action submission, stay on `@manifesto-ai/sdk` and `createManifesto()`.
 
@@ -43,13 +43,13 @@ const governed = withGovernance(
 ).activate();
 ```
 
-## Canonical Flow
+## Extension Flow
 
 1. Activate the decorated runtime.
 2. Submit a typed action with `governed.action.<name>.submit(...)`.
 3. Observe the returned pending proposal.
 4. Observe the pending proposal, then wait for auto-approved or human-resolved settlement.
-5. Read sealed history through Lineage queries such as `getLatestHead()` and `restore()`.
+5. Read durable history through Lineage queries such as `getLatestHead()` and `restore()`.
 
 Use `getWorldSnapshot(worldId)` when you need the stored snapshot for a
 committed history record. Use `restore(worldId)` when you need the normalized
@@ -62,7 +62,8 @@ Use the store surfaces from the owning packages directly:
 - `createInMemoryLineageStore()` from `@manifesto-ai/lineage`
 - `createInMemoryGovernanceStore()` from `@manifesto-ai/governance`
 
-The old world-facade adapter story was removed. No direct replacement for `world/sqlite` or `world/indexeddb` was landed in this phase.
+The retired facade adapter story was removed. Use package-owned stores until a
+current Lineage or Governance adapter lands.
 
 ## See Also
 

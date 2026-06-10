@@ -16,7 +16,7 @@ const rules = {
       "BranchInfo",
       "BranchSwitchResult",
       "ComputeEnvelope",
-      "World",
+      "WorldRecord",
       "WorldHead",
       "WorldId",
       "WorldLineage",

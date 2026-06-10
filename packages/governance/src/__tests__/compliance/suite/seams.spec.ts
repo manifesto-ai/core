@@ -82,7 +82,7 @@ describe("GCTS Seam Suite", () => {
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("GOV-BOUNDARY-5"), hostImports.length === 0 && worldImports.length === 0, {
-          passMessage: "Governance package source imports neither Host nor World internals.",
+          passMessage: "Governance package source imports neither Host nor retired facade internals.",
           failMessage: `Governance source imports forbidden packages: ${[...hostImports, ...worldImports].join(", ")}`,
           evidence: [noteEvidence("Scanned source import graph directly.")],
         }),

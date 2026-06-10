@@ -8,18 +8,28 @@
 
 ## Overview
 
-Manifesto's current architecture is a layered system with one semantic core, one execution engine, one default application runtime, and two optional governed decorators.
+Manifesto computes deterministic domain state transitions. The conceptual core
+is:
 
-The current package story is:
+```text
+MEL -> Core -> Host
+rules  compute execute
+```
+
+MEL declares domain transition rules. Core computes semantic transitions from
+schema, snapshot, intent, and context. Host fulfills declared effects and
+converges snapshots.
+
+The current package story follows that base runtime first:
 
 - `@manifesto-ai/compiler` optionally lowers MEL into `DomainSchema`
-- `@manifesto-ai/sdk` is the default application entry
-- `@manifesto-ai/host` executes requirements and applies transitions
 - `@manifesto-ai/core` computes semantic meaning
-- `@manifesto-ai/lineage` adds advanced continuity, sealing, restore, and history
-- `@manifesto-ai/governance` adds advanced proposal flow, approval, and authority
+- `@manifesto-ai/host` executes requirements and applies transitions
+- `@manifesto-ai/sdk` is the default application-facing runtime surface
+- `@manifesto-ai/lineage` optionally adds history, sealing, restore, and branch/head queries
+- `@manifesto-ai/governance` optionally adds proposal flow, approval, policy, and delegation
 
-There is no current top-level `@manifesto-ai/world` facade in the active public runtime story.
+No top-level facade sits above SDK, Lineage, and Governance in the active public runtime story.
 
 ---
 
@@ -33,7 +43,7 @@ caller -> SDK (`createManifesto` -> `activate`)
        -> Core
 ```
 
-### Approval/History Runtime
+### Optional Approval/History Runtime
 
 ```text
 caller -> withLineage -> withGovernance -> activate
@@ -55,7 +65,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 1. **Core computes meaning.** It remains pure and deterministic.
 2. **Host fulfills declared work.** It executes effects and applies transitions.
 3. **SDK owns the direct-submit runtime.** It is the default application-facing surface.
-4. **Approval and history are explicit decorators.** They add legitimacy and continuity without replacing Host/Core boundaries.
+4. **Approval and history are optional decorators.** They add policy and continuity concerns without replacing Host/Core boundaries.
 5. **Snapshot remains the only medium.** Cross-layer information still flows through Snapshot, not hidden callbacks or side channels.
 
 ---
@@ -82,7 +92,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 | **Role** | Compute meaning from schema + snapshot + intent |
 | **Primary API** | `compute()`, `apply()`, `applySystemDelta()` |
 | **Owns** | Semantic truth, patch/system transitions, computed evaluation |
-| **Does NOT Know** | IO, execution loops, authority, lineage, runtime assembly |
+| **Does NOT Know** | IO, execution loops, approval policy, lineage, runtime assembly |
 
 ### Host
 
@@ -93,7 +103,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 | **Role** | Execute requirements, apply domain patches, namespace deltas, and system deltas, drive compute to terminal state |
 | **Primary API** | `createHost()`, `dispatch()`, effect registration |
 | **Owns** | Mailbox/job model, effect execution, ADR-027 context materialization |
-| **Does NOT Know** | Proposal legitimacy, authority policy, branch/head history |
+| **Does NOT Know** | Approval policy, proposal semantics, branch/head history |
 
 ### SDK
 
@@ -104,7 +114,7 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 | **Role** | Compose the base runtime and present the public app-facing API |
 | **Primary API** | `createManifesto()`, `activate()`, `action.<name>.submit()`, `snapshot()` |
 | **Owns** | Runtime assembly, telemetry, projected reads, public action surface |
-| **Does NOT Know** | Core internals, authority policy internals, lineage storage internals |
+| **Does NOT Know** | Core internals, approval policy internals, lineage storage internals |
 
 ### Lineage
 
@@ -112,20 +122,20 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Add sealing, restore, branch/head queries, and stored Lineage World snapshots |
+| **Role** | Add sealing, restore, branch/head queries, and stored Lineage records |
 | **Primary API** | `withLineage()`, `action.<name>.submit()`, `restore()`, lineage queries |
-| **Owns** | Lineage World history, branch/head refs, seal records, stored canonical snapshots |
+| **Owns** | Lineage records, branch/head refs, seal records, stored canonical snapshots |
 | **Does NOT Know** | Host execution micro-steps, approval policy semantics |
 
 ### Governance
 
-> **One-liner:** Legitimacy and proposal decorator.
+> **One-liner:** Approval and policy decorator.
 
 | Aspect | Definition |
 |--------|------------|
-| **Role** | Add proposal lifecycle, approval/rejection, authority evaluation, and governed publication |
-| **Primary API** | `withGovernance()`, `action.<name>.submit()`, settlement/proposal queries, authority seams |
-| **Owns** | Proposal legitimacy, decision recording, governed execution admission |
+| **Role** | Add proposal lifecycle, approval/rejection, policy evaluation, and review-gated publication |
+| **Primary API** | `withGovernance()`, `action.<name>.submit()`, settlement/proposal queries, policy seams |
+| **Owns** | Approval policy, decision recording, review-gated execution admission |
 | **Does NOT Know** | Host execution micro-steps, Core semantic internals, implicit lineage creation |
 
 ---
@@ -136,9 +146,9 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 |-------|---------------|
 | **Compiler** | Runtime execution, dynamic patch target resolution, effect fulfillment, governance policy |
 | **Core** | IO, wall-clock behavior, execution loops, approval/history policy |
-| **Host** | Dynamic patch target resolution, authority decisions, proposal semantics, branch/head legitimacy |
+| **Host** | Dynamic patch target resolution, approval decisions, proposal semantics, branch/head policy |
 | **SDK** | Core internals, lineage storage internals, governance policy internals |
-| **Lineage** | Host execution micro-steps, authority logic |
+| **Lineage** | Host execution micro-steps, approval logic |
 | **Governance** | Host execution micro-steps, implicit continuity ownership |
 
 ---
@@ -148,6 +158,8 @@ MEL source -> Compiler -> DomainSchema -> SDK / Host / Core
 ```text
 Application -> Compiler (optional)
 Application -> SDK
+
+Optional extensions:
 Application -> withLineage -> withGovernance -> activate
 
 Governance -> Lineage
@@ -158,7 +170,7 @@ Compiler -> Core (schema contract)
 ```
 
 The important current ownership rule is that the approval/history runtime builds
-on the SDK runtime. SDK no longer re-exports or owns a facade-level governed
+on the SDK runtime. SDK no longer re-exports or owns a separate approval/history
 bootstrap package.
 
 ---
@@ -176,14 +188,14 @@ The base activated instance lives in SDK and owns:
 - projected introspection such as `inspect.graph()`
 - execution telemetry for the base runtime
 
-### Approval/History Runtime Surface
+### Optional Approval/History Runtime Surface
 
 When the approval/history packages are composed in, they add:
 
 - continuity and sealing
-- restore and stored Lineage World snapshot lookup
+- restore and stored Lineage record snapshot lookup
 - branch/head queries
-- proposal lifecycle and authority decisions
+- proposal lifecycle and approval decisions
 
 They do not replace Host or Core and they do not reintroduce a facade-owned execution layer.
 
@@ -198,12 +210,12 @@ const app = createManifesto(schema, effects).activate();
 await app.action.someAction.submit();
 ```
 
-### Governed Composition
+### Optional Extension Composition
 
 ```typescript
 const manifesto = createManifesto(schema, effects);
 const lineage = withLineage(manifesto, lineageOptions);
-const governed = withGovernance(lineage, governanceOptions).activate();
+const approvalRuntime = withGovernance(lineage, governanceOptions).activate();
 ```
 
 ---
@@ -224,7 +236,7 @@ const governed = withGovernance(lineage, governanceOptions).activate();
 ### When Governance Or Lineage Changes
 
 - their owning package specs and guides change first
-- SDK does not become the owner of governed policy or continuity semantics
+- SDK does not become the owner of approval policy or continuity semantics
 
 ### Adding New Features
 
@@ -235,7 +247,7 @@ const governed = withGovernance(lineage, governanceOptions).activate();
 | New effect execution behavior | Host |
 | New direct-runtime convenience | SDK |
 | New continuity/history capability | Lineage |
-| New legitimacy/proposal capability | Governance |
+| New approval/proposal capability | Governance |
 
 ---
 
@@ -244,10 +256,10 @@ const governed = withGovernance(lineage, governanceOptions).activate();
 An implementation is aligned with the current architecture only if:
 
 - [ ] Core stays pure and deterministic
-- [ ] Host executes requirements without making legitimacy decisions
+- [ ] Host executes requirements without making approval or policy decisions
 - [ ] SDK remains the default direct-submit runtime entry
 - [ ] approval/history composition is explicit and happens before activation
-- [ ] no maintained public story depends on a top-level `@manifesto-ai/world` facade
+- [ ] no maintained public story depends on a retired top-level facade
 - [ ] Snapshot remains the only cross-compute communication medium
 
 ---
@@ -261,7 +273,7 @@ An implementation is aligned with the current architecture only if:
 | Host | Execution and convergence |
 | SDK | Direct runtime surface |
 | Lineage | Continuity and history |
-| Governance | Legitimacy and approval |
+| Governance | Approval and policy |
 
 ---
 
@@ -269,7 +281,7 @@ An implementation is aligned with the current architecture only if:
 
 - [Architecture Index](/architecture/)
 - [When You Need Approval or History](/guides/approval-and-history)
-- [World Records](/concepts/world)
+- [Lineage Records](/concepts/lineage-records)
 - [SDK API](/api/sdk)
 - [Lineage API](/api/lineage)
 - [Governance API](/api/governance)

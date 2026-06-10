@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: Manifesto
-  text: One Domain Model For Apps And Agents
-  tagline: Define your domain once in MEL, then run the same actions from your app, UI, backend, and agents.
+  text: Deterministic Domain Runtime
+  tagline: Write domain transition rules in MEL. Core computes semantic transitions, Host converges snapshots, and SDK exposes the app-facing runtime.
   actions:
     - theme: brand
       text: Get Started
@@ -24,14 +24,14 @@ features:
       src: /icons/multiplatform.svg
       width: 48
       height: 48
-    title: Frontend, Backend, and Agents
-    details: Use the same domain model to power UI, backend services, and agent workflows without rewriting the rules for each surface.
+    title: MEL, Core, Host
+    details: MEL declares domain rules, Core computes semantic transitions, and Host fulfills declared effects through an explicit loop.
   - icon:
       src: /icons/snapshot.svg
       width: 48
       height: 48
-    title: One App State
-    details: Submit an action, read the updated app state, and give UI and agent code the same view.
+    title: Observable Snapshots
+    details: Submit typed actions, read the updated Snapshot, and give UI, backend, and agent code the same state contract.
 ---
 
 ## Quick Example

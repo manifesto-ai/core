@@ -1,5 +1,5 @@
 import type { ErrorValue, Intent as HostIntent, Snapshot } from "@manifesto-ai/core";
-import type { ArtifactRef, BranchId, ComputeEnvelope, World, WorldId } from "@manifesto-ai/lineage";
+import type { ArtifactRef, BranchId, ComputeEnvelope, WorldId, WorldRecord } from "@manifesto-ai/lineage";
 import type { PreparedLineageCommit } from "@manifesto-ai/lineage/provider";
 import type { ExecutionOutcome } from "@manifesto-ai/sdk";
 
@@ -8,8 +8,8 @@ export type {
   ArtifactRef,
   BranchId,
   ComputeEnvelope,
-  World,
   WorldId,
+  WorldRecord,
 } from "@manifesto-ai/lineage";
 
 export type ProposalId = string;
@@ -267,7 +267,7 @@ export interface ExecutionFailedEvent
 
 export interface WorldCreatedEvent
   extends BaseGovernanceEvent<"world:created"> {
-  readonly world: World;
+  readonly world: WorldRecord;
   readonly from: WorldId;
   readonly proposalId: ProposalId;
   readonly outcome: "completed" | "failed";
@@ -397,7 +397,7 @@ export interface GovernanceService {
     timestamp?: number
   ): ExecutionFailedEvent;
   createWorldCreatedEvent(
-    world: World,
+    world: WorldRecord,
     proposalId: ProposalId,
     from: WorldId,
     outcome: "completed" | "failed",

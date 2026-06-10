@@ -31,7 +31,7 @@ manifesto doctor
 
 That flow installs the runtime packages, patches the selected integration surface, writes `manifesto.config.*`, and validates that declared intent still matches the repo.
 
-Switch `--runtime` to `lineage` or `gov` only when the project already needs approval, continuity, or sealed history.
+Switch `--runtime` to `lineage` or `gov` only when the project already needs approval, continuity, audit history, or restore.
 
 ### Give an AI Tool Current Manifesto Context
 
@@ -73,7 +73,7 @@ Put HTTPS in front of the HTTP transport when a remote connector product needs a
 - `@manifesto-ai/skills` does not auto-install from `postinstall`; setup is always explicit.
 - `@manifesto-ai/studio-core` is read-only and renderer-neutral. It analyzes a bundle and returns JSON projections; it does not execute effects or mutate runtime state.
 
-If the project later needs reviewable writes or sealed history, step out of the tooling track and read [When You Need Approval or History](/guides/approval-and-history) first.
+If the project later needs reviewable writes, audit history, or restore, step out of the tooling track and read [When You Need Approval or History](/guides/approval-and-history) first.
 
 ## See Also
 

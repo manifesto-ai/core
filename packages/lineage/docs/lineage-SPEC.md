@@ -309,7 +309,7 @@ MUST emit `submission:failed`.
 
 ---
 
-## 6. ADR-025 Snapshot Hash and World Identity
+## 6. ADR-025 Snapshot Hash and Lineage Record Identity
 
 Lineage v5 follows ADR-025.
 

@@ -34,11 +34,14 @@ If you are deciding where to start:
 In the Manifesto architecture:
 
 ```text
-SDK runtime / approval-history decorators -> HOST -> Core
-                                     |
-                            Executes effects, applies patches
-                            Runs the mailbox-based execution model
+MEL -> Core -> HOST
+             |
+      Executes effects, applies patches
+      Runs the mailbox-based execution model
 ```
+
+Most applications reach Host through the SDK. Optional approval/history
+decorators can wrap the SDK runtime later without changing Host's responsibility.
 
 ## Installation
 
@@ -290,7 +293,7 @@ SDK runtime -> HOST -> Core
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Uses compute() and apply() |
 | Used by | `@manifesto-ai/sdk` | SDK creates Host internally via createManifesto() |
-| Used by | `@manifesto-ai/lineage` / `@manifesto-ai/governance` | Governed decorators execute through the SDK/Host runtime chain |
+| Used by | `@manifesto-ai/lineage` / `@manifesto-ai/governance` | Optional decorators execute through the SDK/Host runtime chain |
 
 ---
 

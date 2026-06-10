@@ -17,8 +17,8 @@ runtime when the product only needs:
 - simple allow/deny checks that MEL or app code can enforce before calling an
   action
 
-Those are app concerns. They do not require proposal records, authority
-decisions, or branch history.
+Those are app concerns. They do not require proposal records, approval decision
+records, or branch history.
 
 ## Typical Signals
 
@@ -26,7 +26,7 @@ Open the advanced runtime only when one or more of these become true:
 
 - writes need human review or approval before they commit
 - the team needs actor attribution or explicit decision records
-- state changes need sealed history, not just the current snapshot
+- state changes need durable audit history, not just the current snapshot
 - branch/head continuity matters after commits
 - an agent or workflow should propose work rather than execute it directly
 
@@ -49,7 +49,7 @@ That adds:
 
 - continuity through `@manifesto-ai/lineage`
 - review and decision flow through `@manifesto-ai/governance`
-- sealed history on top of the same domain model
+- durable audit history on top of the same domain model
 
 ## What Does Not Change
 
@@ -65,7 +65,7 @@ internals.
 ## Recommended Reading Order
 
 1. [Tutorial 05: Approval and History Setup](/tutorial/05-governed-composition)
-2. [Tutorial 06: Sealed History and Review Flow](/tutorial/06-governed-sealing-and-history)
+2. [Tutorial 06: Review And Durable History Flow](/tutorial/06-governed-sealing-and-history)
 3. [Advanced Runtime Assembly](/guides/governed-composition) when you want the compact setup guide
 4. [@manifesto-ai/lineage](/api/lineage) and [@manifesto-ai/governance](/api/governance) for package-level details
 

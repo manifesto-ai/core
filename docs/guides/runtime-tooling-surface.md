@@ -100,11 +100,14 @@ if (sealed) {
 }
 ```
 
-Use `getWorldSnapshot(worldId)` for read-only historical inspection. Use `restore(worldId)` only when the product is intentionally resuming the visible runtime from that world. Normal tools should not call provider mutation helpers such as visible-snapshot setters.
+Use `getWorldSnapshot(worldId)` for read-only historical inspection. Use
+`restore(worldId)` only when the product is intentionally resuming the visible
+runtime from that sealed record. Normal tools should not call provider mutation
+helpers such as visible-snapshot setters.
 
 For deterministic replay, pair the sealed base snapshot with the recorded
 `computeEnvelope.intent` and full `computeEnvelope.context`. The context is
-attempt/proposal metadata, not World identity: it includes both `runtime` and
+attempt/proposal metadata, not Lineage record identity: it includes both `runtime` and
 `external` partitions and does not enter `snapshotHash` or `worldId`.
 Application users normally never build this envelope manually; replay and audit
 tools read it from Lineage attempts or Governance proposals.

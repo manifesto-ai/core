@@ -40,12 +40,12 @@ The surfaces can be:
 The contract stays the same. In ordinary app code, every surface reads through
 `snapshot()` and writes through `app.action.<name>.submit(...)`.
 
-When the product later needs review or sealed history, you can add that runtime
-around the same domain. That is a later decision, not part of the first app
-path.
+When the product later needs history, restore, audit, approval, or policy, you
+can add Lineage or Governance around the same domain. That is a later decision,
+not part of the first app path.
 
 ```text
-base app -> approval/history runtime -> proposal -> settlement -> sealed Snapshot
+base app -> optional Lineage/Governance extensions -> Snapshot plus extension records
 ```
 
 ---
@@ -65,8 +65,8 @@ await app.action.addTodo.submit("Human-created todo");
 await app.action.addTodo.submit("Agent-created todo");
 ```
 
-The approval/history surface uses the same domain actions, but adds review and
-history steps before the write becomes visible.
+Optional extension surfaces use the same domain actions, then add history,
+restore, audit, approval, or policy behavior around the base runtime.
 
 ---
 
@@ -96,8 +96,8 @@ controls:
 - audit history
 
 Start with [When You Need Approval or History](/guides/approval-and-history).
-Read [World Records](./world) only when you want the in-depth record model
-behind that runtime.
+Read [Lineage Records](./lineage-records) only when you want the Lineage record model behind
+history, restore, audit, or approval/history runtimes.
 
 ---
 

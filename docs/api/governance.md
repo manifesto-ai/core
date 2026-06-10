@@ -1,6 +1,8 @@
 # @manifesto-ai/governance
 
-`@manifesto-ai/governance` owns approval-gated execution for Manifesto runtimes.
+`@manifesto-ai/governance` is an optional protocol extension for approval,
+policy, delegation, and proposal review over Manifesto runtimes. It is not part
+of the base runtime ontology.
 
 > **Current Contract Note:** This page describes the current Governance v5
 > decorator surface: governance-mode `submit()`, durable `ProposalRef`,
@@ -116,7 +118,7 @@ verbs and do not expose direct base or lineage execution.
 
 ## Failure Observation
 
-Failed governed settlements observe failure from the terminal Snapshot's
+Failed approval settlements observe failure from the terminal Snapshot's
 `system.lastError` and pending requirements when a sealed result exists.
 Canonical `namespaces.host.lastError` remains Host diagnostic data for
 deep debugging and is not merged into settlement `ErrorInfo`.

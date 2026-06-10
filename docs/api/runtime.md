@@ -79,7 +79,7 @@ The intended public decision order is:
 
 `check()` preserves first-failing-layer ordering. `preview()` is non-mutating and does not publish state. `submit()` revalidates at the runtime write boundary.
 
-## Advanced: Approval/History Runtimes
+## Advanced: Optional Approval/History Runtimes
 
 Approval/history packages keep the same write verb but change the result type:
 

@@ -83,7 +83,7 @@ const currentContractDocs = [
   "docs/internals/spec/index.md",
   "docs/internals/fdr/index.md",
   "docs/architecture/layers.md",
-  "docs/concepts/world.md",
+  "docs/concepts/lineage-records.md",
   "docs/api/runtime.md",
   "docs/api/sdk.md",
   "docs/api/lineage.md",
@@ -200,10 +200,10 @@ const requiredAnchors = [
     ],
   },
   {
-    path: "docs/concepts/world.md",
+    path: "docs/concepts/lineage-records.md",
     tokens: [
-      "not a top-level package or governance layer",
-      "Lineage-owned, immutable record",
+      "no top-level `@manifesto-ai/world` package",
+      "Lineage records are immutable sealed records",
       "withLineage()",
       "withGovernance()",
     ],

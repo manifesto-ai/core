@@ -26,10 +26,10 @@ import type {
   SealGenesisInput,
   SealNextInput,
   Snapshot,
-  World,
   WorldHead,
   WorldId,
   WorldLineage,
+  WorldRecord,
 } from "../types.js";
 
 export class DefaultLineageService implements LineageService {
@@ -220,7 +220,7 @@ export class DefaultLineageService implements LineageService {
     };
   }
 
-  async getWorld(worldId: WorldId): Promise<World | null> {
+  async getWorld(worldId: WorldId): Promise<WorldRecord | null> {
     return this.store.getWorld(worldId);
   }
 
