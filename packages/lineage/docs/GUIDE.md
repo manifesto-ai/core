@@ -74,7 +74,7 @@ reads the stored full snapshot for a committed history record.
 `restore(worldId)` remains the normalized runtime resume path.
 The activated lineage runtime also keeps the inherited SDK legality queries: `action.x.available()` and `action.x.check(...)`.
 
-## 5. Restore A Sealed Lineage World
+## 5. Restore A Sealed Lineage Record
 
 ```ts
 const head = await lineage.getLatestHead();

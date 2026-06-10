@@ -37,7 +37,7 @@ Records of significant architectural decisions:
 |----|-------|--------|
 | [ADR-001](./adr/001-layer-separation) | Layer Separation after Host v2.0.1 | Accepted |
 | [ADR-002](./adr/002-dx-improvement-mel-namespace-onceIntent) | DX improvement — automatic `$mel` injection + `onceIntent` | Implemented |
-| [ADR-003](./adr/003-world-owns-persistence) | World Owns Persistence | Proposed |
+| [ADR-003](./adr/003-world-owns-persistence) | Historical persistence draft | Superseded by ADR-014 |
 | [ADR-004](./adr/004-app-package-internal-decomposition) | App Package Internal Decomposition | Proposed |
 | [ADR-005](./adr/005-dx-improvement-snapshot-path-dsl) | DX improvement — Snapshot Path DSL (`${...}`) introduction | Withdrawn |
 | [ADR-006](./adr/006-runtime-reframing) | Publish Boundary, Canonicalization, and Channel Separation Rules | Proposed |
@@ -49,9 +49,9 @@ Records of significant architectural decisions:
 | [ADR-012](./adr/012-remove-computed-prefix) | Remove `computed.` Prefix from Computed Snapshot Keys | Implemented |
 | [ADR-013a](./adr/013a-mel-statement-composition-flow-and-include) | MEL Statement Composition — `flow` and `include` | Implemented |
 | [ADR-013b](./adr/013b-entity-collection-primitives) | Entity Collection Primitives — `findById`, `existsById`, `updateById`, `removeById` | Implemented |
-| [ADR-014](./adr/014-split-world-protocol) | Split World Protocol into Governance and Lineage Packages | Implemented |
+| [ADR-014](./adr/014-split-world-protocol) | Split Former Facade Protocol into Governance and Lineage Packages | Implemented |
 | [ADR-015](./adr/015-snapshot-ontological-purification) | Snapshot Ontological Purification — Remove Accumulated History from Point-in-Time State | Implemented |
-| [ADR-016](./adr/016-merkle-tree-lineage) | Merkle Tree Lineage — Positional World Identity via Parent-Linked Hashing | Implemented |
+| [ADR-016](./adr/016-merkle-tree-lineage) | Merkle Tree Lineage — Positional Lineage Record Identity via Parent-Linked Hashing | Implemented |
 | [ADR-017](./adr/017-capability-decorator-pattern) | Capability Decorator Pattern — Semantic Transformation of SDK Surface | Implemented |
 | [ADR-018](./adr/018-public-snapshot-boundary) | Public Snapshot Boundary — User-Facing Snapshot Projection and CanonicalSnapshot Separation | Implemented |
 | [ADR-019](./adr/019-post-activation-extension-kernel) | Post-Activation Extension Kernel — Safe Public Seam for Arbitrary-Snapshot Operations | Implemented |

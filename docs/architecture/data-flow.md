@@ -6,7 +6,9 @@
 
 ## Default SDK Flow
 
-In the default path, a caller submits an action through the SDK:
+In the default path, MEL has already declared the rules, Core computes what
+should change, and Host converges the next Snapshot. A caller usually enters
+that loop through the SDK:
 
 ```text
 caller
@@ -19,7 +21,8 @@ caller
   -> observe.state()/observe.event()/snapshot()
 ```
 
-That is the core loop a new developer should keep in mind.
+That is the application-facing route into the core loop a new developer should
+keep in mind.
 
 ---
 
@@ -74,8 +77,8 @@ The effect handler does not bypass Snapshot. Its output still lands as patches.
 
 ## Optional Approval/History Flow
 
-When you need review, actor approval, or sealed history, add the advanced
-runtime before activation:
+When you need review, audit history, restore, or approval policies, add the
+optional extension runtime before activation:
 
 ```text
 participant
@@ -84,7 +87,7 @@ participant
   -> withGovernance()
   -> activate()
   -> action.<name>.submit(input?)
-  -> proposal / authority flow
+  -> review / approval flow
   -> Host
   -> Core
   -> terminal Snapshot

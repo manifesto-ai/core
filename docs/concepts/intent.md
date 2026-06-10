@@ -65,9 +65,9 @@ Current SDK rules are:
 ## Low-Level Escape Hatches
 
 Skip this section while learning the app path. Use it when you are building a
-runtime bridge, extension, low-level test, or governed service helper.
+runtime bridge, extension, low-level test, or approval/history service helper.
 
-The app path and low-level governed path use related but different inputs:
+The app path and low-level approval/history path use related but different inputs:
 
 | Type | Used By | Purpose |
 |------|---------|---------|
@@ -94,7 +94,7 @@ If the candidate input is not valid, `intent()` returns `null`.
 
 ---
 
-## The Governed Shape
+## Optional Approval Shape
 
 Use `createIntentInstance()` when you need actor identity, source metadata, or a
 service-level proposal path:
@@ -182,4 +182,4 @@ state or hand you raw effect results directly.
 
 - [Tutorial](/tutorial/) for the first end-to-end examples
 - [Effect](./effect) for what happens when an action declares external work
-- [When You Need Approval or History](/guides/approval-and-history) before adding review or sealed history
+- [When You Need Approval or History](/guides/approval-and-history) before adding review, audit history, or restore

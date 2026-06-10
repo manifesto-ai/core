@@ -1,8 +1,9 @@
 # MEL (Manifesto Expression Language) — Foundational Design Rationale (FDR)
 
 > **Version:** 0.3.3  
-> **Status:** Normative  
+> **Status:** Historical Rationale  
 > **Purpose:** Document the "Why" behind every major design decision in MEL  
+> **Historical Note:** The current living Compiler contract is [SPEC-v1.2.0.md](SPEC-v1.2.0.md). This file is retained for pre-v1 MEL design history.
 > **Changelog:**
 > - v0.2: AI-Native design principles and reviewer feedback integration
 > - v0.2.1: Manifesto Host Contract alignment, Guard-mandatory effects, Canonical form
@@ -1385,12 +1386,12 @@ action processOrder() {
 }
 ```
 
-"Waiting for approval" is a **World Protocol concern** (Authority deliberation), not a Flow concern. Using `halt` for this conflates two different concepts:
+"Waiting for approval" is a **Governance concern** (Authority deliberation), not a Flow concern. Using `halt` for this conflates two different concepts:
 
 | Concept | Layer | Mechanism |
 |---------|-------|-----------|
 | Early exit | Flow (MEL) | `stop` |
-| Pending approval | World Protocol | Authority `pending` state |
+| Pending approval | Governance | Authority `pending` state |
 
 ### The Solution: Rename to `stop` with Semantic Restriction
 
@@ -1452,7 +1453,7 @@ LINT ERROR: stop message suggests waiting/pending
 ✅ stop "Duplicate request"
 ```
 
-**Why?** "Waiting" semantics belong to World Protocol, not Flow. This lint prevents architectural confusion.
+**Why?** "Waiting" semantics belong to Governance, not Flow. This lint prevents architectural confusion.
 
 ### Guard Requirement
 
@@ -1475,13 +1476,13 @@ action process() {
 | Enables | Constrains |
 |---------|------------|
 | Clear early-exit semantics | "waiting" messages forbidden |
-| No confusion with World Protocol | stop must be guarded |
+| No confusion with Governance approval | stop must be guarded |
 | Idempotency patterns | |
 | Clean skip logic | |
 
 ### Canonical Statement
 
-> **`stop` is "early exit" — the operation completes successfully with nothing to do. It is NOT "waiting" or "pending." Use World Protocol for approval workflows.**
+> **`stop` is "early exit" — the operation completes successfully with nothing to do. It is NOT "waiting" or "pending." Use Governance for approval workflows.**
 
 ---
 
@@ -1932,7 +1933,7 @@ MEL IS:
   ✓ Architecture-reviewed: certified safe to implement (v0.3.1)
   ✓ Core-aligned: available, fail, stop match Core semantics (v0.3.3)
   ✓ Errors-are-values: fail is FlowNode, not Effect (v0.3.3)
-  ✓ Layered-concerns: stop vs World Protocol pending clearly separated (v0.3.3)
+  ✓ Layered-concerns: stop vs Governance pending clearly separated (v0.3.3)
   ✓ Fact-expressing: aggregation expresses facts, not procedures (v0.3.3)
   ✓ Schema-as-metadata: named types are AI-readable domain concepts (v0.3.3)
 
@@ -2380,7 +2381,7 @@ LINT: stop message suggests waiting
 > "`fail` is a FlowNode representing Core's decision to reject an operation. Errors are values, not side effects. Host doesn't execute failure — Core decides it."
 > — FDR-MEL-059
 
-> "`stop` is 'early exit' — the operation completes successfully with nothing to do. It is NOT 'waiting' or 'pending.' Use World Protocol for approval workflows."
+> "`stop` is 'early exit' — the operation completes successfully with nothing to do. It is NOT 'waiting' or 'pending.' Use Governance for approval workflows."
 > — FDR-MEL-060
 
 > "`call` exists in Core but is not exposed in MEL v0.3.3. MEL uses flat flows with potential compile-time inlining in future versions."

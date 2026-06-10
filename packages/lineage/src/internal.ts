@@ -21,10 +21,10 @@ import type {
   BranchSwitchResult,
   LineageService,
   PreparedNextCommit,
-  World,
   WorldHead,
   WorldId,
   WorldLineage,
+  WorldRecord,
 } from "./types.js";
 
 export type {
@@ -36,8 +36,8 @@ export type {
   LineageStore,
   PreparedLineageCommit,
   SealAttempt,
-  World,
   WorldId,
+  WorldRecord,
 } from "./types.js";
 export {
   DefaultLineageService,
@@ -117,7 +117,7 @@ export interface LineageRuntimeController<T extends ManifestoDomainShape> {
     intent: TypedIntent<T>,
     options?: SealIntentOptions,
   ): Promise<SealedIntentResult<T>>;
-  getWorld(worldId: WorldId): Promise<World | null>;
+  getWorld(worldId: WorldId): Promise<WorldRecord | null>;
   getWorldSnapshot(worldId: WorldId): Promise<CanonicalSnapshot<T["state"]> | null>;
   getLineage(): Promise<WorldLineage>;
   getLatestHead(): Promise<WorldHead | null>;
@@ -477,7 +477,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
     return kernel.enqueue(runSeal);
   }
 
-  async function getWorld(worldId: WorldId): Promise<World | null> {
+  async function getWorld(worldId: WorldId): Promise<WorldRecord | null> {
     await ensureReady();
     return service.getWorld(worldId);
   }

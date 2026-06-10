@@ -4,7 +4,7 @@
  * Tests for execution mailbox rules:
  * - MAIL-1: One mailbox per ExecutionKey
  * - MAIL-2: ExecutionKey opaque to Host
- * - MAIL-3: World/App layer determines mapping policy
+ * - MAIL-3: Runtime layers determine mapping policy
  * - MAIL-4: All state mutations through mailbox
  *
  * @see host-SPEC-v2.0.2.md §10.1

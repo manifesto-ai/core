@@ -52,9 +52,11 @@ There are currently no draft package specifications tracked from the active work
 
 These references remain available for traceability, but they are not maintained onboarding entry points.
 
-### World Facade Package
+### Retired Facade Package
 
-`@manifesto-ai/world` was removed from the active workspace in ADR-017 Phase 4. It is no longer a normative package and no longer defines the public governed bootstrap story.
+`@manifesto-ai/world` was removed from the active workspace in ADR-017 Phase 4.
+It is no longer a normative package and no longer defines the public governed
+bootstrap story. See the [retirement record](/internals/retired/world).
 
 ### Historical SDK Surfaces
 
@@ -145,7 +147,7 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 | 04-01 | SDK | v3.0.0 | ADR-017 landed: activation-first SDK, composable manifesto return, one-shot `activate()`, and instance-owned intent/dispatch flow |
 | 04-01 | Lineage | v3.0.0 | `withLineage(...).activate()` landed as the current seal-aware continuity runtime |
 | 04-01 | Governance | v3.0.0 | `withGovernance(...).activate()` landed as the current governed proposal runtime with an explicit lineage prerequisite |
-| 04-01 | World | Removed | `@manifesto-ai/world` removed from the active workspace and downgraded to historical tombstone status |
+| 04-01 | Retired facade | Removed | `@manifesto-ai/world` removed from the active workspace and downgraded to historical tombstone status |
 
 ### Recent Changes (2026-03)
 
@@ -153,7 +155,7 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 |------|---------|---------|--------|
 | 03-31 | Core | v4.0.0 | ADR-015 hard cut landed: accumulated `system.errors` and `appendErrors` were removed from the Core contract |
 | 03-31 | Lineage | v2.0.0 | ADR-015 + ADR-016 lineage contract landed: current-error hash identity, parent-linked `WorldId`, `SealAttempt`, `tip`, `headAdvancedAt`, idempotent reuse, and restore normalization |
-| 03-31 | Governance | v2.0.0 | Governance v2 landed: remove accumulated-error assumptions, remap provenance to `SealAttempt`, and align governance/world seam to the current typed surface |
+| 03-31 | Governance | v2.0.0 | Governance v2 landed: remove accumulated-error assumptions, remap provenance to `SealAttempt`, and align governance/lineage settlement to the current typed surface |
 | 03-31 | Host | v4.0.0 | Host v4 alignment followed the Core v4 Snapshot contract and removed `system.errors` from Host-facing Snapshot references |
 | 03-31 | SDK | v2.0.0 | Historical pre-ADR-017 SDK surface aligned to the Core v4 Snapshot contract before the activation-first hard cut |
 | 03-28 | Governance | v1.1.0 | Governance living SPEC created; package version index added |
@@ -165,17 +167,17 @@ The `@manifesto-ai/runtime` package is **retired**. Its responsibilities are abs
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
-| 02-27 | Core/Host/World/Compiler/Runtime/SDK | Core/Host/World v3.0.0, Compiler v0.6.0, Runtime/SDK v0.2.0 | ADR-009 hard cut reflected in normative specs and API docs |
+| 02-27 | Core/Host/retired facade/Compiler/Runtime/SDK | Core/Host/former facade v3.0.0, Compiler v0.6.0, Runtime/SDK v0.2.0 | ADR-009 hard cut reflected in normative specs and API docs |
 | 02-25 | ADR/Docs | v1.0 | ADR-010/011 accepted; living spec index updated for hard-cut and baseline rules |
-| 02-24 | Core, Host, World | — | SPEC consolidation: Living Documents, FDR inlined, old files archived |
-| 02-08 | World | v2.0.5-patch | Head Query API, resume contract, branch persistence |
+| 02-24 | Core, Host, retired facade | — | SPEC consolidation: Living Documents, FDR inlined, old files archived |
+| 02-08 | Retired facade | v2.0.5-patch | Head Query API, resume contract, branch persistence |
 | 02-08 | App | v2.3.1-patch | Head Query delegation (`getHeads()`, `getLatestHead()`) |
 
 ### Recent Changes (2026-01)
 
 | Date | Package | Version | Change |
 |------|---------|---------|--------|
-| 01-27 | World | v2.0.3-patch | ADR-002 DX improvements |
+| 01-27 | Retired facade | v2.0.3-patch | ADR-002 DX improvements |
 | 01-27 | App | v2.1.0-patch | Platform namespace injection |
 | 01-27 | Compiler | v0.5.0 | `$mel` namespace, `onceIntent` |
 | 01-18 | Host | v2.0.2 | Snapshot Type Alignment, `$host` namespace |

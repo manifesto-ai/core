@@ -38,7 +38,7 @@ into the runtime schema consumed behind the SDK app path.
 | --- | --- |
 | Execute external work | Runtime effect handlers |
 | Apply domain transitions | Manifesto runtime |
-| Govern authority or seal history | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
+| Add optional approval/history protocols | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
 | Bind UI or caller integrations | SDK / application layer |
 
 Current MEL/compiler highlights:
@@ -194,7 +194,7 @@ domain Counter {
 }
 `;
 
-const result = compile(source, { lowerSystemValues: true });
+const result = compile(source);
 
 if (!result.success) {
   console.error(result.errors);
@@ -210,9 +210,12 @@ const errors = check(source);
 ```typescript
 type CompileOptions = {
   skipSemanticAnalysis?: boolean;
-  lowerSystemValues?: boolean;
 };
 ```
+
+Legacy compatibility options may still exist for older call sites, but they are
+not current v5 integration seams. Runtime facts are represented through
+`$runtime.*` and explicit Core `Context`, not compiler-lowered system values.
 
 ---
 

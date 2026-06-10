@@ -50,7 +50,7 @@ The hardening gate is package-first. It exercises the current shipped packages i
 
 Representative runtime scenarios:
 
-- happy path: approved governed proposal seals and publishes
+- happy path: approved proposal records history and publishes
 - rejection path: approval constraints block publication
 - base path: SDK runtime still submits actions deterministically
 
@@ -60,7 +60,7 @@ Representative runtime scenarios:
 - cross-process or distributed lease coordination is not implemented
 - release-grade deep tracing and telemetry aggregation are not implemented
 - aggregate reporting is Markdown-only; JSON and NDJSON exports are intentionally not part of the gate
-- a new durable governed adapter package was not landed in this phase
+- a new durable approval/history adapter package was not landed in this phase
 
 ## Perf And Observability Baseline
 

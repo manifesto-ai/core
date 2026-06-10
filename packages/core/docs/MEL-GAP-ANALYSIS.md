@@ -2,8 +2,14 @@
 
 > **Version:** 1.0
 > **Date:** 2026-01-01
-> **Status:** Draft
+> **Status:** Historical Draft
 > **References:** `@manifesto-ai/mel-compiler/docs/SPEC.md` (MEL v0.2)
+
+::: warning Historical Draft
+This gap analysis predates the v5 hard cut. Current runtime facts use
+`$runtime.*` and explicit `Context` per ADR-027. `$system.*` is retired and is
+not a current MEL expression surface.
+:::
 
 ---
 
@@ -87,12 +93,12 @@ This document analyzes the gap between MEL (Manifesto Expression Language) SPEC 
 | `$index` | Current index in iteration | ✅ Implemented |
 | `$array` | Source array in iteration | ✅ Implemented |
 | `$acc` | Accumulator in reduce | ❌ **Missing** |
-| `$system.time.now` | Current timestamp | ⚠️ Host-provided |
-| `$system.uuid` | Generated UUID | ⚠️ Host-provided |
+| `$runtime.time.timestamp` | Captured transition timestamp | ✅ Context-provided |
+| `$runtime.random.uuid` | Deterministic UUID allocation | ✅ Context-provided |
 
 **Implementation Notes:**
 - `$acc` requires context extension for reduce operations
-- `$system.*` values are injected by Host, not Core
+- `$runtime.*` values are derived by Core from explicit `Context`; `$system.*` is retired
 
 ---
 

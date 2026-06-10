@@ -8,7 +8,7 @@
  * Key requirements:
  * - MAIL-1: Host MUST maintain one mailbox per ExecutionKey
  * - MAIL-2: ExecutionKey MUST be opaque to Host
- * - MAIL-3: World/App layer determines ExecutionKey mapping policy
+ * - MAIL-3: Runtime layers determine ExecutionKey mapping policy
  * - MAIL-4: All state mutations MUST go through the mailbox
  */
 

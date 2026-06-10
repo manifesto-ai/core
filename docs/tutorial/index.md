@@ -68,7 +68,7 @@ Read this only when the project now needs reviewable writes, durable history, ex
 | Step | Tutorial | Time | Outcome |
 |------|----------|------|---------|
 | 5 | [Approval and History Setup](./05-governed-composition) | 20 min | Add review and history around the same app model |
-| 6 | [Sealed History and Review Flow](./06-governed-sealing-and-history) | 25 min | Submit proposals, approve or reject them, and read sealed branch history |
+| 6 | [Review And Durable History Flow](./06-governed-sealing-and-history) | 25 min | Submit proposals, approve or reject them, and read branch history |
 
 If you are still deciding whether you need this, read [When You Need Approval or History](/guides/approval-and-history) first.
 

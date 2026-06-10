@@ -299,7 +299,7 @@ Determinism is over the full `schema + snapshot + intent + context` tuple.
 - Host - Host executes approved work; governance does not execute
 - Lineage - Lineage owns continuity/history, not legitimacy decisions
 
-**See also:** [Authority](#authority), [Lineage](#lineage), [Proposal](#proposal), [World](#world)
+**See also:** [Authority](#authority), [Lineage](#lineage), [Lineage Record](#lineage-record), [Proposal](#proposal)
 
 ---
 
@@ -344,19 +344,35 @@ Determinism is over the full `schema + snapshot + intent + context` tuple.
 
 ### Lineage
 
-**Definition:** The continuity layer and DAG of sealed world history. In the current public assembly it is added with `withLineage()` and owns sealing, restore, branch/head queries, and stored world lookup.
+**Definition:** The continuity layer and DAG of sealed lineage records. In the current public assembly it is added with `withLineage()` and owns sealing, restore, branch/head queries, and stored record lookup.
 
 **Key properties:**
 - Append-only continuity/history
 - Branch and head semantics are lineage-owned
-- Lineage-only environments can create sealed worlds without proposals
+- Lineage-only environments can create sealed records without proposals
 - `getWorldSnapshot(worldId)` reads stored sealed canonical substrate
 
 **Not to be confused with:**
 - Governance - governance owns legitimacy; lineage owns continuity
-- Current visible snapshot - lineage also stores sealed historical worlds
+- Current visible snapshot - lineage also stores sealed historical records
 
-**See also:** [Governance](#governance), [Snapshot](#snapshot), [World](#world)
+**See also:** [Governance](#governance), [Lineage Record](#lineage-record), [Snapshot](#snapshot)
+
+### Lineage Record
+
+**Definition:** An immutable sealed record in lineage history. The current public TypeScript name is `WorldRecord`, but maintained explanatory docs call the concept a lineage record to avoid treating retired world-facade packaging as current architecture.
+
+**Key properties:**
+- Immutable once sealed
+- Participates in lineage history and branch/head structure
+- May exist with or without proposal provenance depending on whether governance is active
+- Governed composition is expressed through `createManifesto() -> withLineage() -> withGovernance() -> activate()`
+
+**Not to be confused with:**
+- Retired top-level facade package - no longer the current public entry
+- Snapshot - snapshot is the runtime coordinate; a lineage record is the sealed historical record of such a coordinate
+
+**See also:** [Governance](#governance), [Lineage](#lineage), [Snapshot](#snapshot)
 
 ---
 
@@ -399,7 +415,7 @@ Determinism is over the full `schema + snapshot + intent + context` tuple.
 
 **Not to be confused with:**
 - Intent - the requested action itself
-- World - a sealed historical outcome, not the request record
+- Lineage Record - a sealed historical outcome, not the request record
 
 **See also:** [Authority](#authority), [Decision Record](#decision-record), [Intent](#intent)
 
@@ -454,9 +470,9 @@ Determinism is over the full `schema + snapshot + intent + context` tuple.
 
 **Not to be confused with:**
 - State - snapshot emphasizes immutable whole-truth state, not mutable variables
-- World - a world is a sealed historical coordinate, not just the current visible runtime read
+- Lineage Record - a sealed historical coordinate, not just the current visible runtime read
 
-**See also:** [Coordinate](#coordinate), [Projection](#projection), [World](#world)
+**See also:** [Coordinate](#coordinate), [Lineage Record](#lineage-record), [Projection](#projection)
 
 ---
 
@@ -469,26 +485,6 @@ Determinism is over the full `schema + snapshot + intent + context` tuple.
 - Event payloads on runtime telemetry channels - those are runtime events, not this older routing term
 
 **See also:** [Bridge](#bridge), [Intent](#intent), [Projection](#projection)
-
----
-
-## W
-
-### World
-
-**Definition:** An immutable sealed point in lineage history. In the current hard-cut model, "world" is a concept and governed composition path, not a top-level facade package.
-
-**Key properties:**
-- Immutable once sealed
-- Participates in lineage history/branch structure
-- May exist with or without proposal provenance depending on whether governance is active
-- Governed composition is expressed through `createManifesto() -> withLineage() -> withGovernance() -> activate()`
-
-**Not to be confused with:**
-- `@manifesto-ai/world` - retired facade package, no longer the current public entry
-- Snapshot - snapshot is the runtime coordinate; world is the sealed historical record of such a coordinate
-
-**See also:** [Governance](#governance), [Lineage](#lineage), [Snapshot](#snapshot)
 
 ---
 
@@ -517,7 +513,8 @@ Determinism is over the full `schema + snapshot + intent + context` tuple.
 | Governance | Legitimacy/approval decorator layer |
 | Host | Execution and fulfillment layer |
 | Intent | Canonical public command object |
-| Lineage | Continuity layer and world-history DAG |
+| Lineage | Continuity layer and sealed-record DAG |
+| Lineage Record | Immutable sealed point in lineage history |
 | Patch | Atomic mutation instruction |
 | Projection | Derived public read model from canonical substrate |
 | Proposal | Governance-owned accountability record |
@@ -525,7 +522,6 @@ Determinism is over the full `schema + snapshot + intent + context` tuple.
 | Semantic Space | Mathematical space defined by `DomainSchema` |
 | Snapshot | Complete state coordinate at a point in time |
 | SourceEvent | Historical event-routing term |
-| World | Immutable sealed point in lineage history |
 
 ---
 

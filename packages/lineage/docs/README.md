@@ -1,6 +1,7 @@
 # Lineage Docs
 
-This directory documents the current `@manifesto-ai/lineage` contract after ADR-017.
+This directory documents the current optional `@manifesto-ai/lineage` contract
+after ADR-017.
 
 > **Current Contract Note:** The current lineage contract is [lineage-SPEC.md](lineage-SPEC.md). The v2 docs remain as the historical service-first baseline.
 

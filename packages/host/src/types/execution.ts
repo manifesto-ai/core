@@ -25,7 +25,7 @@ import type { TraceEvent } from "./trace.js";
 /**
  * Opaque execution key for single-writer serialization.
  *
- * ExecutionKey is opaque to Host. World/App layer determines the mapping policy.
+ * ExecutionKey is opaque to Host. Runtime layers determine the mapping policy.
  *
  * @see SPEC §3.6, MAIL-2
  */

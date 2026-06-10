@@ -125,4 +125,4 @@ serialized intent shape. App code should stay on action handles.
 
 - Read the submit result in [Snapshots and Subscriptions](./snapshots-and-subscriptions)
 - Inspect legality in [Actions and Availability](./actions-and-availability)
-- Add approval only when needed in [Approval/History Runtime](./governed-runtime)
+- Add approval only when needed in [Optional Approval/History Runtime](./governed-runtime)

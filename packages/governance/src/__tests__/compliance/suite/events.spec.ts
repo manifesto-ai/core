@@ -262,9 +262,9 @@ describe("GCTS Events Suite", () => {
           evidence: [noteEvidence("Ran a completed terminal seal through the dispatcher and verified ordered post-commit events.")],
         }),
         evaluateRule(getRuleOrThrow("GOV-EXEC-EVT-2"), failedOutcomeOk, {
-          passMessage: "Failed governed seals emit world:created followed by execution:failed while still sealing the failed World.",
+          passMessage: "Failed governed seals emit world:created followed by execution:failed while still sealing the failed lineage record.",
           failMessage: "Failed governed seals did not emit the expected post-commit execution:failed sequence.",
-          evidence: [noteEvidence("Ran a failed terminal seal through the dispatcher and verified the failed World still produced post-commit events.")],
+          evidence: [noteEvidence("Ran a failed terminal seal through the dispatcher and verified the failed lineage record still produced post-commit events.")],
         }),
         evaluateRule(getRuleOrThrow("GOV-EXEC-EVT-3"), successOutcomeOk && failedOutcomeOk, {
           passMessage: "Execution result events are emitted only on the explicit post-commit dispatcher path.",

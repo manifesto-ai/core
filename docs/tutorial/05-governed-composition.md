@@ -2,7 +2,7 @@
 
 > Add the advanced runtime layers only after the base path already works.
 
-Read this tutorial only when the project now needs approval, branch history, or sealed records.
+Read this tutorial only when the project now needs approval, branch history, audit, or restore.
 
 ## What You'll Build
 
@@ -19,7 +19,7 @@ This track introduces the approval/history packages after the first app path:
 |------|--------------------------|
 | History decorator | `withLineage(...)`; records committed app snapshots and exposes branch/head/restore reads |
 | Approval decorator | `withGovernance(...)`; creates reviewable proposals before execution |
-| Binding | Which actor can use which authority policy |
+| Binding | Which actor can use which approval policy |
 | `projectionId` | The app surface name recorded with a submitted request |
 | `deriveActor` / `deriveSource` | App callbacks that attach actor and source metadata to a request |
 
@@ -64,7 +64,7 @@ argument when your domain declares effects.
 ## 2. Create A Reviewable Request
 
 ```typescript
-const request = governed.action.addTodo.bind("Document the governed path");
+const request = governed.action.addTodo.bind("Document the approval path");
 ```
 
 The typed request still comes from the runtime. Governance adds an approval
@@ -103,4 +103,4 @@ If none of those matter, stay on the first-app tutorials and the SDK path.
 
 ## Next
 
-Continue to [Sealed History and Review Flow](./06-governed-sealing-and-history) to see how proposals become sealed history.
+Continue to [Review And Durable History Flow](./06-governed-sealing-and-history) to see how proposals become durable history.

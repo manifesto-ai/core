@@ -5,15 +5,15 @@ import type {
   LineageStore,
   PersistedBranchEntry,
   Snapshot,
-  World,
   WorldEdge,
   WorldHead,
   WorldId,
   WorldLineage,
+  WorldRecord,
 } from "./types.js";
 
 type EnumerableLineageStore = LineageStore & {
-  listWorlds?(): readonly World[];
+  listWorlds?(): readonly WorldRecord[];
   listEdges?(): readonly WorldEdge[];
 };
 
@@ -30,7 +30,7 @@ export function toBranchInfo(entry: PersistedBranchEntry): BranchInfo {
   };
 }
 
-export function toWorldHead(branch: PersistedBranchEntry, world: World): WorldHead {
+export function toWorldHead(branch: PersistedBranchEntry, world: WorldRecord): WorldHead {
   return {
     worldId: world.worldId,
     branchId: branch.id,
@@ -236,8 +236,8 @@ export async function buildWorldLineage(store: LineageStore): Promise<WorldLinea
   };
 }
 
-async function collectWorldsFromBranches(store: LineageStore): Promise<readonly World[]> {
-  const worlds = new Map<WorldId, World>();
+async function collectWorldsFromBranches(store: LineageStore): Promise<readonly WorldRecord[]> {
+  const worlds = new Map<WorldId, WorldRecord>();
   const queue = (await store.getBranches()).flatMap((branch) => [branch.head, branch.tip]);
 
   while (queue.length > 0) {
@@ -262,7 +262,7 @@ async function collectWorldsFromBranches(store: LineageStore): Promise<readonly 
 
 async function collectEdgesFromWorlds(
   store: LineageStore,
-  worlds: readonly World[]
+  worlds: readonly WorldRecord[]
 ): Promise<readonly WorldEdge[]> {
   const edges = new Map<string, WorldEdge>();
 

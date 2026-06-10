@@ -160,5 +160,5 @@ application effect handlers.
 |---------|--------------|
 | [@manifesto-ai/core](./core) | Pure semantic computation |
 | [@manifesto-ai/sdk](./sdk) | Activation-first app runtime over Host |
-| [@manifesto-ai/lineage](./lineage) | History decorator layered over SDK + Host |
-| [@manifesto-ai/governance](./governance) | Proposal/approval decorator layered over Lineage + SDK + Host |
+| [@manifesto-ai/lineage](./lineage) | Optional history decorator layered over SDK + Host |
+| [@manifesto-ai/governance](./governance) | Optional proposal/approval decorator layered over Lineage + SDK + Host |

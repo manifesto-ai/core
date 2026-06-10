@@ -1,9 +1,10 @@
 # MEL Compiler Specification v0.7.0
 
 > **Version:** 0.7.0  
-> **Status:** Normative  
+> **Status:** Historical Reference  
 > **Authors:** Manifesto Team  
 > **License:** MIT  
+> **Historical Note:** The current living Compiler contract is [SPEC-v1.2.0.md](SPEC-v1.2.0.md). This file is retained for pre-v1 compiler history.
 > **Changelog:**
 > - v0.2: AI-Native design principles (FDR-MEL-012 ~ 019)
 > - v0.2.1: Host Contract alignment (FDR-MEL-020 ~ 026)
@@ -3163,7 +3164,7 @@ This section specifies how the compiler transforms `$system.*` references into `
 
 ### 11.1 Lowering Algorithm (v0.3.1, unified v0.7.0)
 
-All compiler-generated system value state lives under the `$mel` platform namespace. This namespace is platform-owned, opaque to Core (SCHEMA-RESERVED-1), excluded from World hash, and automatically managed by the SDK/App layer.
+All compiler-generated system value state lives under the `$mel` platform namespace. This namespace is platform-owned, opaque to Core (SCHEMA-RESERVED-1), excluded from semantic snapshot identity, and automatically managed by the SDK/App layer.
 
 **Canonical path structure:**
 
@@ -5329,7 +5330,7 @@ Guards use map-level `merge` because multiple guards coexist as siblings under `
 
 ## 22. Cross-Spec Alignment: `$mel` Namespace (v0.7.0 Companion Patch)
 
-This section documents the canonical `$mel` namespace shape as it relates to Core, Host, World, and SDK contracts. It serves as a normative bridge between this Compiler SPEC and the surrounding specs.
+This section documents the historical `$mel` namespace shape as it related to Core, Host, Lineage, and SDK contracts before the v1 living Compiler contract. It is retained as a bridge for older compiler releases.
 
 **Canonical `$mel` shape:**
 
@@ -5350,7 +5351,7 @@ snapshot.data.$mel
 | Layer | Contract | Reference |
 |-------|----------|-----------|
 | **Core** | `data.$*` namespaces are platform-owned and opaque. Core MUST NOT require them in `StateSpec`. Core validates only namespace roots as objects, no nested validation under `$*`. Platform layers MAY add or patch `data.$*` via `core.apply()`. | Core SPEC §5.5, SCHEMA-RESERVED-1/2 |
-| **World** | `data.$mel` is excluded from the semantic snapshot hash. Changes to `$mel.*` do not alter the domain's identity. | World SPEC §hash-exclusion |
+| **Lineage** | `$mel` platform data is excluded from semantic snapshot identity. Changes to `$mel.*` do not alter the domain's lineage identity. | Lineage hash rules |
 | **SDK** | `withPlatformNamespaces()` injects `$host` and `$mel` into initial snapshot. `normalizeSnapshot()` ensures `$mel` structure is present. | SDK SPEC §withPlatformNamespaces, ADR-002 |
 | **Compiler** | `$mel.guards.intent.*` stores onceIntent guard markers. `$mel.sys.*` stores compiler-generated system value acquisition slots. Both are created by compiler-generated patches/effects. | This spec §4.7.1, §11, §21 |
 
@@ -5360,7 +5361,7 @@ snapshot.data.$mel
 2. `$mel.guards.intent.*` is eagerly normalized by SDK at snapshot creation.
 3. `$mel.sys.*` is lazily created by compiler-generated patches and Host-fulfilled effects.
 4. All `$mel.*` values are exempt from domain FieldSpec type restrictions (§5.6.2).
-5. Surrounding specs (SDK, World, Host) SHOULD recognize `$mel.sys.*` as a valid subtree under the existing `$mel` platform namespace policy. No new ADR is required — `$mel.sys.*` is a specialization of the already-approved `$mel` namespace.
+5. Surrounding specs (SDK, Lineage, Host) SHOULD recognize `$mel.sys.*` as a valid subtree under the existing `$mel` platform namespace policy. No new ADR is required — `$mel.sys.*` is a specialization of the already-approved `$mel` namespace.
 
 ## Appendix A: Grammar Summary (EBNF)
 

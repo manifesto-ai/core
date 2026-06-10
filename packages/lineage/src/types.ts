@@ -37,7 +37,7 @@ export interface ComputeEnvelope {
   readonly context: Context;
 }
 
-export interface World {
+export interface WorldRecord {
   readonly worldId: WorldId;
   readonly schemaHash: SchemaHash;
   readonly snapshotHash: string;
@@ -53,7 +53,7 @@ export interface WorldEdge {
 
 export interface WorldLineage {
   readonly genesis: WorldId;
-  readonly worlds: ReadonlyMap<WorldId, World>;
+  readonly worlds: ReadonlyMap<WorldId, WorldRecord>;
   readonly edges: ReadonlyMap<string, WorldEdge>;
 }
 
@@ -164,7 +164,7 @@ export interface SealAttempt {
 
 export interface PreparedLineageRecords {
   readonly worldId: WorldId;
-  readonly world: World;
+  readonly world: WorldRecord;
   readonly terminalSnapshot: Snapshot;
   readonly hashInput: SnapshotHashInput;
   readonly attempt: SealAttempt;
@@ -190,8 +190,8 @@ export interface PreparedNextCommit extends PreparedLineageRecords {
 export type PreparedLineageCommit = PreparedGenesisCommit | PreparedNextCommit;
 
 export interface LineageStore {
-  putWorld(world: World): Promise<void>;
-  getWorld(worldId: WorldId): Promise<World | null>;
+  putWorld(world: WorldRecord): Promise<void>;
+  getWorld(worldId: WorldId): Promise<WorldRecord | null>;
   putSnapshot(worldId: WorldId, snapshot: Snapshot): Promise<void>;
   getSnapshot(worldId: WorldId): Promise<Snapshot | null>;
   putAttempt(attempt: SealAttempt): Promise<void>;
@@ -221,7 +221,7 @@ export interface LineageService {
   getBranches(): Promise<readonly BranchInfo[]>;
   getActiveBranch(): Promise<BranchInfo>;
   switchActiveBranch(targetBranchId: BranchId): Promise<BranchSwitchResult>;
-  getWorld(worldId: WorldId): Promise<World | null>;
+  getWorld(worldId: WorldId): Promise<WorldRecord | null>;
   getSnapshot(worldId: WorldId): Promise<Snapshot | null>;
   getAttempts(worldId: WorldId): Promise<readonly SealAttempt[]>;
   getAttemptsByBranch(branchId: BranchId): Promise<readonly SealAttempt[]>;

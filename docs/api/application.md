@@ -82,4 +82,4 @@ The MEL domain stays the same. Base, history, and approval modes all expose the 
 
 - Inspect the activated handle in [Runtime Instance](./runtime)
 - Submit work with [Actions and Availability](./actions-and-availability)
-- Add approval in [Approval/History Runtime](./governed-runtime)
+- Add approval in [Optional Approval/History Runtime](./governed-runtime)

@@ -1,11 +1,11 @@
-# Sealed History And Review Flow
+# Review And Durable History Flow
 
-> See how a reviewable proposal becomes sealed history under the advanced runtime.
+> See how a reviewable proposal becomes durable history under the optional extension runtime.
 
 ## What You'll Learn
 
 - how a reviewable proposal moves toward execution
-- how approval and rejection fit into the sealing flow
+- how approval and rejection fit into the history flow
 - how to read branch, head, and restored snapshot state after commit
 
 ## Prerequisites
@@ -20,8 +20,8 @@
 |------|--------------------------|
 | Proposal | A submitted request waiting for approval or rejection |
 | Seal | The history write that makes a terminal app snapshot durable |
-| Head | The latest sealed record for a branch |
-| Restore | Reading the app snapshot stored for a sealed record |
+| Head | The latest durable record for a branch |
+| Restore | Reading the app snapshot stored for a durable record |
 | Branch | A named line of history with its own latest head |
 
 ## 1. Create The Reviewable Request
@@ -52,16 +52,16 @@ if (pending.ok && pending.status === "pending") {
 }
 ```
 
-If the governing policy rejects instead, use `reject(proposalId, reason)` and no seal occurs.
+If the approval policy rejects instead, use `reject(proposalId, reason)` and no history record is published.
 
-## 4. Read Sealed History
+## 4. Read Durable History
 
 ```typescript
 const head = await governed.getLatestHead();
 const restored = head ? await governed.restore(head.worldId) : null;
 ```
 
-Lineage only publishes the new visible snapshot after seal commit succeeds. That is the key difference from the base runtime.
+Lineage only publishes the new visible snapshot after the history commit succeeds. That is the key difference from the base runtime.
 
 ## 5. Inspect Branch State
 

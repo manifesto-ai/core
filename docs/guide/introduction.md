@@ -1,10 +1,26 @@
 # Introduction
 
-> Manifesto gives apps and agents one shared domain model.
+> Manifesto computes deterministic domain state transitions.
 
-Manifesto lets you define a domain once in MEL, run that domain through the
-SDK, and expose the same actions and snapshots to frontend code, backend
-services, and agents.
+Manifesto is a lightweight domain runtime. You write domain transition rules in
+MEL, run them through the runtime, and expose the same typed actions and
+Snapshots to frontend code, backend services, and agents.
+
+```text
+MEL -> Core -> Host
+rules  compute execute
+```
+
+MEL declares domain transition rules. Core computes semantic transitions from
+schema, snapshot, intent, and context. Host fulfills declared effects and
+converges snapshots.
+
+The SDK is the application-facing surface most projects use first:
+`createManifesto() -> activate() -> action.<name>.submit() -> snapshot()`.
+
+Lineage and Governance are optional protocol extensions for applications that
+need history, restore, audit, approval, policy, or delegation. They are not
+prerequisites for a first app.
 
 It is not a state management library, an AI framework, a database, or a
 workflow engine. It is the domain runtime underneath those surfaces.
@@ -32,7 +48,7 @@ That keeps the visible result in one place.
 
 ## The Base Runtime Path
 
-Start here:
+In application code, start here:
 
 ```text
 MEL domain -> createManifesto() -> activate() -> action.<name>.submit() -> Snapshot

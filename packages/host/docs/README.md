@@ -32,11 +32,15 @@ If you are deciding where to start:
 In the Manifesto architecture:
 
 ```text
-SDK runtime / governed decorators -> HOST -> Core
-                                     |
-                            Executes effects, applies patches
-                            Runs the mailbox-based compute-effect loop
+MEL -> Core -> HOST
+             |
+      Executes effects, applies patches
+      Runs the mailbox-based compute-effect loop
 ```
+
+Most applications reach Host through the SDK. Optional approval/history
+extensions can wrap the SDK runtime later without changing Host's
+responsibility.
 
 ---
 
@@ -56,7 +60,7 @@ SDK runtime / governed decorators -> HOST -> Core
 |--------------------|--------|
 | Compute state transitions | Core |
 | Define domain semantics/schema | App |
-| Govern authority/proposals | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
+| Add optional approval/history protocols | `@manifesto-ai/governance` + `@manifesto-ai/lineage` |
 | Handle UI/event bindings | App |
 
 ---
@@ -168,14 +172,15 @@ Effect handlers should be idempotent when possible. If the same effect runs twic
 ## Relationship with Other Packages
 
 ```text
-SDK runtime / governed decorators -> HOST -> Core
+SDK runtime -> HOST -> Core
+Optional approval/history extensions wrap the SDK runtime when needed.
 ```
 
 | Relationship | Package | How |
 |--------------|---------|-----|
 | Depends on | `@manifesto-ai/core` | Uses compute() and apply() |
 | Used by | `@manifesto-ai/sdk` | SDK creates Host internally via `createManifesto()` |
-| Used by | `@manifesto-ai/lineage` / `@manifesto-ai/governance` | Governed decorators execute through the SDK/Host runtime chain |
+| Used by | `@manifesto-ai/lineage` / `@manifesto-ai/governance` | Optional decorators execute through the SDK/Host runtime chain |
 
 ---
 

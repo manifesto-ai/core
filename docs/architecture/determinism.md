@@ -204,7 +204,7 @@ await fetch('/api/data');
 │                    COMPUTATION CYCLE                         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Host calls: compute(snapshot, intent, context)             │
+│  Host calls: compute(schema, snapshot, intent, context)     │
 │                     │                                       │
 │                     ▼                                       │
 │  ┌─────────────────────────────────────┐                   │
@@ -383,7 +383,7 @@ Determinism requires strict boundaries:
 │  - User interaction                                         │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              │ compute(snapshot, intent, context)
+                              │ compute(schema, snapshot, intent, context)
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                           Core                               │

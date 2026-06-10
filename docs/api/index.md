@@ -15,7 +15,7 @@ If you are learning Manifesto for the first time, start with the [Guide](/guide/
 | Understand the raw request object behind an action | [Intents](./intents) |
 | Read domain state | [Snapshots and Subscriptions](./snapshots-and-subscriptions) |
 | Fulfill external work | [Effects](./effects) |
-| Add approval or review | [Approval/History Runtime](./governed-runtime) |
+| Add optional approval or history | [Optional Approval/History Runtime](./governed-runtime) |
 | Import `.mel` files | [Bundler Adapters](./bundler-adapters) |
 
 ## Public Surface Inventory

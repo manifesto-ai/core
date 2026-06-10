@@ -28,7 +28,7 @@ to submit actions and read snapshots.
 | Guide | Read It When |
 |-------|--------------|
 | [When You Need Approval or History](./approval-and-history) | The project now needs review, durable history, or auditability |
-| [Advanced Runtime Assembly](./governed-composition) | You already know you need the approval/history runtime and want the compact setup path |
+| [Advanced Runtime Assembly](./governed-composition) | You already know you need approval/history extensions and want the compact setup path |
 
 ## Maintainers And Operators
 
