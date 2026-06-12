@@ -1,5 +1,7 @@
 import {
   validateIntentInput as queryIntentInputValidation,
+  type ActionAvailabilityEvaluation,
+  type ActionDispatchabilityEvaluation,
   type DomainSchema,
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
@@ -38,6 +40,14 @@ type RuntimeAdmissionOptions<T extends ManifestoDomainShape> = {
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
   ) => boolean;
+  readonly evaluateActionAvailabilityFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    name: keyof T["actions"],
+  ) => ActionAvailabilityEvaluation;
+  readonly evaluateIntentDispatchabilityFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ) => ActionDispatchabilityEvaluation;
   readonly projectSnapshotFromCanonical: (
     snapshot: CoreSnapshot,
   ) => ProjectedSnapshot<T>;
@@ -50,6 +60,8 @@ export function createRuntimeAdmission<T extends ManifestoDomainShape>({
   getAvailableActionsFor,
   isActionAvailableFor,
   isIntentDispatchableFor,
+  evaluateActionAvailabilityFor,
+  evaluateIntentDispatchabilityFor,
   projectSnapshotFromCanonical,
   getSimulateSync,
 }: RuntimeAdmissionOptions<T>): RuntimeAdmission<T> {
@@ -76,7 +88,19 @@ export function createRuntimeAdmission<T extends ManifestoDomainShape>({
       return Object.freeze([]);
     }
 
-    if (!isActionAvailableFor(snapshot, actionName)) {
+    // Legality evaluation errors are blockers, not exceptions: an action
+    // whose available/dispatchable expression cannot be evaluated is not
+    // legal, and the failure reason rides the blocker description (#493).
+    const availability = evaluateActionAvailabilityFor(snapshot, actionName);
+    if (availability.kind === "error") {
+      return Object.freeze(
+        action.available
+          ? [buildDispatchBlocker("available", action.available, availability.message)]
+          : [],
+      );
+    }
+
+    if (!availability.available) {
       return Object.freeze(
         action.available
           ? [buildDispatchBlocker("available", action.available, action.description)]
@@ -84,7 +108,16 @@ export function createRuntimeAdmission<T extends ManifestoDomainShape>({
       );
     }
 
-    if (!isIntentDispatchableFor(snapshot, intent)) {
+    const dispatchability = evaluateIntentDispatchabilityFor(snapshot, intent);
+    if (dispatchability.kind === "error") {
+      return Object.freeze(
+        action.dispatchable
+          ? [buildDispatchBlocker("dispatchable", action.dispatchable, dispatchability.message)]
+          : [],
+      );
+    }
+
+    if (!dispatchability.dispatchable) {
       return Object.freeze(
         action.dispatchable
           ? [buildDispatchBlocker("dispatchable", action.dispatchable, action.description)]
