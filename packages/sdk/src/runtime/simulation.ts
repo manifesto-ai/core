@@ -1,190 +1,190 @@
 import {
-	apply,
-	applyNamespaceDeltas,
-	applySystemDelta,
-	computeSync,
-	type Context,
-	type DomainSchema,
-	type Snapshot as CoreSnapshot,
-	type TraceGraph,
+  apply,
+  applyNamespaceDeltas,
+  applySystemDelta,
+  computeSync,
+  type Context,
+  type DomainSchema,
+  type Snapshot as CoreSnapshot,
+  type TraceGraph,
 } from "@manifesto-ai/core";
 import {
-	getHostState,
-	type HostContextProvider,
-	type IntentSlot,
+  getHostState,
+  type HostContextProvider,
+  type IntentSlot,
 } from "@manifesto-ai/host";
 
 import { ManifestoError } from "../errors.js";
 import { cloneAndDeepFreeze } from "../projection/snapshot-projection.js";
 import type {
-	CanonicalSnapshot,
-	ManifestoDomainShape,
-	TypedIntent,
+  CanonicalSnapshot,
+  ManifestoDomainShape,
+  TypedIntent,
 } from "../types.js";
 import type {
-	IntentLegalityEvaluation,
-	RuntimeSimulateSync,
-	RuntimeSimulationResult,
+  IntentLegalityEvaluation,
+  RuntimeSimulateSync,
+  RuntimeSimulationResult,
 } from "./facets.js";
 
 type RuntimeSimulationOptions<T extends ManifestoDomainShape> = {
-	readonly schema: DomainSchema;
-	readonly hostContextProvider: HostContextProvider;
-	readonly evaluateIntentLegalityFor: (
-		snapshot: CanonicalSnapshot<T["state"]>,
-		intent: TypedIntent<T>,
-	) => IntentLegalityEvaluation<T>;
+  readonly schema: DomainSchema;
+  readonly hostContextProvider: HostContextProvider;
+  readonly evaluateIntentLegalityFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ) => IntentLegalityEvaluation<T>;
 };
 
 function normalizeTraceNodeTimestamps(
-	node: TraceGraph["root"],
-	timestamp: number,
+  node: TraceGraph["root"],
+  timestamp: number,
 ): TraceGraph["root"] {
-	return {
-		...node,
-		timestamp,
-		children: node.children.map((child) =>
-			normalizeTraceNodeTimestamps(child, timestamp),
-		),
-	};
+  return {
+    ...node,
+    timestamp,
+    children: node.children.map((child) =>
+      normalizeTraceNodeTimestamps(child, timestamp),
+    ),
+  };
 }
 
 function collectTraceNodes(root: TraceGraph["root"]): TraceGraph["nodes"] {
-	const nodes: TraceGraph["nodes"] = {};
+  const nodes: TraceGraph["nodes"] = {};
 
-	function visit(node: TraceGraph["root"]): void {
-		nodes[node.id] = node;
-		node.children.forEach(visit);
-	}
+  function visit(node: TraceGraph["root"]): void {
+    nodes[node.id] = node;
+    node.children.forEach(visit);
+  }
 
-	visit(root);
-	return nodes;
+  visit(root);
+  return nodes;
 }
 
 function createStableSimulationTrace(
-	trace: TraceGraph,
-	timestamp: number,
+  trace: TraceGraph,
+  timestamp: number,
 ): TraceGraph {
-	const root = normalizeTraceNodeTimestamps(trace.root, timestamp);
-	return {
-		...trace,
-		duration: 0,
-		root,
-		nodes: collectTraceNodes(root),
-	};
+  const root = normalizeTraceNodeTimestamps(trace.root, timestamp);
+  return {
+    ...trace,
+    duration: 0,
+    root,
+    nodes: collectTraceNodes(root),
+  };
 }
 
 export function createRuntimeSimulation<T extends ManifestoDomainShape>({
-	schema,
-	hostContextProvider,
-	evaluateIntentLegalityFor,
+  schema,
+  hostContextProvider,
+  evaluateIntentLegalityFor,
 }: RuntimeSimulationOptions<T>) {
-	function withHostIntentSlot(
-		snapshot: CoreSnapshot,
-		intent: TypedIntent<T>,
-	): CoreSnapshot {
-		const hostState = getHostState(snapshot);
-		const intentSlots = hostState?.intentSlots ?? {};
-		const intentSlot: IntentSlot =
-			intent.input === undefined
-				? { type: intent.type }
-				: { type: intent.type, input: intent.input };
+  function withHostIntentSlot(
+    snapshot: CoreSnapshot,
+    intent: TypedIntent<T>,
+  ): CoreSnapshot {
+    const hostState = getHostState(snapshot);
+    const intentSlots = hostState?.intentSlots ?? {};
+    const intentSlot: IntentSlot =
+      intent.input === undefined
+        ? { type: intent.type }
+        : { type: intent.type, input: intent.input };
 
-		return applyNamespaceDeltas(snapshot, [
-			{
-				namespace: "host",
-				patches: [
-					{
-						op: "set",
-						path: [{ kind: "prop", name: "intentSlots" }],
-						value: {
-							...intentSlots,
-							[intent.intentId]: intentSlot,
-						},
-					},
-				],
-			},
-		]);
-	}
+    return applyNamespaceDeltas(snapshot, [
+      {
+        namespace: "host",
+        patches: [
+          {
+            op: "set",
+            path: [{ kind: "prop", name: "intentSlots" }],
+            value: {
+              ...intentSlots,
+              [intent.intentId]: intentSlot,
+            },
+          },
+        ],
+      },
+    ]);
+  }
 
-	function createSimulationUnavailableError(
-		intent: TypedIntent<T>,
-	): ManifestoError {
-		return new ManifestoError(
-			"ACTION_UNAVAILABLE",
-			`Action "${intent.type}" is unavailable against the provided canonical snapshot`,
-		);
-	}
+  function createSimulationUnavailableError(
+    intent: TypedIntent<T>,
+  ): ManifestoError {
+    return new ManifestoError(
+      "ACTION_UNAVAILABLE",
+      `Action "${intent.type}" is unavailable against the provided canonical snapshot`,
+    );
+  }
 
-	function createSimulationNotDispatchableError(
-		intent: TypedIntent<T>,
-	): ManifestoError {
-		return new ManifestoError(
-			"INTENT_NOT_DISPATCHABLE",
-			`Action "${intent.type}" is available, but the bound intent is not dispatchable against the provided canonical snapshot`,
-		);
-	}
+  function createSimulationNotDispatchableError(
+    intent: TypedIntent<T>,
+  ): ManifestoError {
+    return new ManifestoError(
+      "INTENT_NOT_DISPATCHABLE",
+      `Action "${intent.type}" is available, but the bound intent is not dispatchable against the provided canonical snapshot`,
+    );
+  }
 
-	const simulateSync: RuntimeSimulateSync<T> = (
-		snapshot,
-		intent,
-		options,
-	): RuntimeSimulationResult<T> => {
-		const legality = evaluateIntentLegalityFor(snapshot, intent);
-		if (legality.kind === "unavailable") {
-			throw createSimulationUnavailableError(legality.intent);
-		}
-		if (legality.kind === "invalid-input") {
-			throw legality.error;
-		}
-		if (legality.kind === "not-dispatchable") {
-			throw createSimulationNotDispatchableError(legality.intent);
-		}
-		const enrichedIntent = legality.intent;
+  const simulateSync: RuntimeSimulateSync<T> = (
+    snapshot,
+    intent,
+    options,
+  ): RuntimeSimulationResult<T> => {
+    const legality = evaluateIntentLegalityFor(snapshot, intent);
+    if (legality.kind === "unavailable") {
+      throw createSimulationUnavailableError(legality.intent);
+    }
+    if (legality.kind === "invalid-input") {
+      throw legality.error;
+    }
+    if (legality.kind === "not-dispatchable") {
+      throw createSimulationNotDispatchableError(legality.intent);
+    }
+    const enrichedIntent = legality.intent;
 
-		const context: Context =
-			options?.context ??
-			hostContextProvider.createFrozenContext(
-				enrichedIntent.intentId,
-				options?.externalContext,
-			);
-		const baseline = withHostIntentSlot(
-			structuredClone(snapshot as CoreSnapshot),
-			enrichedIntent,
-		);
-		const result = computeSync(schema, baseline, enrichedIntent, context);
-		const afterPatches = apply(schema, baseline, result.patches);
-		const afterNamespaceDeltas = applyNamespaceDeltas(
-			afterPatches,
-			result.namespaceDelta ?? [],
-		);
-		const canonicalSimulated = applySystemDelta(
-			afterNamespaceDeltas,
-			result.systemDelta,
-		);
+    const context: Context =
+      options?.context ??
+      hostContextProvider.createFrozenContext(
+        enrichedIntent.intentId,
+        options?.externalContext,
+      );
+    const baseline = withHostIntentSlot(
+      structuredClone(snapshot as CoreSnapshot),
+      enrichedIntent,
+    );
+    const result = computeSync(schema, baseline, enrichedIntent, context);
+    const afterPatches = apply(schema, baseline, result.patches);
+    const afterNamespaceDeltas = applyNamespaceDeltas(
+      afterPatches,
+      result.namespaceDelta ?? [],
+    );
+    const canonicalSimulated = applySystemDelta(
+      afterNamespaceDeltas,
+      result.systemDelta,
+    );
 
-		return Object.freeze({
-			snapshot: cloneAndDeepFreeze(
-				canonicalSimulated as CanonicalSnapshot<T["state"]>,
-			),
-			patches: cloneAndDeepFreeze(result.patches),
-			systemDelta: cloneAndDeepFreeze(result.systemDelta),
-			status: result.status,
-			requirements: cloneAndDeepFreeze(
-				result.systemDelta.addRequirements ?? [],
-			),
-			diagnostics: Object.freeze({
-				trace: cloneAndDeepFreeze(
-					createStableSimulationTrace(result.trace, snapshot.meta.timestamp),
-				),
-			}),
-		}) as RuntimeSimulationResult<T>;
-	};
+    return Object.freeze({
+      snapshot: cloneAndDeepFreeze(
+        canonicalSimulated as CanonicalSnapshot<T["state"]>,
+      ),
+      patches: cloneAndDeepFreeze(result.patches),
+      systemDelta: cloneAndDeepFreeze(result.systemDelta),
+      status: result.status,
+      requirements: cloneAndDeepFreeze(
+        result.systemDelta.addRequirements ?? [],
+      ),
+      diagnostics: Object.freeze({
+        trace: cloneAndDeepFreeze(
+          createStableSimulationTrace(result.trace, snapshot.meta.timestamp),
+        ),
+      }),
+    }) as RuntimeSimulationResult<T>;
+  };
 
-	return Object.freeze({
-		withHostIntentSlot,
-		createSimulationUnavailableError,
-		createSimulationNotDispatchableError,
-		simulateSync,
-	});
+  return Object.freeze({
+    withHostIntentSlot,
+    createSimulationUnavailableError,
+    createSimulationNotDispatchableError,
+    simulateSync,
+  });
 }
