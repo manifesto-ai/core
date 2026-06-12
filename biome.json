@@ -30,11 +30,11 @@
       },
       "suspicious": {
         "recommended": true,
-        "noExplicitAny": "warn",
+        "noExplicitAny": "error",
         "noConfusingVoidType": "off",
         "noThenProperty": "off",
-        "useIterableCallbackReturn": "off",
-        "noPrototypeBuiltins": "off",
+        "useIterableCallbackReturn": "error",
+        "noPrototypeBuiltins": "error",
         "noApproximativeNumericConstant": "off",
         "noEmptyInterface": "off"
       },

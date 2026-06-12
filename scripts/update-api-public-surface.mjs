@@ -116,8 +116,12 @@ async function collectExports(filePath, seen = new Set()) {
         const recursivePath = resolveModulePath(normalized, moduleSpecifier.text);
         if (recursivePath) {
           const nested = await collectExports(recursivePath, seen);
-          nested.values.forEach((name) => add(values, name));
-          nested.types.forEach((name) => add(types, name));
+          nested.values.forEach((name) => {
+            add(values, name);
+          });
+          nested.types.forEach((name) => {
+            add(types, name);
+          });
         }
       }
       continue;

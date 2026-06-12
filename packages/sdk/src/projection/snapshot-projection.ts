@@ -74,7 +74,7 @@ function projectComputed<TComputed>(
   const projected: Record<string, unknown> = {};
 
   for (const key of plan.visibleComputedKeys) {
-    if (Object.prototype.hasOwnProperty.call(computed, key)) {
+    if (Object.hasOwn(computed, key)) {
       projected[key] = computed[key];
     }
   }
@@ -133,8 +133,8 @@ function cycleSafeEqualInternal(
     }
 
     for (let index = 0; index < leftObject.length; index += 1) {
-      const leftHasValue = Object.prototype.hasOwnProperty.call(leftObject, index);
-      const rightHasValue = Object.prototype.hasOwnProperty.call(rightObject, index);
+      const leftHasValue = Object.hasOwn(leftObject, index);
+      const rightHasValue = Object.hasOwn(rightObject, index);
 
       if (leftHasValue !== rightHasValue) {
         return false;

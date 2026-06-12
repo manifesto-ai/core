@@ -13,6 +13,7 @@ import type {
 } from "../types.js";
 import { cloneAndDeepFreeze, projectedSnapshotsEqual } from "../projection/snapshot-projection.js";
 import type { RuntimeStateStore } from "./facets.js";
+import { findCanonicalSnapshotValueViolation } from "./snapshot-value-domain.js";
 
 const SNAPSHOT_TOP_LEVEL_KEYS = new Set([
   "state",
@@ -62,6 +63,18 @@ function assertCanonicalSnapshotShape(snapshot: CoreSnapshot): void {
       );
     }
   }
+}
+
+function assertCanonicalSnapshotValueDomain(snapshot: CoreSnapshot): void {
+  const violation = findCanonicalSnapshotValueViolation(snapshot);
+  if (!violation) {
+    return;
+  }
+
+  throw new ManifestoError(
+    "INVALID_SNAPSHOT_VALUE",
+    `Visible snapshot contains a non-JSON value at ${violation.path}: ${violation.reason}`,
+  );
 }
 
 interface Subscriber<TState, TComputed, R> {
@@ -170,6 +183,7 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
     options?: { readonly notify?: boolean },
   ): Snapshot<T["state"], T["computed"]> {
     assertCanonicalSnapshotShape(snapshot);
+    assertCanonicalSnapshotValueDomain(snapshot);
     visibleCanonicalSnapshot = structuredClone(snapshot);
     host.reset(structuredClone(visibleCanonicalSnapshot));
     visibleCanonicalReadSnapshot = cloneAndDeepFreeze(

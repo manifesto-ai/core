@@ -40,6 +40,7 @@ const SKIP_DIRS = new Set([".git", ".turbo", "coverage", "dist", "node_modules"]
 const IMPORT_PATTERN = /(?:^|[^\\])["'](@manifesto-ai\/[a-z-]+)(\/[^"']*)?["']/g;
 const IMPORT_LINE_PATTERN =
   /(?:\bfrom\s*["']|\bimport\s*\(\s*["']|\brequire\s*\(\s*["']|^\s*import\s+["'])/;
+const IMPORT_CLOSE_LINE_PATTERN = /^\s*}\s*from\s*["']/;
 
 function toPosix(p) {
   return p.split(path.sep).join("/");
@@ -77,7 +78,8 @@ function checkImportMatrix() {
       if (isTestPath(file.rel)) continue;
       const lines = fs.readFileSync(file.abs, "utf-8").split(/\r?\n/u);
       lines.forEach((line, index) => {
-        if (!IMPORT_LINE_PATTERN.test(line) && !line.includes("} from")) return;
+        if (/^["'`]/.test(line.trimStart())) return;
+        if (!IMPORT_LINE_PATTERN.test(line) && !IMPORT_CLOSE_LINE_PATTERN.test(line)) return;
         for (const match of line.matchAll(IMPORT_PATTERN)) {
           const target = match[1];
           const subpath = match[2] ?? "";

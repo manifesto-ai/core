@@ -260,7 +260,7 @@ export function pathExistsInStateSpec(
 }
 
 export function pathExistsInComputedSpec(computed: ComputedSpec, path: string): boolean {
-  return Object.prototype.hasOwnProperty.call(computed.fields, path);
+  return Object.hasOwn(computed.fields, path);
 }
 
 export function pathExistsInFieldSpec(spec: FieldSpec, path: string): boolean {

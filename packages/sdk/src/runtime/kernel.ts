@@ -47,6 +47,7 @@ import { createRuntimePublication } from "./publication.js";
 import { createRuntimeReportHelpers, diffProjectedPaths } from "./reports.js";
 import { createRuntimeSimulation } from "./simulation.js";
 import { createRuntimeStateStore } from "./state-store.js";
+import { findCanonicalSnapshotValueViolation } from "./snapshot-value-domain.js";
 import { generateUUID } from "./uuid.js";
 import {
   captureExternalContext as captureContextOverride,
@@ -110,6 +111,17 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   }
 
   function rehydrateSnapshot(snapshot: CoreSnapshot): CoreSnapshot {
+    const storedViolation = findCanonicalSnapshotValueViolation({
+      ...snapshot,
+      computed: {},
+    });
+    if (storedViolation) {
+      throw new ManifestoError(
+        "SNAPSHOT_REHYDRATION_FAILED",
+        `Failed to rehydrate restored snapshot JSON values: ${storedViolation.path}: ${storedViolation.reason}`,
+      );
+    }
+
     const computed = evaluateComputed(schema, snapshot);
     if (isErr(computed)) {
       throw new ManifestoError(
@@ -119,10 +131,19 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
       );
     }
 
-    return {
+    const rehydrated = {
       ...snapshot,
       computed: computed.value,
     };
+    const violation = findCanonicalSnapshotValueViolation(rehydrated);
+    if (violation) {
+      throw new ManifestoError(
+        "SNAPSHOT_REHYDRATION_FAILED",
+        `Failed to rehydrate restored snapshot JSON values: ${violation.path}: ${violation.reason}`,
+      );
+    }
+
+    return rehydrated;
   }
 
   const stateStore = createRuntimeStateStore<T>({

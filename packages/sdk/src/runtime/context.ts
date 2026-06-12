@@ -82,7 +82,7 @@ function materializeJsonValue(
 
     const clone: JsonValue[] = [];
     for (let index = 0; index < value.length; index += 1) {
-      if (!Object.prototype.hasOwnProperty.call(value, index)) {
+      if (!Object.hasOwn(value, index)) {
         throwInvalidContext(source, [...path, index], "Context arrays must not contain holes");
       }
       clone.push(materializeJsonValue(value[index], source, [...path, index], seen));

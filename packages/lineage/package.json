@@ -36,7 +36,7 @@
   "scripts": {
     "build": "rm -rf dist && tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declarationMap false --outDir dist && node ../../scripts/check-public-surface.mjs packages/lineage",
     "clean": "rm -rf dist",
-    "lint": "node ../../node_modules/@biomejs/biome/bin/biome check src",
+    "lint": "node ../../scripts/run-biome.mjs check src",
     "test": "pnpm run test:runtime && pnpm run test:types",
     "test:runtime": "node ../../scripts/run-vitest.mjs run",
     "test:types": "node ../../scripts/run-tsc.mjs -p tsconfig.types.json --noEmit",
@@ -52,9 +52,9 @@
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",
     "@manifesto-ai/cts-kit": "workspace:*",
-    "typescript": "^5.9.3",
-    "vite": "^8.0.8",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
   },
   "files": [
     "dist"

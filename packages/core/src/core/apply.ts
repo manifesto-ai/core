@@ -257,7 +257,7 @@ export function applyNamespaceDeltas(
       continue;
     }
 
-    const existingRoot = Object.prototype.hasOwnProperty.call(newNamespaces, delta.namespace)
+    const existingRoot = Object.hasOwn(newNamespaces, delta.namespace)
       ? newNamespaces[delta.namespace]
       : undefined;
     if (existingRoot !== undefined && !isObjectRecord(existingRoot)) {

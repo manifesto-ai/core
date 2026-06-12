@@ -13,7 +13,7 @@ describe("Core CTS snapshot and namespace rules", () => {
       const snapshot = createComplianceSnapshot({ count: 1 });
 
       expect(snapshot.state).toEqual({ count: 1 });
-      expect(Object.prototype.hasOwnProperty.call(snapshot, "data")).toBe(false);
+      expect(Object.hasOwn(snapshot, "data")).toBe(false);
       expect(snapshot.namespaces).toEqual({});
       expect(snapshot.meta).toEqual({
         version: 0,

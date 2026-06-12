@@ -106,7 +106,9 @@ export function collectTargetReferences(
         visitExpr(expr.index, ctx);
         return;
       case "functionCall":
-        expr.args.forEach((arg) => visitExpr(arg, ctx));
+        expr.args.forEach((arg) => {
+          visitExpr(arg, ctx);
+        });
         return;
       case "unary":
         visitExpr(expr.operand, ctx);
@@ -133,7 +135,9 @@ export function collectTargetReferences(
         }
         return;
       case "arrayLiteral":
-        expr.elements.forEach((element) => visitExpr(element, ctx));
+        expr.elements.forEach((element) => {
+          visitExpr(element, ctx);
+        });
         return;
       case "literal":
       case "systemIdent":
@@ -174,26 +178,36 @@ export function collectTargetReferences(
     switch (stmt.kind) {
       case "when":
         visitExpr(stmt.condition, ctx);
-        stmt.body.forEach((inner) => visitInnerStmt(inner, ctx));
+        stmt.body.forEach((inner) => {
+          visitInnerStmt(inner, ctx);
+        });
         return;
       case "once":
         visitPath(stmt.marker, true, ctx);
         if (stmt.condition) visitExpr(stmt.condition, ctx);
-        stmt.body.forEach((inner) => visitInnerStmt(inner, ctx));
+        stmt.body.forEach((inner) => {
+          visitInnerStmt(inner, ctx);
+        });
         return;
       case "onceIntent":
         if (stmt.condition) visitExpr(stmt.condition, ctx);
-        stmt.body.forEach((inner) => visitInnerStmt(inner, ctx));
+        stmt.body.forEach((inner) => {
+          visitInnerStmt(inner, ctx);
+        });
         return;
       case "include":
-        stmt.args.forEach((arg) => visitExpr(arg, ctx));
+        stmt.args.forEach((arg) => {
+          visitExpr(arg, ctx);
+        });
         return;
       case "patch":
         visitPath(stmt.path, true, ctx);
         if (stmt.value) visitExpr(stmt.value, ctx);
         return;
       case "effect":
-        stmt.args.forEach((arg) => visitEffectArg(arg, ctx));
+        stmt.args.forEach((arg) => {
+          visitEffectArg(arg, ctx);
+        });
         return;
       case "fail":
         if (stmt.message) visitExpr(stmt.message, ctx);
@@ -213,11 +227,15 @@ export function collectTargetReferences(
 
   const visitAction = (action: ActionNode): void => {
     const localParams = new Set(action.params.map((param) => param.name));
-    action.params.forEach((param) => visitParam(param));
+    action.params.forEach((param) => {
+      visitParam(param);
+    });
     if (action.available) visitExpr(action.available, { localParams });
     if (action.dispatchable)
       visitExpr(action.dispatchable, { localParams, preferLocalParams: true });
-    action.body.forEach((stmt) => visitGuardedStmt(stmt, { localParams, preferLocalParams: true }));
+    action.body.forEach((stmt) => {
+      visitGuardedStmt(stmt, { localParams, preferLocalParams: true });
+    });
   };
 
   const visitParam = (param: ParamNode): void => {
@@ -226,8 +244,12 @@ export function collectTargetReferences(
 
   const visitFlow = (flow: FlowDeclNode): void => {
     const localParams = new Set(flow.params.map((param) => param.name));
-    flow.params.forEach((param) => visitType(param.typeExpr));
-    flow.body.forEach((stmt) => visitFlowStmt(stmt, { localParams, preferLocalParams: true }));
+    flow.params.forEach((param) => {
+      visitType(param.typeExpr);
+    });
+    flow.body.forEach((stmt) => {
+      visitFlowStmt(stmt, { localParams, preferLocalParams: true });
+    });
   };
 
   for (const importNode of program.imports) {

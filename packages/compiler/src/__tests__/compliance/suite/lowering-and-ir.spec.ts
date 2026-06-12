@@ -123,13 +123,19 @@ function walkCanonicalExpr(
       walkCanonicalExpr(expr.object, visit);
       return;
     case "call":
-      expr.args.forEach((arg) => walkCanonicalExpr(arg, visit));
+      expr.args.forEach((arg) => {
+        walkCanonicalExpr(arg, visit);
+      });
       return;
     case "obj":
-      expr.fields.forEach((field) => walkCanonicalExpr(field.value, visit));
+      expr.fields.forEach((field) => {
+        walkCanonicalExpr(field.value, visit);
+      });
       return;
     case "arr":
-      expr.elements.forEach((element) => walkCanonicalExpr(element, visit));
+      expr.elements.forEach((element) => {
+        walkCanonicalExpr(element, visit);
+      });
       return;
     case "lit":
     case "var":
@@ -196,7 +202,9 @@ function walkRuntimeExpr(
     case "min":
     case "max":
     case "coalesce":
-      expr.args.forEach((arg) => walkRuntimeExpr(arg, visit));
+      expr.args.forEach((arg) => {
+        walkRuntimeExpr(arg, visit);
+      });
       return;
     case "substring":
       walkRuntimeExpr(expr.str, visit);
@@ -230,10 +238,14 @@ function walkRuntimeExpr(
       return;
     case "append":
       walkRuntimeExpr(expr.array, visit);
-      expr.items.forEach((item) => walkRuntimeExpr(item, visit));
+      expr.items.forEach((item) => {
+        walkRuntimeExpr(item, visit);
+      });
       return;
     case "object":
-      Object.values(expr.fields).forEach((field) => walkRuntimeExpr(field, visit));
+      Object.values(expr.fields).forEach((field) => {
+        walkRuntimeExpr(field, visit);
+      });
       return;
     case "field":
       walkRuntimeExpr(expr.object, visit);
@@ -244,7 +256,9 @@ function walkRuntimeExpr(
       walkRuntimeExpr(expr.obj, visit);
       return;
     case "merge":
-      expr.objects.forEach((objectExpr) => walkRuntimeExpr(objectExpr, visit));
+      expr.objects.forEach((objectExpr) => {
+        walkRuntimeExpr(objectExpr, visit);
+      });
       return;
     case "pow":
       walkRuntimeExpr(expr.base, visit);
@@ -282,7 +296,9 @@ function collectCanonicalFlowExprs(
 ): void {
   switch (flow.kind) {
     case "seq":
-      flow.steps.forEach((step) => collectCanonicalFlowExprs(step, exprs));
+      flow.steps.forEach((step) => {
+        collectCanonicalFlowExprs(step, exprs);
+      });
       return;
     case "if":
       walkCanonicalExpr(flow.cond, (expr) => exprs.push(expr));
@@ -300,9 +316,11 @@ function collectCanonicalFlowExprs(
       }
       return;
     case "effect":
-      Object.values(flow.params).forEach((value) =>
-        walkCanonicalExpr(value, (expr) => exprs.push(expr)),
-      );
+      Object.values(flow.params).forEach((value) => {
+        walkCanonicalExpr(value, (expr) => {
+          exprs.push(expr);
+        });
+      });
       return;
     case "fail":
       if (flow.message) {
@@ -336,7 +354,9 @@ function collectRuntimeExprs(schema: DomainSchema | null): CoreExprNode[] {
 function collectRuntimeFlowExprs(flow: CoreFlowNode, exprs: CoreExprNode[]): void {
   switch (flow.kind) {
     case "seq":
-      flow.steps.forEach((step) => collectRuntimeFlowExprs(step, exprs));
+      flow.steps.forEach((step) => {
+        collectRuntimeFlowExprs(step, exprs);
+      });
       return;
     case "if":
       walkRuntimeExpr(flow.cond, (expr) => exprs.push(expr));
@@ -354,9 +374,11 @@ function collectRuntimeFlowExprs(flow: CoreFlowNode, exprs: CoreExprNode[]): voi
       }
       return;
     case "effect":
-      Object.values(flow.params).forEach((value) =>
-        walkRuntimeExpr(value, (expr) => exprs.push(expr)),
-      );
+      Object.values(flow.params).forEach((value) => {
+        walkRuntimeExpr(value, (expr) => {
+          exprs.push(expr);
+        });
+      });
       return;
     case "fail":
       if (flow.message) {

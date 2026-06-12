@@ -297,7 +297,7 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
   }
 
   // Handle computed path (schema lookup, no prefix)
-  if (Object.prototype.hasOwnProperty.call(ctx.schema.computed.fields, path)) {
+  if (Object.hasOwn(ctx.schema.computed.fields, path)) {
     return ok(normalizeMissingPathValue(ctx.snapshot.computed[path]));
   }
 
@@ -1141,7 +1141,7 @@ function evaluateHasKey(obj: ExprNode, key: ExprNode, ctx: EvalContext): ExprRes
   if (typeof value !== "object" || value === null || Array.isArray(value)) return ok(false);
   const k = keyResult.value;
   if (typeof k !== "string") return ok(false);
-  return ok(Object.prototype.hasOwnProperty.call(value, k));
+  return ok(Object.hasOwn(value, k));
 }
 
 function evaluatePick(obj: ExprNode, keys: ExprNode, ctx: EvalContext): ExprResult {
@@ -1155,7 +1155,7 @@ function evaluatePick(obj: ExprNode, keys: ExprNode, ctx: EvalContext): ExprResu
   if (!Array.isArray(keyList)) return ok({});
   const result: Record<string, unknown> = {};
   for (const k of keyList) {
-    if (typeof k === "string" && Object.prototype.hasOwnProperty.call(value, k)) {
+    if (typeof k === "string" && Object.hasOwn(value, k)) {
       result[k] = (value as Record<string, unknown>)[k];
     }
   }

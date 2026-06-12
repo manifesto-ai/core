@@ -147,8 +147,8 @@ export function diffProjectedPaths<T>(
 
       const limit = Math.max(a.length, b.length);
       for (let index = 0; index < limit; index += 1) {
-        const leftHas = Object.prototype.hasOwnProperty.call(a, index);
-        const rightHas = Object.prototype.hasOwnProperty.call(b, index);
+        const leftHas = Object.hasOwn(a, index);
+        const rightHas = Object.hasOwn(b, index);
         const childPath = [...path, index];
         if (leftHas !== rightHas) {
           addPath(childPath, leftHas ? "unset" : "set");
@@ -169,8 +169,8 @@ export function diffProjectedPaths<T>(
 
     const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
     for (const key of [...keys].sort()) {
-      const leftHas = Object.prototype.hasOwnProperty.call(a, key);
-      const rightHas = Object.prototype.hasOwnProperty.call(b, key);
+      const leftHas = Object.hasOwn(a, key);
+      const rightHas = Object.hasOwn(b, key);
       const childPath = [...path, key];
       if (leftHas !== rightHas) {
         addPath(childPath, leftHas ? "unset" : "set");

@@ -7,6 +7,7 @@
     "incremental": false,
     "declaration": false,
     "declarationMap": false,
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@manifesto-ai/sdk": ["../sdk/src/index.ts"],

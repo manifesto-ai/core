@@ -260,7 +260,7 @@ function resolvePath(path: string, ctx: EvaluationContext): unknown {
   }
 
   // Computed: bare key lookup (no prefix)
-  if (Object.prototype.hasOwnProperty.call(ctx.snapshot.computed, path)) {
+  if (Object.hasOwn(ctx.snapshot.computed, path)) {
     return ctx.snapshot.computed[path];
   }
 
@@ -340,7 +340,7 @@ function getValueAtPath(obj: unknown, parts: string[]): unknown {
   }
 
   const [head, ...rest] = parts;
-  if (!Object.prototype.hasOwnProperty.call(obj, head)) {
+  if (!Object.hasOwn(obj, head)) {
     return null;
   }
   const next = (obj as Record<string, unknown>)[head];
@@ -401,7 +401,7 @@ function deepEqual(a: unknown, b: unknown): boolean {
     if (aKeys.length !== bKeys.length) return false;
     return aKeys.every(
       (key) =>
-        Object.prototype.hasOwnProperty.call(b, key) &&
+        Object.hasOwn(b, key) &&
         deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
     );
   }

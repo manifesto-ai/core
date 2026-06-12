@@ -88,7 +88,7 @@ describe("ADR-025 core acceptance", () => {
       const snapshot = createSnapshot({ count: 1 }, "test-hash", HOST_CONTEXT);
 
       expect(snapshot.state).toEqual({ count: 1 });
-      expect(Object.prototype.hasOwnProperty.call(snapshot, "data")).toBe(false);
+      expect(Object.hasOwn(snapshot, "data")).toBe(false);
       expect(snapshot.namespaces).toEqual({});
     });
   });

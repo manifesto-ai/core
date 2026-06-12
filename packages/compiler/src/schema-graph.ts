@@ -169,7 +169,9 @@ function collectMutationRootsFromFlow(flow: CoreFlowNode, schema: DomainSchema):
 
     switch (node.kind) {
       case "seq":
-        node.steps.forEach((step) => visit(step, callStack));
+        node.steps.forEach((step) => {
+          visit(step, callStack);
+        });
         return;
       case "if":
         visit(node.then, callStack);
@@ -266,7 +268,7 @@ function resolveComputedDependency(
   dep: string,
   computedFields: DomainSchema["computed"]["fields"],
 ): string | null {
-  if (Object.prototype.hasOwnProperty.call(computedFields, dep)) {
+  if (Object.hasOwn(computedFields, dep)) {
     return dep;
   }
 
@@ -275,7 +277,7 @@ function resolveComputedDependency(
   }
 
   const candidate = dep.slice("computed.".length);
-  return Object.prototype.hasOwnProperty.call(computedFields, candidate) ? candidate : null;
+  return Object.hasOwn(computedFields, candidate) ? candidate : null;
 }
 
 function rootFromSemanticPath(path: string): string | null {

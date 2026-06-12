@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createHost, createHostContextProvider, defaultRuntime } from "@manifesto-ai/host";
 import { createSnapshot, extractDefaults, type Snapshot as CoreSnapshot } from "@manifesto-ai/core";
 
+import { createManifesto } from "../index.js";
+import { getRuntimeKernelFactory } from "../provider.js";
 import { createRuntimeStateStore } from "../runtime/state-store.js";
 import { createCounterSchema, type CounterDomain } from "./helpers/schema.js";
 
@@ -88,5 +90,38 @@ describe("setVisibleSnapshot canonical shape validation (#492)", () => {
         notify: false,
       }),
     ).toThrow(/must be a canonical snapshot object/);
+  });
+
+  it("rejects non-JSON values at the hydration boundary", () => {
+    const { store, initial } = createStore();
+    const broken = {
+      ...structuredClone(initial),
+      state: {
+        count: Number.NaN,
+      },
+    } as CoreSnapshot;
+
+    expect(() =>
+      store.setVisibleSnapshot(broken, {
+        notify: false,
+      }),
+    ).toThrow(/non-JSON value at snapshot\.state\.count: non-finite number \(NaN\)/);
+  });
+
+  it("rejects non-JSON values when rehydrating restored snapshots", () => {
+    const manifesto = createManifesto<CounterDomain>(createCounterSchema(), {});
+    const kernel = getRuntimeKernelFactory(manifesto)();
+    const canonical = structuredClone(kernel.getVisibleCoreSnapshot());
+    const broken = {
+      ...canonical,
+      state: {
+        ...canonical.state,
+        count: Number.NaN,
+      },
+    } as CoreSnapshot;
+
+    expect(() => kernel.rehydrateSnapshot(broken)).toThrow(
+      /Failed to rehydrate restored snapshot JSON values: snapshot\.state\.count: non-finite number \(NaN\)/,
+    );
   });
 });

@@ -188,6 +188,7 @@ function assertTypechecks(files: Readonly<Record<string, string>>): void {
       lib: ["lib.es2022.d.ts", "lib.dom.d.ts"],
       types: [],
       baseUrl: REPO_ROOT,
+      ignoreDeprecations: "6.0",
       paths: {
         "@manifesto-ai/compiler": ["packages/compiler/src/index.ts"],
         "@manifesto-ai/core": ["packages/core/src/index.ts"],

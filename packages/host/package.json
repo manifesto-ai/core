@@ -37,7 +37,7 @@
   "scripts": {
     "build": "rm -rf dist && tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declarationMap false --outDir dist",
     "clean": "rm -rf dist",
-    "lint": "node ../../node_modules/@biomejs/biome/bin/biome check src",
+    "lint": "node ../../scripts/run-biome.mjs check src",
     "test": "node ../../scripts/run-vitest.mjs run",
     "test:coverage": "node ../../scripts/run-vitest.mjs run --coverage",
     "test:watch": "node ../../scripts/run-vitest.mjs"
@@ -47,9 +47,9 @@
   },
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",
-    "typescript": "^5.9.3",
-    "vite": "^8.0.8",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
   },
   "files": [
     "dist"

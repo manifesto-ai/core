@@ -115,5 +115,5 @@ function isRequirementEqual(a: Requirement, b: Requirement): boolean {
 }
 
 function hasOwn<T extends object, K extends PropertyKey>(obj: T, key: K): boolean {
-  return Object.prototype.hasOwnProperty.call(obj, key);
+  return Object.hasOwn(obj, key);
 }

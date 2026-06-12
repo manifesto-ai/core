@@ -23,7 +23,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const COMPILER_DIST = path.join(ROOT, "packages", "compiler", "dist", "index.js");
 const SDK_DIST = path.join(ROOT, "packages", "sdk", "dist", "index.js");
 
-const CHECKED_DOCS = ["README.md", "docs/guide/quick-start.md"];
+const CHECKED_DOCS = [
+  "README.md",
+  "docs/guide/quick-start.md",
+  "docs/guide/essentials/mel-domain-basics.md",
+];
 
 function fail(message) {
   console.error(`doc-snippet check failed: ${message}`);
@@ -103,14 +107,25 @@ for (const docPath of CHECKED_DOCS) {
   const modulePath = path.join(tempDir, "snippet.mjs");
   fs.writeFileSync(modulePath, moduleSource);
 
-  const result = spawnSync(process.execPath, [modulePath], { encoding: "utf-8" });
+  const stdoutPath = path.join(tempDir, "stdout.txt");
+  const stderrPath = path.join(tempDir, "stderr.txt");
+  const stdoutFd = fs.openSync(stdoutPath, "w");
+  const stderrFd = fs.openSync(stderrPath, "w");
+  const result = spawnSync(process.execPath, [modulePath], {
+    cwd: ROOT,
+    stdio: ["ignore", stdoutFd, stderrFd],
+  });
+  fs.closeSync(stdoutFd);
+  fs.closeSync(stderrFd);
+  const stdout = fs.readFileSync(stdoutPath, "utf-8");
+  const stderr = fs.readFileSync(stderrPath, "utf-8");
   fs.rmSync(tempDir, { recursive: true, force: true });
 
   if (result.status !== 0) {
-    fail(`${docPath}: documented runtime snippet exited ${result.status}:\n${result.stderr}`);
+    fail(`${docPath}: documented runtime snippet exited ${result.status}:\n${stderr}`);
   }
 
-  const actual = result.stdout
+  const actual = stdout
     .trim()
     .split("\n")
     .map((line) => line.trim());

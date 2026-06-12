@@ -18,13 +18,13 @@
   "scripts": {
     "build": "rm -rf dist && tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declarationMap false --outDir dist",
     "clean": "rm -rf dist",
-    "lint": "node ../../node_modules/@biomejs/biome/bin/biome check src",
+    "lint": "node ../../scripts/run-biome.mjs check src",
     "test": "echo 'no tests for @manifesto-ai/cts-kit'",
     "test:coverage": "echo 'no coverage for @manifesto-ai/cts-kit'"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
-    "vite": "^8.0.8",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
   }
 }

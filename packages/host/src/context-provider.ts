@@ -156,7 +156,7 @@ function cloneJsonValue(value: JsonValue, seen: WeakSet<object>): JsonValue {
     seen.add(value);
     const cloned: JsonValue[] = [];
     for (let index = 0; index < value.length; index += 1) {
-      if (!Object.prototype.hasOwnProperty.call(value, index)) {
+      if (!Object.hasOwn(value, index)) {
         throw new TypeError("Context external arrays must not contain holes");
       }
       cloned.push(cloneJsonValue(value[index] as JsonValue, seen));
