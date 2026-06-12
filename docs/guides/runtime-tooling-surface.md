@@ -112,6 +112,60 @@ attempt/proposal metadata, not Lineage record identity: it includes both `runtim
 Application users normally never build this envelope manually; replay and audit
 tools read it from Lineage attempts or Governance proposals.
 
+## Multi-Step Simulation
+
+`action.<name>.preview(input)` is a single-step dry run. For multi-step
+trajectory exploration without committing to the live runtime, use
+`createSimulationSession()` from `@manifesto-ai/sdk/extensions`:
+
+```typescript
+import { createSimulationSession, getExtensionKernel } from "@manifesto-ai/sdk/extensions";
+
+const ext = getExtensionKernel(app);
+const root = createSimulationSession(app);
+
+// Each next() returns a NEW immutable session one step deeper.
+const step1 = root.next(ext.refs.actions.increment);
+const branchA = step1.next(ext.refs.actions.increment); // count = 2
+const branchB = step1.next(ext.refs.actions.add, 5);    // count = 6 — branches share step1
+
+console.log(branchA.depth);              // 2
+console.log(branchB.snapshot.state);     // projected state at this branch
+console.log(branchB.trajectory.length);  // 2 recorded steps (immutable)
+
+const final = step1.finish();            // final session view of a trajectory
+```
+
+Sessions read from the canonical snapshot and record every step in an
+immutable `trajectory`; sibling branches never observe each other. Nothing a
+session does reaches the live runtime.
+
+## Observing Settlement Events
+
+The v5 event vocabulary is `submission:*` (the v4 `dispatch:*` event names,
+including `dispatch:completed`, were retired with the activation-first
+surface). Subscribe through `on()`:
+
+```typescript
+app.on("submission:settled", (event) => {
+  // By the time submission:settled fires, the visible runtime already
+  // reflects the settled state: read fresh values from app.snapshot()
+  // (or inspect.canonicalSnapshot() for substrate fields).
+  console.log(event.action, event.outcome.kind, event.snapshotVersion);
+  console.log(app.snapshot().state);
+});
+```
+
+The payload carries correlation data (`action`, `mode`, `intentId`,
+`schemaHash`, `snapshotVersion`, and for decorated runtimes `worldId` /
+`proposal`), not a snapshot object — the snapshot channel stays singular:
+read state from the runtime, never from event payloads.
+
+## Naming Notes
+
+Requests phrased as `getCanonicalSnapshotAt(worldId)` map to the existing
+`getWorldSnapshot(worldId)` concept; no separate alias exists.
+
 ## Studio Boundaries
 
 `@manifesto-ai/studio-core` is projection-first and read-only. It accepts `DomainSchema` plus optional canonical snapshot, trace, lineage, and governance overlays, then returns JSON projections. It does not execute effects, apply patches, or mutate runtime state.
