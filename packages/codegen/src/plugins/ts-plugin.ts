@@ -11,6 +11,13 @@ import type {
   CodegenPlugin,
   Diagnostic,
 } from "../types.js";
+import {
+  createTypeNameAliasMap,
+  isTypeDeclarationName,
+  renderPropertyKey,
+  sanitizeIdentifier,
+  type IdentifierAliasMap,
+} from "../identifier-safety.js";
 
 const PLUGIN_NAME = "codegen-plugin-ts";
 
@@ -42,12 +49,22 @@ export function createTsPlugin(options?: TsPluginOptions): CodegenPlugin {
 
       // Generate types from schema.types (GEN-10, TS-6: lexicographic order)
       const sortedTypeNames = Object.keys(ctx.schema.types).sort();
+      const typeAliases = createTypeNameAliasMap(sortedTypeNames);
+      for (const [name, alias] of typeAliases) {
+        if (alias !== name) {
+          diagnostics.push({
+            level: "warn",
+            plugin: PLUGIN_NAME,
+            message: `Schema type name "${name}" is not a valid TypeScript type name. Emitting sanitized alias "${alias}".`,
+          });
+        }
+      }
       const typeDecls: string[] = [];
 
       for (const name of sortedTypeNames) {
         const spec = ctx.schema.types[name];
-        typeNames.push(name);
-        typeDecls.push(renderNamedType(name, spec, diagnostics));
+        typeNames.push(typeAliases.get(name) ?? name);
+        typeDecls.push(renderNamedType(name, spec, typeAliases, diagnostics));
       }
 
       const typesContent = typeDecls.join("\n\n") + "\n";
@@ -55,11 +72,20 @@ export function createTsPlugin(options?: TsPluginOptions): CodegenPlugin {
       // Generate action input types
       const sortedActionNames = Object.keys(ctx.schema.actions).sort();
       const actionDecls: string[] = [];
+      const usedInputTypeNames = new Set<string>();
 
       for (const actionName of sortedActionNames) {
         const spec = ctx.schema.actions[actionName];
         if (spec.input) {
-          const typeName = pascalCase(actionName) + "Input";
+          const preferred = pascalCase(actionName) + "Input";
+          const typeName = allocateTypeName(preferred, usedInputTypeNames);
+          if (typeName !== preferred) {
+            diagnostics.push({
+              level: "warn",
+              plugin: PLUGIN_NAME,
+              message: `Action input type name "${preferred}" for action "${actionName}" is not a valid unique TypeScript type name. Emitting sanitized name "${typeName}".`,
+            });
+          }
           actionDecls.push(renderActionInputType(typeName, spec, diagnostics));
         }
       }
@@ -88,23 +114,26 @@ export function createTsPlugin(options?: TsPluginOptions): CodegenPlugin {
 function renderNamedType(
   name: string,
   spec: TypeSpec,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): string {
   const def = spec.definition;
+  const declarationName = typeAliases.get(name) ?? name;
 
   // TS-3: top-level named object -> export interface
   if (def.kind === "object") {
-    return renderInterface(name, def.fields, diagnostics);
+    return renderInterface(declarationName, def.fields, typeAliases, diagnostics);
   }
 
   // TS-3: all other named types -> export type
-  const tsType = mapTypeDefinition(def, diagnostics);
-  return `export type ${name} = ${tsType};`;
+  const tsType = mapTypeDefinition(def, typeAliases, diagnostics);
+  return `export type ${declarationName} = ${tsType};`;
 }
 
 function renderInterface(
   name: string,
   fields: Record<string, { type: TypeDefinition; optional: boolean }>,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): string {
   const sortedFields = Object.keys(fields).sort();
@@ -112,10 +141,10 @@ function renderInterface(
 
   for (const fieldName of sortedFields) {
     const field = fields[fieldName];
-    const tsType = mapTypeDefinition(field.type, diagnostics);
+    const tsType = mapTypeDefinition(field.type, typeAliases, diagnostics);
     // TS-5: optional -> ?
     const opt = field.optional ? "?" : "";
-    lines.push(`  ${fieldName}${opt}: ${tsType};`);
+    lines.push(`  ${renderPropertyKey(fieldName)}${opt}: ${tsType};`);
   }
 
   return `export interface ${name} {\n${lines.join("\n")}\n}`;
@@ -123,6 +152,7 @@ function renderInterface(
 
 function mapTypeDefinition(
   def: TypeDefinition,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): string {
   switch (def.kind) {
@@ -133,29 +163,29 @@ function mapTypeDefinition(
       return renderLiteral(def.value);
 
     case "array":
-      return `${wrapComplex(mapTypeDefinition(def.element, diagnostics), def.element)}[]`;
+      return `${wrapComplex(mapTypeDefinition(def.element, typeAliases, diagnostics), def.element)}[]`;
 
     case "record":
-      return `Record<${mapTypeDefinition(def.key, diagnostics)}, ${mapTypeDefinition(def.value, diagnostics)}>`;
+      return `Record<${mapTypeDefinition(def.key, typeAliases, diagnostics)}, ${mapTypeDefinition(def.value, typeAliases, diagnostics)}>`;
 
     case "object": {
       const sortedFields = Object.keys(def.fields).sort();
       const parts: string[] = [];
       for (const fieldName of sortedFields) {
         const field = def.fields[fieldName];
-        const tsType = mapTypeDefinition(field.type, diagnostics);
+        const tsType = mapTypeDefinition(field.type, typeAliases, diagnostics);
         const opt = field.optional ? "?" : "";
-        parts.push(`${fieldName}${opt}: ${tsType}`);
+        parts.push(`${renderPropertyKey(fieldName)}${opt}: ${tsType}`);
       }
       return `{ ${parts.join("; ")} }`;
     }
 
     case "union":
       // TS-2: nullable uses T | null
-      return def.types.map((t) => mapTypeDefinition(t, diagnostics)).join(" | ");
+      return def.types.map((t) => mapTypeDefinition(t, typeAliases, diagnostics)).join(" | ");
 
     case "ref":
-      return def.name;
+      return typeAliases.get(def.name) ?? def.name;
 
     default: {
       // PLG-3, TS-1: unknown kind fallback
@@ -253,7 +283,7 @@ function mapFieldType(
           const field = spec.fields[name];
           const fieldType = mapFieldSpec(field, diagnostics);
           const opt = field.required ? "" : "?";
-          parts.push(`${name}${opt}: ${fieldType}`);
+          parts.push(`${renderPropertyKey(name)}${opt}: ${fieldType}`);
         }
         return `{ ${parts.join("; ")} }`;
       }
@@ -286,4 +316,22 @@ function pascalCase(str: string): string {
     .split(/[-_\s]+/)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join("");
+}
+
+function allocateTypeName(preferred: string, used: Set<string>): string {
+  let base = preferred;
+  if (!isTypeDeclarationName(base)) {
+    base = sanitizeIdentifier(base);
+    while (!isTypeDeclarationName(base)) {
+      base = `_${base}`;
+    }
+  }
+  let candidate = base;
+  let suffix = 2;
+  while (used.has(candidate)) {
+    candidate = `${base}_${suffix}`;
+    suffix += 1;
+  }
+  used.add(candidate);
+  return candidate;
 }

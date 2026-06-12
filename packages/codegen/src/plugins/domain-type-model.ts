@@ -1,4 +1,5 @@
 import type { FieldSpec } from "@manifesto-ai/core";
+import { renderPropertyKey } from "../identifier-safety.js";
 
 export type DomainPrimitive = "string" | "number" | "boolean" | "null";
 
@@ -207,7 +208,7 @@ export function renderDomainType(type: DomainType): string {
       const parts = fieldNames.map((name) => {
         const field = type.fields[name];
         const optional = field.optional ? "?" : "";
-        return `${name}${optional}: ${renderDomainType(field.type)}`;
+        return `${renderPropertyKey(name)}${optional}: ${renderDomainType(field.type)}`;
       });
       return `{ ${parts.join("; ")} }`;
     }

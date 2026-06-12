@@ -17,9 +17,16 @@ _Source: `packages/codegen/src/index.ts`_
 - `createCompilerCodegen`
 - `createDomainPlugin`
 - `createTsPlugin`
+- `createTypeNameAliasMap`
 - `createZodPlugin`
 - `generate`
 - `generateHeader`
+- `isBindingIdentifier`
+- `isIdentifierName`
+- `isTypeDeclarationName`
+- `renderPropertyKey`
+- `sanitizeIdentifier`
+- `sanitizeParameterNames`
 - `stableHash`
 - `validatePath`
 
@@ -38,6 +45,7 @@ _Source: `packages/codegen/src/index.ts`_
 - `GenerateOptions`
 - `GenerateResult`
 - `HeaderOptions`
+- `IdentifierAliasMap`
 - `PathValidationResult`
 - `TsPluginArtifacts`
 - `TsPluginOptions`
