@@ -72,7 +72,15 @@ export type SealIntentOptions = {
   readonly context?: HostDispatchOptions["context"];
   readonly publishOnCompleted?: boolean;
   readonly assumeEnqueued?: boolean;
-  readonly rejectPendingBeforeSeal?: boolean;
+  /**
+   * Reject a non-terminal host result before sealing.
+   *
+   * `true` rejects every pending result. `"unless-failed"` rejects only
+   * pending results that carry no recorded failure evidence — a failed
+   * effect execution legitimately leaves the snapshot pending while the
+   * failure itself is the terminal outcome to seal.
+   */
+  readonly rejectPendingBeforeSeal?: boolean | "unless-failed";
 };
 
 type LineageControllerKernel<T extends ManifestoDomainShape> = Pick<
@@ -401,10 +409,15 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         throw createLineageSealRuntimeFailure<T>(error, "host");
       }
 
-      if (
+      const pendingResult =
+        result.status === "pending" || result.snapshot.system.status === "pending";
+      const rejectPending =
         options?.rejectPendingBeforeSeal === true
-        && (result.status === "pending" || result.snapshot.system.status === "pending")
-      ) {
+          ? pendingResult
+          : options?.rejectPendingBeforeSeal === "unless-failed"
+            ? pendingResult && !hasRecordedFailureEvidence(result)
+            : false;
+      if (rejectPending) {
         restoreSealView();
         throw createLineageSealRuntimeFailure<T>(
           new ManifestoError(
@@ -632,11 +645,56 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
 function shouldAdvanceLineageHead(
   result: Awaited<ReturnType<LineageControllerKernel<ManifestoDomainShape>["executeHost"]>>,
 ): boolean {
-  if (result.status !== "complete" || result.snapshot.system.status !== "idle") {
+  // Terminality is judged from the terminal snapshot plus the FINAL trace.
+  // An effect-bearing dispatch legitimately records an intermediate trace
+  // with terminatedBy "pending" before the settlement pass completes, and
+  // requiring EVERY trace to be "complete" left the head permanently stale
+  // after any effect (#490). The final trace still matters: halted outcomes
+  // seal without advancing the visible head.
+  const system = result.snapshot.system;
+  if (
+    result.status !== "complete" ||
+    system.status !== "idle" ||
+    system.lastError !== null ||
+    system.pendingRequirements.length > 0
+  ) {
     return false;
   }
 
-  return result.traces.every((trace) => trace.terminatedBy === "complete");
+  const finalTrace = result.traces[result.traces.length - 1];
+  return finalTrace?.terminatedBy === "complete";
+}
+
+
+/**
+ * Structural check for failure evidence on a host result: a host-level
+ * error, a system lastError, or a host-owned lastError under
+ * snapshot.namespaces.host. Lineage reads the snapshot as data only; it
+ * does not import Host internals.
+ */
+function hasRecordedFailureEvidence(
+  result: Awaited<ReturnType<LineageControllerKernel<ManifestoDomainShape>["executeHost"]>>,
+): boolean {
+  if (result.error !== undefined && result.error !== null) {
+    return true;
+  }
+
+  if (result.snapshot.system.lastError !== null) {
+    return true;
+  }
+
+  const hostNamespace = (
+    result.snapshot.namespaces as Record<string, unknown> | undefined
+  )?.host;
+  if (
+    hostNamespace !== null
+    && typeof hostNamespace === "object"
+    && (hostNamespace as { readonly lastError?: unknown }).lastError
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function toError(error: unknown): Error {

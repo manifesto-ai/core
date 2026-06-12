@@ -4,6 +4,13 @@ Thank you for your interest in contributing to Manifesto!
 
 ## Development Setup
 
+### Prerequisites
+
+- **Node.js >= 24** (CI runs 24.14.0; enforced by the root `engines` field)
+- **pnpm 10** (declared in the root `packageManager` field — `corepack enable` picks it up automatically)
+
+This repository is pnpm-only. Do not run `npm install` or commit a `package-lock.json`; the single source of truth for dependency resolution is `pnpm-lock.yaml`.
+
 ```bash
 # Clone the repository
 git clone https://github.com/manifesto-ai/core.git

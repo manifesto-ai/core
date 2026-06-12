@@ -1,6 +1,7 @@
 import type { Snapshot as CoreSnapshot } from "@manifesto-ai/core";
 import type { ManifestoHost } from "@manifesto-ai/host";
 
+import { ManifestoError } from "../errors.js";
 import type {
   CanonicalSnapshot,
   ManifestoDomainShape,
@@ -17,6 +18,58 @@ import {
 import type {
   RuntimeStateStore,
 } from "./facets.js";
+
+const SNAPSHOT_TOP_LEVEL_KEYS = new Set([
+  "state",
+  "computed",
+  "system",
+  "input",
+  "meta",
+  "namespaces",
+]);
+
+const SNAPSHOT_REQUIRED_OBJECT_KEYS = ["state", "system", "meta"] as const;
+
+/**
+ * Hydration inputs are external data by definition (restore files, persisted
+ * stores, cross-version tooling), so the visible-snapshot seam validates the
+ * canonical top-level shape instead of silently dropping unknown keys (#492:
+ * a v4-era "data" key next to the real "state" disabled state preservation
+ * with no error, warning, or log).
+ */
+function assertCanonicalSnapshotShape(snapshot: CoreSnapshot): void {
+  if (snapshot === null || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    throw new ManifestoError(
+      "INVALID_SNAPSHOT_SHAPE",
+      "Visible snapshot must be a canonical snapshot object",
+    );
+  }
+
+  const record = snapshot as unknown as Record<string, unknown>;
+  const unknownKeys = Object.keys(record).filter(
+    (key) => !SNAPSHOT_TOP_LEVEL_KEYS.has(key),
+  );
+  if (unknownKeys.length > 0) {
+    const dataHint = unknownKeys.includes("data")
+      ? ' Domain state lives under "state" since v5; the v4 "data" key was renamed.'
+      : "";
+    throw new ManifestoError(
+      "INVALID_SNAPSHOT_SHAPE",
+      `Visible snapshot has unknown top-level key(s): ${unknownKeys.join(", ")}.${dataHint}` +
+        " Expected only: state, computed, system, input, meta, namespaces.",
+    );
+  }
+
+  for (const key of SNAPSHOT_REQUIRED_OBJECT_KEYS) {
+    const value = record[key];
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw new ManifestoError(
+        "INVALID_SNAPSHOT_SHAPE",
+        `Visible snapshot is missing the required "${key}" object`,
+      );
+    }
+  }
+}
 
 interface Subscriber<TState, TComputed, R> {
   readonly selector: Selector<TState, R, TComputed>;
@@ -125,6 +178,7 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
     snapshot: CoreSnapshot,
     options?: { readonly notify?: boolean },
   ): Snapshot<T["state"], T["computed"]> {
+    assertCanonicalSnapshotShape(snapshot);
     visibleCanonicalSnapshot = structuredClone(snapshot);
     host.reset(structuredClone(visibleCanonicalSnapshot));
     visibleCanonicalReadSnapshot = cloneAndDeepFreeze(
