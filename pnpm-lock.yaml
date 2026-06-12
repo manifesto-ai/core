@@ -154,6 +154,9 @@ importers:
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
+      '@manifesto-ai/cts-kit':
+        specifier: workspace:*
+        version: link:../../cts/cts-kit
       '@types/node':
         specifier: ^25.5.2
         version: 25.6.0
@@ -248,6 +251,9 @@ importers:
       '@manifesto-ai/core':
         specifier: workspace:*
         version: link:../core
+      '@manifesto-ai/cts-kit':
+        specifier: workspace:*
+        version: link:../../cts/cts-kit
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

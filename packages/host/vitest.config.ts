@@ -1,6 +1,19 @@
 import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
+
+function fromHere(path: string): string {
+  return fileURLToPath(new URL(path, import.meta.url));
+}
 
 export default defineConfig({
+  resolve: {
+    alias: [
+      {
+        find: "@manifesto-ai/cts-kit",
+        replacement: fromHere("../../cts/cts-kit/src/index.ts"),
+      },
+    ],
+  },
   test: {
     include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
     coverage: {

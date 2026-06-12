@@ -2,14 +2,27 @@
  * HCTS Assertion Utilities
  *
  * Provides assertion helpers for verifying SPEC compliance rules
- * based on trace events.
+ * based on trace events. Results use the shared CTS framework
+ * (`@manifesto-ai/cts-kit`); the trace analyzers themselves are
+ * Host-specific.
  *
  * @see host-SPEC-v2.0.1.md
  */
 
-import { expect } from "vitest";
-import type { TraceEvent, ExecutionKey, ComplianceResult } from "./hcts-types.js";
+export { expectCompliance, expectAllCompliance } from "@manifesto-ai/cts-kit";
+import type { TraceEvent, ExecutionKey, ComplianceResult, HostEvidence } from "./hcts-types.js";
 import type { Snapshot } from "@manifesto-ai/core";
+
+/**
+ * Wrap raw trace events as shared-framework evidence entries.
+ */
+export function traceEvidence(events: readonly TraceEvent[]): HostEvidence[] {
+  return events.map((event) => ({
+    kind: "trace",
+    summary: formatTraceEvent(event),
+    details: event,
+  }));
+}
 
 // =============================================================================
 // Runner / Liveness Assertions (RUN-1~4, LIVE-1~4)
@@ -46,14 +59,18 @@ export function assertSingleRunner(
   if (violations.length > 0) {
     return {
       ruleId: "RUN-1",
+      specSection: "RUN-1, RUN-2, INV-EX-4",
+      mode: "blocking",
       status: "FAIL",
       message: `Multiple concurrent runners detected for key "${key}"`,
-      evidence: violations,
+      evidence: traceEvidence(violations),
     };
   }
 
   return {
     ruleId: "RUN-1",
+    specSection: "RUN-1, RUN-2, INV-EX-4",
+    mode: "blocking",
     status: "PASS",
   };
 }
@@ -75,14 +92,18 @@ export function assertEmptyToNonEmptyKick(
   if (hasJob && !hasRunnerStart) {
     return {
       ruleId: "LIVE-2",
+      specSection: "LIVE-2",
+      mode: "blocking",
       status: "FAIL",
       message: "Job executed without runner being started (kick missing)",
-      evidence: keyEvents.filter((e) => e.t === "job:start"),
+      evidence: traceEvidence(keyEvents.filter((e) => e.t === "job:start")),
     };
   }
 
   return {
     ruleId: "LIVE-2",
+    specSection: "LIVE-2",
+    mode: "blocking",
     status: "PASS",
   };
 }
@@ -104,6 +125,8 @@ export function assertLostWakeupPrevention(
   if (recheckEvents.length > 0) {
     return {
       ruleId: "RUN-4/LIVE-4",
+      specSection: "RUN-4, LIVE-4",
+      mode: "informational",
       status: "PASS",
       message: "Runner recheck observed before guard release",
     };
@@ -111,6 +134,8 @@ export function assertLostWakeupPrevention(
 
   return {
     ruleId: "RUN-4/LIVE-4",
+    specSection: "RUN-4, LIVE-4",
+    mode: "informational",
     status: "WARN",
     message: "Runner recheck events not observed (may not be instrumented)",
   };
@@ -153,14 +178,18 @@ export function assertRunToCompletion(
   if (violations.length > 0) {
     return {
       ruleId: "JOB-1",
+      specSection: "JOB-1, JOB-2, INV-EX-3",
+      mode: "blocking",
       status: "FAIL",
       message: "Job interleaving detected (await in job handler?)",
-      evidence: violations,
+      evidence: traceEvidence(violations),
     };
   }
 
   return {
     ruleId: "JOB-1",
+    specSection: "JOB-1, JOB-2, INV-EX-3",
+    mode: "blocking",
     status: "PASS",
   };
 }
@@ -204,14 +233,18 @@ export function assertApplyBeforeDispatch(
   if (violations.length > 0) {
     return {
       ruleId: "COMP-REQ-INTERLOCK-1",
+      specSection: "COMP-REQ-INTERLOCK-1, INV-EX-15",
+      mode: "blocking",
       status: "FAIL",
       message: "Effect dispatch occurred before compute apply + applySystemDelta",
-      evidence: violations,
+      evidence: traceEvidence(violations),
     };
   }
 
   return {
     ruleId: "COMP-REQ-INTERLOCK-1",
+    specSection: "COMP-REQ-INTERLOCK-1, INV-EX-15",
+    mode: "blocking",
     status: "PASS",
   };
 }
@@ -235,6 +268,8 @@ export function assertRequirementCleared(
   if (isPending) {
     return {
       ruleId: "REQ-CLEAR-1",
+      specSection: "REQ-CLEAR-1, INV-RL-2",
+      mode: "blocking",
       status: "FAIL",
       message: `Requirement "${requirementId}" still in pendingRequirements after fulfillment`,
     };
@@ -242,6 +277,8 @@ export function assertRequirementCleared(
 
   return {
     ruleId: "REQ-CLEAR-1",
+    specSection: "REQ-CLEAR-1, INV-RL-2",
+    mode: "blocking",
     status: "PASS",
   };
 }
@@ -262,14 +299,18 @@ export function assertNoInfiniteLoop(
   if (dispatchEvents.length > maxExecutions) {
     return {
       ruleId: "REQ-CLEAR-1",
+      specSection: "REQ-CLEAR-1",
+      mode: "blocking",
       status: "FAIL",
       message: `Requirement "${requirementId}" executed ${dispatchEvents.length} times (infinite loop?)`,
-      evidence: dispatchEvents,
+      evidence: traceEvidence(dispatchEvents),
     };
   }
 
   return {
     ruleId: "REQ-CLEAR-1",
+    specSection: "REQ-CLEAR-1",
+    mode: "blocking",
     status: "PASS",
   };
 }
@@ -296,6 +337,8 @@ export function assertStaleFulfillmentDropped(
   if (dropEvents.length > 0) {
     return {
       ruleId: "FULFILL-0",
+      specSection: "FULFILL-0, INV-EX-13",
+      mode: "blocking",
       status: "PASS",
       message: "Stale fulfillment correctly dropped",
     };
@@ -309,14 +352,18 @@ export function assertStaleFulfillmentDropped(
   if (applyEvents.length > 0) {
     return {
       ruleId: "FULFILL-0",
+      specSection: "FULFILL-0, INV-EX-13",
+      mode: "blocking",
       status: "FAIL",
       message: "Stale fulfillment was applied instead of dropped",
-      evidence: applyEvents,
+      evidence: traceEvidence(applyEvents),
     };
   }
 
   return {
     ruleId: "FULFILL-0",
+    specSection: "FULFILL-0, INV-EX-13",
+    mode: "blocking",
     status: "WARN",
     message: "Could not verify stale fulfillment handling",
   };
@@ -338,6 +385,8 @@ export function assertClearOnApplyFailure(
   if (errorEvents.length === 0) {
     return {
       ruleId: "ERR-FE-2",
+      specSection: "ERR-FE-1, ERR-FE-2, INV-EX-12, INV-EX-14",
+      mode: "blocking",
       status: "SKIP",
       message: "No apply error occurred to test",
     };
@@ -351,9 +400,11 @@ export function assertClearOnApplyFailure(
   if (clearEvents.length === 0) {
     return {
       ruleId: "ERR-FE-2",
+      specSection: "ERR-FE-1, ERR-FE-2, INV-EX-12, INV-EX-14",
+      mode: "blocking",
       status: "FAIL",
       message: "Requirement not cleared after apply failure",
-      evidence: errorEvents,
+      evidence: traceEvidence(errorEvents),
     };
   }
 
@@ -365,6 +416,8 @@ export function assertClearOnApplyFailure(
   if (isPending) {
     return {
       ruleId: "ERR-FE-2",
+      specSection: "ERR-FE-1, ERR-FE-2, INV-EX-12, INV-EX-14",
+      mode: "blocking",
       status: "FAIL",
       message: "Requirement still pending in snapshot after apply failure",
     };
@@ -372,6 +425,8 @@ export function assertClearOnApplyFailure(
 
   return {
     ruleId: "ERR-FE-2",
+    specSection: "ERR-FE-1, ERR-FE-2, INV-EX-12, INV-EX-14",
+    mode: "blocking",
     status: "PASS",
   };
 }
@@ -389,6 +444,8 @@ export function assertContinueAfterError(
   if (errorEvents.length === 0) {
     return {
       ruleId: "ERR-FE-5",
+      specSection: "ERR-FE-5, INV-EX-17",
+      mode: "blocking",
       status: "SKIP",
       message: "No error occurred to test",
     };
@@ -402,6 +459,8 @@ export function assertContinueAfterError(
   if (continueEvents.length === 0) {
     return {
       ruleId: "ERR-FE-5",
+      specSection: "ERR-FE-5, INV-EX-17",
+      mode: "blocking",
       status: "FAIL",
       message: "ContinueCompute not enqueued after error",
     };
@@ -409,6 +468,8 @@ export function assertContinueAfterError(
 
   return {
     ruleId: "ERR-FE-5",
+    specSection: "ERR-FE-5, INV-EX-17",
+    mode: "blocking",
     status: "PASS",
   };
 }
@@ -469,9 +530,11 @@ export function assertContextFrozenPerJob(
         ) {
           return {
             ruleId: "CTX-1",
+            specSection: "CTX-1, CTX-2, INV-CTX-1, INV-CTX-2",
+            mode: "blocking",
             status: "FAIL",
             message: `Context changed during job "${jobId}"`,
-            evidence: events,
+            evidence: traceEvidence(events),
           };
         }
       }
@@ -480,6 +543,8 @@ export function assertContextFrozenPerJob(
 
   return {
     ruleId: "CTX-1",
+    specSection: "CTX-1, CTX-2, INV-CTX-1, INV-CTX-2",
+    mode: "blocking",
     status: "PASS",
   };
 }
@@ -506,51 +571,41 @@ export function getExecutionKeys(trace: TraceEvent[]): ExecutionKey[] {
 }
 
 /**
- * Extract event timeline for debugging
+ * Format a single trace event for evidence/debugging output
  */
-export function formatTimeline(trace: TraceEvent[]): string {
-  return trace
-    .map((e) => {
-      const key = e.key.substring(0, 8);
-      switch (e.t) {
-        case "runner:start":
-          return `[${key}] RUNNER START @ ${e.timestamp}`;
-        case "runner:end":
-          return `[${key}] RUNNER END @ ${e.timestamp}`;
-        case "job:start":
-          return `[${key}] JOB START: ${e.jobType} (${e.jobId})`;
-        case "job:end":
-          return `[${key}] JOB END: ${e.jobType} (${e.jobId})`;
-        case "core:compute":
-          return `[${key}] COMPUTE: ${e.intentId} iter=${e.iteration}`;
-        case "core:apply":
-          return `[${key}] APPLY: ${e.patchCount} patches (${e.source})`;
-        case "core:applyNamespaceDeltas":
-          return `[${key}] APPLY_NAMESPACE_DELTAS: ${e.namespaceCount} namespaces, ${e.patchCount} patches (${e.source})`;
-        case "core:applySystemDelta":
-          return `[${key}] APPLY_SYSTEM_DELTA: (${e.source})`;
-        case "effect:dispatch":
-          return `[${key}] DISPATCH: ${e.effectType} (${e.requirementId})`;
-        case "requirement:clear":
-          return `[${key}] CLEAR: ${e.requirementId}`;
-        case "continue:enqueue":
-          return `[${key}] CONTINUE: ${e.intentId}`;
-        default:
-          return `[${key}] ${e.t}`;
-      }
-    })
-    .join("\n");
+function formatTraceEvent(e: TraceEvent): string {
+  const key = e.key.substring(0, 8);
+  switch (e.t) {
+    case "runner:start":
+      return `[${key}] RUNNER START @ ${e.timestamp}`;
+    case "runner:end":
+      return `[${key}] RUNNER END @ ${e.timestamp}`;
+    case "job:start":
+      return `[${key}] JOB START: ${e.jobType} (${e.jobId})`;
+    case "job:end":
+      return `[${key}] JOB END: ${e.jobType} (${e.jobId})`;
+    case "core:compute":
+      return `[${key}] COMPUTE: ${e.intentId} iter=${e.iteration}`;
+    case "core:apply":
+      return `[${key}] APPLY: ${e.patchCount} patches (${e.source})`;
+    case "core:applyNamespaceDeltas":
+      return `[${key}] APPLY_NAMESPACE_DELTAS: ${e.namespaceCount} namespaces, ${e.patchCount} patches (${e.source})`;
+    case "core:applySystemDelta":
+      return `[${key}] APPLY_SYSTEM_DELTA: (${e.source})`;
+    case "effect:dispatch":
+      return `[${key}] DISPATCH: ${e.effectType} (${e.requirementId})`;
+    case "requirement:clear":
+      return `[${key}] CLEAR: ${e.requirementId}`;
+    case "continue:enqueue":
+      return `[${key}] CONTINUE: ${e.intentId}`;
+    default:
+      return `[${key}] ${e.t}`;
+  }
 }
 
 /**
- * Assert helper for easier test writing
+ * Extract event timeline for debugging
  */
-export function expectCompliance(result: ComplianceResult): void {
-  if (result.status === "FAIL") {
-    const message = result.message ?? `Rule ${result.ruleId} violated`;
-    const evidence = result.evidence
-      ? `\n\nEvidence:\n${formatTimeline(result.evidence)}`
-      : "";
-    expect.fail(`${message}${evidence}`);
-  }
+export function formatTimeline(trace: TraceEvent[]): string {
+  return trace.map(formatTraceEvent).join("\n");
 }

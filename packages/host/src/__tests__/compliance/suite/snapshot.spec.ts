@@ -14,7 +14,7 @@ const pp = semanticPathToPatchPath;
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
-import { createV1Adapter } from "../adapter-v2.js";
+import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
 import {
   DEFAULT_HOST_CONTEXT,
@@ -34,7 +34,7 @@ describe("HCTS Snapshot Ownership Tests", () => {
 
   beforeEach(async () => {
     runtime = createTestRuntime();
-    adapter = createV1Adapter();
+    adapter = createV2Adapter();
   });
 
   afterEach(async () => {
