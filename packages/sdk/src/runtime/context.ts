@@ -79,15 +79,15 @@ function materializeJsonValue(
       if (Number.isFinite(value)) {
         return value;
       }
-      throwInvalidContext(source, path, "Context numbers must be finite");
+      return throwInvalidContext(source, path, "Context numbers must be finite");
     case "undefined":
-      throwInvalidContext(source, path, "Context must not contain undefined");
+      return throwInvalidContext(source, path, "Context must not contain undefined");
     case "function":
-      throwInvalidContext(source, path, "Context must not contain functions");
+      return throwInvalidContext(source, path, "Context must not contain functions");
     case "symbol":
-      throwInvalidContext(source, path, "Context must not contain symbols");
+      return throwInvalidContext(source, path, "Context must not contain symbols");
     case "bigint":
-      throwInvalidContext(source, path, "Context must not contain bigint values");
+      return throwInvalidContext(source, path, "Context must not contain bigint values");
     case "object":
       break;
   }

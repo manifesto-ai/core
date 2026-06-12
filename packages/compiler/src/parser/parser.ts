@@ -40,7 +40,6 @@ import {
   type PathNode,
   type PathSegmentNode,
   type ObjectLiteralEntryNode,
-  type ObjectPropertyNode,
 } from "./ast.js";
 import {
   Precedence,
@@ -76,7 +75,7 @@ export class Parser {
     try {
       const program = this.parseProgram();
       return { program, diagnostics: this.diagnostics };
-    } catch (e) {
+    } catch (_e) {
       // Unrecoverable error
       return { program: null, diagnostics: this.diagnostics };
     }

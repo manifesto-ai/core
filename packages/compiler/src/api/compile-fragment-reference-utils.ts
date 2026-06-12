@@ -151,7 +151,7 @@ function findDeclarationTarget(
 }
 
 function declarationTarget(
-  source: string,
+  _source: string,
   program: ProgramNode,
   info: TargetInfo,
   node: DeclarationTarget["node"],

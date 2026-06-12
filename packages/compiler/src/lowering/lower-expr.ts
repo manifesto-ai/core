@@ -125,7 +125,7 @@ function lowerLit(input: { kind: "lit"; value: MelPrimitive }): CoreExprNode {
  * @see FDR-MEL-068, SPEC §17.3.2
  */
 function lowerVar(
-  input: { kind: "var"; name: "item" },
+  _input: { kind: "var"; name: "item" },
   ctx: ExprLoweringContext
 ): CoreExprNode {
   if (!ctx.allowItem) {
@@ -444,7 +444,7 @@ function lowerCall(
       throw unknownCallFn(fn);
     }
 
-    const object = lowerExprNode(args[0], ctx);
+    const _object = lowerExprNode(args[0], ctx);
     const property = args[1];
     if (property.kind !== "lit" || typeof property.value !== "string") {
       throw unknownCallFn(fn);

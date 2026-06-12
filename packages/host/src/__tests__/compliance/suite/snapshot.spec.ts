@@ -17,7 +17,6 @@ import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js
 import { createV1Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
 import {
-  DEFAULT_HOST_CONTEXT,
   createTestSchema,
   createTestIntent,
   createTestIntentWithId,

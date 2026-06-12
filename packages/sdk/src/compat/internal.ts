@@ -37,8 +37,6 @@ import type {
   ProjectedSnapshot,
   SchemaGraph,
   SimulationDiagnostics,
-  SimulateResult as ProjectedSimulateResult,
-  TypedActionMetadata,
   TypedCreateIntent,
   TypedDomainRefs,
   TypedGetActionMetadata,
@@ -61,8 +59,6 @@ import type {
   IntentLegalityEvaluation,
 } from "../runtime/facets.js";
 import {
-  ACTION_PARAM_NAMES,
-  ACTION_SINGLE_PARAM_OBJECT_VALUE,
   ACTIVATION_STATE,
   EXTENSION_KERNEL,
   RUNTIME_KERNEL_FACTORY,

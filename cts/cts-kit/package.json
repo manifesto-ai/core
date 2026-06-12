@@ -18,7 +18,7 @@
   "scripts": {
     "build": "rm -rf dist && tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declarationMap false --outDir dist",
     "clean": "rm -rf dist",
-    "lint": "echo 'lint not configured'",
+    "lint": "node ../../node_modules/@biomejs/biome/bin/biome check src",
     "test": "echo 'no tests for @manifesto-ai/cts-kit'",
     "test:coverage": "echo 'no coverage for @manifesto-ai/cts-kit'"
   },

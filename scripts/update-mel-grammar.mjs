@@ -31,9 +31,7 @@ if (defaultIndex === -1) {
 const switchBody = normalizerSource.slice(switchIndex, defaultIndex);
 const caseRegex = /case\s+"([^"]+)"/g;
 const builtinSet = new Set();
-let match;
-
-while ((match = caseRegex.exec(switchBody)) !== null) {
+for (const match of switchBody.matchAll(caseRegex)) {
   builtinSet.add(match[1]);
 }
 

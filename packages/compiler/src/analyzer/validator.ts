@@ -2357,15 +2357,6 @@ export class SemanticValidator {
       location,
     });
   }
-
-  private warn(message: string, location: SourceLocation, code: string): void {
-    this.ctx.diagnostics.push({
-      severity: "warning",
-      code,
-      message,
-      location,
-    });
-  }
 }
 
 /**

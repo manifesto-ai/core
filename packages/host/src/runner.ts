@@ -17,7 +17,7 @@
  * - LIVE-4: Kick blocked by runnerActive MUST be remembered and retried after runner exits
  */
 
-import type { ExecutionKey, ExecutionContext, Runtime } from "./types/execution.js";
+import type { ExecutionKey, ExecutionContext, } from "./types/execution.js";
 import type { Job } from "./types/job.js";
 import { runJob } from "./job-handlers/index.js";
 

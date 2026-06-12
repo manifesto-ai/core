@@ -105,7 +105,7 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
     { readonly kind: "admitted" }
   >;
 
-  let result;
+  let result: Awaited<ReturnType<typeof kernel.executeHost>>;
   try {
     result = await kernel.executeHost(legality.intent, {
       context,
@@ -129,7 +129,6 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
   if (result.status === "error") {
     const failure = result.error ?? new ManifestoError("HOST_ERROR", "Host dispatch failed");
     const {
-      publishedSnapshot,
       publishedCanonicalSnapshot,
     } = publication.publishFailedHostResult(
       result.snapshot,

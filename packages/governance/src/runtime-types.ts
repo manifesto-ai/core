@@ -68,7 +68,7 @@ export type GovernanceInstance<T extends ManifestoDomainShape> =
   & LineageContinuitySurface<T>
   & GovernanceControlSurface;
 
-export type GovernanceProposalRuntime<T extends ManifestoDomainShape> = Record<never, never>;
+export type GovernanceProposalRuntime<_T extends ManifestoDomainShape> = Record<never, never>;
 
 export type GovernanceComposableManifesto<
   T extends ManifestoDomainShape,

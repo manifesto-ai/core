@@ -36,7 +36,7 @@
   "scripts": {
     "build": "rm -rf dist && tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declarationMap false --outDir dist && node ../../scripts/check-public-surface.mjs packages/lineage",
     "clean": "rm -rf dist",
-    "lint": "echo 'lint not configured'",
+    "lint": "node ../../node_modules/@biomejs/biome/bin/biome check src",
     "test": "pnpm run test:runtime && pnpm run test:types",
     "test:runtime": "node ../../node_modules/vitest/vitest.mjs run",
     "test:types": "node ../../node_modules/typescript/bin/tsc -p tsconfig.types.json --noEmit",

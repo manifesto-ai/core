@@ -12,7 +12,6 @@ import {
   attachRuntimeKernelFactory,
   getActivationState,
   getRuntimeKernelFactory,
-  type LineageRuntimeKernel,
   type LineageRuntimeKernelFactory,
 } from "@manifesto-ai/sdk/provider";
 

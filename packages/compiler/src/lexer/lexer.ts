@@ -35,7 +35,6 @@ export class Lexer {
   private current = 0; // Current character
   private line = 1;
   private column = 1;
-  private lineStart = 0; // Offset of current line start
 
   constructor(source: string, sourcePath?: string) {
     this.source = source;
@@ -400,7 +399,6 @@ export class Lexer {
   private newline(): void {
     this.line++;
     this.column = 1;
-    this.lineStart = this.current;
   }
 
   private isDigit(c: string): boolean {

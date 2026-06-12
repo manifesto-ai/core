@@ -19,16 +19,10 @@ import {
 } from "../errors.js";
 import type {
   CanonicalSnapshot,
-  DispatchBlocker,
-  DispatchExecutionOutcome,
-  ExecutionDiagnostics,
-  ExecutionFailureInfo,
   DomainExternalContext,
   ExternalContext,
   ContextUpdater,
-  IntentAdmission,
   ManifestoDomainShape,
-  ManifestoEvent,
   SchemaGraph,
   SimulateResult as ProjectedSimulateResult,
   Snapshot,

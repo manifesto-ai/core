@@ -58,7 +58,6 @@ import type {
   ActorAuthorityBinding,
   AuthorityResponse,
   DecisionRecord,
-  GovernanceStore,
   IntentScope,
   Proposal,
   ProposalId,

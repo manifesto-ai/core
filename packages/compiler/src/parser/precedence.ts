@@ -9,7 +9,7 @@ import type { BinaryOperator } from "./ast.js";
 /**
  * Precedence levels (higher = binds tighter)
  */
-export const enum Precedence {
+export enum Precedence {
   NONE = 0,
   TERNARY = 1,      // ? :
   NULLISH = 2,      // ??

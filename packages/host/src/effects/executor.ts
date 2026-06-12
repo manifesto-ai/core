@@ -1,7 +1,7 @@
 import type { Patch, Requirement, Snapshot } from "@manifesto-ai/core";
 import type { EffectContext, EffectResult, RegisteredHandler } from "./types.js";
 import type { EffectHandlerRegistry } from "./registry.js";
-import { createHostError, HostError, isHostError } from "../errors.js";
+import { createHostError, isHostError } from "../errors.js";
 
 /**
  * Execute a single effect with timeout and retry support

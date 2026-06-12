@@ -1,5 +1,4 @@
 import { toCanonical } from "./canonical.js";
-import type { DomainSchema } from "../schema/domain.js";
 
 export type SchemaHashMode = "semantic" | "effective";
 

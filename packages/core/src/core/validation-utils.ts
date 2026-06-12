@@ -5,7 +5,7 @@ import type { ComputedSpec } from "../schema/computed.js";
 import type { PatchSegment } from "../schema/patch.js";
 import type { TypeSpec } from "../schema/type-spec.js";
 import { parsePath } from "../utils/path.js";
-import { pathExistsInTypeDefinition, pathExistsInTypeDefinitionSegments } from "./type-definition-utils.js";
+import { pathExistsInTypeDefinitionSegments } from "./type-definition-utils.js";
 
 const SEMVER_REGEX =
   /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;

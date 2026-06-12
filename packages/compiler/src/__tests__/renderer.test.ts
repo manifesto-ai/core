@@ -12,7 +12,6 @@ import {
   renderFragment,
   renderFragments,
   renderAsDomain,
-  type TypeExpr,
   type TypeField,
   type ExprNode,
   type PatchOp,

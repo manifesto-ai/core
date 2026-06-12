@@ -255,7 +255,7 @@ export function createTestRuntime(): DeterministicRuntime {
  * Create a runtime that wraps the real event loop (for integration tests)
  */
 export function createRealRuntime(): DeterministicRuntime {
-  let virtualTime = Date.now();
+  let _virtualTime = Date.now();
 
   return {
     microtask(fn: () => void): void {
@@ -279,7 +279,7 @@ export function createRealRuntime(): DeterministicRuntime {
     },
 
     advanceTime(ms: number): void {
-      virtualTime += ms;
+      _virtualTime += ms;
       // Real runtime cannot actually advance time
     },
 
@@ -315,7 +315,7 @@ export function createRealRuntime(): DeterministicRuntime {
     },
 
     reset(): void {
-      virtualTime = Date.now();
+      _virtualTime = Date.now();
     },
   };
 }

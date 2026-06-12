@@ -296,7 +296,7 @@ export function validateValueAgainstTypeDefinition(
         options?.allowUndefined ?? false,
       );
 
-    case "record":
+    case "record": {
       if (value === null || Array.isArray(value) || typeof value !== "object") {
         return { ok: false, message: "Expected object" };
       }
@@ -313,6 +313,7 @@ export function validateValueAgainstTypeDefinition(
         }
       }
       return { ok: true };
+    }
 
     case "ref":
       return { ok: false, message: "Unresolved type reference" };

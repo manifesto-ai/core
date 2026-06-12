@@ -1,5 +1,5 @@
 import type { ErrorValue, Intent as HostIntent, Snapshot } from "@manifesto-ai/core";
-import type { ArtifactRef, BranchId, ComputeEnvelope, WorldId, WorldRecord } from "@manifesto-ai/lineage";
+import type { BranchId, ComputeEnvelope, WorldId, WorldRecord } from "@manifesto-ai/lineage";
 import type { PreparedLineageCommit } from "@manifesto-ai/lineage/provider";
 import type { ExecutionOutcome } from "@manifesto-ai/sdk";
 

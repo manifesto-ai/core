@@ -10,19 +10,12 @@ import type { Diagnostic } from "../diagnostics/types.js";
 import type { DomainSchema } from "../generator/ir.js";
 import type { RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.js";
 import type {
-  Annotation,
   AnnotationIndex,
   DomainModule,
-  JsonLiteral,
-  LocalTargetKey,
 } from "../annotations.js";
 import type {
   SourceMapEmissionContext,
-  SourceMapEntry,
   SourceMapIndex,
-  SourceMapPath,
-  SourcePoint,
-  SourceSpan,
 } from "../source-map.js";
 
 import { buildAnnotationIndex } from "../annotations.js";

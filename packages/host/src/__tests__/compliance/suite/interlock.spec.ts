@@ -22,7 +22,6 @@ import { createStartIntentJob } from "../../../types/job.js";
 import {
   assertApplyBeforeDispatch,
   expectCompliance,
-  filterByKey,
 } from "../hcts-assertions.js";
 import {
   createTestSchema,
@@ -80,11 +79,11 @@ describe("HCTS Interlock Tests", () => {
       });
 
       const effectRunner = createTestEffectRunner();
-      let snapshotAtEffectTime: Record<string, unknown> | null = null;
+      let _snapshotAtEffectTime: Record<string, unknown> | null = null;
 
       effectRunner.register("http", async (_type, _params, context) => {
         // Capture what the snapshot looks like when effect runs
-        snapshotAtEffectTime = context.snapshot.state as Record<string, unknown>;
+        _snapshotAtEffectTime = context.snapshot.state as Record<string, unknown>;
         return [{ op: "set", path: pp("response"), value: { data: "fetched" } }];
       });
 
