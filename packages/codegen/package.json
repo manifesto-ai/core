@@ -37,9 +37,9 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "lint": "echo 'lint not configured'",
-    "test": "node ../../node_modules/vitest/vitest.mjs run",
-    "test:coverage": "node ../../node_modules/vitest/vitest.mjs run --coverage",
-    "test:watch": "node ../../node_modules/vitest/vitest.mjs"
+    "test": "node ../../scripts/run-vitest.mjs run",
+    "test:coverage": "node ../../scripts/run-vitest.mjs run --coverage",
+    "test:watch": "node ../../scripts/run-vitest.mjs"
   },
   "peerDependencies": {
     "@manifesto-ai/core": "^5.0.0"
