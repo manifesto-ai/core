@@ -51,10 +51,10 @@
   "devDependencies": {
     "@vercel/analytics": "^2.0.1",
     "@vitest/coverage-v8": "^4.1.4",
-    "mermaid": "^11.13.0",
+    "mermaid": "^11.15.0",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
-    "turbo": "^2.9.6",
+    "turbo": "^2.9.14",
     "typedoc": "^0.28.19",
     "typescript": "^5.9.3",
     "vite": "^8.0.8",
@@ -69,8 +69,11 @@
       "@hono/node-server": "1.19.9",
       "esbuild": "0.27.2",
       "hono": "4.11.7",
-      "lodash-es": "4.17.23",
-      "preact": "10.28.2"
+      "lodash-es": "4.18.0",
+      "preact": "10.28.2",
+      "fast-uri": "3.1.2",
+      "ws": "8.21.0",
+      "uuid": "11.1.1"
     },
     "onlyBuiltDependencies": [
       "esbuild"
