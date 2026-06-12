@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.0.1](https://github.com/manifesto-ai/core/compare/compiler-v5.0.0...compiler-v5.0.1) (2026-06-12)
+
+
+### Dependencies
+
+* raise security floors for flagged transitive and dev dependencies ([#503](https://github.com/manifesto-ai/core/issues/503)) ([8d58cc5](https://github.com/manifesto-ai/core/commit/8d58cc5b8841576aa0d5f34b1b3b6394d81d2131))
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 5.1.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^5.0.0 to ^5.1.0
+
 ## [5.0.0](https://github.com/manifesto-ai/core/compare/compiler-v3.9.0...compiler-v5.0.0) (2026-05-07)
 
 
