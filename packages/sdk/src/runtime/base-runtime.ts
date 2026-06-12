@@ -54,6 +54,7 @@ import {
 import {
   runBaseDispatchAttempt,
 } from "./base-dispatch.js";
+import { mapBlockedAdmission } from "./admission-failure.js";
 import {
   cloneAndFreezeActionPayload,
   tryCloneAndFreezeActionPayload,
@@ -608,53 +609,6 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     };
   }
 
-  function mapBlockedAdmission<Name extends ActionName<T>>(
-    actionName: Name,
-    admission: { readonly failure: { readonly kind: string } },
-    fallbackMessage?: string,
-  ): AdmissionFailure<Name> {
-    if (admission.failure.kind === "invalid_input") {
-      const failure = admission.failure as unknown as {
-        readonly error: { readonly message: string };
-      };
-      return Object.freeze({
-        ok: false,
-        action: actionName,
-        layer: "input",
-        code: "INVALID_INPUT",
-        message: failure.error.message,
-        blockers: Object.freeze([]),
-      }) as AdmissionFailure<Name>;
-    }
-
-    if (admission.failure.kind === "not_dispatchable") {
-      const failure = admission.failure as unknown as {
-        readonly blockers: readonly DispatchBlocker[];
-      };
-      return Object.freeze({
-        ok: false,
-        action: actionName,
-        layer: "dispatchability",
-        code: "INTENT_NOT_DISPATCHABLE",
-        message: fallbackMessage
-          ?? `Action "${actionName}" is not dispatchable against the current visible snapshot`,
-        blockers: failure.blockers.map((blocker) => toBlocker(blocker, "INTENT_NOT_DISPATCHABLE")),
-      }) as AdmissionFailure<Name>;
-    }
-
-    const failure = admission.failure as unknown as {
-      readonly blockers?: readonly DispatchBlocker[];
-    };
-    return Object.freeze({
-      ok: false,
-      action: actionName,
-      layer: "availability",
-      code: "ACTION_UNAVAILABLE",
-      message: fallbackMessage
-        ?? `Action "${actionName}" is unavailable against the current visible snapshot`,
-      blockers: (failure.blockers ?? []).map((blocker) => toBlocker(blocker, "ACTION_UNAVAILABLE")),
-    }) as AdmissionFailure<Name>;
-  }
 
   function getAvailabilityBlockers<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
@@ -852,17 +806,6 @@ function fieldTypeToString(type: unknown): string {
   return "unknown";
 }
 
-function toBlocker(blocker: DispatchBlocker, code: Blocker["code"]): Blocker {
-  return Object.freeze({
-    path: Object.freeze([]),
-    code,
-    message: blocker.description ?? code,
-    detail: Object.freeze({
-      layer: blocker.layer,
-      expression: blocker.expression,
-    }),
-  });
-}
 
 function toExecutionOutcome<T extends ManifestoDomainShape>(
   dispatchOutcome: DispatchExecutionOutcome<T>,

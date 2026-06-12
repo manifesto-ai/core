@@ -470,3 +470,5 @@ function getExistingActivationState<
 }
 
 export { createRuntimeKernel } from "../runtime/kernel.js";
+
+export { mapBlockedAdmission, toBlocker } from "../runtime/admission-failure.js";

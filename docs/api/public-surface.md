@@ -1248,6 +1248,8 @@ _Source: `packages/sdk/src/provider.ts`_
 - `createRuntimeKernel`
 - `getActivationState`
 - `getRuntimeKernelFactory`
+- `mapBlockedAdmission`
+- `toBlocker`
 
 #### Types
 
