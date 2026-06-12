@@ -1,10 +1,6 @@
-import {
-  type SchemaGraph as RawSchemaGraph,
-} from "@manifesto-ai/compiler";
+import { type SchemaGraph as RawSchemaGraph } from "@manifesto-ai/compiler";
 
-import {
-  ManifestoError,
-} from "../errors.js";
+import { ManifestoError } from "../errors.js";
 import type {
   SchemaGraph,
   SchemaGraphNodeId,
@@ -36,7 +32,9 @@ export function createSdkSchemaGraph(rawGraph: RawSchemaGraph): SchemaGraph {
     link(incoming, edge.to, edge.from);
   }
 
-  const materialize = (included: ReadonlySet<SchemaGraphNodeId>): SchemaGraph => {
+  const materialize = (
+    included: ReadonlySet<SchemaGraphNodeId>,
+  ): SchemaGraph => {
     const subgraph: RawSchemaGraph = Object.freeze({
       nodes: Object.freeze(
         rawGraph.nodes.filter((node) => included.has(node.id)),

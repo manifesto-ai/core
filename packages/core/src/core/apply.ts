@@ -22,6 +22,7 @@ import {
   setByPatchPath,
   unsetByPatchPath,
 } from "../utils/patch-path.js";
+import { findJsonValueViolation } from "../utils/json-value.js";
 
 /**
  * Apply domain patches to snapshot.state and recompute computed values.
@@ -96,6 +97,23 @@ export function apply(
         validationErrors.push(createError(
           "TYPE_MISMATCH",
           `Invalid patch value at ${displayPath}: ${result.message ?? "type mismatch"}`,
+          snapshot.system.currentAction ?? "",
+          displayPath,
+          errorTimestamp,
+          { patch }
+        ));
+        continue;
+      }
+
+      // Field specs validate structure; the JSON value-domain check rejects
+      // what JSON cannot represent (non-finite numbers, class instances,
+      // nested undefined/functions) so canonicalization never silently
+      // drops or coerces accepted state (#480).
+      const jsonViolation = findJsonValueViolation(patch.value, displayPath);
+      if (jsonViolation) {
+        validationErrors.push(createError(
+          "INVALID_VALUE",
+          `Non-JSON patch value at ${jsonViolation.path}: ${jsonViolation.reason}`,
           snapshot.system.currentAction ?? "",
           displayPath,
           errorTimestamp,
@@ -275,6 +293,22 @@ export function applyNamespaceDeltas(
         ));
         deltaFailed = true;
         break;
+      }
+
+      if (patch.op !== "unset") {
+        const jsonViolation = findJsonValueViolation(patch.value, displayPath);
+        if (jsonViolation) {
+          validationErrors.push(createError(
+            "INVALID_VALUE",
+            `Non-JSON namespace patch value at ${jsonViolation.path}: ${jsonViolation.reason}`,
+            snapshot.system.currentAction ?? "",
+            displayPath,
+            errorTimestamp,
+            { delta, patch }
+          ));
+          deltaFailed = true;
+          break;
+        }
       }
 
       namespaceRoot = applyPatch(namespaceRoot, patch);

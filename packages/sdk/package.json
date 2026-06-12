@@ -52,9 +52,9 @@
     "clean": "rm -rf dist",
     "lint": "node ../../node_modules/@biomejs/biome/bin/biome check src",
     "test": "pnpm run test:runtime && pnpm run test:types",
-    "test:runtime": "node ../../node_modules/vitest/vitest.mjs run",
-    "test:types": "node ../../node_modules/typescript/bin/tsc -p tsconfig.types.json --noEmit",
-    "test:coverage": "node ../../node_modules/vitest/vitest.mjs run --coverage"
+    "test:runtime": "node ../../scripts/run-vitest.mjs run",
+    "test:types": "node ../../scripts/run-tsc.mjs -p tsconfig.types.json --noEmit",
+    "test:coverage": "node ../../scripts/run-vitest.mjs run --coverage"
   },
   "dependencies": {
     "@manifesto-ai/compiler": "workspace:*",

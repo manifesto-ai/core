@@ -9,17 +9,18 @@ import {
   type TraceGraph,
 } from "@manifesto-ai/core";
 import {
-  getHostState,
   type HostContextProvider,
-  type IntentSlot,
 } from "@manifesto-ai/host";
+// Host-owned execution state is read through the explicit tooling seam:
+// simulation must observe Host bookkeeping, and the subpath makes that
+// coupling legible instead of widening the main host surface.
+import {
+  getHostState,
+  type IntentSlot,
+} from "@manifesto-ai/host/tooling";
 
-import {
-  ManifestoError,
-} from "../errors.js";
-import {
-  cloneAndDeepFreeze,
-} from "../projection/snapshot-projection.js";
+import { ManifestoError } from "../errors.js";
+import { cloneAndDeepFreeze } from "../projection/snapshot-projection.js";
 import type {
   CanonicalSnapshot,
   ManifestoDomainShape,
@@ -48,14 +49,12 @@ function normalizeTraceNodeTimestamps(
     ...node,
     timestamp,
     children: node.children.map((child) =>
-      normalizeTraceNodeTimestamps(child, timestamp)
+      normalizeTraceNodeTimestamps(child, timestamp),
     ),
   };
 }
 
-function collectTraceNodes(
-  root: TraceGraph["root"],
-): TraceGraph["nodes"] {
+function collectTraceNodes(root: TraceGraph["root"]): TraceGraph["nodes"] {
   const nodes: TraceGraph["nodes"] = {};
 
   function visit(node: TraceGraph["root"]): void {
@@ -91,36 +90,40 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
   ): CoreSnapshot {
     const hostState = getHostState(snapshot);
     const intentSlots = hostState?.intentSlots ?? {};
-    const intentSlot: IntentSlot = intent.input === undefined
-      ? { type: intent.type }
-      : { type: intent.type, input: intent.input };
+    const intentSlot: IntentSlot =
+      intent.input === undefined
+        ? { type: intent.type }
+        : { type: intent.type, input: intent.input };
 
-    return applyNamespaceDeltas(
-      snapshot,
-      [
-        {
-          namespace: "host",
-          patches: [{
+    return applyNamespaceDeltas(snapshot, [
+      {
+        namespace: "host",
+        patches: [
+          {
             op: "set",
             path: [{ kind: "prop", name: "intentSlots" }],
             value: {
               ...intentSlots,
               [intent.intentId]: intentSlot,
             },
-          }],
-        },
-      ],
-    );
+          },
+        ],
+      },
+    ]);
   }
 
-  function createSimulationUnavailableError(intent: TypedIntent<T>): ManifestoError {
+  function createSimulationUnavailableError(
+    intent: TypedIntent<T>,
+  ): ManifestoError {
     return new ManifestoError(
       "ACTION_UNAVAILABLE",
       `Action "${intent.type}" is unavailable against the provided canonical snapshot`,
     );
   }
 
-  function createSimulationNotDispatchableError(intent: TypedIntent<T>): ManifestoError {
+  function createSimulationNotDispatchableError(
+    intent: TypedIntent<T>,
+  ): ManifestoError {
     return new ManifestoError(
       "INTENT_NOT_DISPATCHABLE",
       `Action "${intent.type}" is available, but the bound intent is not dispatchable against the provided canonical snapshot`,
@@ -144,10 +147,12 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
     }
     const enrichedIntent = legality.intent;
 
-    const context: Context = options?.context ?? hostContextProvider.createFrozenContext(
-      enrichedIntent.intentId,
-      options?.externalContext,
-    );
+    const context: Context =
+      options?.context ??
+      hostContextProvider.createFrozenContext(
+        enrichedIntent.intentId,
+        options?.externalContext,
+      );
     const baseline = withHostIntentSlot(
       structuredClone(snapshot as CoreSnapshot),
       enrichedIntent,
@@ -158,7 +163,10 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
       afterPatches,
       result.namespaceDelta ?? [],
     );
-    const canonicalSimulated = applySystemDelta(afterNamespaceDeltas, result.systemDelta);
+    const canonicalSimulated = applySystemDelta(
+      afterNamespaceDeltas,
+      result.systemDelta,
+    );
 
     return Object.freeze({
       snapshot: cloneAndDeepFreeze(
@@ -167,7 +175,9 @@ export function createRuntimeSimulation<T extends ManifestoDomainShape>({
       patches: cloneAndDeepFreeze(result.patches),
       systemDelta: cloneAndDeepFreeze(result.systemDelta),
       status: result.status,
-      requirements: cloneAndDeepFreeze(result.systemDelta.addRequirements ?? []),
+      requirements: cloneAndDeepFreeze(
+        result.systemDelta.addRequirements ?? [],
+      ),
       diagnostics: Object.freeze({
         trace: cloneAndDeepFreeze(
           createStableSimulationTrace(result.trace, snapshot.meta.timestamp),

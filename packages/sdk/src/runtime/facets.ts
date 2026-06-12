@@ -132,8 +132,13 @@ export interface RuntimeAdmission<T extends ManifestoDomainShape> {
     intent: TypedIntent<T>,
   ) => IntentExplanation<T>;
   readonly createUnavailableError: (intent: TypedIntent<T>) => ManifestoError;
-  readonly createNotDispatchableError: (intent: TypedIntent<T>) => ManifestoError;
-  readonly rejectInvalidInput: (intent: TypedIntent<T>, message: string) => never;
+  readonly createNotDispatchableError: (
+    intent: TypedIntent<T>,
+  ) => ManifestoError;
+  readonly rejectInvalidInput: (
+    intent: TypedIntent<T>,
+    message: string,
+  ) => never;
   readonly rejectUnavailable: (intent: TypedIntent<T>) => never;
   readonly rejectNotDispatchable: (intent: TypedIntent<T>) => never;
 }

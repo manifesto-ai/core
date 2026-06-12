@@ -600,6 +600,130 @@ describe("createDomainPlugin", () => {
     });
   }, 60_000);
 
+  it("emits a typed context block when the schema declares a context contract", () => {
+    const plugin = createDomainPlugin();
+    const out = plugin.generate(
+      makeCtx({
+        meta: { name: "CtxDomain" },
+        types: {
+          Settings: {
+            name: "Settings",
+            definition: {
+              kind: "object",
+              fields: {
+                darkMode: { type: { kind: "primitive", type: "boolean" }, optional: false },
+                scale: { type: { kind: "primitive", type: "number" }, optional: true },
+              },
+            },
+          },
+        },
+        context: {
+          fields: {
+            locale: { type: "string", required: true },
+            maxItems: { type: "number", required: true },
+            theme: { type: "string", required: false },
+            settings: { type: "object", required: true, fields: {} },
+          },
+          fieldTypes: {
+            locale: { kind: "primitive", type: "string" },
+            maxItems: { kind: "primitive", type: "number" },
+            settings: { kind: "ref", name: "Settings" },
+          },
+        },
+        actions: {
+          refresh: { flow: { kind: "seq", steps: [] } },
+        },
+      })
+    );
+
+    const content = out.patches[0].content;
+    expect(out.diagnostics).toEqual([]);
+    expect(content).toContain("  readonly context: {");
+    expect(content).toContain("    locale: string");
+    expect(content).toContain("    maxItems: number");
+    // Optional context fields are encoded as `T | null`, never `?`, because
+    // the SDK external-context contract has no `undefined` members.
+    expect(content).toContain("    theme: string | null");
+    expect(content).not.toContain("theme?");
+    // Named refs are inlined structurally so the context block stays
+    // assignable to the external-context record contract; optional fields of
+    // the referenced type are normalized to `| null`.
+    expect(content).toContain("    settings: { darkMode: boolean; scale: number | null }");
+    expect(content).toContain('export type CtxExternalContext = CtxDomain["context"];');
+
+    assertTypechecks({
+      "ctx.domain.ts": content,
+      "consumer.ts": `
+        import type { CtxApp, CtxDomain, CtxExternalContext } from "./ctx.domain.js";
+
+        declare const app: CtxApp<"base">;
+        const context: CtxExternalContext = app.context();
+        const locale: string = context.locale;
+        const theme: string | null = context.theme;
+        app.injectContext({
+          locale: "ko",
+          maxItems: 3,
+          theme: null,
+          settings: { darkMode: true, scale: null },
+        });
+        app.updateContext((current) => ({ ...current, maxItems: 5 }));
+        app.injectContext({
+          // @ts-expect-error number is not assignable to the declared locale type
+          locale: 42,
+          maxItems: 3,
+          theme: null,
+          settings: { darkMode: true, scale: null },
+        });
+
+        type Domain = CtxDomain;
+        declare const shape: Domain["context"];
+        // @ts-expect-error context fields are statically typed, not widened
+        const widened: boolean = shape.locale;
+
+        void locale;
+        void theme;
+        void widened;
+      `,
+    });
+  }, 60_000);
+
+  it("degrades non-JSON-safe context fields to JsonValue with a warning", () => {
+    const plugin = createDomainPlugin();
+    const out = plugin.generate(
+      makeCtx({
+        meta: { name: "DegradedDomain" },
+        context: {
+          fields: {
+            payload: { type: "object", required: true, fields: {} },
+            count: { type: "number", required: true },
+          },
+          fieldTypes: {
+            payload: { kind: "primitive", type: "integer" },
+            count: { kind: "primitive", type: "number" },
+          },
+        },
+      })
+    );
+
+    const content = out.patches[0].content;
+    expect(content).toContain("  JsonValue,");
+    expect(content).toContain("    payload: JsonValue");
+    expect(content).toContain("    count: number");
+    expect(out.diagnostics).toContainEqual(expect.objectContaining({
+      level: "warn",
+      message: expect.stringContaining('Context field "payload"'),
+    }));
+  });
+
+  it("does not emit a context block or context alias without a schema context contract", () => {
+    const plugin = createDomainPlugin();
+    const out = plugin.generate(makeCtx({ meta: { name: "PlainDomain" } }));
+
+    expect(out.patches[0].content).not.toContain("readonly context:");
+    expect(out.patches[0].content).not.toContain("ExternalContext");
+    expect(out.patches[0].content).not.toContain("JsonValue");
+  });
+
   it("emits named schema types referenced by state fieldTypes into a self-contained facade", () => {
     const plugin = createDomainPlugin();
     const out = plugin.generate(
@@ -753,6 +877,128 @@ describe("createDomainPlugin", () => {
     expect(out.patches[0].content).toContain("firstItemCount: number");
     expect(out.patches[0].content).toContain("itemIds: string[]");
     expect(out.patches[0].content).toContain("foundItem: { count: number; id: string } | null");
+  });
+
+  it("emits valid TypeScript for schema keys that are not valid identifiers", () => {
+    const plugin = createDomainPlugin();
+    const out = plugin.generate(
+      makeCtx({
+        meta: { name: "KeyDomain" },
+        types: {
+          "My-Type": {
+            name: "My-Type",
+            definition: {
+              kind: "object",
+              fields: {
+                "nested-key": { type: { kind: "primitive", type: "string" }, optional: false },
+              },
+            },
+          },
+          My_Type: {
+            name: "My_Type",
+            definition: { kind: "primitive", type: "number" },
+          },
+        },
+        state: {
+          fields: {
+            "my-field": { type: "string", required: true, default: "" },
+            "2nd": { type: "number", required: true, default: 0 },
+            "has space": { type: "boolean", required: true, default: false },
+            class: { type: "string", required: true, default: "" },
+            linked: { type: "object", required: true, fields: {} },
+          },
+          fieldTypes: {
+            linked: { kind: "ref", name: "My-Type" },
+          },
+        },
+        computed: {
+          fields: {
+            "derived-flag": {
+              deps: ["2nd"],
+              expr: {
+                kind: "gt",
+                left: { kind: "get", path: "2nd" },
+                right: { kind: "lit", value: 0 },
+              },
+            },
+          },
+        },
+        actions: {
+          "do-thing": {
+            flow: { kind: "seq", steps: [] },
+            params: ["new-value"],
+            inputType: {
+              kind: "object",
+              fields: {
+                "new-value": { type: { kind: "primitive", type: "string" }, optional: false },
+              },
+            },
+          },
+        },
+      })
+    );
+
+    const content = out.patches[0].content;
+    expect(content).toContain('    "my-field": string');
+    expect(content).toContain('    "2nd": number');
+    expect(content).toContain('    "has space": boolean');
+    expect(content).toContain("    class: string");
+    expect(content).toContain('    "derived-flag": boolean');
+    expect(content).toContain('    "do-thing": (new_value: string) => void');
+    expect(content).toContain("export interface My_Type_2 {");
+    expect(content).toContain('  "nested-key": string;');
+    expect(content).toContain("export type My_Type = number;");
+    expect(content).toContain("linked: My_Type_2");
+    expect(content).not.toContain("My-Type");
+    expect(out.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining('"My-Type"'),
+      }),
+      expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining('parameter "new-value"'),
+      }),
+    ]));
+
+    assertTypechecks({
+      "keys.domain.ts": content,
+      "consumer.ts": `
+        import type { KeyApp, KeyDomain, My_Type_2 } from "./keys.domain.js";
+
+        declare const state: KeyDomain["state"];
+        const myField: string = state["my-field"];
+        const second: number = state["2nd"];
+        const spaced: boolean = state["has space"];
+        const klass: string = state.class;
+        const linked: My_Type_2 = state.linked;
+        const nested: string = linked["nested-key"];
+
+        type ActionNames = keyof KeyDomain["actions"] & string;
+        const actionName: ActionNames = "do-thing";
+
+        declare const app: KeyApp<"base">;
+        app.action["do-thing"].submit("next");
+
+        void myField;
+        void second;
+        void spaced;
+        void klass;
+        void nested;
+        void actionName;
+      `,
+    });
+  }, 60_000);
+
+  it("sanitizes a derived interface name that is not a valid TypeScript identifier", () => {
+    const plugin = createDomainPlugin();
+    const out = plugin.generate(makeCtx({ meta: { name: "Hello Domain" } }));
+
+    expect(out.patches[0].content).toContain("export interface Hello_Domain {");
+    expect(out.diagnostics).toContainEqual(expect.objectContaining({
+      level: "warn",
+      message: expect.stringContaining('"Hello Domain"'),
+    }));
   });
 
   it("falls back to unknown with a warning for unsupported expressions", () => {

@@ -6,6 +6,11 @@ import type {
   Diagnostic,
 } from "../types.js";
 import type { TsPluginArtifacts } from "./ts-plugin.js";
+import {
+  createTypeNameAliasMap,
+  renderPropertyKey,
+  type IdentifierAliasMap,
+} from "../identifier-safety.js";
 
 const PLUGIN_NAME = "codegen-plugin-zod";
 const TS_PLUGIN_NAME = "codegen-plugin-ts";
@@ -34,12 +39,22 @@ export function createZodPlugin(options?: ZodPluginOptions): CodegenPlugin {
       const sortedTypeNames = Object.keys(ctx.schema.types).sort();
       const schemaDecls: string[] = [];
 
-      // Collect all type names for forward declarations with z.lazy
-      const allTypeNames = new Set(sortedTypeNames);
+      // Sanitized aliases mirror the TS plugin so cross-file references and
+      // z.ZodType annotations stay consistent.
+      const typeAliases = createTypeNameAliasMap(sortedTypeNames);
+      for (const [name, alias] of typeAliases) {
+        if (alias !== name) {
+          diagnostics.push({
+            level: "warn",
+            plugin: PLUGIN_NAME,
+            message: `Schema type name "${name}" is not a valid TypeScript type name. Emitting sanitized alias "${alias}".`,
+          });
+        }
+      }
 
       for (const name of sortedTypeNames) {
         const spec = ctx.schema.types[name];
-        schemaDecls.push(renderNamedSchema(name, spec, allTypeNames, tsArtifacts, diagnostics));
+        schemaDecls.push(renderNamedSchema(name, spec, typeAliases, tsArtifacts, diagnostics));
       }
 
       // Build imports
@@ -48,7 +63,8 @@ export function createZodPlugin(options?: ZodPluginOptions): CodegenPlugin {
       // ZOD-4: Import TS types for annotations when available
       if (tsArtifacts && tsArtifacts.typeNames.length > 0) {
         const typeImports = sortedTypeNames
-          .filter((n) => tsArtifacts.typeNames.includes(n))
+          .map((n) => typeAliases.get(n) ?? n)
+          .filter((alias) => tsArtifacts.typeNames.includes(alias))
           .join(", ");
         if (typeImports) {
           imports.push(`import type { ${typeImports} } from "${tsArtifacts.typeImportPath}";`);
@@ -70,23 +86,24 @@ export function createZodPlugin(options?: ZodPluginOptions): CodegenPlugin {
 function renderNamedSchema(
   name: string,
   spec: TypeSpec,
-  allTypeNames: Set<string>,
+  typeAliases: IdentifierAliasMap,
   tsArtifacts: TsPluginArtifacts | undefined,
   diagnostics: Diagnostic[]
 ): string {
-  const schemaName = `${name}Schema`;
-  const zodExpr = mapTypeDefinition(spec.definition, allTypeNames, diagnostics);
+  const alias = typeAliases.get(name) ?? name;
+  const schemaName = `${alias}Schema`;
+  const zodExpr = mapTypeDefinition(spec.definition, typeAliases, diagnostics);
 
   // ZOD-4/ZOD-5: Type annotation when TS artifacts available
-  const hasTypeAnnotation = tsArtifacts && tsArtifacts.typeNames.includes(name);
-  const annotation = hasTypeAnnotation ? `: z.ZodType<${name}>` : "";
+  const hasTypeAnnotation = tsArtifacts && tsArtifacts.typeNames.includes(alias);
+  const annotation = hasTypeAnnotation ? `: z.ZodType<${alias}>` : "";
 
   return `export const ${schemaName}${annotation} = ${zodExpr};`;
 }
 
 function mapTypeDefinition(
   def: TypeDefinition,
-  allTypeNames: Set<string>,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): string {
   switch (def.kind) {
@@ -97,20 +114,20 @@ function mapTypeDefinition(
       return `z.literal(${renderLiteralValue(def.value)})`;
 
     case "array":
-      return `z.array(${mapTypeDefinition(def.element, allTypeNames, diagnostics)})`;
+      return `z.array(${mapTypeDefinition(def.element, typeAliases, diagnostics)})`;
 
     case "record":
-      return handleRecord(def, allTypeNames, diagnostics);
+      return handleRecord(def, typeAliases, diagnostics);
 
     case "object":
-      return renderZodObject(def.fields, allTypeNames, diagnostics);
+      return renderZodObject(def.fields, typeAliases, diagnostics);
 
     case "union":
-      return handleUnion(def.types, allTypeNames, diagnostics);
+      return handleUnion(def.types, typeAliases, diagnostics);
 
     case "ref":
       // ZOD-2: Always z.lazy for circular reference support
-      return `z.lazy(() => ${def.name}Schema)`;
+      return `z.lazy(() => ${typeAliases.get(def.name) ?? def.name}Schema)`;
 
     default: {
       // ZOD-1: Unknown kind fallback
@@ -151,10 +168,10 @@ function renderLiteralValue(value: string | number | boolean | null): string {
 
 function handleRecord(
   def: Extract<TypeDefinition, { kind: "record" }>,
-  allTypeNames: Set<string>,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): string {
-  const valueSchema = mapTypeDefinition(def.value, allTypeNames, diagnostics);
+  const valueSchema = mapTypeDefinition(def.value, typeAliases, diagnostics);
 
   // ZOD-7: Non-string record key -> degrade to z.record(z.string(), ...)
   if (def.key.kind !== "primitive" || def.key.type !== "string") {
@@ -171,7 +188,7 @@ function handleRecord(
 
 function renderZodObject(
   fields: Record<string, { type: TypeDefinition; optional: boolean }>,
-  allTypeNames: Set<string>,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): string {
   const sortedFields = Object.keys(fields).sort();
@@ -179,14 +196,14 @@ function renderZodObject(
 
   for (const fieldName of sortedFields) {
     const field = fields[fieldName];
-    let zodType = mapTypeDefinition(field.type, allTypeNames, diagnostics);
+    let zodType = mapTypeDefinition(field.type, typeAliases, diagnostics);
 
     // ZOD-6: optional -> .optional()
     if (field.optional) {
       zodType += ".optional()";
     }
 
-    parts.push(`  ${fieldName}: ${zodType},`);
+    parts.push(`  ${renderPropertyKey(fieldName)}: ${zodType},`);
   }
 
   return `z.object({\n${parts.join("\n")}\n})`;
@@ -194,7 +211,7 @@ function renderZodObject(
 
 function handleUnion(
   types: TypeDefinition[],
-  allTypeNames: Set<string>,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): string {
   // ZOD-3: 2-variant union with null -> z.nullable(T)
@@ -204,11 +221,11 @@ function handleUnion(
     );
     if (nullIdx !== -1) {
       const otherIdx = nullIdx === 0 ? 1 : 0;
-      const otherSchema = mapTypeDefinition(types[otherIdx], allTypeNames, diagnostics);
+      const otherSchema = mapTypeDefinition(types[otherIdx], typeAliases, diagnostics);
       return `z.nullable(${otherSchema})`;
     }
   }
 
-  const schemas = types.map((t) => mapTypeDefinition(t, allTypeNames, diagnostics));
+  const schemas = types.map((t) => mapTypeDefinition(t, typeAliases, diagnostics));
   return `z.union([${schemas.join(", ")}])`;
 }

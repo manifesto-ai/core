@@ -7,8 +7,8 @@
   "scripts": {
     "build": "rm -rf dist && mkdir -p dist && printf 'activation-cts\\n' > dist/.build-stamp",
     "lint": "node ../../node_modules/@biomejs/biome/bin/biome check src",
-    "test": "node ../../node_modules/vitest/vitest.mjs run --config vitest.config.ts && node ../../node_modules/typescript/bin/tsc -p tsconfig.types.json --noEmit",
-    "test:coverage": "node ../../node_modules/vitest/vitest.mjs run --config vitest.config.ts --coverage && node ../../node_modules/typescript/bin/tsc -p tsconfig.types.json --noEmit"
+    "test": "node ../../scripts/run-vitest.mjs run --config vitest.config.ts && node ../../scripts/run-tsc.mjs -p tsconfig.types.json --noEmit",
+    "test:coverage": "node ../../scripts/run-vitest.mjs run --config vitest.config.ts --coverage && node ../../scripts/run-tsc.mjs -p tsconfig.types.json --noEmit"
   },
   "dependencies": {
     "@manifesto-ai/core": "workspace:*",

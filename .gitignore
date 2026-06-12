@@ -1,6 +1,8 @@
 node_modules
 dist
 .turbo
+# pnpm-only repo: pnpm-lock.yaml is the single lockfile
+package-lock.json
 *.tsbuildinfo
 .env
 .env*

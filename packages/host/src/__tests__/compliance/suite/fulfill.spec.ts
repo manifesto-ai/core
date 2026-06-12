@@ -13,9 +13,17 @@ import { semanticPathToPatchPath } from "@manifesto-ai/core";
 const pp = semanticPathToPatchPath;
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { createCore, type ManifestoCore } from "@manifesto-ai/core";
+import type { TraceEvent } from "../hcts-types.js";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
-import { createV1Adapter, } from "../adapter-v2.js";
+import { createV2Adapter, type V2HostAdapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
+import {
+  assertRequirementCleared,
+  assertNoInfiniteLoop,
+  assertClearOnApplyFailure,
+  expectCompliance,
+} from "../hcts-assertions.js";
 import {
   createTestSchema,
   createTestIntent,
@@ -33,7 +41,7 @@ describe("HCTS Fulfillment Tests", () => {
 
   beforeEach(async () => {
     runtime = createTestRuntime();
-    adapter = createV1Adapter();
+    adapter = createV2Adapter();
   });
 
   afterEach(async () => {
@@ -349,9 +357,9 @@ describe("HCTS Fulfillment Tests", () => {
       });
 
       const effectRunner = createTestEffectRunner();
-      let _executionCount = 0;
+      let executionCount = 0;
       effectRunner.register("noop", async () => {
-        _executionCount++;
+        executionCount++;
         return []; // Returns no patches
       });
 

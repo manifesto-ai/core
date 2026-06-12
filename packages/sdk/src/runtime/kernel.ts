@@ -1,9 +1,11 @@
 import {
   evaluateComputed,
-  getAvailableActions as queryAvailableActions,
+  evaluateActionAvailability,
+  evaluateAvailableActions,
+  evaluateIntentDispatchability,
   isErr,
-  isActionAvailable as queryActionAvailable,
-  isIntentDispatchable as queryIntentDispatchable,
+  type ActionAvailabilityEvaluation,
+  type ActionDispatchabilityEvaluation,
   type DomainSchema,
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
@@ -215,13 +217,33 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     actionNames.map((name) => actionMetadataByName[name]),
   ) as readonly TypedActionMetadata<T>[];
 
+  // Legality queries ride the errors-are-values channel: an action whose
+  // availability/dispatchability expression fails to evaluate is treated as
+  // not legal instead of throwing, so one broken expression cannot poison
+  // dispatches or the available-actions projection (#493).
+  function evaluateActionAvailabilityFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    name: keyof T["actions"],
+  ): ActionAvailabilityEvaluation {
+    return evaluateActionAvailability(schema, snapshot as CoreSnapshot, String(name));
+  }
+
+  function evaluateIntentDispatchabilityFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): ActionDispatchabilityEvaluation {
+    return evaluateIntentDispatchability(schema, snapshot as CoreSnapshot, intent);
+  }
+
   function getAvailableActionsFor(
     snapshot: CanonicalSnapshot<T["state"]>,
   ): readonly (keyof T["actions"])[] {
+    const evaluation = evaluateAvailableActions(schema, snapshot as CoreSnapshot);
+    if (evaluation.kind === "error") {
+      return Object.freeze([]);
+    }
     return Object.freeze(
-      [
-        ...queryAvailableActions(schema, snapshot as CoreSnapshot),
-      ] as Array<keyof T["actions"]>,
+      [...evaluation.actions] as Array<keyof T["actions"]>,
     );
   }
 
@@ -246,7 +268,8 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     snapshot: CanonicalSnapshot<T["state"]>,
     name: keyof T["actions"],
   ): boolean {
-    return queryActionAvailable(schema, snapshot as CoreSnapshot, String(name));
+    const evaluation = evaluateActionAvailabilityFor(snapshot, name);
+    return evaluation.kind === "ok" && evaluation.available;
   }
 
   function isActionAvailable(name: keyof T["actions"]): boolean {
@@ -257,7 +280,8 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
   ): boolean {
-    return queryIntentDispatchable(schema, snapshot as CoreSnapshot, intent);
+    const evaluation = evaluateIntentDispatchabilityFor(snapshot, intent);
+    return evaluation.kind === "ok" && evaluation.dispatchable;
   }
 
   const isIntentDispatchable: TypedIsIntentDispatchable<T> = ((
@@ -355,6 +379,8 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     getAvailableActionsFor,
     isActionAvailableFor,
     isIntentDispatchableFor,
+    evaluateActionAvailabilityFor,
+    evaluateIntentDispatchabilityFor,
     projectSnapshotFromCanonical,
     getSimulateSync: () => {
       if (!simulateSyncRef) {

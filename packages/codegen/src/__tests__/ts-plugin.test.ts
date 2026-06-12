@@ -145,4 +145,81 @@ describe("createTsPlugin", () => {
       expect(artifacts.typeImportPath).toBe("./types");
     });
   });
+
+  describe("identifier safety", () => {
+    it("sanitizes type names that are not valid TypeScript identifiers", () => {
+      const ctx = makeCtx({
+        "My-Type": createTypeSpec(
+          "My-Type",
+          objectType({ id: { type: primitiveType("string"), optional: false } })
+        ),
+        My_Type: createTypeSpec("My_Type", primitiveType("number")),
+        Holder: createTypeSpec(
+          "Holder",
+          objectType({ linked: { type: refType("My-Type"), optional: false } })
+        ),
+      });
+      const out = plugin.generate(ctx);
+      const content = out.patches[0].content;
+
+      expect(content).toContain("export interface My_Type_2 {");
+      expect(content).toContain("export type My_Type = number;");
+      expect(content).toContain("linked: My_Type_2;");
+      expect(content).not.toContain("My-Type");
+      const artifacts = out.artifacts as Record<string, unknown>;
+      expect(artifacts.typeNames).toEqual(["Holder", "My_Type_2", "My_Type"]);
+      expect(out.diagnostics).toContainEqual(expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining('"My-Type"'),
+      }));
+    });
+
+    it("quotes object field keys that are not valid identifier names", () => {
+      const ctx = makeCtx({
+        Foo: createTypeSpec(
+          "Foo",
+          objectType({
+            "my-key": { type: primitiveType("string"), optional: false },
+            "2nd": { type: primitiveType("number"), optional: true },
+          })
+        ),
+      });
+      const out = plugin.generate(ctx);
+      const content = out.patches[0].content;
+      expect(content).toContain('  "my-key": string;');
+      expect(content).toContain('  "2nd"?: number;');
+    });
+
+    it("sanitizes action input type names derived from invalid action names", () => {
+      const ctx: CodegenContext = {
+        schema: createTestSchema({
+          actions: {
+            "2nd-step": {
+              flow: { kind: "seq", steps: [] },
+              input: {
+                type: "object",
+                required: true,
+                fields: {
+                  "step name": { type: "string", required: true },
+                },
+              },
+            },
+          },
+        }),
+        outDir: "/tmp/out",
+        artifacts: {},
+        helpers: { stableHash },
+      };
+      const out = plugin.generate(ctx);
+      const actionsPatch = out.patches.find((p) => p.path === "actions.ts");
+      expect(actionsPatch).toBeDefined();
+      const content = (actionsPatch as { content: string }).content;
+      expect(content).toContain("export type _2ndStepInput = ");
+      expect(content).toContain('"step name": string');
+      expect(out.diagnostics).toContainEqual(expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining('"2ndStepInput"'),
+      }));
+    });
+  });
 });

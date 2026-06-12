@@ -164,12 +164,25 @@ export type ActionInfo<Name extends string = string> = {
   readonly annotations?: ActionAnnotation;
 };
 
+/**
+ * Coarse admission-stage blocker riding on {@link AdmissionFailure}.
+ *
+ * Admission stays cheap: a Blocker says THAT a candidate is blocked and at
+ * which layer. To learn WHY in domain terms (the MEL expressions involved),
+ * re-query the explanation seam — that richer stage uses
+ * {@link ExplanationBlocker} (`DispatchBlocker`) on `IntentExplanation`.
+ */
 export type Blocker = {
   readonly path: ReadonlyArray<string | number>;
   readonly code: string;
   readonly message: string;
   readonly detail?: Readonly<Record<string, unknown>>;
 };
+
+/**
+ * Stage-explicit name for {@link Blocker}: the admission-stage vocabulary.
+ */
+export type AdmissionBlocker = Blocker;
 
 export type AdmissionOk<Name extends string = string> = {
   readonly ok: true;
@@ -760,12 +773,26 @@ export type TypedGetActionMetadata<T extends ManifestoDomainShape> = {
   <K extends keyof T["actions"]>(name: K): TypedActionMetadata<T, K>;
 };
 
+/**
+ * Rich explanation-stage blocker riding on `IntentExplanation`.
+ *
+ * Carries the MEL expression behind the block. This is the upgrade target
+ * when a UI showing "why is this blocked" needs more than the coarse
+ * admission-stage {@link Blocker}: re-query the explanation seam to move
+ * from one vocabulary to the other.
+ */
 export type DispatchBlocker = {
   readonly layer: "available" | "dispatchable";
   readonly expression: ExprNode;
   readonly evaluatedResult: unknown;
   readonly description?: string;
 };
+
+/**
+ * Stage-explicit name for {@link DispatchBlocker}: the explanation-stage
+ * vocabulary.
+ */
+export type ExplanationBlocker = DispatchBlocker;
 
 export type TypedIsIntentDispatchable<T extends ManifestoDomainShape> = <
   K extends keyof T["actions"],
@@ -902,6 +929,14 @@ export type ManifestoApp<
       ? GovernanceSettlementSurface<T>
       : EmptySurface);
 
+/**
+ * v3-era intent-centric instance shape, retired from the public surface by
+ * the v5 activation-first design. It is intentionally NOT exported from the
+ * package entrypoints; it remains only as the internal compat seam's view.
+ *
+ * @deprecated Scheduled for removal in the next major release together with
+ * the deprecated DispatchReport / IntentAdmission result types.
+ */
 export type ManifestoBaseInstance<T extends ManifestoDomainShape> = {
   readonly createIntent: TypedCreateIntent<T>;
   readonly dispatchAsync: TypedDispatchAsync<T>;

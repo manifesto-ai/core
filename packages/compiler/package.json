@@ -63,14 +63,14 @@
     "build": "rm -rf dist && tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declarationMap false --outDir dist",
     "clean": "rm -rf dist",
     "lint": "node ../../node_modules/@biomejs/biome/bin/biome check src",
-    "test": "node ../../node_modules/vitest/vitest.mjs run",
-    "test:coverage": "node ../../node_modules/vitest/vitest.mjs run --coverage",
-    "test:watch": "node ../../node_modules/vitest/vitest.mjs",
+    "test": "node ../../scripts/run-vitest.mjs run",
+    "test:coverage": "node ../../scripts/run-vitest.mjs run --coverage",
+    "test:watch": "node ../../scripts/run-vitest.mjs",
     "example": "npx tsx examples/simple-compile.ts",
     "cli": "node ./dist/cli/index.js"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "^0.26.0",
+    "@anthropic-ai/sdk": "^0.91.1",
     "@manifesto-ai/core": "^5.0.0",
     "openai": "^4.0.0",
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0",
@@ -91,8 +91,9 @@
     "unplugin": "^3.0.0"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
+    "@anthropic-ai/sdk": "^0.91.1",
     "@manifesto-ai/core": "workspace:*",
+    "@manifesto-ai/cts-kit": "workspace:*",
     "@types/node": "^25.5.2",
     "@types/react": "^19.2.14",
     "dotenv": "^17.4.2",

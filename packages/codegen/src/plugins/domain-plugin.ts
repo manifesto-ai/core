@@ -1,14 +1,26 @@
 import type { CodegenContext, CodegenOutput, CodegenPlugin, Diagnostic } from "../types.js";
-import type { ActionSpec, FieldSpec, TypeDefinition, TypeSpec } from "@manifesto-ai/core";
+import type { ActionSpec, ContextSpec, FieldSpec, TypeDefinition, TypeSpec } from "@manifesto-ai/core";
 import { createInferenceContext, inferComputedType } from "./domain-type-inference.js";
 import {
   fieldSpecToDomainField,
   fieldSpecToDomainType,
+  primitiveType,
+  refType,
   renderDomainType,
+  unionOf,
   unknownType,
   type DomainTypeField,
 } from "./domain-type-model.js";
 import { typeDefinitionToDomainType } from "./domain-type-definition.js";
+import { toContextSafeType } from "./domain-context-type.js";
+import {
+  createTypeNameAliasMap,
+  isTypeDeclarationName,
+  renderPropertyKey,
+  sanitizeIdentifier,
+  sanitizeParameterNames,
+  type IdentifierAliasMap,
+} from "../identifier-safety.js";
 
 const PLUGIN_NAME = "codegen-plugin-domain";
 const RESERVED_PUBLIC_ACTION_NAMES = new Set([
@@ -31,14 +43,36 @@ export function createDomainPlugin(options?: DomainPluginOptions): CodegenPlugin
       const diagnostics: Diagnostic[] = [];
       const inference = createInferenceContext(ctx.schema, diagnostics, PLUGIN_NAME);
 
-      const interfaceName = options?.interfaceName
+      const requestedInterfaceName = options?.interfaceName
         ?? deriveInterfaceName(ctx)
         ?? "Domain";
+      const interfaceName = ensureTypeDeclarationName(requestedInterfaceName);
+      if (interfaceName !== requestedInterfaceName) {
+        diagnostics.push({
+          level: "warn",
+          plugin: PLUGIN_NAME,
+          message: `Domain interface name "${requestedInterfaceName}" is not a valid TypeScript identifier. Emitting sanitized name "${interfaceName}".`,
+        });
+      }
       const facadePrefix = deriveFacadePrefix(interfaceName);
       const fileName = options?.fileName ?? deriveFileName(ctx.sourceId);
       const schemaTypes = ctx.schema.types;
+      const typeAliases = createTypeNameAliasMap(
+        Object.keys(schemaTypes),
+        [interfaceName]
+      );
+      for (const [name, alias] of typeAliases) {
+        if (alias !== name) {
+          diagnostics.push({
+            level: "warn",
+            plugin: PLUGIN_NAME,
+            message: `Schema type name "${name}" is not a valid TypeScript type name. Emitting sanitized alias "${alias}".`,
+          });
+        }
+      }
       const namedTypeDeclarations = renderNamedTypeDeclarations(
         schemaTypes,
+        typeAliases,
         diagnostics
       );
 
@@ -50,6 +84,7 @@ export function createDomainPlugin(options?: DomainPluginOptions): CodegenPlugin
           spec,
           ctx.schema.state.fieldTypes,
           schemaTypes,
+          typeAliases,
           diagnostics
         )
       );
@@ -82,16 +117,25 @@ export function createDomainPlugin(options?: DomainPluginOptions): CodegenPlugin
       }
       const actionLines = actionNames.map((name) => {
         const action = ctx.schema.actions[name];
-        return `    ${name}: ${renderActionSignature(action, schemaTypes, diagnostics)}`;
+        return `    ${renderPropertyKey(name)}: ${renderActionSignature(name, action, schemaTypes, typeAliases, diagnostics)}`;
       });
+
+      const contextBlock = ctx.schema.context
+        ? renderContextFieldBlock(ctx.schema.context, schemaTypes, diagnostics)
+        : null;
+
+      const sdkImports = [
+        "ActionArgs",
+        "ActionHandle",
+        "ActionInput",
+        ...(contextBlock?.usesJsonValue ? ["JsonValue"] : []),
+        "ManifestoApp",
+        "RuntimeMode",
+      ];
 
       const sections = [
         "import type {",
-        "  ActionArgs,",
-        "  ActionHandle,",
-        "  ActionInput,",
-        "  ManifestoApp,",
-        "  RuntimeMode,",
+        ...sdkImports.map((name) => `  ${name},`),
         "} from \"@manifesto-ai/sdk\";",
         "",
         ...(namedTypeDeclarations.length > 0
@@ -104,11 +148,20 @@ export function createDomainPlugin(options?: DomainPluginOptions): CodegenPlugin
         "  readonly computed: {",
         computedFields,
         "  }",
+        ...(contextBlock
+          ? ["  readonly context: {", contextBlock.fields, "  }"]
+          : []),
         "  readonly actions: {",
         actionLines.join("\n"),
         "  }",
         "}",
         "",
+        ...(contextBlock
+          ? [
+              `export type ${facadePrefix}ExternalContext = ${interfaceName}["context"];`,
+              "",
+            ]
+          : []),
         `export type ${facadePrefix}ActionInput<Name extends keyof ${interfaceName}["actions"] & string> =`,
         `  ActionInput<${interfaceName}, Name>;`,
         "",
@@ -152,7 +205,7 @@ function renderFieldBlock<T>(
     .map((name) => {
       const field = mapField(name, source[name]);
       const optional = field.optional ? "?" : "";
-      return `    ${name}${optional}: ${renderDomainType(field.type)}`;
+      return `    ${renderPropertyKey(name)}${optional}: ${renderDomainType(field.type)}`;
     })
     .join("\n");
 }
@@ -162,6 +215,7 @@ function stateFieldToDomainField(
   spec: FieldSpec,
   fieldTypes: Readonly<Record<string, TypeDefinition>> | undefined,
   schemaTypes: Readonly<Record<string, TypeSpec>>,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): DomainTypeField {
   const fieldType = fieldTypes?.[name];
@@ -174,15 +228,90 @@ function stateFieldToDomainField(
       diagnostics,
       plugin: PLUGIN_NAME,
       path: `state.fieldTypes.${name}`,
-      resolveRef: createTypeRefResolver(schemaTypes),
+      ...createTypeRefOptions(schemaTypes, typeAliases),
+    }),
+    optional: !spec.required,
+  };
+}
+
+type ContextBlock = {
+  readonly fields: string;
+  readonly usesJsonValue: boolean;
+};
+
+function renderContextFieldBlock(
+  contextSpec: ContextSpec,
+  schemaTypes: Readonly<Record<string, TypeSpec>>,
+  diagnostics: Diagnostic[]
+): ContextBlock {
+  const names = Object.keys(contextSpec.fields)
+    .filter((name) => !name.startsWith("$"))
+    .sort();
+  let usesJsonValue = false;
+
+  const lines = names.map((name) => {
+    const field = contextFieldToDomainField(
+      name,
+      contextSpec.fields[name],
+      contextSpec.fieldTypes,
+      schemaTypes,
+      diagnostics
+    );
+    // External context is `Readonly<Record<string, JsonValue>>`; optional
+    // properties would introduce `undefined`, so absence is encoded as null.
+    const declared = field.optional
+      ? unionOf([field.type, primitiveType("null")])
+      : field.type;
+    const safe = toContextSafeType(declared, schemaTypes);
+    let rendered: DomainTypeField["type"];
+    if (safe === null) {
+      usesJsonValue = true;
+      rendered = refType("JsonValue");
+      diagnostics.push({
+        level: "warn",
+        plugin: PLUGIN_NAME,
+        message: `Context field "${name}" cannot be represented as a JSON-safe TypeScript type. Emitting "JsonValue".`,
+      });
+    } else {
+      rendered = safe;
+    }
+    return `    ${renderPropertyKey(name)}: ${renderDomainType(rendered)}`;
+  });
+
+  return { fields: lines.join("\n"), usesJsonValue };
+}
+
+function contextFieldToDomainField(
+  name: string,
+  spec: FieldSpec,
+  fieldTypes: Readonly<Record<string, TypeDefinition>> | undefined,
+  schemaTypes: Readonly<Record<string, TypeSpec>>,
+  diagnostics: Diagnostic[]
+): DomainTypeField {
+  const fieldType = fieldTypes?.[name];
+  if (!fieldType) {
+    return fieldSpecToDomainField(spec);
+  }
+
+  return {
+    // Refs are intentionally not renamed here: `toContextSafeType()` inlines
+    // every ref structurally, so emitted context types never reference named
+    // declarations.
+    type: typeDefinitionToDomainType(fieldType, {
+      diagnostics,
+      plugin: PLUGIN_NAME,
+      path: `context.fieldTypes.${name}`,
+      resolveRef: (typeName) => Object.hasOwn(schemaTypes, typeName),
     }),
     optional: !spec.required,
   };
 }
 
 function renderActionSignature(
+  actionName: string,
   action: ActionSpec,
   schemaTypes: Readonly<Record<string, TypeSpec>>,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): string {
   const params = action.params;
@@ -191,16 +320,27 @@ function renderActionSignature(
       return "() => void";
     }
 
-    const fields = params.map((name) => resolveActionParamField(action, name, schemaTypes, diagnostics));
+    const fields = params.map((name) => resolveActionParamField(action, name, schemaTypes, typeAliases, diagnostics));
+    const paramNames = sanitizeParameterNames(params);
+    params.forEach((name, index) => {
+      if (paramNames[index] !== name) {
+        diagnostics.push({
+          level: "warn",
+          plugin: PLUGIN_NAME,
+          message: `Action "${actionName}" parameter "${name}" is not a valid TypeScript identifier. Emitting sanitized parameter name "${paramNames[index]}".`,
+        });
+      }
+    });
     const renderedParams = params.map((name, index) => {
+      const paramName = paramNames[index]!;
       const field = fields[index]!;
       const renderedType = renderDomainType(field.type);
       const hasLaterRequired = fields.slice(index + 1).some((candidate) => !candidate.optional);
       if (field.optional && hasLaterRequired) {
-        return `${name}: ${renderedType} | undefined`;
+        return `${paramName}: ${renderedType} | undefined`;
       }
       const optional = field.optional ? "?" : "";
-      return `${name}${optional}: ${renderedType}`;
+      return `${paramName}${optional}: ${renderedType}`;
     });
 
     return `(${renderedParams.join(", ")}) => void`;
@@ -212,7 +352,7 @@ function renderActionSignature(
       diagnostics,
       plugin: PLUGIN_NAME,
       path: "action.inputType",
-      resolveRef: createTypeRefResolver(schemaTypes),
+      ...createTypeRefOptions(schemaTypes, typeAliases),
     }));
     return `(input: ${renderedInput}) => void`;
   }
@@ -229,6 +369,7 @@ function resolveActionParamField(
   action: ActionSpec,
   name: string,
   schemaTypes: Readonly<Record<string, TypeSpec>>,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): DomainTypeField {
   const inputTypeField = getInputTypeObjectField(action.inputType, name);
@@ -238,7 +379,7 @@ function resolveActionParamField(
         diagnostics,
         plugin: PLUGIN_NAME,
         path: `action.inputType.fields.${name}`,
-        resolveRef: createTypeRefResolver(schemaTypes),
+        ...createTypeRefOptions(schemaTypes, typeAliases),
       }),
       optional: inputTypeField.optional,
     };
@@ -264,36 +405,41 @@ function resolveActionParamField(
 
 function renderNamedTypeDeclarations(
   schemaTypes: Readonly<Record<string, TypeSpec>>,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): string[] {
   return Object.keys(schemaTypes)
     .sort()
-    .map((name) => renderNamedTypeDeclaration(name, schemaTypes[name], schemaTypes, diagnostics));
+    .map((name) => renderNamedTypeDeclaration(name, schemaTypes[name], schemaTypes, typeAliases, diagnostics));
 }
 
 function renderNamedTypeDeclaration(
   name: string,
   spec: TypeSpec,
   schemaTypes: Readonly<Record<string, TypeSpec>>,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): string {
+  const declarationName = typeAliases.get(name) ?? name;
   if (spec.definition.kind === "object") {
-    return renderNamedObjectDeclaration(name, spec.definition, schemaTypes, diagnostics);
+    return renderNamedObjectDeclaration(name, declarationName, spec.definition, schemaTypes, typeAliases, diagnostics);
   }
 
   const renderedType = renderDomainType(typeDefinitionToDomainType(spec.definition, {
     diagnostics,
     plugin: PLUGIN_NAME,
     path: `types.${name}`,
-    resolveRef: createTypeRefResolver(schemaTypes),
+    ...createTypeRefOptions(schemaTypes, typeAliases),
   }));
-  return `export type ${name} = ${renderedType};`;
+  return `export type ${declarationName} = ${renderedType};`;
 }
 
 function renderNamedObjectDeclaration(
   name: string,
+  declarationName: string,
   definition: Extract<TypeDefinition, { readonly kind: "object" }>,
   schemaTypes: Readonly<Record<string, TypeSpec>>,
+  typeAliases: IdentifierAliasMap,
   diagnostics: Diagnostic[]
 ): string {
   const fieldLines = Object.keys(definition.fields)
@@ -305,22 +451,40 @@ function renderNamedObjectDeclaration(
         diagnostics,
         plugin: PLUGIN_NAME,
         path: `types.${name}.fields.${fieldName}`,
-        resolveRef: createTypeRefResolver(schemaTypes),
+        ...createTypeRefOptions(schemaTypes, typeAliases),
       }));
-      return `  ${fieldName}${optional}: ${renderedType};`;
+      return `  ${renderPropertyKey(fieldName)}${optional}: ${renderedType};`;
     });
 
   return [
-    `export interface ${name} {`,
+    `export interface ${declarationName} {`,
     ...fieldLines,
     "}",
   ].join("\n");
 }
 
-function createTypeRefResolver(
-  schemaTypes: Readonly<Record<string, TypeSpec>>
-): (name: string) => boolean {
-  return (name) => Object.hasOwn(schemaTypes, name);
+function createTypeRefOptions(
+  schemaTypes: Readonly<Record<string, TypeSpec>>,
+  typeAliases: IdentifierAliasMap
+): {
+  readonly resolveRef: (name: string) => boolean;
+  readonly renameRef: (name: string) => string;
+} {
+  return {
+    resolveRef: (name) => Object.hasOwn(schemaTypes, name),
+    renameRef: (name) => typeAliases.get(name) ?? name,
+  };
+}
+
+function ensureTypeDeclarationName(name: string): string {
+  if (isTypeDeclarationName(name)) {
+    return name;
+  }
+  let sanitized = sanitizeIdentifier(name);
+  while (!isTypeDeclarationName(sanitized)) {
+    sanitized = `_${sanitized}`;
+  }
+  return sanitized;
 }
 
 function getInputTypeObjectField(

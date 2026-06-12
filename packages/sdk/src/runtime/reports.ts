@@ -10,12 +10,8 @@ import type {
   ProjectedSnapshot,
   Snapshot,
 } from "../types.js";
-import {
-  cloneAndDeepFreeze,
-} from "../projection/snapshot-projection.js";
-import type {
-  RuntimeReportHelpers,
-} from "./facets.js";
+import { cloneAndDeepFreeze } from "../projection/snapshot-projection.js";
+import type { RuntimeReportHelpers } from "./facets.js";
 
 type RuntimeReportHelperOptions<T extends ManifestoDomainShape> = {
   readonly getAvailableActionsFor: (
@@ -58,11 +54,15 @@ export function createRuntimeReportHelpers<T extends ManifestoDomainShape>({
     const stableBefore = cloneAndDeepFreeze(
       beforeSnapshot,
     ) as CanonicalSnapshot<T["state"]>;
-    const stableAfter = cloneAndDeepFreeze(
-      afterSnapshot,
-    ) as CanonicalSnapshot<T["state"]>;
-    const projectedBefore = projectSnapshotFromCanonical(stableBefore as CoreSnapshot);
-    const projectedAfter = projectSnapshotFromCanonical(stableAfter as CoreSnapshot);
+    const stableAfter = cloneAndDeepFreeze(afterSnapshot) as CanonicalSnapshot<
+      T["state"]
+    >;
+    const projectedBefore = projectSnapshotFromCanonical(
+      stableBefore as CoreSnapshot,
+    );
+    const projectedAfter = projectSnapshotFromCanonical(
+      stableAfter as CoreSnapshot,
+    );
 
     return Object.freeze({
       projected: Object.freeze({
@@ -80,10 +80,7 @@ export function createRuntimeReportHelpers<T extends ManifestoDomainShape>({
     }) as DispatchExecutionOutcome<T>;
   }
 
-  function classifyExecutionFailure(
-    error: unknown,
-    stage: "host" | "seal",
-  ) {
+  function classifyExecutionFailure(error: unknown, stage: "host" | "seal") {
     const failure = toError(error);
     const failureWithCode = failure as Error & { code?: unknown };
     return Object.freeze({
@@ -121,10 +118,13 @@ export function diffProjectedPaths<T>(
     kind: ChangedPath["kind"],
   ): void => {
     const rendered = renderPath(path);
-    paths.set(rendered, Object.freeze({
-      path: Object.freeze([...path]),
-      kind,
-    }));
+    paths.set(
+      rendered,
+      Object.freeze({
+        path: Object.freeze([...path]),
+        kind,
+      }),
+    );
   };
 
   const visit = (
@@ -186,10 +186,7 @@ export function diffProjectedPaths<T>(
       return;
     }
 
-    const keys = new Set([
-      ...Object.keys(a),
-      ...Object.keys(b),
-    ]);
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
     for (const key of [...keys].sort()) {
       const leftHas = Object.prototype.hasOwnProperty.call(a, key);
       const rightHas = Object.prototype.hasOwnProperty.call(b, key);
@@ -218,16 +215,18 @@ export function diffProjectedPaths<T>(
   );
 }
 
-function isPlainDiffableObject(value: unknown): value is Record<string, unknown> {
+function isPlainDiffableObject(
+  value: unknown,
+): value is Record<string, unknown> {
   return Object.prototype.toString.call(value) === "[object Object]";
 }
 
 function renderPath(path: readonly (string | number)[]): string {
-  return path.map((segment) => typeof segment === "number" ? `[${segment}]` : segment).join(".");
+  return path
+    .map((segment) => (typeof segment === "number" ? `[${segment}]` : segment))
+    .join(".");
 }
 
 function toError(error: unknown): Error {
-  return error instanceof Error
-    ? error
-    : new Error(String(error));
+  return error instanceof Error ? error : new Error(String(error));
 }
