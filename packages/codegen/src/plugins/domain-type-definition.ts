@@ -19,6 +19,8 @@ export type TypeDefinitionDiagnosticOptions = {
   readonly plugin?: string;
   readonly path?: string;
   readonly resolveRef?: (name: string) => boolean;
+  /** Map a schema type name to its emitted (possibly sanitized) TypeScript alias. */
+  readonly renameRef?: (name: string) => string;
 };
 
 export function typeDefinitionToDomainType(
@@ -83,7 +85,7 @@ export function typeDefinitionToDomainType(
         );
         return unknownType();
       }
-      return refType(def.name);
+      return refType(options.renameRef ? options.renameRef(def.name) : def.name);
     default: {
       const unknownKind = (def as { readonly kind?: unknown }).kind;
       warnUnknownTypeDefinition(
