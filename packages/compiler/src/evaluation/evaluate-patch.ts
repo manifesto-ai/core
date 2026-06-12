@@ -222,7 +222,7 @@ function updateWorkingSnapshot(
  */
 export function evaluatePatchExpressions(
   op: LoweredPatchOp,
-  ctx: EvaluationContext
+  _ctx: EvaluationContext
 ): LoweredPatchOp {
   switch (op.kind) {
     case "addType":

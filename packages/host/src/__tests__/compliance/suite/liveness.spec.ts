@@ -19,7 +19,6 @@ import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
 import {
   assertLostWakeupPrevention,
-  expectCompliance,
 } from "../hcts-assertions.js";
 import {
   createTestSchema,

@@ -1,0 +1,64 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "files": {
+    "includes": [
+      "packages/*/src/**",
+      "cts/*/src/**",
+      "scripts/**",
+      "!**/dist/**",
+      "!**/coverage/**",
+      "!**/node_modules/**"
+    ]
+  },
+  "formatter": {
+    "enabled": false
+  },
+  "assist": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": false,
+      "correctness": {
+        "recommended": true,
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error"
+      },
+      "suspicious": {
+        "recommended": true,
+        "noExplicitAny": "warn",
+        "noConfusingVoidType": "off",
+        "noThenProperty": "off",
+        "useIterableCallbackReturn": "off",
+        "noPrototypeBuiltins": "off",
+        "noApproximativeNumericConstant": "off",
+        "noEmptyInterface": "off"
+      },
+      "complexity": {
+        "noUselessTypeConstraint": "error",
+        "noUselessCatch": "error"
+      },
+      "security": {
+        "recommended": true
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "**/__tests__/**",
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/*.typecheck.ts"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ]
+}

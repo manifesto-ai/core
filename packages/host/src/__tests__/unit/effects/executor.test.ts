@@ -1,7 +1,7 @@
 import { semanticPathToPatchPath } from "@manifesto-ai/core";
 const pp = semanticPathToPatchPath;
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, } from "vitest";
 import { EffectExecutor, createEffectExecutor } from "../../../effects/executor.js";
 import { EffectHandlerRegistry, createEffectRegistry } from "../../../effects/registry.js";
 import type { EffectHandler } from "../../../effects/types.js";
@@ -356,7 +356,7 @@ describe("EffectExecutor", () => {
 
   describe("executeAll", () => {
     it("should execute multiple requirements", async () => {
-      const handler: EffectHandler = async (type, params) => [
+      const handler: EffectHandler = async (_type, params) => [
         { op: "set", path: pp(String(params.key)), value: params.value },
       ];
       registry.register("set", handler);

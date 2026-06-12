@@ -7,10 +7,8 @@
 import type {
   ProgramNode,
   DomainNode,
-  StateFieldNode,
   ComputedNode,
   ActionNode,
-  ParamNode,
   ExprNode,
   GuardedStmtNode,
   InnerStmtNode,

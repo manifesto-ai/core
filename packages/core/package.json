@@ -38,7 +38,7 @@
     "build": "rm -rf dist && tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declarationMap false --outDir dist",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "lint": "echo 'lint not configured'",
+    "lint": "node ../../node_modules/@biomejs/biome/bin/biome check src",
     "test": "node ../../scripts/run-vitest.mjs run",
     "test:coverage": "node ../../scripts/run-vitest.mjs run --coverage"
   },

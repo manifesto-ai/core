@@ -100,7 +100,7 @@ declare const broadActionName: string;
 const broadDynamicLookup: DynamicActionHandle<ManifestoDomainShape, "base"> | undefined =
   broadApp.getAction(broadActionName);
 // @ts-expect-error broad dynamic lookup must be nullable even when action names widen to string
-const broadDynamicWithoutCheck: DynamicActionHandle<ManifestoDomainShape, "base"> =
+const _broadDynamicWithoutCheck: DynamicActionHandle<ManifestoDomainShape, "base"> =
   broadApp.getAction(broadActionName);
 const input: ActionInput<CounterDomain, "add"> = 1;
 const bound: BoundAction<CounterDomain, "add", "base"> = handle.bind(input);
@@ -236,9 +236,9 @@ createManifesto<ContextTypedDomain>(createCounterSchema(), {}, {
   context: { tenantId: "acme" },
 });
 // @ts-expect-error projected computed fields keep their domain type
-const computedDoubledString: string = projected.computed.doubled;
+const _computedDoubledString: string = projected.computed.doubled;
 // @ts-expect-error optional single-argument action input is scalar or undefined, not a tuple
-const optionalSingleTuple: ActionInput<OptionalSingleArgDomain, "maybeRename"> = ["Ada"];
+const _optionalSingleTuple: ActionInput<OptionalSingleArgDomain, "maybeRename"> = ["Ada"];
 // @ts-expect-error read handles are read-only and expose no set verb
 app.state.count.set(1);
 // @ts-expect-error read handles are not action candidates

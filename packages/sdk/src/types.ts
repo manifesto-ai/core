@@ -867,7 +867,7 @@ export type ManifestoEventPayload<Event extends ManifestoEventName> =
 
 export type ManifestoEvent = ManifestoEventName;
 
-export type TypedOn<T extends ManifestoDomainShape> = <
+export type TypedOn<_T extends ManifestoDomainShape> = <
   K extends ManifestoEvent,
 >(
   event: K,
@@ -980,6 +980,7 @@ export interface ManifestoRuntimeByLaws<T extends ManifestoDomainShape> {
 }
 
 export interface ManifestoDecoratedRuntimeByLaws<
+  // biome-ignore lint/correctness/noUnusedVariables: declaration-merging extension point — lineage/governance augment this interface keyed by T
   T extends ManifestoDomainShape,
 > {}
 

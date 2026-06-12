@@ -20,7 +20,7 @@
  * - ERR-FE-5: Error patch recording failure escalates to ExecutionKey-level fatal
  */
 
-import { toJcs, type ErrorValue, type NamespaceDelta, type Patch, type Requirement, type Snapshot } from "@manifesto-ai/core";
+import { toJcs, type ErrorValue, type NamespaceDelta, type Requirement, type Snapshot } from "@manifesto-ai/core";
 import type { ExecutionContext } from "../types/execution.js";
 import type { FulfillEffectJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";

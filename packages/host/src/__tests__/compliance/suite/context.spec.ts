@@ -19,10 +19,6 @@ import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js
 import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
 import {
-  assertContextFrozenPerJob,
-  expectCompliance,
-} from "../hcts-assertions.js";
-import {
   createTestSchema,
   createTestIntent,
   createTestSnapshot,

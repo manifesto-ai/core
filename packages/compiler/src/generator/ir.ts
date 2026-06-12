@@ -9,11 +9,9 @@ import type {
   ProgramNode,
   DomainNode,
   TypeDeclNode,   // v0.3.3
-  StateNode,
   StateFieldNode,
   ContextFieldNode,
   ComputedNode,
-  ActionNode,
   ExprNode,
   GuardedStmtNode,
   InnerStmtNode,
@@ -26,12 +24,10 @@ import type {
   StopStmtNode,   // v0.3.2
   PathNode,
   TypeExprNode,
-  ObjectTypeNode, // v0.3.3
 } from "../parser/ast.js";
 import type { MelExprNode } from "../lowering/lower-expr.js";
 import {
   getPathExpr,
-  objExpr,
   sysPathExpr,
   toMelExpr,
 } from "../lowering/to-mel-expr.js";
@@ -397,7 +393,7 @@ function typeExprToDefinition(typeExpr: TypeExprNode): TypeDefinition {
         value: typeExprToDefinition(typeExpr.valueType),
       };
 
-    case "objectType":
+    case "objectType": {
       const fields: Record<string, { type: TypeDefinition; optional: boolean }> = {};
       for (const field of typeExpr.fields) {
         fields[field.name] = {
@@ -406,6 +402,7 @@ function typeExprToDefinition(typeExpr: TypeExprNode): TypeDefinition {
         };
       }
       return { kind: "object", fields };
+    }
 
     case "unionType":
       return {
@@ -416,10 +413,11 @@ function typeExprToDefinition(typeExpr: TypeExprNode): TypeDefinition {
     case "literalType":
       return { kind: "literal", value: typeExpr.value };
 
-    default:
+    default: {
       // Exhaustive check
       const _exhaustive: never = typeExpr;
       throw new Error(`Unknown type expression kind: ${(typeExpr as TypeExprNode).kind}`);
+    }
   }
 }
 
@@ -666,7 +664,7 @@ function isNullTypeExpr(
 /**
  * Simple type extraction (for backward compat with action input specs)
  */
-function typeExprToFieldType(typeExpr: TypeExprNode, ctx: GeneratorContext): FieldType {
+function _typeExprToFieldType(typeExpr: TypeExprNode, ctx: GeneratorContext): FieldType {
   const spec = typeExprToFieldSpec(typeExpr, ctx);
   return spec?.type ?? "object";
 }
@@ -1011,7 +1009,7 @@ function validateLiteralAgainstTypeDefinition(
  * Validate a literal value against a FieldSpec, emitting E_TYPE_MISMATCH diagnostics.
  * Only checks statically-known literal values; complex expressions (undefined) are skipped.
  */
-function validateLiteralAgainstSpec(
+function _validateLiteralAgainstSpec(
   value: unknown,
   spec: FieldSpec,
   fieldName: string,
@@ -1068,7 +1066,7 @@ function validateLiteralAgainstSpec(
     const obj = value as Record<string, unknown>;
     for (const [key, fieldSpec] of Object.entries(spec.fields)) {
       if (key in obj) {
-        validateLiteralAgainstSpec(obj[key], fieldSpec, `${fieldName}.${key}`, location, ctx);
+        _validateLiteralAgainstSpec(obj[key], fieldSpec, `${fieldName}.${key}`, location, ctx);
       }
     }
   }
@@ -1076,7 +1074,7 @@ function validateLiteralAgainstSpec(
   // Recursive array item validation
   if (specType === "array" && spec.items && Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
-      validateLiteralAgainstSpec(value[i], spec.items, `${fieldName}[${i}]`, location, ctx);
+      _validateLiteralAgainstSpec(value[i], spec.items, `${fieldName}[${i}]`, location, ctx);
     }
   }
 }
@@ -1644,7 +1642,7 @@ function generateFail(stmt: FailStmtNode, ctx: GeneratorContext): CompilerFlowNo
  * v0.3.2: Generate stop statement
  * stop "reason" → { kind: "halt", reason }
  */
-function generateStop(stmt: StopStmtNode, ctx: GeneratorContext): CompilerFlowNode {
+function generateStop(stmt: StopStmtNode, _ctx: GeneratorContext): CompilerFlowNode {
   return {
     kind: "halt",
     reason: stmt.reason,

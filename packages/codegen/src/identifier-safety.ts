@@ -11,8 +11,10 @@
 // requires an identifier.
 
 /** ECMAScript IdentifierName syntax (reserved words allowed). */
+// biome-ignore lint/suspicious/noMisleadingCharacterClass: ZWNJ/ZWJ are valid IdentifierPart code points per the ECMAScript spec
 const IDENTIFIER_NAME_PATTERN = /^[$_\p{ID_Start}][$\u200C\u200D\p{ID_Continue}]*$/u;
 const IDENTIFIER_START_PATTERN = /^[$_\p{ID_Start}]$/u;
+// biome-ignore lint/suspicious/noMisleadingCharacterClass: ZWNJ/ZWJ are valid IdentifierPart code points per the ECMAScript spec
 const IDENTIFIER_PART_PATTERN = /^[$\u200C\u200D\p{ID_Continue}]$/u;
 
 /** Reserved words (including strict-mode reserved words) that cannot be binding identifiers. */

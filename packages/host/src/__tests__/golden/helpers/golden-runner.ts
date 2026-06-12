@@ -11,14 +11,14 @@
  * @see host-SPEC-v2.0.1.md
  */
 
-import type { DomainSchema, Snapshot, Intent, Patch, Requirement, FieldType } from "@manifesto-ai/core";
+import type { DomainSchema, Snapshot, Intent, FieldType } from "@manifesto-ai/core";
 import { createSnapshot, hashSchemaSync } from "@manifesto-ai/core";
 import type { TraceEvent, ExecutionKey } from "../../compliance/hcts-types.js";
 import type { DeterministicRuntime } from "../../compliance/hcts-runtime.js";
 import { createTestRuntime } from "../../compliance/hcts-runtime.js";
 import { V2HostAdapter } from "../../compliance/adapter-v2.js";
 import { SimpleTestEffectRunner } from "../../compliance/hcts-adapter.js";
-import type { EffectHandler, EffectContext } from "../../../effects/types.js";
+import type { EffectHandler, } from "../../../effects/types.js";
 import { stripHostState } from "../../helpers/host-state.js";
 
 /**

@@ -17,7 +17,6 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
-import type { TraceEvent } from "../hcts-types.js";
 import {
   createTestSchema,
   createTestIntent,

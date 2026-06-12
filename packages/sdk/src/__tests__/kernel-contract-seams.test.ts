@@ -6,7 +6,6 @@ import type {
   RuntimeKernel,
   WaitForProposalRuntimeKernel,
 } from "../runtime/kernel-contract.js";
-import type { ManifestoDomainShape } from "../types.js";
 
 type Domain = {
   actions: { ping: () => void };

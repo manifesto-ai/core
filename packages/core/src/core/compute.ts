@@ -347,7 +347,7 @@ function createSystemDeltaForFlow(
   flowError: ErrorValue | null,
   requirements: readonly Requirement[]
 ): SystemDelta {
-  const isError = status === "error";
+  const _isError = status === "error";
   const systemStatus = status === "pending"
     ? "pending"
     : status === "error"
@@ -365,7 +365,7 @@ function createSystemDeltaForFlow(
 
 function estimateResultVersion(
   snapshot: Snapshot,
-  patches: readonly Patch[],
+  _patches: readonly Patch[],
   namespaceDelta: readonly NamespaceDelta[],
   delta: SystemDelta
 ): number {

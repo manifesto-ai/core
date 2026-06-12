@@ -20,3 +20,4 @@ results
 *.tar.gz
 *.zip
 temp
+.claude/

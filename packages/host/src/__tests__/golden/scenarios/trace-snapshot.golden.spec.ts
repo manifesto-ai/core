@@ -20,11 +20,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createGoldenRunner,
   createGoldenSchema,
-  normalizeTrace,
   stripHostState,
   type GoldenRunner,
   type GoldenScenario,
-  type NormalizedTraceEvent,
 } from "../helpers/index.js";
 
 describe("Golden: Trace Snapshots", () => {
@@ -295,7 +293,7 @@ describe("Golden: Trace Snapshots", () => {
     };
 
     const result = await runner.execute(scenario);
-    const eventTypes = result.normalizedTrace.map((e) => e.t);
+    const _eventTypes = result.normalizedTrace.map((e) => e.t);
 
     // Should have runner:kick as first runner event
     const runnerEvents = result.normalizedTrace.filter((e) =>

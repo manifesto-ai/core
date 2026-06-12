@@ -21,7 +21,6 @@ import {
   type CanonicalSnapshot,
   type ComputedReadSurface,
   type ComputedRef,
-  type DispatchBlocker,
   type DynamicActionHandle,
   type ExecutionView,
   type ExecutionOutcome,

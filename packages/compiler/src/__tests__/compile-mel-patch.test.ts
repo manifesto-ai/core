@@ -24,7 +24,7 @@ type LegacyPatch = {
   value?: unknown;
 };
 
-const pp = semanticPathToPatchPath;
+const _pp = semanticPathToPatchPath;
 
 function toLegacyPatches(ops: Patch[]): LegacyPatch[] {
   return ops.map((op) => {

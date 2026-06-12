@@ -2,7 +2,7 @@ import { semanticPathToPatchPath } from "@manifesto-ai/core";
 const pp = semanticPathToPatchPath;
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { ManifestoHost, createHost, type HostOptions } from "../../host.js";
+import { ManifestoHost, createHost, } from "../../host.js";
 import { type DomainSchema, type Snapshot } from "@manifesto-ai/core";
 import type { EffectHandler } from "../../effects/types.js";
 import {
@@ -15,7 +15,7 @@ import {
   createTestSnapshot,
 } from "../helpers/index.js";
 
-const HOST_CONTEXT = DEFAULT_HOST_CONTEXT;
+const _HOST_CONTEXT = DEFAULT_HOST_CONTEXT;
 
 describe("ManifestoHost", () => {
   let schema: DomainSchema;

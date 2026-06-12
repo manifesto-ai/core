@@ -12,7 +12,7 @@ if (!raw || raw === "[]") {
 let paths;
 try {
   paths = JSON.parse(raw);
-} catch (error) {
+} catch (_error) {
   paths = raw
     .split(",")
     .map((entry) => entry.trim())

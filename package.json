@@ -29,7 +29,7 @@
     "lint": "turbo run lint --filter=@manifesto-ai/core --filter=@manifesto-ai/cts-kit --filter=@manifesto-ai/activation-cts --filter=@manifesto-ai/host --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
     "test": "turbo run test --filter=@manifesto-ai/core --filter=@manifesto-ai/cts-kit --filter=@manifesto-ai/activation-cts --filter=@manifesto-ai/host --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
     "test:coverage": "turbo run test:coverage --filter=@manifesto-ai/core --filter=@manifesto-ai/cts-kit --filter=@manifesto-ai/activation-cts --filter=@manifesto-ai/host --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
-    "test:hardening": "pnpm build && pnpm test && pnpm docs:release:check",
+    "test:hardening": "pnpm lint && pnpm build && pnpm test && pnpm docs:release:check",
     "check:commit-messages": "node scripts/check-commit-messages.mjs",
     "check:no-app-imports": "node scripts/check-no-app-imports.mjs && node scripts/check-package-boundaries.mjs",
     "check:boundaries": "node scripts/check-package-boundaries.mjs",
@@ -51,6 +51,7 @@
     "docs:api:clean": "rm -rf docs/api"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "@vercel/analytics": "^2.0.1",
     "@vitest/coverage-v8": "^4.1.4",
     "mermaid": "^11.15.0",

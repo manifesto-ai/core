@@ -17,13 +17,12 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
-import type { TraceEvent } from "../hcts-types.js";
 import {
   createTestSchema,
   createTestIntent,
   createTestSnapshot,
 } from "../../helpers/index.js";
-import { createTestEffectRunner, createControllableEffectRunner } from "../hcts-adapter.js";
+import { createTestEffectRunner, } from "../hcts-adapter.js";
 
 describe("HCTS Ordering Tests", () => {
   let adapter: HostTestAdapter;

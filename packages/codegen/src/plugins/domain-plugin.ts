@@ -331,7 +331,7 @@ function renderActionSignature(
         });
       }
     });
-    const renderedParams = params.map((name, index) => {
+    const renderedParams = params.map((_name, index) => {
       const paramName = paramNames[index]!;
       const field = fields[index]!;
       const renderedType = renderDomainType(field.type);

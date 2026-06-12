@@ -5,7 +5,6 @@ import {
   type AnnotationIndex,
 } from "@manifesto-ai/compiler";
 import {
-  hashSchemaSync,
   type DomainSchema,
 } from "@manifesto-ai/core";
 

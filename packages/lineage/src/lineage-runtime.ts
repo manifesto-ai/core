@@ -22,7 +22,6 @@ import {
   type ChangedPath,
   type ComputedReadSurface,
   type ComputedRef,
-  type DispatchBlocker,
   type DispatchExecutionOutcome,
   type DynamicActionHandle,
   type ExecutionDiagnostics,
@@ -449,7 +448,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
       emitSubmissionAdmitted(candidate.actionName, admittedIntent, admission.admission, beforeCanonical);
       emitSubmissionSubmitted(candidate.actionName, admittedIntent, beforeCanonical);
 
-      let sealed;
+      let sealed: Awaited<ReturnType<typeof controller.sealIntent>>;
       try {
         sealed = await controller.sealIntent(admittedIntent, {
           publishOnCompleted: true,

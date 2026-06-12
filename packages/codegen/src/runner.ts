@@ -48,7 +48,7 @@ export async function generate(opts: GenerateOptions): Promise<GenerateResult> {
       helpers: { stableHash },
     };
 
-    let output;
+    let output: Awaited<ReturnType<typeof plugin.generate>>;
     try {
       output = await plugin.generate(ctx);
     } catch (err) {

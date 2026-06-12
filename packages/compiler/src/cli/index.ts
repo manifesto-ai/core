@@ -6,7 +6,7 @@
 
 import { Command } from "commander";
 import { readFileSync, writeFileSync, existsSync } from "fs";
-import { resolve, dirname, basename } from "path";
+import { resolve, } from "path";
 import { compile, check, parseSource, tokenize } from "../index.js";
 import { formatDiagnostics } from "./formatter.js";
 
@@ -93,7 +93,7 @@ program
   .description("Parse MEL source file and output AST (for debugging)")
   .argument("<input>", "Input .mel file")
   .option("--stdout", "Output to stdout", true)
-  .action((input: string, options: { stdout: boolean }) => {
+  .action((input: string, _options: { stdout: boolean }) => {
     const inputPath = resolve(input);
 
     if (!existsSync(inputPath)) {

@@ -210,7 +210,7 @@ function toBoolean(value: unknown): boolean {
   return true;
 }
 
-function toString(value: unknown): string {
+function coerceToString(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value;
   return String(value);
@@ -561,7 +561,7 @@ function evaluateConcat(args: ExprNode[], ctx: EvalContext): ExprResult {
   }
 
   // Otherwise, string concatenation
-  const parts = values.map(v => toString(v));
+  const parts = values.map(v => coerceToString(v));
   return ok(parts.join(""));
 }
 
@@ -575,7 +575,7 @@ function evaluateSubstring(
   const startResult = evaluateExpr(expr.start, ctx);
   if (!startResult.ok) return startResult;
 
-  const str = toString(strResult.value);
+  const str = coerceToString(strResult.value);
   const start = toNumber(startResult.value);
 
   if (expr.end) {
@@ -590,7 +590,7 @@ function evaluateSubstring(
 function evaluateTrim(str: ExprNode, ctx: EvalContext): ExprResult {
   const result = evaluateExpr(str, ctx);
   if (!result.ok) return result;
-  return ok(toString(result.value).trim());
+  return ok(coerceToString(result.value).trim());
 }
 
 // ============ Collection ============
@@ -985,19 +985,19 @@ function evaluateMaxArray(array: ExprNode, ctx: EvalContext): ExprResult {
 function evaluateToLowerCase(str: ExprNode, ctx: EvalContext): ExprResult {
   const result = evaluateExpr(str, ctx);
   if (!result.ok) return result;
-  return ok(toString(result.value).toLowerCase());
+  return ok(coerceToString(result.value).toLowerCase());
 }
 
 function evaluateToUpperCase(str: ExprNode, ctx: EvalContext): ExprResult {
   const result = evaluateExpr(str, ctx);
   if (!result.ok) return result;
-  return ok(toString(result.value).toUpperCase());
+  return ok(coerceToString(result.value).toUpperCase());
 }
 
 function evaluateStrLen(str: ExprNode, ctx: EvalContext): ExprResult {
   const result = evaluateExpr(str, ctx);
   if (!result.ok) return result;
-  return ok(toString(result.value).length);
+  return ok(coerceToString(result.value).length);
 }
 
 function evaluateStartsWith(str: ExprNode, prefix: ExprNode, ctx: EvalContext): ExprResult {
@@ -1005,7 +1005,7 @@ function evaluateStartsWith(str: ExprNode, prefix: ExprNode, ctx: EvalContext): 
   if (!strResult.ok) return strResult;
   const prefixResult = evaluateExpr(prefix, ctx);
   if (!prefixResult.ok) return prefixResult;
-  return ok(toString(strResult.value).startsWith(toString(prefixResult.value)));
+  return ok(coerceToString(strResult.value).startsWith(coerceToString(prefixResult.value)));
 }
 
 function evaluateEndsWith(str: ExprNode, suffix: ExprNode, ctx: EvalContext): ExprResult {
@@ -1013,7 +1013,7 @@ function evaluateEndsWith(str: ExprNode, suffix: ExprNode, ctx: EvalContext): Ex
   if (!strResult.ok) return strResult;
   const suffixResult = evaluateExpr(suffix, ctx);
   if (!suffixResult.ok) return suffixResult;
-  return ok(toString(strResult.value).endsWith(toString(suffixResult.value)));
+  return ok(coerceToString(strResult.value).endsWith(coerceToString(suffixResult.value)));
 }
 
 function evaluateStrIncludes(str: ExprNode, search: ExprNode, ctx: EvalContext): ExprResult {
@@ -1021,7 +1021,7 @@ function evaluateStrIncludes(str: ExprNode, search: ExprNode, ctx: EvalContext):
   if (!strResult.ok) return strResult;
   const searchResult = evaluateExpr(search, ctx);
   if (!searchResult.ok) return searchResult;
-  return ok(toString(strResult.value).includes(toString(searchResult.value)));
+  return ok(coerceToString(strResult.value).includes(coerceToString(searchResult.value)));
 }
 
 function evaluateIndexOf(str: ExprNode, search: ExprNode, ctx: EvalContext): ExprResult {
@@ -1029,7 +1029,7 @@ function evaluateIndexOf(str: ExprNode, search: ExprNode, ctx: EvalContext): Exp
   if (!strResult.ok) return strResult;
   const searchResult = evaluateExpr(search, ctx);
   if (!searchResult.ok) return searchResult;
-  return ok(toString(strResult.value).indexOf(toString(searchResult.value)));
+  return ok(coerceToString(strResult.value).indexOf(coerceToString(searchResult.value)));
 }
 
 function evaluateReplace(str: ExprNode, search: ExprNode, replacement: ExprNode, ctx: EvalContext): ExprResult {
@@ -1040,7 +1040,7 @@ function evaluateReplace(str: ExprNode, search: ExprNode, replacement: ExprNode,
   const replacementResult = evaluateExpr(replacement, ctx);
   if (!replacementResult.ok) return replacementResult;
   // String.prototype.replace with string arg replaces only the first occurrence
-  return ok(toString(strResult.value).replace(toString(searchResult.value), toString(replacementResult.value)));
+  return ok(coerceToString(strResult.value).replace(coerceToString(searchResult.value), coerceToString(replacementResult.value)));
 }
 
 function evaluateSplit(str: ExprNode, delimiter: ExprNode, ctx: EvalContext): ExprResult {
@@ -1048,7 +1048,7 @@ function evaluateSplit(str: ExprNode, delimiter: ExprNode, ctx: EvalContext): Ex
   if (!strResult.ok) return strResult;
   const delimiterResult = evaluateExpr(delimiter, ctx);
   if (!delimiterResult.ok) return delimiterResult;
-  const result = toString(strResult.value).split(toString(delimiterResult.value));
+  const result = coerceToString(strResult.value).split(coerceToString(delimiterResult.value));
   // JS returns [] for "".split(""); SPEC requires at least one element
   return ok(result.length === 0 ? [""] : result);
 }
@@ -1172,7 +1172,7 @@ function evaluateFromEntries(entries: ExprNode, ctx: EvalContext): ExprResult {
 function evaluateToString(arg: ExprNode, ctx: EvalContext): ExprResult {
   const result = evaluateExpr(arg, ctx);
   if (!result.ok) return result;
-  return ok(toString(result.value));
+  return ok(coerceToString(result.value));
 }
 
 function evaluateToNumber(arg: ExprNode, ctx: EvalContext): ExprResult {

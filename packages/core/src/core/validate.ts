@@ -1,7 +1,6 @@
 import { DomainSchema } from "../schema/domain.js";
 import type { ValidationResult, ValidationError } from "../schema/result.js";
 import type { TypeSpec } from "../schema/type-spec.js";
-import type { FlowNode } from "../schema/flow.js";
 import { validResult, invalidResult } from "../schema/result.js";
 import { buildDependencyGraph, topologicalSort, detectCycles } from "../evaluator/dag.js";
 import { isErr } from "../schema/common.js";
