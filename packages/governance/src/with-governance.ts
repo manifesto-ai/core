@@ -41,6 +41,11 @@ import {
 
 import { createAuthorityEvaluator, type AuthorityEvaluator } from "./authority/evaluator.js";
 import { createGovernanceEventDispatcher } from "./event-dispatcher.js";
+import {
+  collectChangedStatePaths,
+  findScopeViolations,
+  toIntentScope,
+} from "./governance-scope.js";
 import { createGovernanceRuntimeInstance } from "./governance-runtime.js";
 import { createIntentInstance } from "./intent-instance.js";
 import { createGovernanceService } from "./service/governance-service.js";
@@ -231,6 +236,10 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
         executionKey: executingProposal.executionKey,
         publishOnCompleted: false,
         assumeEnqueued: true,
+        // A genuinely unsettled host result must never cross the governed
+        // seal boundary (#478). "unless-failed" keeps the existing contract
+        // that a failed effect execution seals as a failed world.
+        rejectPendingBeforeSeal: "unless-failed",
         context: executingProposal.computeEnvelope.context,
       });
       if (
@@ -241,6 +250,27 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
           "GOVERNANCE_LINEAGE_TARGET_MISMATCH",
           `Governance proposal "${executingProposal.proposalId}" sealed on a different lineage target`,
         );
+      }
+
+      // The authority approved a constrained scope; settlement must stay
+      // inside it. Changed paths are diffed base-world -> terminal snapshot
+      // and validated before the governance commit is finalized (#477).
+      const approvedScope = toIntentScope(executingProposal.approvedScope);
+      if (approvedScope?.allowedPaths && approvedScope.allowedPaths.length > 0) {
+        const baseSnapshot = await lineage.getWorldSnapshot(
+          executingProposal.baseWorld,
+        );
+        const changedPaths = collectChangedStatePaths(
+          baseSnapshot?.state ?? {},
+          (sealed.hostResult.snapshot as CanonicalSnapshot<T["state"]>).state,
+        );
+        const violations = findScopeViolations(changedPaths, approvedScope);
+        if (violations.length > 0) {
+          throw new ManifestoError(
+            "GOVERNANCE_SCOPE_VIOLATION",
+            `Governance proposal "${executingProposal.proposalId}" settled outside its approved scope: ${violations.join(", ")}`,
+          );
+        }
       }
 
       const governanceCommit = await governanceService.finalize(
@@ -498,15 +528,34 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
         return;
       }
 
+      // Effect-safe recovery (#479): an "executing" proposal carries no
+      // durable evidence of whether host effects already ran before the
+      // crash. Re-dispatching could duplicate external side effects, so
+      // recovery never re-executes. If the seal completed (a world
+      // referencing this proposal exists in lineage), that world is recorded
+      // on the failed proposal for explicit reconciliation; otherwise the
+      // proposal fails as unverifiable. Proposals recovered in "approved"
+      // state are safe to execute above: execution begins only after the
+      // "executing" transition is durably persisted.
       const executingProposal = proposal as Proposal & { readonly status: "executing" };
+      let sealedWorldId: string | undefined;
       try {
-        await finalizeApprovedExecution(
-          executingProposal,
-          toTypedComputeIntent<T>(executingProposal),
+        const attempts = await lineageConfig.service.getAttemptsByBranch(
+          executingProposal.branchId,
         );
+        sealedWorldId = attempts.find(
+          (attempt) => attempt.proposalRef === executingProposal.proposalId,
+        )?.worldId;
       } catch {
-        await compensateSettlementFailure(executingProposal.proposalId, executingProposal);
+        // Lineage lookup is best-effort evidence gathering; recovery still
+        // refuses to re-execute below.
       }
+
+      await compensateSettlementFailure(
+        executingProposal.proposalId,
+        executingProposal,
+        sealedWorldId,
+      );
     } finally {
       activeSettlementTasks.delete(proposal.proposalId);
     }
