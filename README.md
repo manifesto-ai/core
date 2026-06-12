@@ -23,9 +23,9 @@ npm install @manifesto-ai/sdk
 npm install -D @manifesto-ai/compiler tsx typescript
 ```
 
-That is enough for a direct Node/tsx script that imports `.mel` files through
-the MEL loader. For Vite or another bundler, add the compiler plugin shown in
-[Quick Start](./docs/guide/quick-start.md).
+Requires **Node.js >= 24**. That is enough for a direct Node/tsx script that
+imports `.mel` files through the MEL loader. For Vite or another bundler, add
+the compiler plugin shown in [Quick Start](./docs/guide/quick-start.md).
 
 Prefer an interactive setup? Use the optional CLI:
 
