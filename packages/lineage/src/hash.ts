@@ -2,12 +2,7 @@ import type { ErrorValue, Requirement, Snapshot } from "@manifesto-ai/core";
 import { sha256Sync, toJcs } from "@manifesto-ai/core";
 import { assertLineage } from "./invariants.js";
 import { readSnapshotCurrentError } from "./snapshot-errors.js";
-import type {
-  CurrentErrorSignature,
-  SnapshotHashInput,
-  TerminalStatus,
-  WorldId,
-} from "./types.js";
+import type { CurrentErrorSignature, SnapshotHashInput, TerminalStatus, WorldId } from "./types.js";
 
 export function computeHash(value: unknown): string {
   return sha256Sync(toJcs(value));
@@ -52,7 +47,9 @@ function normalizeDeterministicValue(value: unknown): unknown {
   }
 }
 
-export function normalizeContext(ctx: Record<string, unknown>): Record<string, unknown> | undefined {
+export function normalizeContext(
+  ctx: Record<string, unknown>,
+): Record<string, unknown> | undefined {
   const normalized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(ctx)) {
@@ -90,9 +87,7 @@ export function createSnapshotHashInput(snapshot: Snapshot): SnapshotHashInput {
     state: snapshot.state as Record<string, unknown>,
     system: {
       terminalStatus: deriveTerminalStatus(snapshot),
-      currentError: currentError == null
-        ? null
-        : toCurrentErrorSignature(currentError),
+      currentError: currentError == null ? null : toCurrentErrorSignature(currentError),
       pendingDigest: computePendingDigest(snapshot.system.pendingRequirements),
     },
   };
@@ -105,7 +100,7 @@ export function computeSnapshotHash(snapshot: Snapshot): string {
 export function computeWorldId(
   schemaHash: string,
   snapshotHash: string,
-  parentWorldId: WorldId | null
+  parentWorldId: WorldId | null,
 ): WorldId {
   return computeHash({ schemaHash, snapshotHash, parentWorldId });
 }

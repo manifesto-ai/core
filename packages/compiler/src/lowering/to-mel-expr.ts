@@ -6,10 +6,7 @@ export interface ToMelExprOptions {
   resolveSystemIdent?: (path: string[]) => MelExprNode;
 }
 
-export function toMelExpr(
-  input: ExprNode,
-  options: ToMelExprOptions = {}
-): MelExprNode {
+export function toMelExpr(input: ExprNode, options: ToMelExprOptions = {}): MelExprNode {
   switch (input.kind) {
     case "literal":
       return { kind: "lit", value: toMelPrimitive(input.value, input.literalType) };
@@ -78,7 +75,7 @@ export function toMelExpr(
 
 function lowerObjectLiteral(
   input: Extract<ExprNode, { kind: "objectLiteral" }>,
-  options: ToMelExprOptions
+  options: ToMelExprOptions,
 ): MelExprNode {
   const hasSpread = input.properties.some((property) => property.kind === "objectSpread");
   if (!hasSpread) {
@@ -167,17 +164,14 @@ export function toMelPath(...segments: string[]): MelPathNode {
   return segments.map((name) => ({ kind: "prop", name }));
 }
 
-function resolveSystemIdent(
-  input: SystemIdentExprNode,
-  options: ToMelExprOptions
-): MelExprNode {
+function resolveSystemIdent(input: SystemIdentExprNode, options: ToMelExprOptions): MelExprNode {
   return options.resolveSystemIdent?.(input.path) ?? sysPathExpr(...input.path);
 }
 
 function toMelPropertyAccess(
   object: ExprNode,
   property: string,
-  options: ToMelExprOptions
+  options: ToMelExprOptions,
 ): MelExprNode {
   const base = toMelExpr(object, options);
 
@@ -202,7 +196,7 @@ function toMelPropertyAccess(
 
 function toMelPrimitive(
   value: unknown,
-  literalType: "number" | "string" | "boolean" | "null"
+  literalType: "number" | "string" | "boolean" | "null",
 ): null | boolean | number | string {
   if (literalType === "null") {
     return null;

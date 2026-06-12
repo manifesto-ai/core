@@ -1,10 +1,7 @@
 import type { ManifestoDomainShape } from "@manifesto-ai/sdk";
 
 import type { GovernanceRuntimeDeps } from "./runtime-deps.js";
-import {
-  toTypedComputeIntent,
-  type SettlementEngine,
-} from "./settlement.js";
+import { toTypedComputeIntent, type SettlementEngine } from "./settlement.js";
 import type { SubmissionFlow } from "./submission.js";
 import type { Proposal, ProposalId } from "./types.js";
 
@@ -59,10 +56,7 @@ export function createSettlementRecovery<T extends ManifestoDomainShape>(
         const executingProposal = governanceService.beginExecution(proposal);
         await governanceStore.putProposal(executingProposal);
         try {
-          await finalizeApprovedExecution(
-            executingProposal,
-            toTypedComputeIntent<T>(proposal),
-          );
+          await finalizeApprovedExecution(executingProposal, toTypedComputeIntent<T>(proposal));
         } catch {
           await compensateSettlementFailure(proposal.proposalId, executingProposal);
         }
@@ -81,9 +75,7 @@ export function createSettlementRecovery<T extends ManifestoDomainShape>(
       const executingProposal = proposal as Proposal & { readonly status: "executing" };
       let sealedWorldId: string | undefined;
       try {
-        const attempts = await lineageService.getAttemptsByBranch(
-          executingProposal.branchId,
-        );
+        const attempts = await lineageService.getAttemptsByBranch(executingProposal.branchId);
         sealedWorldId = attempts.find(
           (attempt) => attempt.proposalRef === executingProposal.proposalId,
         )?.worldId;
@@ -125,10 +117,10 @@ export function createSettlementRecovery<T extends ManifestoDomainShape>(
         visited.add(proposal.proposalId);
 
         if (
-          proposal.status === "submitted"
-          || proposal.status === "evaluating"
-          || proposal.status === "approved"
-          || proposal.status === "executing"
+          proposal.status === "submitted" ||
+          proposal.status === "evaluating" ||
+          proposal.status === "approved" ||
+          proposal.status === "executing"
         ) {
           await resumeStoredSettlement(proposal);
         }

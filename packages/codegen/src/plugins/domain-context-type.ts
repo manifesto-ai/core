@@ -31,7 +31,7 @@ import {
 export function toContextSafeType(
   type: DomainType,
   schemaTypes: Readonly<Record<string, TypeSpec>>,
-  seenRefs: ReadonlySet<string> = new Set()
+  seenRefs: ReadonlySet<string> = new Set(),
 ): DomainType | null {
   switch (type.kind) {
     case "unknown":
@@ -70,9 +70,7 @@ export function toContextSafeType(
           return null;
         }
         fields[name] = {
-          type: field.optional
-            ? unionOf([safe, primitiveType("null")])
-            : safe,
+          type: field.optional ? unionOf([safe, primitiveType("null")]) : safe,
           optional: false,
         };
       }

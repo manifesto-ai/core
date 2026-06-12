@@ -1,12 +1,5 @@
-import {
-  createManifesto,
-  type BaseSubmissionResult,
-  type PreviewResult,
-} from "@manifesto-ai/sdk";
-import {
-  createCounterSchema,
-  type CounterDomain,
-} from "../helpers/schema.js";
+import { createManifesto, type BaseSubmissionResult, type PreviewResult } from "@manifesto-ai/sdk";
+import { createCounterSchema, type CounterDomain } from "../helpers/schema.js";
 
 const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
@@ -16,9 +9,11 @@ const schemaHash: string = app.inspect.schemaHash();
 const canonicalSchemaHash: string = app.inspect.canonicalSnapshot().meta.schemaHash;
 
 const actionName: string = app.action.increment.info().name;
-const preview: PreviewResult<CounterDomain, "increment"> =
-  app.action.increment.preview();
-const changedPaths: readonly { readonly path: readonly (string | number)[]; readonly kind: "set" | "unset" | "changed" }[] = preview.admitted ? preview.changes : [];
+const preview: PreviewResult<CounterDomain, "increment"> = app.action.increment.preview();
+const changedPaths: readonly {
+  readonly path: readonly (string | number)[];
+  readonly kind: "set" | "unset" | "changed";
+}[] = preview.admitted ? preview.changes : [];
 const reportPromise: Promise<BaseSubmissionResult<CounterDomain, "increment">> =
   app.action.increment.submit();
 const scalarBound = app.action.add.bind(1);

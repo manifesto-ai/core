@@ -43,8 +43,8 @@ const filters = Array.from(
 
       const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
       return packageJson.name ?? entry;
-    })
-  )
+    }),
+  ),
 );
 
 const args = [

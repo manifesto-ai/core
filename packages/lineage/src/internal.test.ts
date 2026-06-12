@@ -7,10 +7,7 @@ import {
   type Snapshot,
 } from "@manifesto-ai/core";
 import { createManifesto } from "@manifesto-ai/sdk";
-import {
-  getRuntimeKernelFactory,
-  type LineageRuntimeKernel,
-} from "@manifesto-ai/sdk/provider";
+import { getRuntimeKernelFactory, type LineageRuntimeKernel } from "@manifesto-ai/sdk/provider";
 
 import { createLineageRuntimeController } from "./internal.js";
 import { createLineageService } from "./service/lineage-service.js";
@@ -165,13 +162,12 @@ describe("@manifesto-ai/lineage internal runtime controller", () => {
 
     expect(kernel.getVisibleCoreSnapshot().state.count).toBe(1);
 
-    await expect(lineage.sealIntent(
-      createIntent("requiresPositive", "intent-blocked"),
-      {
+    await expect(
+      lineage.sealIntent(createIntent("requiresPositive", "intent-blocked"), {
         branchId: forkBranchId,
         baseWorldId: genesisWorldId,
-      },
-    )).rejects.toThrow();
+      }),
+    ).rejects.toThrow();
 
     expect(kernel.getVisibleCoreSnapshot().state.count).toBe(1);
   });
@@ -184,17 +180,19 @@ describe("@manifesto-ai/lineage internal runtime controller", () => {
       system: {
         ...kernel.getCanonicalSnapshot().system,
         status: "pending" as const,
-        pendingRequirements: [{
-          id: "req-1",
-          type: "external",
-          params: {},
-          actionId: "increment",
-          flowPosition: {
-            nodePath: "actions.increment.flow",
-            snapshotVersion: kernel.getCanonicalSnapshot().meta.version,
+        pendingRequirements: [
+          {
+            id: "req-1",
+            type: "external",
+            params: {},
+            actionId: "increment",
+            flowPosition: {
+              nodePath: "actions.increment.flow",
+              snapshotVersion: kernel.getCanonicalSnapshot().meta.version,
+            },
+            createdAt: kernel.getCanonicalSnapshot().meta.timestamp,
           },
-          createdAt: kernel.getCanonicalSnapshot().meta.timestamp,
-        }],
+        ],
       },
     };
     const pendingKernel: LineageRuntimeKernel<CounterDomain> = {
@@ -226,9 +224,11 @@ describe("@manifesto-ai/lineage internal runtime controller", () => {
     };
     const lineage = createLineageRuntimeController(pendingKernel, service, { service });
 
-    await expect(lineage.sealIntent(createIntent("increment", "intent-1"), {
-      rejectPendingBeforeSeal: true,
-    })).rejects.toThrow("host dispatch remained pending");
+    await expect(
+      lineage.sealIntent(createIntent("increment", "intent-1"), {
+        rejectPendingBeforeSeal: true,
+      }),
+    ).rejects.toThrow("host dispatch remained pending");
     expect(service.prepareSealNext).not.toHaveBeenCalled();
     expect(service.commitPrepared).toHaveBeenCalledTimes(1);
   });

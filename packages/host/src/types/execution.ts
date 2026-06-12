@@ -198,7 +198,7 @@ export interface ExecutionContext {
     requirementId: string,
     effectType: string,
     params: unknown,
-    intent: Intent
+    intent: Intent,
   ): void;
 
   /**
@@ -227,7 +227,7 @@ export interface ExecutionContextOptions {
     requirementId: string,
     effectType: string,
     params: unknown,
-    intent: Intent
+    intent: Intent,
   ) => void;
   onFatalError?: (key: ExecutionKey, intentId: string, error: Error) => void;
 }

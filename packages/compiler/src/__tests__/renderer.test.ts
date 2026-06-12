@@ -39,53 +39,65 @@ describe("renderTypeExpr", () => {
   });
 
   it("should render array types", () => {
-    expect(renderTypeExpr({
-      kind: "array",
-      element: { kind: "primitive", name: "string" }
-    })).toBe("Array<string>");
+    expect(
+      renderTypeExpr({
+        kind: "array",
+        element: { kind: "primitive", name: "string" },
+      }),
+    ).toBe("Array<string>");
 
-    expect(renderTypeExpr({
-      kind: "array",
-      element: { kind: "ref", name: "Todo" }
-    })).toBe("Array<Todo>");
+    expect(
+      renderTypeExpr({
+        kind: "array",
+        element: { kind: "ref", name: "Todo" },
+      }),
+    ).toBe("Array<Todo>");
   });
 
   it("should render record types", () => {
-    expect(renderTypeExpr({
-      kind: "record",
-      key: { kind: "primitive", name: "string" },
-      value: { kind: "primitive", name: "number" }
-    })).toBe("Record<string, number>");
+    expect(
+      renderTypeExpr({
+        kind: "record",
+        key: { kind: "primitive", name: "string" },
+        value: { kind: "primitive", name: "number" },
+      }),
+    ).toBe("Record<string, number>");
   });
 
   it("should render union types", () => {
-    expect(renderTypeExpr({
-      kind: "union",
-      members: [
-        { kind: "literal", value: "idle" },
-        { kind: "literal", value: "loading" },
-        { kind: "literal", value: "done" }
-      ]
-    })).toBe('"idle" | "loading" | "done"');
+    expect(
+      renderTypeExpr({
+        kind: "union",
+        members: [
+          { kind: "literal", value: "idle" },
+          { kind: "literal", value: "loading" },
+          { kind: "literal", value: "done" },
+        ],
+      }),
+    ).toBe('"idle" | "loading" | "done"');
 
-    expect(renderTypeExpr({
-      kind: "union",
-      members: [
-        { kind: "primitive", name: "string" },
-        { kind: "primitive", name: "null" }
-      ]
-    })).toBe("string | null");
+    expect(
+      renderTypeExpr({
+        kind: "union",
+        members: [
+          { kind: "primitive", name: "string" },
+          { kind: "primitive", name: "null" },
+        ],
+      }),
+    ).toBe("string | null");
   });
 
   it("should render object types", () => {
-    expect(renderTypeExpr({
-      kind: "object",
-      fields: [
-        { name: "id", optional: false, type: { kind: "primitive", name: "string" } },
-        { name: "title", optional: false, type: { kind: "primitive", name: "string" } },
-        { name: "completed", optional: true, type: { kind: "primitive", name: "boolean" } }
-      ]
-    })).toBe("{ id: string, title: string, completed?: boolean }");
+    expect(
+      renderTypeExpr({
+        kind: "object",
+        fields: [
+          { name: "id", optional: false, type: { kind: "primitive", name: "string" } },
+          { name: "title", optional: false, type: { kind: "primitive", name: "string" } },
+          { name: "completed", optional: true, type: { kind: "primitive", name: "boolean" } },
+        ],
+      }),
+    ).toBe("{ id: string, title: string, completed?: boolean }");
   });
 
   it("should render empty object type", () => {
@@ -98,7 +110,7 @@ describe("renderTypeField", () => {
     const field: TypeField = {
       name: "title",
       optional: false,
-      type: { kind: "primitive", name: "string" }
+      type: { kind: "primitive", name: "string" },
     };
     expect(renderTypeField(field)).toBe("title: string");
   });
@@ -107,7 +119,7 @@ describe("renderTypeField", () => {
     const field: TypeField = {
       name: "description",
       optional: true,
-      type: { kind: "primitive", name: "string" }
+      type: { kind: "primitive", name: "string" },
     };
     expect(renderTypeField(field)).toBe("description?: string");
   });
@@ -116,7 +128,7 @@ describe("renderTypeField", () => {
     const field: TypeField = {
       name: "count",
       optional: false,
-      type: { kind: "primitive", name: "number" }
+      type: { kind: "primitive", name: "number" },
     };
     expect(renderTypeField(field, 0)).toBe("count: number = 0");
   });
@@ -125,7 +137,7 @@ describe("renderTypeField", () => {
     const field: TypeField = {
       name: "status",
       optional: false,
-      type: { kind: "literal", value: "idle" }
+      type: { kind: "literal", value: "idle" },
     };
     expect(renderTypeField(field, "idle")).toBe('status: "idle" = "idle"');
   });
@@ -204,10 +216,12 @@ describe("renderExprNode", () => {
   it("should render string expressions", () => {
     const str: ExprNode = { kind: "get", path: "name" };
 
-    expect(renderExprNode({
-      kind: "concat",
-      args: [{ kind: "lit", value: "Hello, " }, str]
-    })).toBe('concat("Hello, ", name)');
+    expect(
+      renderExprNode({
+        kind: "concat",
+        args: [{ kind: "lit", value: "Hello, " }, str],
+      }),
+    ).toBe('concat("Hello, ", name)');
 
     expect(renderExprNode({ kind: "trim", str })).toBe("trim(name)");
   });
@@ -221,10 +235,12 @@ describe("renderExprNode", () => {
   });
 
   it("should render isNull expression", () => {
-    expect(renderExprNode({
-      kind: "isNull",
-      arg: { kind: "get", path: "value" }
-    })).toBe("isNull(value)");
+    expect(
+      renderExprNode({
+        kind: "isNull",
+        arg: { kind: "get", path: "value" },
+      }),
+    ).toBe("isNull(value)");
   });
 
   it("should render nested expressions", () => {
@@ -232,8 +248,8 @@ describe("renderExprNode", () => {
       kind: "and",
       args: [
         { kind: "gt", left: { kind: "get", path: "count" }, right: { kind: "lit", value: 0 } },
-        { kind: "not", arg: { kind: "get", path: "isLocked" } }
-      ]
+        { kind: "not", arg: { kind: "get", path: "isLocked" } },
+      ],
     };
     expect(renderExprNode(expr)).toBe("and(gt(count, 0), not(isLocked))");
   });
@@ -248,9 +264,9 @@ describe("renderPatchOp", () => {
         kind: "object",
         fields: [
           { name: "id", optional: false, type: { kind: "primitive", name: "string" } },
-          { name: "title", optional: false, type: { kind: "primitive", name: "string" } }
-        ]
-      }
+          { name: "title", optional: false, type: { kind: "primitive", name: "string" } },
+        ],
+      },
     };
     const result = renderPatchOp(op);
     expect(result).toContain("type Todo {");
@@ -265,8 +281,8 @@ describe("renderPatchOp", () => {
       field: {
         name: "completed",
         optional: false,
-        type: { kind: "primitive", name: "boolean" }
-      }
+        type: { kind: "primitive", name: "boolean" },
+      },
     };
     expect(renderPatchOp(op)).toBe("completed: boolean");
   });
@@ -279,8 +295,8 @@ describe("renderPatchOp", () => {
         name: "status",
         optional: false,
         type: { kind: "literal", value: "idle" },
-        defaultValue: "idle"
-      }
+        defaultValue: "idle",
+      },
     };
     expect(renderPatchOp(op)).toBe('status: "idle" = "idle"');
   });
@@ -289,7 +305,7 @@ describe("renderPatchOp", () => {
     const op: PatchOp = {
       kind: "setDefaultValue",
       path: "Todo.count",
-      value: 0
+      value: 0,
     };
     expect(renderPatchOp(op)).toBe("count = 0");
   });
@@ -301,8 +317,8 @@ describe("renderPatchOp", () => {
       expr: {
         kind: "mul",
         left: { kind: "get", path: "count" },
-        right: { kind: "lit", value: 2 }
-      }
+        right: { kind: "lit", value: 2 },
+      },
     };
     expect(renderPatchOp(op)).toBe("computed doubled = mul(count, 2)");
   });
@@ -314,9 +330,9 @@ describe("renderPatchOp", () => {
       rule: {
         kind: "gte",
         left: { kind: "get", path: "age" },
-        right: { kind: "lit", value: 18 }
+        right: { kind: "lit", value: 18 },
       },
-      message: "Must be at least 18"
+      message: "Must be at least 18",
     };
     const result = renderPatchOp(op);
     expect(result).toContain("Constraint on User.age");
@@ -332,9 +348,9 @@ describe("renderPatchOp", () => {
         kind: "and",
         args: [
           { kind: "get", path: "isValid" },
-          { kind: "not", arg: { kind: "get", path: "isSubmitting" } }
-        ]
-      }
+          { kind: "not", arg: { kind: "get", path: "isSubmitting" } },
+        ],
+      },
     };
     const result = renderPatchOp(op);
     expect(result).toContain("action submit() available when and(isValid, not(isSubmitting))");
@@ -351,12 +367,12 @@ describe("renderFragment", () => {
       field: {
         name: "priority",
         optional: false,
-        type: { kind: "primitive", name: "number" }
-      }
+        type: { kind: "primitive", name: "number" },
+      },
     },
     confidence: 0.95,
     evidence: ["User mentioned priority field"],
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
   };
 
   it("should render fragment with metadata", () => {
@@ -386,11 +402,11 @@ describe("renderFragments", () => {
       op: {
         kind: "addField",
         typeName: "Todo",
-        field: { name: "title", optional: false, type: { kind: "primitive", name: "string" } }
+        field: { name: "title", optional: false, type: { kind: "primitive", name: "string" } },
       },
       confidence: 0.9,
       evidence: [],
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     },
     {
       fragmentId: "frag-2",
@@ -398,12 +414,12 @@ describe("renderFragments", () => {
       op: {
         kind: "addComputed",
         name: "count",
-        expr: { kind: "len", arg: { kind: "get", path: "items" } }
+        expr: { kind: "len", arg: { kind: "get", path: "items" } },
       },
       confidence: 0.85,
       evidence: [],
-      createdAt: new Date().toISOString()
-    }
+      createdAt: new Date().toISOString(),
+    },
   ];
 
   it("should render multiple fragments", () => {
@@ -421,11 +437,16 @@ describe("renderAsDomain", () => {
       op: {
         kind: "addField",
         typeName: "Counter",
-        field: { name: "count", optional: false, type: { kind: "primitive", name: "number" }, defaultValue: 0 } as any
+        field: {
+          name: "count",
+          optional: false,
+          type: { kind: "primitive", name: "number" },
+          defaultValue: 0,
+        } as any,
       },
       confidence: 0.95,
       evidence: [],
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     },
     {
       fragmentId: "frag-2",
@@ -433,12 +454,16 @@ describe("renderAsDomain", () => {
       op: {
         kind: "addComputed",
         name: "doubled",
-        expr: { kind: "mul", left: { kind: "get", path: "count" }, right: { kind: "lit", value: 2 } }
+        expr: {
+          kind: "mul",
+          left: { kind: "get", path: "count" },
+          right: { kind: "lit", value: 2 },
+        },
       },
       confidence: 0.9,
       evidence: [],
-      createdAt: new Date().toISOString()
-    }
+      createdAt: new Date().toISOString(),
+    },
   ];
 
   it("should render fragments as a domain", () => {

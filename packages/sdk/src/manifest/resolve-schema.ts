@@ -1,27 +1,15 @@
-import {
-  type DomainSchema,
-} from "@manifesto-ai/core";
+import { type DomainSchema } from "@manifesto-ai/core";
 
-import {
-  ManifestoError,
-} from "../errors.js";
-import {
-  buildSnapshotProjectionPlan,
-} from "../projection/snapshot-projection.js";
+import { ManifestoError } from "../errors.js";
+import { buildSnapshotProjectionPlan } from "../projection/snapshot-projection.js";
 import {
   compileSchema,
   deriveActionAnnotations,
   deriveActionParamMetadata,
   deriveSingleParamObjectValueMetadata,
 } from "./compile-schema.js";
-import type {
-  ActionAnnotationMap,
-  CompiledSchema,
-  ResolvedSchema,
-} from "./shared.js";
-import {
-  RESERVED_NAMESPACE_PREFIX,
-} from "./shared.js";
+import type { ActionAnnotationMap, CompiledSchema, ResolvedSchema } from "./shared.js";
+import { RESERVED_NAMESPACE_PREFIX } from "./shared.js";
 
 export function resolveSchema(
   schema: DomainSchema | string,
@@ -34,14 +22,15 @@ export function resolveSchema(
     );
   }
 
-  const resolved: CompiledSchema = typeof schema === "string"
-    ? compileSchema(schema)
-    : {
-      schema,
-      actionParamMetadata: deriveActionParamMetadata(schema),
-      actionSingleParamObjectValueMetadata: deriveSingleParamObjectValueMetadata(schema),
-      actionAnnotations: deriveActionAnnotations(),
-    };
+  const resolved: CompiledSchema =
+    typeof schema === "string"
+      ? compileSchema(schema)
+      : {
+          schema,
+          actionParamMetadata: deriveActionParamMetadata(schema),
+          actionSingleParamObjectValueMetadata: deriveSingleParamObjectValueMetadata(schema),
+          actionAnnotations: deriveActionAnnotations(),
+        };
 
   validateReservedNamespaces(resolved.schema);
 
@@ -49,10 +38,7 @@ export function resolveSchema(
     schema: resolved.schema,
     actionParamMetadata: resolved.actionParamMetadata,
     actionSingleParamObjectValueMetadata: resolved.actionSingleParamObjectValueMetadata,
-    actionAnnotations: mergeActionAnnotations(
-      resolved.actionAnnotations,
-      callerAnnotations,
-    ),
+    actionAnnotations: mergeActionAnnotations(resolved.actionAnnotations, callerAnnotations),
     projectionPlan: buildSnapshotProjectionPlan(resolved.schema),
   };
 }
@@ -70,26 +56,29 @@ function mergeActionAnnotations(
     merged.set(action, annotations);
   }
   for (const [action, annotations] of Object.entries(caller)) {
-    merged.set(action, Object.freeze({
-      ...(merged.get(action) ?? {}),
-      ...annotations,
-    }));
+    merged.set(
+      action,
+      Object.freeze({
+        ...(merged.get(action) ?? {}),
+        ...annotations,
+      }),
+    );
   }
   return Object.freeze(Object.fromEntries(merged));
 }
 
-function isDomainModuleArtifact(
-  schema: DomainSchema,
-): schema is DomainSchema & {
+function isDomainModuleArtifact(schema: DomainSchema): schema is DomainSchema & {
   schema: unknown;
   graph: unknown;
   annotations: unknown;
 } {
-  return typeof schema === "object"
-    && schema !== null
-    && "schema" in schema
-    && "graph" in schema
-    && "annotations" in schema;
+  return (
+    typeof schema === "object" &&
+    schema !== null &&
+    "schema" in schema &&
+    "graph" in schema &&
+    "annotations" in schema
+  );
 }
 
 function validateReservedNamespaces(schema: DomainSchema): void {
@@ -105,10 +94,7 @@ function validateReservedNamespaces(schema: DomainSchema): void {
   }
 }
 
-function visitStateFields(
-  fields: DomainSchema["state"]["fields"],
-  path: string,
-): void {
+function visitStateFields(fields: DomainSchema["state"]["fields"], path: string): void {
   for (const [name, field] of Object.entries(fields)) {
     const fieldPath = `${path}.${name}`;
     if (name.startsWith("$")) {

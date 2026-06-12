@@ -18,11 +18,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
-import {
-  createTestSchema,
-  createTestIntent,
-  createTestSnapshot,
-} from "../../helpers/index.js";
+import { createTestSchema, createTestIntent, createTestSnapshot } from "../../helpers/index.js";
 import { createTestEffectRunner } from "../hcts-adapter.js";
 
 describe("HCTS Context Determinism Tests", () => {
@@ -52,12 +48,14 @@ describe("HCTS Context Determinism Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set", path: pp("firstTimestamp"),
+                  op: "set",
+                  path: pp("firstTimestamp"),
                   value: { kind: "get", path: "$runtime.time.timestamp" },
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("secondTimestamp"),
+                  op: "set",
+                  path: pp("secondTimestamp"),
                   value: { kind: "get", path: "$runtime.time.timestamp" },
                 },
               ],
@@ -94,7 +92,8 @@ describe("HCTS Context Determinism Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set", path: pp("firstSeed"),
+                  op: "set",
+                  path: pp("firstSeed"),
                   value: { kind: "get", path: "$runtime.random.seed" },
                 },
                 {
@@ -108,7 +107,8 @@ describe("HCTS Context Determinism Tests", () => {
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("secondSeed"),
+                  op: "set",
+                  path: pp("secondSeed"),
                   value: { kind: "get", path: "$runtime.random.seed" },
                 },
               ],
@@ -150,12 +150,14 @@ describe("HCTS Context Determinism Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set", path: pp("done"),
+                  op: "set",
+                  path: pp("done"),
                   value: { kind: "lit", value: true },
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("capturedTimestamp"),
+                  op: "set",
+                  path: pp("capturedTimestamp"),
                   value: { kind: "get", path: "$runtime.time.timestamp" },
                 },
               ],
@@ -195,7 +197,8 @@ describe("HCTS Context Determinism Tests", () => {
           captureIntentId: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("capturedSeed"),
+              op: "set",
+              path: pp("capturedSeed"),
               value: { kind: "get", path: "$runtime.intent.id" },
             },
           },

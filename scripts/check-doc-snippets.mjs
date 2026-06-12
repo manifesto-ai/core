@@ -26,6 +26,7 @@ const SDK_DIST = path.join(ROOT, "packages", "sdk", "dist", "index.js");
 const CHECKED_DOCS = [
   "README.md",
   "docs/guide/quick-start.md",
+  "docs/guide/essentials/mel-domain-basics.md",
 ];
 
 function fail(message) {
@@ -52,9 +53,9 @@ function findSnippetPair(blocks, docPath) {
   const mel = blocks.find((b) => b.lang === "mel");
   const runtime = blocks.find(
     (b) =>
-      (b.lang === "typescript" || b.lang === "ts")
-      && b.code.includes("createManifesto")
-      && b.code.includes("./counter.mel"),
+      (b.lang === "typescript" || b.lang === "ts") &&
+      b.code.includes("createManifesto") &&
+      b.code.includes("./counter.mel"),
   );
   if (!mel) fail(`${docPath}: no \`\`\`mel block found`);
   if (!runtime) fail(`${docPath}: no runtime typescript block importing ./counter.mel found`);
@@ -82,10 +83,7 @@ function toExecutableModule(runtimeCode, schema) {
         `from ${JSON.stringify(pathToFileURL(SDK_DIST).href)}`,
       ),
     );
-  return [
-    `const CounterMel = ${JSON.stringify(schema)};`,
-    ...lines,
-  ].join("\n");
+  return [`const CounterMel = ${JSON.stringify(schema)};`, ...lines].join("\n");
 }
 
 let checked = 0;
@@ -109,25 +107,41 @@ for (const docPath of CHECKED_DOCS) {
   const modulePath = path.join(tempDir, "snippet.mjs");
   fs.writeFileSync(modulePath, moduleSource);
 
-  const result = spawnSync(process.execPath, [modulePath], { encoding: "utf-8" });
+  const stdoutPath = path.join(tempDir, "stdout.txt");
+  const stderrPath = path.join(tempDir, "stderr.txt");
+  const stdoutFd = fs.openSync(stdoutPath, "w");
+  const stderrFd = fs.openSync(stderrPath, "w");
+  const result = spawnSync(process.execPath, [modulePath], {
+    cwd: ROOT,
+    stdio: ["ignore", stdoutFd, stderrFd],
+  });
+  fs.closeSync(stdoutFd);
+  fs.closeSync(stderrFd);
+  const stdout = fs.readFileSync(stdoutPath, "utf-8");
+  const stderr = fs.readFileSync(stderrPath, "utf-8");
   fs.rmSync(tempDir, { recursive: true, force: true });
 
   if (result.status !== 0) {
-    fail(`${docPath}: documented runtime snippet exited ${result.status}:\n${result.stderr}`);
+    fail(`${docPath}: documented runtime snippet exited ${result.status}:\n${stderr}`);
   }
 
-  const actual = result.stdout.trim().split("\n").map((line) => line.trim());
+  const actual = stdout
+    .trim()
+    .split("\n")
+    .map((line) => line.trim());
   expected.forEach((value, index) => {
     if (actual[index] !== value) {
       fail(
-        `${docPath}: documented output mismatch at log #${index + 1}: `
-        + `docs say "${value}", snippet printed "${actual[index] ?? "<nothing>"}"`,
+        `${docPath}: documented output mismatch at log #${index + 1}: ` +
+          `docs say "${value}", snippet printed "${actual[index] ?? "<nothing>"}"`,
       );
     }
   });
 
   checked += 1;
-  console.log(`✓ ${docPath}: MEL compiles, snippet runs, output matches docs (${expected.length} assertions)`);
+  console.log(
+    `✓ ${docPath}: MEL compiles, snippet runs, output matches docs (${expected.length} assertions)`,
+  );
 }
 
 console.log(`Doc snippets OK (${checked} documents executed against built packages).`);

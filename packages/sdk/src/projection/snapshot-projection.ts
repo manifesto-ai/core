@@ -1,46 +1,34 @@
-import {
-  type DomainSchema,
-  type Snapshot as CoreSnapshot,
-} from "@manifesto-ai/core";
+import { type DomainSchema, type Snapshot as CoreSnapshot } from "@manifesto-ai/core";
 
 export type CanonicalNamespaces = CoreSnapshot["namespaces"];
 
-export type Snapshot<
-  TState = unknown,
-  TComputed = Record<string, unknown>,
-> = {
+export type Snapshot<TState = unknown, TComputed = Record<string, unknown>> = {
   state: TState;
   computed: TComputed;
   system: Pick<CoreSnapshot["system"], "status" | "lastError">;
   meta: Pick<CoreSnapshot["meta"], "schemaHash">;
 };
 
-export type CanonicalSnapshot<
-  TState = unknown,
-  TComputed = Record<string, unknown>,
-> =
-  Omit<CoreSnapshot, "state" | "computed"> & {
-    state: TState;
-    computed: TComputed;
-    namespaces: CanonicalNamespaces;
-  };
+export type CanonicalSnapshot<TState = unknown, TComputed = Record<string, unknown>> = Omit<
+  CoreSnapshot,
+  "state" | "computed"
+> & {
+  state: TState;
+  computed: TComputed;
+  namespaces: CanonicalNamespaces;
+};
 
 export type SnapshotProjectionPlan = {
   visibleComputedKeys: readonly string[];
 };
 
-export function buildSnapshotProjectionPlan(
-  schema: DomainSchema,
-): SnapshotProjectionPlan {
+export function buildSnapshotProjectionPlan(schema: DomainSchema): SnapshotProjectionPlan {
   return {
     visibleComputedKeys: Object.keys(schema.computed.fields),
   };
 }
 
-export function projectCanonicalSnapshot<
-  TState = unknown,
-  TComputed = Record<string, unknown>,
->(
+export function projectCanonicalSnapshot<TState = unknown, TComputed = Record<string, unknown>>(
   snapshot: CoreSnapshot,
   plan: SnapshotProjectionPlan,
 ): Snapshot<TState, TComputed> {
@@ -57,10 +45,7 @@ export function projectCanonicalSnapshot<
   };
 }
 
-export function projectEffectContextSnapshot<
-  TState = unknown,
-  TComputed = Record<string, unknown>,
->(
+export function projectEffectContextSnapshot<TState = unknown, TComputed = Record<string, unknown>>(
   snapshot: CoreSnapshot,
   plan: SnapshotProjectionPlan,
 ): Snapshot<TState, TComputed> {
@@ -71,10 +56,7 @@ export function cloneAndDeepFreeze<T>(value: T): T {
   return deepFreeze(structuredClone(value));
 }
 
-export function projectedSnapshotsEqual<
-  TState,
-  TComputed = Record<string, unknown>,
->(
+export function projectedSnapshotsEqual<TState, TComputed = Record<string, unknown>>(
   left: Snapshot<TState, TComputed>,
   right: Snapshot<TState, TComputed>,
 ): boolean {
@@ -92,7 +74,7 @@ function projectComputed<TComputed>(
   const projected: Record<string, unknown> = {};
 
   for (const key of plan.visibleComputedKeys) {
-    if (Object.prototype.hasOwnProperty.call(computed, key)) {
+    if (Object.hasOwn(computed, key)) {
       projected[key] = computed[key];
     }
   }
@@ -151,17 +133,14 @@ function cycleSafeEqualInternal(
     }
 
     for (let index = 0; index < leftObject.length; index += 1) {
-      const leftHasValue = Object.prototype.hasOwnProperty.call(leftObject, index);
-      const rightHasValue = Object.prototype.hasOwnProperty.call(rightObject, index);
+      const leftHasValue = Object.hasOwn(leftObject, index);
+      const rightHasValue = Object.hasOwn(rightObject, index);
 
       if (leftHasValue !== rightHasValue) {
         return false;
       }
 
-      if (
-        leftHasValue
-        && !cycleSafeEqualInternal(leftObject[index], rightObject[index], seen)
-      ) {
+      if (leftHasValue && !cycleSafeEqualInternal(leftObject[index], rightObject[index], seen)) {
         return false;
       }
     }
@@ -174,8 +153,7 @@ function cycleSafeEqualInternal(
   }
 
   if (leftObject instanceof RegExp && rightObject instanceof RegExp) {
-    return leftObject.source === rightObject.source
-      && leftObject.flags === rightObject.flags;
+    return leftObject.source === rightObject.source && leftObject.flags === rightObject.flags;
   }
 
   if (ArrayBuffer.isView(leftObject) && ArrayBuffer.isView(rightObject)) {
@@ -226,8 +204,10 @@ function cycleSafeEqualInternal(
       }
 
       const [rightKey, rightValue] = rightEntry;
-      return cycleSafeEqualInternal(leftKey, rightKey, seen)
-        && cycleSafeEqualInternal(leftValue, rightValue, seen);
+      return (
+        cycleSafeEqualInternal(leftKey, rightKey, seen) &&
+        cycleSafeEqualInternal(leftValue, rightValue, seen)
+      );
     });
   }
 
@@ -240,7 +220,8 @@ function cycleSafeEqualInternal(
     const rightValues = Array.from(rightObject.values());
 
     return leftValues.every((value, index) =>
-      cycleSafeEqualInternal(value, rightValues[index], seen));
+      cycleSafeEqualInternal(value, rightValues[index], seen),
+    );
   }
 
   const leftKeys = getComparableObjectKeys(leftObject);

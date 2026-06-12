@@ -1,8 +1,5 @@
 import { createManifesto } from "../../index.ts";
-import {
-  createCounterSchema,
-  type CounterDomain,
-} from "../helpers/schema.ts";
+import { createCounterSchema, type CounterDomain } from "../helpers/schema.ts";
 
 const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
@@ -35,7 +32,10 @@ const unsubscribeEvent = app.observe.event("submission:settled", (payload) => {
   void schemaHashFromPayload;
 });
 const preview = app.action.increment.preview();
-const changedPaths: readonly { readonly path: readonly (string | number)[]; readonly kind: "set" | "unset" | "changed" }[] = preview.admitted ? preview.changes : [];
+const changedPaths: readonly {
+  readonly path: readonly (string | number)[];
+  readonly kind: "set" | "unset" | "changed";
+}[] = preview.admitted ? preview.changes : [];
 
 void graph.traceUp("state:count");
 void availableActions;

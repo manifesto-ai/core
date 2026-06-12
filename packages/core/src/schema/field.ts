@@ -42,7 +42,7 @@ export const FieldSpec: z.ZodType<FieldSpec> = z.lazy(() =>
     description: z.string().optional(),
     fields: z.record(z.string(), FieldSpec).optional(),
     items: FieldSpec.optional(),
-  })
+  }),
 );
 
 /**

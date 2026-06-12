@@ -54,12 +54,16 @@ describe("Golden: Determinism Verification", () => {
         increment: {
           flow: {
             kind: "patch",
-            op: "set", path: pp("counter"),
+            op: "set",
+            path: pp("counter"),
             value: {
               kind: "add",
               left: {
                 kind: "coalesce",
-                args: [{ kind: "get", path: "counter" }, { kind: "lit", value: 0 }],
+                args: [
+                  { kind: "get", path: "counter" },
+                  { kind: "lit", value: 0 },
+                ],
               },
               right: { kind: "lit", value: 1 },
             },
@@ -68,7 +72,8 @@ describe("Golden: Determinism Verification", () => {
         addTen: {
           flow: {
             kind: "patch",
-            op: "set", path: pp("counter"),
+            op: "set",
+            path: pp("counter"),
             value: {
               kind: "add",
               left: { kind: "get", path: "counter" },
@@ -86,7 +91,8 @@ describe("Golden: Determinism Verification", () => {
           },
           flow: {
             kind: "patch",
-            op: "set", path: pp("valueA"),
+            op: "set",
+            path: pp("valueA"),
             value: { kind: "get", path: "input.value" },
           },
         },
@@ -100,7 +106,8 @@ describe("Golden: Determinism Verification", () => {
           },
           flow: {
             kind: "patch",
-            op: "set", path: pp("valueB"),
+            op: "set",
+            path: pp("valueB"),
             value: { kind: "get", path: "input.value" },
           },
         },
@@ -114,7 +121,8 @@ describe("Golden: Determinism Verification", () => {
           },
           flow: {
             kind: "patch",
-            op: "set", path: pp("flag"),
+            op: "set",
+            path: pp("flag"),
             value: { kind: "get", path: "input.flag" },
           },
         },
@@ -128,7 +136,8 @@ describe("Golden: Determinism Verification", () => {
           },
           flow: {
             kind: "patch",
-            op: "set", path: pp("label"),
+            op: "set",
+            path: pp("label"),
             value: { kind: "get", path: "input.label" },
           },
         },
@@ -142,12 +151,14 @@ describe("Golden: Determinism Verification", () => {
             },
             then: {
               kind: "patch",
-              op: "set", path: pp("flag"),
+              op: "set",
+              path: pp("flag"),
               value: { kind: "lit", value: true },
             },
             else: {
               kind: "patch",
-              op: "set", path: pp("flag"),
+              op: "set",
+              path: pp("flag"),
               value: { kind: "lit", value: false },
             },
           },
@@ -158,7 +169,8 @@ describe("Golden: Determinism Verification", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set", path: pp("counter"),
+                op: "set",
+                path: pp("counter"),
                 value: {
                   kind: "add",
                   left: { kind: "get", path: "counter" },
@@ -167,7 +179,8 @@ describe("Golden: Determinism Verification", () => {
               },
               {
                 kind: "patch",
-                op: "set", path: pp("label"),
+                op: "set",
+                path: pp("label"),
                 value: { kind: "lit", value: "multi-patched" },
               },
             ],
@@ -206,7 +219,7 @@ describe("Golden: Determinism Verification", () => {
 
       // All final states should be identical
       const states = verification.results.map((r) =>
-        JSON.stringify(stripHostState(r.finalSnapshot.state))
+        JSON.stringify(stripHostState(r.finalSnapshot.state)),
       );
       const uniqueStates = new Set(states);
       expect(uniqueStates.size).toBe(1);
@@ -286,18 +299,13 @@ describe("Golden: Determinism Verification", () => {
           flag: false,
           label: "",
         },
-        intents: [
-          { type: "increment" },
-          { type: "setValueA", input: { value: 100 } },
-        ],
+        intents: [{ type: "increment" }, { type: "setValueA", input: { value: 100 } }],
       };
 
       const verification = await runner.verifyDeterminism(scenario, 3);
 
       // Compare normalized traces
-      const traces = verification.results.map((r) =>
-        JSON.stringify(r.normalizedTrace)
-      );
+      const traces = verification.results.map((r) => JSON.stringify(r.normalizedTrace));
       expect(traces[0]).toBe(traces[1]);
       expect(traces[1]).toBe(traces[2]);
     });
@@ -314,11 +322,7 @@ describe("Golden: Determinism Verification", () => {
           flag: false,
           label: "",
         },
-        intents: [
-          { type: "increment" },
-          { type: "increment" },
-          { type: "multiPatch" },
-        ],
+        intents: [{ type: "increment" }, { type: "increment" }, { type: "multiPatch" }],
       };
 
       const verification = await runner.verifyDeterminism(scenario, 5);
@@ -351,7 +355,7 @@ describe("Golden: Determinism Verification", () => {
 
       // Event type sequences should be identical
       const eventSequences = verification.results.map((r) =>
-        r.normalizedTrace.map((e) => e.t).join(",")
+        r.normalizedTrace.map((e) => e.t).join(","),
       );
       expect(eventSequences[0]).toBe(eventSequences[1]);
       expect(eventSequences[1]).toBe(eventSequences[2]);

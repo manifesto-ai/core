@@ -1,23 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  createInMemoryLineageStore,
-  withLineage,
-} from "@manifesto-ai/lineage";
-import {
-  createLineageService,
-  type LineageService,
-} from "@manifesto-ai/lineage/provider";
-import {
-  AlreadyActivatedError,
-  SubmissionFailedError,
-  createManifesto,
-} from "@manifesto-ai/sdk";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
+import { createLineageService, type LineageService } from "@manifesto-ai/lineage/provider";
+import { AlreadyActivatedError, SubmissionFailedError, createManifesto } from "@manifesto-ai/sdk";
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
-import {
-  evaluateRule,
-  expectAllCompliance,
-  noteEvidence,
-} from "../assertions.js";
+import { evaluateRule, expectAllCompliance, noteEvidence } from "../assertions.js";
 import { getRuleOrThrow } from "../acts-rules.js";
 import { createCounterSchema, type CounterDomain } from "../helpers/schema.js";
 
@@ -29,18 +15,15 @@ describe("ACTS Lineage Suite", () => {
     ),
     () => {
       const base = createManifesto<CounterDomain>(createCounterSchema(), {});
-      const manifesto = withLineage(
-        base,
-        { store: createInMemoryLineageStore() },
-      );
+      const manifesto = withLineage(base, { store: createInMemoryLineageStore() });
       const world = manifesto.activate();
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-LIN-1"),
-          "activate" in manifesto
-            && !("dispatchAsync" in manifesto)
-            && !("getSnapshot" in manifesto),
+          "activate" in manifesto &&
+            !("dispatchAsync" in manifesto) &&
+            !("getSnapshot" in manifesto),
           {
             passMessage: "Lineage decorator stays pre-activation until activate().",
             failMessage: "Lineage decorator leaked runtime verbs before activation.",
@@ -70,8 +53,10 @@ describe("ACTS Lineage Suite", () => {
             }
           })(),
           {
-            passMessage: "Lineage-decorated composable shares one-shot activation with its base composable.",
-            failMessage: "Lineage activation still leaves a re-activation backdoor on the decorated or base composable.",
+            passMessage:
+              "Lineage-decorated composable shares one-shot activation with its base composable.",
+            failMessage:
+              "Lineage activation still leaves a re-activation backdoor on the decorated or base composable.",
             evidence: [
               noteEvidence(
                 "Second activation attempt threw AlreadyActivatedError on both the lineage-decorated composable and its base composable.",
@@ -120,10 +105,9 @@ describe("ACTS Lineage Suite", () => {
         restore: realService.restore.bind(realService),
       };
 
-      const world = withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { service },
-      ).activate();
+      const world = withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        service,
+      }).activate();
 
       const subscriber = vi.fn(() => {
         order.push("subscriber");
@@ -166,32 +150,33 @@ describe("ACTS Lineage Suite", () => {
         restore: failingRealService.restore.bind(failingRealService),
       };
 
-      const failingWorld = withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { service: failingService },
-      ).activate();
+      const failingWorld = withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        service: failingService,
+      }).activate();
       const failingSubscriber = vi.fn();
       failingWorld.observe.state((next) => next.state.count, failingSubscriber);
 
-      await expect(
-        failingWorld.action.increment.submit(),
-      ).rejects.toBeInstanceOf(SubmissionFailedError);
+      await expect(failingWorld.action.increment.submit()).rejects.toBeInstanceOf(
+        SubmissionFailedError,
+      );
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-LIN-2"),
-          result.ok === true
-            && result.after.state.count === 1
-            && world.snapshot().state.count === 1
-            && order.filter((entry) => entry === "commit:end").length >= 1
-            && order.indexOf("subscriber") > order.lastIndexOf("commit:end")
-            && order.indexOf("settled") > order.lastIndexOf("commit:end")
-            && proposalCreated.mock.calls.length === 0
-            && failingWorld.snapshot().state.count === 0
-            && failingSubscriber.mock.calls.length === 0,
+          result.ok === true &&
+            result.after.state.count === 1 &&
+            world.snapshot().state.count === 1 &&
+            order.filter((entry) => entry === "commit:end").length >= 1 &&
+            order.indexOf("subscriber") > order.lastIndexOf("commit:end") &&
+            order.indexOf("settled") > order.lastIndexOf("commit:end") &&
+            proposalCreated.mock.calls.length === 0 &&
+            failingWorld.snapshot().state.count === 0 &&
+            failingSubscriber.mock.calls.length === 0,
           {
-            passMessage: "Lineage publication stays seal-aware and publish happens only after commit success.",
-            failMessage: "Lineage publication ordering or commit-failure visibility drifted from the seal-aware contract.",
+            passMessage:
+              "Lineage publication stays seal-aware and publish happens only after commit success.",
+            failMessage:
+              "Lineage publication ordering or commit-failure visibility drifted from the seal-aware contract.",
             evidence: [
               noteEvidence(
                 "Captured commit/subscriber/settled ordering and verified commit failure did not publish a second visible snapshot.",
@@ -213,32 +198,33 @@ describe("ACTS Lineage Suite", () => {
       "Activated lineage runtime exposes v5 submit results, removes base/v3 write verbs, and returns completed lineage continuity reports.",
     ),
     async () => {
-      const world = withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ).activate();
+      const world = withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }).activate();
 
       const result = await world.action.increment.submit();
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-LIN-4"),
-          !("dispatchAsyncWithReport" in world)
-            && !("dispatchAsync" in world)
-            && !("commitAsyncWithReport" in world)
-            && !("commitAsync" in world)
-            && result.ok === true
-            && result.mode === "lineage"
-            && result.report?.headAdvanced === true
-            && result.report?.published === true
-            && result.before.state.count === 0
-            && result.after.state.count === 1
-            && result.report?.worldId === result.world.worldId
-            && result.world.worldId === (await world.getLatestHead())?.worldId
-            && result.report?.branchId === (await world.getActiveBranch()).id,
+          !("dispatchAsyncWithReport" in world) &&
+            !("dispatchAsync" in world) &&
+            !("commitAsyncWithReport" in world) &&
+            !("commitAsync" in world) &&
+            result.ok === true &&
+            result.mode === "lineage" &&
+            result.report?.headAdvanced === true &&
+            result.report?.published === true &&
+            result.before.state.count === 0 &&
+            result.after.state.count === 1 &&
+            result.report?.worldId === result.world.worldId &&
+            result.world.worldId === (await world.getLatestHead())?.worldId &&
+            result.report?.branchId === (await world.getActiveBranch()).id,
           {
-            passMessage: "Lineage runtime exposes v5 submit and returns continuity-aware settled reports.",
-            failMessage: "Lineage v5 submit surface drifted from root verb removal or completed continuity report semantics.",
+            passMessage:
+              "Lineage runtime exposes v5 submit and returns continuity-aware settled reports.",
+            failMessage:
+              "Lineage v5 submit surface drifted from root verb removal or completed continuity report semantics.",
             evidence: [
               noteEvidence("Observed lineage submit result", result),
               noteEvidence("Visible snapshot after lineage submit", world.snapshot()),

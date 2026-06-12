@@ -6,10 +6,7 @@ import { createLineageService } from "./service/lineage-service.js";
 import { createWorldRecord } from "./records.js";
 import type { ComputeEnvelope } from "./types.js";
 
-function createTestComputeEnvelope(
-  type = "test.intent",
-  intentId = "intent-1",
-): ComputeEnvelope {
+function createTestComputeEnvelope(type = "test.intent", intentId = "intent-1"): ComputeEnvelope {
   return {
     intent: { type, intentId },
     context: {
@@ -24,7 +21,7 @@ function createTestComputeEnvelope(
 
 function createTestSnapshot(
   state: Record<string, unknown>,
-  overrides?: Partial<Snapshot>
+  overrides?: Partial<Snapshot>,
 ): Snapshot {
   return {
     state,
@@ -115,7 +112,7 @@ describe("@manifesto-ai/lineage service", () => {
           pendingRequirements: [],
           currentAction: null,
         },
-      }
+      },
     );
 
     const firstFailure = await service.prepareSealNext({
@@ -194,7 +191,7 @@ describe("@manifesto-ai/lineage service", () => {
             pendingRequirements: [],
             currentAction: null,
           },
-        }
+        },
       ),
       createdAt: 3,
     });
@@ -240,7 +237,7 @@ describe("@manifesto-ai/lineage service", () => {
             host: { trace: "first" },
             mel: { guards: { intent: { stale: "true" } } },
           },
-        }
+        },
       ),
       createdAt: 2,
     });
@@ -272,7 +269,7 @@ describe("@manifesto-ai/lineage service", () => {
             host: { trace: "second" },
             mel: { guards: { intent: { stale: "false" } } },
           },
-        }
+        },
       ),
       createdAt: 3,
     });

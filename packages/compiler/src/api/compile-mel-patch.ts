@@ -34,7 +34,7 @@ const SYNTHETIC_PATCH_INDENT = "      ";
  */
 export function compileMelPatchText(
   melText: string,
-  options: CompileMelPatchOptions
+  options: CompileMelPatchOptions,
 ): CompileMelPatchResult {
   const trace: CompileTrace[] = [];
   const warnings: Diagnostic[] = [];
@@ -52,9 +52,9 @@ export function compileMelPatchText(
     const lexResult = tokenize(syntheticMel);
     tokens = lexResult.tokens;
     const lexErrors = remapDiagnosticsToPatchSource(
-      lexResult.diagnostics.filter(d => d.severity === "error"),
+      lexResult.diagnostics.filter((d) => d.severity === "error"),
       patchLines,
-      patchLineStarts
+      patchLineStarts,
     );
     if (lexErrors.length > 0) {
       errors.push(...lexErrors);
@@ -92,10 +92,10 @@ export function compileMelPatchText(
     const parsedDiagnostics = remapDiagnosticsToPatchSource(
       parseResult.diagnostics,
       patchLines,
-      patchLineStarts
+      patchLineStarts,
     );
-    const parseErrors = parsedDiagnostics.filter(d => d.severity === "error");
-    const parseWarnings = parsedDiagnostics.filter(d => d.severity !== "error");
+    const parseErrors = parsedDiagnostics.filter((d) => d.severity === "error");
+    const parseWarnings = parsedDiagnostics.filter((d) => d.severity !== "error");
 
     if (parseErrors.length > 0) {
       errors.push(...parseErrors);
@@ -141,8 +141,7 @@ export function compileMelPatchText(
     actionName: options.actionName,
   };
   const action = program.domain.members.find(
-    (member): member is ActionNode =>
-      member.kind === "action" && member.name === SYNTHETIC_ACTION
+    (member): member is ActionNode => member.kind === "action" && member.name === SYNTHETIC_ACTION,
   );
   if (!action) {
     errors.push({
@@ -187,16 +186,14 @@ export function compileMelPatchText(
     return { ops: [], trace, warnings, errors };
   }
 
-  const collector = new PatchStatementCollector({
-    mapLocation,
-    toMelExpr,
-  }, options.allowSysPaths?.prefixes ?? ["input", "runtime", "context"]);
-  const patchStatements = collector.collect(
-    patchRoot.body,
-    errors,
-    collectContext,
-    undefined
+  const collector = new PatchStatementCollector(
+    {
+      mapLocation,
+      toMelExpr,
+    },
+    options.allowSysPaths?.prefixes ?? ["input", "runtime", "context"],
   );
+  const patchStatements = collector.collect(patchRoot.body, errors, collectContext, undefined);
 
   if (errors.length === 0 && melText.trim() !== "" && patchStatements.length === 0) {
     errors.push({

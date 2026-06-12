@@ -212,98 +212,32 @@ export const ACTIVATION_COMPLIANCE_CASES: readonly ActivationComplianceCase[] = 
 ] as const;
 
 export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntry[] = [
-  ...coverMany(
-    ["ACTS-BASE-1", "ACTS-BASE-2"],
-    [ACTS_CASES.BASE_COMPOSABLE_SURFACE],
-  ),
-  ...coverMany(
-    ["ACTS-BASE-3"],
-    [ACTS_CASES.BASE_ACTIVATION_CHAIN],
-  ),
-  ...coverMany(
-    ["ACTS-BASE-4"],
-    [ACTS_CASES.BASE_DEQUEUE_AVAILABILITY],
-  ),
-  ...coverMany(
-    ["ACTS-BASE-5"],
-    [ACTS_CASES.BASE_MUTATION_SAFETY],
-  ),
-  ...coverMany(
-    ["ACTS-BASE-6"],
-    [ACTS_CASES.BASE_INTROSPECTION_SURFACE],
-  ),
-  ...coverMany(
-    ["ACTS-BASE-7"],
-    [ACTS_CASES.BASE_SCHEMA_GRAPH_LOOKUP],
-  ),
-  ...coverMany(
-    ["ACTS-BASE-8"],
-    [ACTS_CASES.BASE_SIMULATE_NON_COMMITTING],
-  ),
-  ...coverMany(
-    ["ACTS-BASE-9"],
-    [ACTS_CASES.BASE_SIMULATE_HALTED],
-  ),
-  ...coverMany(
-    ["ACTS-BASE-10"],
-    [ACTS_CASES.BASE_REPORT_SURFACE],
-  ),
-  ...coverMany(
-    ["ACTS-BASE-11"],
-    [ACTS_CASES.BASE_REPORT_REJECTION],
-  ),
-  ...coverMany(
-    ["ACTS-LIN-1", "ACTS-LIN-3"],
-    [ACTS_CASES.LINEAGE_COMPOSABLE_SURFACE],
-  ),
-  ...coverMany(
-    ["ACTS-LIN-2"],
-    [ACTS_CASES.LINEAGE_SEAL_PUBLICATION],
-  ),
-  ...coverMany(
-    ["ACTS-LIN-4"],
-    [ACTS_CASES.LINEAGE_REPORT_SURFACE],
-  ),
-  ...coverMany(
-    ["ACTS-GOV-1", "ACTS-GOV-5"],
-    [ACTS_CASES.GOVERNANCE_COMPOSABLE_SURFACE],
-  ),
-  ...coverMany(
-    ["ACTS-GOV-2", "ACTS-GOV-8"],
-    [ACTS_CASES.GOVERNANCE_EXPLICIT_LINEAGE],
-  ),
-  ...coverMany(
-    ["ACTS-GOV-4"],
-    [ACTS_CASES.GOVERNANCE_EXPLICIT_PRECEDENCE],
-  ),
+  ...coverMany(["ACTS-BASE-1", "ACTS-BASE-2"], [ACTS_CASES.BASE_COMPOSABLE_SURFACE]),
+  ...coverMany(["ACTS-BASE-3"], [ACTS_CASES.BASE_ACTIVATION_CHAIN]),
+  ...coverMany(["ACTS-BASE-4"], [ACTS_CASES.BASE_DEQUEUE_AVAILABILITY]),
+  ...coverMany(["ACTS-BASE-5"], [ACTS_CASES.BASE_MUTATION_SAFETY]),
+  ...coverMany(["ACTS-BASE-6"], [ACTS_CASES.BASE_INTROSPECTION_SURFACE]),
+  ...coverMany(["ACTS-BASE-7"], [ACTS_CASES.BASE_SCHEMA_GRAPH_LOOKUP]),
+  ...coverMany(["ACTS-BASE-8"], [ACTS_CASES.BASE_SIMULATE_NON_COMMITTING]),
+  ...coverMany(["ACTS-BASE-9"], [ACTS_CASES.BASE_SIMULATE_HALTED]),
+  ...coverMany(["ACTS-BASE-10"], [ACTS_CASES.BASE_REPORT_SURFACE]),
+  ...coverMany(["ACTS-BASE-11"], [ACTS_CASES.BASE_REPORT_REJECTION]),
+  ...coverMany(["ACTS-LIN-1", "ACTS-LIN-3"], [ACTS_CASES.LINEAGE_COMPOSABLE_SURFACE]),
+  ...coverMany(["ACTS-LIN-2"], [ACTS_CASES.LINEAGE_SEAL_PUBLICATION]),
+  ...coverMany(["ACTS-LIN-4"], [ACTS_CASES.LINEAGE_REPORT_SURFACE]),
+  ...coverMany(["ACTS-GOV-1", "ACTS-GOV-5"], [ACTS_CASES.GOVERNANCE_COMPOSABLE_SURFACE]),
+  ...coverMany(["ACTS-GOV-2", "ACTS-GOV-8"], [ACTS_CASES.GOVERNANCE_EXPLICIT_LINEAGE]),
+  ...coverMany(["ACTS-GOV-4"], [ACTS_CASES.GOVERNANCE_EXPLICIT_PRECEDENCE]),
   ...coverMany(
     ["ACTS-GOV-3", "ACTS-GOV-6", "ACTS-GOV-9"],
     [ACTS_CASES.GOVERNANCE_V5_SUBMIT_RESULT],
   ),
-  ...coverMany(
-    ["ACTS-GOV-4", "ACTS-GOV-7"],
-    [ACTS_CASES.GOVERNANCE_V5_SETTLEMENT_REATTACH],
-  ),
-  ...coverMany(
-    ["ACTS-TYPE-1"],
-    [ACTS_CASES.TYPES_PRE_ACTIVATION],
-  ),
-  ...coverMany(
-    ["ACTS-TYPE-2"],
-    [ACTS_CASES.TYPES_GOVERNED_RUNTIME],
-  ),
-  ...coverMany(
-    ["ACTS-TYPE-3"],
-    [ACTS_CASES.TYPES_LINEAGE_CONFIG],
-  ),
-  ...coverMany(
-    ["ACTS-TYPE-4"],
-    [ACTS_CASES.TYPES_BASE_INTROSPECTION],
-  ),
-  ...coverMany(
-    ["ACTS-V5-ROOT-1", "ACTS-V5-ACTION-1"],
-    [ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE],
-  ),
+  ...coverMany(["ACTS-GOV-4", "ACTS-GOV-7"], [ACTS_CASES.GOVERNANCE_V5_SETTLEMENT_REATTACH]),
+  ...coverMany(["ACTS-TYPE-1"], [ACTS_CASES.TYPES_PRE_ACTIVATION]),
+  ...coverMany(["ACTS-TYPE-2"], [ACTS_CASES.TYPES_GOVERNED_RUNTIME]),
+  ...coverMany(["ACTS-TYPE-3"], [ACTS_CASES.TYPES_LINEAGE_CONFIG]),
+  ...coverMany(["ACTS-TYPE-4"], [ACTS_CASES.TYPES_BASE_INTROSPECTION]),
+  ...coverMany(["ACTS-V5-ROOT-1", "ACTS-V5-ACTION-1"], [ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE]),
   ...coverMany(
     [
       "SDK-ROOT-1",
@@ -317,18 +251,12 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
     ],
     [ACTS_CASES.V5_ACTION_CANDIDATE_SURFACE],
   ),
-  ...coverMany(
-    ["SDK-ROOT-4", "SDK-ROOT-6", "SDK-SUBMIT-11"],
-    [ACTS_CASES.TYPES_GOVERNED_RUNTIME],
-  ),
+  ...coverMany(["SDK-ROOT-4", "SDK-ROOT-6", "SDK-SUBMIT-11"], [ACTS_CASES.TYPES_GOVERNED_RUNTIME]),
   ...coverMany(
     ["SDK-ROOT-5", "SDK-SUBMIT-15", "SDK-SUBMIT-16"],
     [ACTS_CASES.GOVERNANCE_V5_SETTLEMENT_REATTACH],
   ),
-  ...coverMany(
-    ["ACTS-V5-ADMISSION-1", "ACTS-V5-PREVIEW-1"],
-    [ACTS_CASES.V5_ADMISSION_AND_PREVIEW],
-  ),
+  ...coverMany(["ACTS-V5-ADMISSION-1", "ACTS-V5-PREVIEW-1"], [ACTS_CASES.V5_ADMISSION_AND_PREVIEW]),
   ...coverMany(
     [
       "SDK-ADMISSION-1",
@@ -369,34 +297,13 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
     ],
     [ACTS_CASES.V5_SUBMIT_RESULTS],
   ),
-  ...coverMany(
-    ["SDK-SUBMIT-6"],
-    [ACTS_CASES.LINEAGE_REPORT_SURFACE],
-  ),
-  ...coverMany(
-    ["SDK-SUBMIT-7", "SDK-SUBMIT-8"],
-    [ACTS_CASES.GOVERNANCE_V5_SUBMIT_RESULT],
-  ),
-  ...coverMany(
-    ["ACTS-V5-OBSERVE-1"],
-    [ACTS_CASES.V5_OBSERVE_EVENTS],
-  ),
-  ...coverMany(
-    ["SDK-OBSERVE-1", "SDK-OBSERVE-2", "SDK-OBSERVE-4"],
-    [ACTS_CASES.V5_OBSERVE_EVENTS],
-  ),
-  ...coverMany(
-    ["ACTS-V5-OBSERVE-2", "ACTS-V5-OBSERVE-3"],
-    [ACTS_CASES.V5_OBSERVE_STATE],
-  ),
-  ...coverMany(
-    ["SDK-OBSERVE-3", "SDK-OBSERVE-5"],
-    [ACTS_CASES.V5_OBSERVE_STATE],
-  ),
-  ...coverMany(
-    ["ACTS-V5-INSPECT-1"],
-    [ACTS_CASES.V5_INSPECT_READS],
-  ),
+  ...coverMany(["SDK-SUBMIT-6"], [ACTS_CASES.LINEAGE_REPORT_SURFACE]),
+  ...coverMany(["SDK-SUBMIT-7", "SDK-SUBMIT-8"], [ACTS_CASES.GOVERNANCE_V5_SUBMIT_RESULT]),
+  ...coverMany(["ACTS-V5-OBSERVE-1"], [ACTS_CASES.V5_OBSERVE_EVENTS]),
+  ...coverMany(["SDK-OBSERVE-1", "SDK-OBSERVE-2", "SDK-OBSERVE-4"], [ACTS_CASES.V5_OBSERVE_EVENTS]),
+  ...coverMany(["ACTS-V5-OBSERVE-2", "ACTS-V5-OBSERVE-3"], [ACTS_CASES.V5_OBSERVE_STATE]),
+  ...coverMany(["SDK-OBSERVE-3", "SDK-OBSERVE-5"], [ACTS_CASES.V5_OBSERVE_STATE]),
+  ...coverMany(["ACTS-V5-INSPECT-1"], [ACTS_CASES.V5_INSPECT_READS]),
   ...coverMany(
     [
       "SDK-INSPECT-1",
@@ -409,22 +316,11 @@ export const ACTIVATION_RULE_COVERAGE: readonly ActivationComplianceCoverageEntr
     [ACTS_CASES.V5_INSPECT_READS],
   ),
   ...coverMany(
-    [
-      "SDK-EXT-1",
-      "SDK-EXT-2",
-      "SDK-EXT-3",
-      "SDK-EXT-4",
-    ],
+    ["SDK-EXT-1", "SDK-EXT-2", "SDK-EXT-3", "SDK-EXT-4"],
     [ACTS_CASES.V5_EXTENSION_KERNEL],
   ),
-  ...coverMany(
-    ["ACTS-V5-TYPE-1", "ACTS-V5-TYPE-2"],
-    [ACTS_CASES.TYPES_V5_ACTION_CANDIDATE],
-  ),
-  ...coverMany(
-    ["ACTS-V5-TYPE-3"],
-    [ACTS_CASES.TYPES_V5_OBSERVE_INSPECT],
-  ),
+  ...coverMany(["ACTS-V5-TYPE-1", "ACTS-V5-TYPE-2"], [ACTS_CASES.TYPES_V5_ACTION_CANDIDATE]),
+  ...coverMany(["ACTS-V5-TYPE-3"], [ACTS_CASES.TYPES_V5_OBSERVE_INSPECT]),
 ] as const;
 
 export function caseTitle(caseId: string, description: string): string {

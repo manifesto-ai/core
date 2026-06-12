@@ -442,9 +442,20 @@ export interface UnaryExprNode extends ASTNode {
  * Binary operators
  */
 export type BinaryOperator =
-  | "+" | "-" | "*" | "/" | "%"
-  | "==" | "!=" | "<" | "<=" | ">" | ">="
-  | "&&" | "||" | "??";
+  | "+"
+  | "-"
+  | "*"
+  | "/"
+  | "%"
+  | "=="
+  | "!="
+  | "<"
+  | "<="
+  | ">"
+  | ">="
+  | "&&"
+  | "||"
+  | "??";
 
 /**
  * Binary expression (a + b, a && b, etc.)
@@ -524,9 +535,18 @@ export interface IndexSegmentNode extends ASTNode {
  */
 export function isExprNode(node: ASTNode): node is ExprNode {
   const exprKinds = [
-    "literal", "identifier", "systemIdent", "iterationVar",
-    "propertyAccess", "indexAccess", "functionCall",
-    "unary", "binary", "ternary", "objectLiteral", "arrayLiteral"
+    "literal",
+    "identifier",
+    "systemIdent",
+    "iterationVar",
+    "propertyAccess",
+    "indexAccess",
+    "functionCall",
+    "unary",
+    "binary",
+    "ternary",
+    "objectLiteral",
+    "arrayLiteral",
   ];
   return exprKinds.includes((node as ExprNode).kind);
 }

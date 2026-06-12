@@ -60,7 +60,5 @@ export function formatDiagnostic(diagnostic: Diagnostic, source?: string): strin
  * Format multiple diagnostics, separated by blank lines.
  */
 export function formatDiagnostics(diagnostics: Diagnostic[], source?: string): string {
-  return diagnostics
-    .map((d) => formatDiagnostic(d, source))
-    .join("\n\n");
+  return diagnostics.map((d) => formatDiagnostic(d, source)).join("\n\n");
 }

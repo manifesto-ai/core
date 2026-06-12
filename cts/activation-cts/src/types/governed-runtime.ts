@@ -1,11 +1,5 @@
-import {
-  createInMemoryGovernanceStore,
-  withGovernance,
-} from "@manifesto-ai/governance";
-import {
-  createInMemoryLineageStore,
-  withLineage,
-} from "@manifesto-ai/lineage";
+import { createInMemoryGovernanceStore, withGovernance } from "@manifesto-ai/governance";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import {
   type GovernanceSubmissionResult,
   type LineageSubmissionResult,
@@ -21,10 +15,9 @@ import {
   type CounterDomain,
 } from "../helpers/schema.js";
 
-const lineage = withLineage(
-  createManifesto<CounterDomain>(createCounterSchema(), {}),
-  { store: createInMemoryLineageStore() },
-).activate();
+const lineage = withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+  store: createInMemoryLineageStore(),
+}).activate();
 
 // @ts-expect-error lineage runtime removes direct dispatchAsync
 lineage.dispatchAsync;
@@ -50,16 +43,17 @@ const lineageApp: ManifestoApp<CounterDomain, "lineage"> = lineage;
 // @ts-expect-error lineage app does not expose governance settlement re-attachment
 lineageApp.waitForSettlement("prop-example");
 
-const baseApp: ManifestoApp<CounterDomain, "base"> =
-  createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+const baseApp: ManifestoApp<CounterDomain, "base"> = createManifesto<CounterDomain>(
+  createCounterSchema(),
+  {},
+).activate();
 // @ts-expect-error base app does not expose governance settlement re-attachment
 baseApp.waitForSettlement("prop-example");
 
 const governed = withGovernance(
-  withLineage(
-    createManifesto<CounterDomain>(createCounterSchema(), {}),
-    { store: createInMemoryLineageStore() },
-  ),
+  withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+    store: createInMemoryLineageStore(),
+  }),
   {
     governanceStore: createInMemoryGovernanceStore(),
     bindings: [createAutoBinding()],

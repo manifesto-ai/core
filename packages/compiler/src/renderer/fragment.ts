@@ -83,10 +83,7 @@ const DEFAULT_FRAGMENT_OPTIONS: FragmentRenderOptions = {
  * @param options - Rendering options
  * @returns MEL syntax string with metadata comments
  */
-export function renderFragment(
-  fragment: PatchFragment,
-  options?: FragmentRenderOptions
-): string {
+export function renderFragment(fragment: PatchFragment, options?: FragmentRenderOptions): string {
   const opts = { ...DEFAULT_FRAGMENT_OPTIONS, ...options };
   const lines: string[] = [];
 
@@ -128,13 +125,11 @@ export function renderFragment(
  */
 export function renderFragments(
   fragments: PatchFragment[],
-  options?: FragmentRenderOptions
+  options?: FragmentRenderOptions,
 ): string {
   const opts = { ...DEFAULT_FRAGMENT_OPTIONS, ...options };
 
-  const renderedFragments = fragments.map((fragment) =>
-    renderFragment(fragment, opts)
-  );
+  const renderedFragments = fragments.map((fragment) => renderFragment(fragment, opts));
 
   return renderedFragments.join("\n\n");
 }
@@ -148,7 +143,7 @@ export function renderFragments(
  */
 export function renderFragmentsByKind(
   fragments: PatchFragment[],
-  options?: FragmentRenderOptions
+  options?: FragmentRenderOptions,
 ): Record<string, string> {
   const opts = { ...DEFAULT_FRAGMENT_OPTIONS, ...options };
   const grouped: Record<string, PatchFragment[]> = {};
@@ -180,7 +175,7 @@ export function renderFragmentsByKind(
 export function renderAsDomain(
   domainName: string,
   fragments: PatchFragment[],
-  options?: FragmentRenderOptions
+  options?: FragmentRenderOptions,
 ): string {
   const opts = { ...DEFAULT_FRAGMENT_OPTIONS, ...options };
   const indent = opts.indent ?? "  ";
@@ -224,7 +219,10 @@ export function renderAsDomain(
   if (fields.length > 0 || defaults.length > 0) {
     lines.push(`${indent}state {`);
     for (const fragment of [...fields, ...defaults]) {
-      const rendered = renderPatchOp(fragment.op, { indent: indent + indent, includeComments: false });
+      const rendered = renderPatchOp(fragment.op, {
+        indent: indent + indent,
+        includeComments: false,
+      });
       lines.push(`${indent}${indent}${rendered}`);
     }
     lines.push(`${indent}}`);
@@ -235,7 +233,10 @@ export function renderAsDomain(
   for (const fragment of types) {
     const rendered = renderPatchOp(fragment.op, { indent, includeComments: false });
     // Indent each line
-    const indented = rendered.split("\n").map(line => `${indent}${line}`).join("\n");
+    const indented = rendered
+      .split("\n")
+      .map((line) => `${indent}${line}`)
+      .join("\n");
     lines.push(indented);
     lines.push("");
   }
@@ -257,7 +258,10 @@ export function renderAsDomain(
   // Actions section
   for (const fragment of actions) {
     const rendered = renderPatchOp(fragment.op, { indent, includeComments: false });
-    const indented = rendered.split("\n").map(line => `${indent}${line}`).join("\n");
+    const indented = rendered
+      .split("\n")
+      .map((line) => `${indent}${line}`)
+      .join("\n");
     lines.push(indented);
     lines.push("");
   }

@@ -4,14 +4,13 @@
  */
 
 import type { Diagnostic } from "../diagnostics/types.js";
-import { createPosition, createLocation, type Position, type SourceLocation } from "./source-location.js";
 import {
-  type Token,
-  type TokenKind,
-  createToken,
-  getKeywordKind,
-  isReserved,
-} from "./tokens.js";
+  createPosition,
+  createLocation,
+  type Position,
+  type SourceLocation,
+} from "./source-location.js";
+import { type Token, type TokenKind, createToken, getKeywordKind, isReserved } from "./tokens.js";
 
 /**
  * Result of lexical analysis
@@ -51,9 +50,7 @@ export class Lexer {
     }
 
     // Add EOF token
-    this.tokens.push(
-      createToken("EOF", "", this.currentLocation())
-    );
+    this.tokens.push(createToken("EOF", "", this.currentLocation()));
 
     return {
       tokens: this.tokens,
@@ -66,14 +63,30 @@ export class Lexer {
 
     switch (c) {
       // Single-character tokens
-      case "(": this.addToken("LPAREN"); break;
-      case ")": this.addToken("RPAREN"); break;
-      case "{": this.addToken("LBRACE"); break;
-      case "}": this.addToken("RBRACE"); break;
-      case "[": this.addToken("LBRACKET"); break;
-      case "]": this.addToken("RBRACKET"); break;
-      case ",": this.addToken("COMMA"); break;
-      case ";": this.addToken("SEMICOLON"); break;
+      case "(":
+        this.addToken("LPAREN");
+        break;
+      case ")":
+        this.addToken("RPAREN");
+        break;
+      case "{":
+        this.addToken("LBRACE");
+        break;
+      case "}":
+        this.addToken("RBRACE");
+        break;
+      case "[":
+        this.addToken("LBRACKET");
+        break;
+      case "]":
+        this.addToken("RBRACKET");
+        break;
+      case ",":
+        this.addToken("COMMA");
+        break;
+      case ";":
+        this.addToken("SEMICOLON");
+        break;
       case ".":
         if (this.peek() === "." && this.peekNext() === ".") {
           this.advance();
@@ -83,12 +96,24 @@ export class Lexer {
           this.addToken("DOT");
         }
         break;
-      case "+": this.addToken("PLUS"); break;
-      case "-": this.addToken("MINUS"); break;
-      case "*": this.addToken("STAR"); break;
-      case "%": this.addToken("PERCENT"); break;
-      case ":": this.addToken("COLON"); break;
-      case "@": this.addToken("AT"); break;
+      case "+":
+        this.addToken("PLUS");
+        break;
+      case "-":
+        this.addToken("MINUS");
+        break;
+      case "*":
+        this.addToken("STAR");
+        break;
+      case "%":
+        this.addToken("PERCENT");
+        break;
+      case ":":
+        this.addToken("COLON");
+        break;
+      case "@":
+        this.addToken("AT");
+        break;
 
       // Two-character tokens
       case "=":
@@ -210,13 +235,27 @@ export class Lexer {
         this.advance(); // Skip backslash
         const escaped = this.advance();
         switch (escaped) {
-          case "n": value += "\n"; break;
-          case "r": value += "\r"; break;
-          case "t": value += "\t"; break;
-          case "\\": value += "\\"; break;
-          case "'": value += "'"; break;
-          case '"': value += '"'; break;
-          case "0": value += "\0"; break;
+          case "n":
+            value += "\n";
+            break;
+          case "r":
+            value += "\r";
+            break;
+          case "t":
+            value += "\t";
+            break;
+          case "\\":
+            value += "\\";
+            break;
+          case "'":
+            value += "'";
+            break;
+          case '"':
+            value += '"';
+            break;
+          case "0":
+            value += "\0";
+            break;
           default:
             this.error(`Invalid escape sequence '\\${escaped}'`);
             value += escaped;
@@ -296,7 +335,10 @@ export class Lexer {
 
     // Check for __sys__ prefix (reserved for compiler, A26)
     if (lexeme.startsWith("__sys__")) {
-      this.error("'__sys__' prefix is reserved for compiler-generated identifiers (MEL A26)", "E004");
+      this.error(
+        "'__sys__' prefix is reserved for compiler-generated identifiers (MEL A26)",
+        "E004",
+      );
       this.addToken("ERROR");
       return;
     }
@@ -361,7 +403,9 @@ export class Lexer {
     }
 
     // Invalid dollar identifier
-    this.error(`Invalid dollar identifier '${initialLexeme}'. Expected $runtime.*, $context.*, $input.*, retired $system/$meta, or $item`);
+    this.error(
+      `Invalid dollar identifier '${initialLexeme}'. Expected $runtime.*, $context.*, $input.*, retired $system/$meta, or $item`,
+    );
     this.addToken("ERROR");
   }
 

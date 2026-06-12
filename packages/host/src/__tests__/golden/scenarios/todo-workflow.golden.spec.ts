@@ -57,19 +57,24 @@ describe("Golden: Workflow End-to-End", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set", path: pp("count"),
+                op: "set",
+                path: pp("count"),
                 value: {
                   kind: "add",
                   left: {
                     kind: "coalesce",
-                    args: [{ kind: "get", path: "count" }, { kind: "lit", value: 0 }],
+                    args: [
+                      { kind: "get", path: "count" },
+                      { kind: "lit", value: 0 },
+                    ],
                   },
                   right: { kind: "lit", value: 1 },
                 },
               },
               {
                 kind: "patch",
-                op: "set", path: pp("lastAction"),
+                op: "set",
+                path: pp("lastAction"),
                 value: { kind: "lit", value: "increment" },
               },
             ],
@@ -81,7 +86,8 @@ describe("Golden: Workflow End-to-End", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set", path: pp("count"),
+                op: "set",
+                path: pp("count"),
                 value: {
                   kind: "sub",
                   left: { kind: "get", path: "count" },
@@ -90,7 +96,8 @@ describe("Golden: Workflow End-to-End", () => {
               },
               {
                 kind: "patch",
-                op: "set", path: pp("lastAction"),
+                op: "set",
+                path: pp("lastAction"),
                 value: { kind: "lit", value: "decrement" },
               },
             ],
@@ -109,17 +116,20 @@ describe("Golden: Workflow End-to-End", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set", path: pp("taskName"),
+                op: "set",
+                path: pp("taskName"),
                 value: { kind: "get", path: "input.name" },
               },
               {
                 kind: "patch",
-                op: "set", path: pp("isComplete"),
+                op: "set",
+                path: pp("isComplete"),
                 value: { kind: "lit", value: false },
               },
               {
                 kind: "patch",
-                op: "set", path: pp("lastAction"),
+                op: "set",
+                path: pp("lastAction"),
                 value: { kind: "lit", value: "setTask" },
               },
             ],
@@ -131,12 +141,14 @@ describe("Golden: Workflow End-to-End", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set", path: pp("isComplete"),
+                op: "set",
+                path: pp("isComplete"),
                 value: { kind: "lit", value: true },
               },
               {
                 kind: "patch",
-                op: "set", path: pp("lastAction"),
+                op: "set",
+                path: pp("lastAction"),
                 value: { kind: "lit", value: "completeTask" },
               },
             ],
@@ -155,12 +167,14 @@ describe("Golden: Workflow End-to-End", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set", path: pp("priority"),
+                op: "set",
+                path: pp("priority"),
                 value: { kind: "get", path: "input.priority" },
               },
               {
                 kind: "patch",
-                op: "set", path: pp("lastAction"),
+                op: "set",
+                path: pp("lastAction"),
                 value: { kind: "lit", value: "setPriority" },
               },
             ],
@@ -172,9 +186,19 @@ describe("Golden: Workflow End-to-End", () => {
             steps: [
               { kind: "patch", op: "set", path: pp("count"), value: { kind: "lit", value: 0 } },
               { kind: "patch", op: "set", path: pp("taskName"), value: { kind: "lit", value: "" } },
-              { kind: "patch", op: "set", path: pp("isComplete"), value: { kind: "lit", value: false } },
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("isComplete"),
+                value: { kind: "lit", value: false },
+              },
               { kind: "patch", op: "set", path: pp("priority"), value: { kind: "lit", value: 0 } },
-              { kind: "patch", op: "set", path: pp("lastAction"), value: { kind: "lit", value: "reset" } },
+              {
+                kind: "patch",
+                op: "set",
+                path: pp("lastAction"),
+                value: { kind: "lit", value: "reset" },
+              },
             ],
           },
         },
@@ -329,9 +353,7 @@ describe("Golden: Workflow End-to-End", () => {
     expect(verification.differences).toBeUndefined();
 
     // All runs should produce the same final state
-    const finalStates = verification.results.map((r) =>
-      stripHostState(r.finalSnapshot.state)
-    );
+    const finalStates = verification.results.map((r) => stripHostState(r.finalSnapshot.state));
     expect(finalStates[0]).toEqual(finalStates[1]);
     expect(finalStates[1]).toEqual(finalStates[2]);
   });

@@ -22,10 +22,7 @@ import { applyComputeResult } from "./compute-interlock.js";
  *
  * @see SPEC §6.3 Re-Entry Requirement
  */
-export function handleContinueCompute(
-  job: ContinueComputeJob,
-  ctx: ExecutionContext
-): void {
+export function handleContinueCompute(job: ContinueComputeJob, ctx: ExecutionContext): void {
   // Emit job:start trace
   ctx.trace({
     t: "job:start",
@@ -61,12 +58,7 @@ export function handleContinueCompute(
   const iteration = job.iteration ?? 1;
 
   // Call core.computeSync() - synchronous internal computation
-  const result = ctx.core.computeSync(
-    ctx.schema,
-    snapshot,
-    intent,
-    frozenContext
-  );
+  const result = ctx.core.computeSync(ctx.schema, snapshot, intent, frozenContext);
   ctx.recordCoreTrace?.(result.trace);
 
   // Emit core:compute trace
@@ -82,11 +74,11 @@ export function handleContinueCompute(
 
   // Check terminal states
   if (
-    applied.interlockError
-    || applied.snapshot.system.status === "error"
-    || result.status === "complete"
-    || result.status === "error"
-    || result.status === "halted"
+    applied.interlockError ||
+    applied.snapshot.system.status === "error" ||
+    result.status === "complete" ||
+    result.status === "error" ||
+    result.status === "halted"
   ) {
     // Emit job:end trace
     ctx.trace({
@@ -118,7 +110,7 @@ export function handleContinueCompute(
         requirement.id,
         requirement.type,
         requirement.params,
-        intent
+        intent,
       );
     } else {
       // No effects needed, enqueue continue

@@ -12,7 +12,7 @@ import {
   type DomainNode,
   type DomainMember,
   type AnnotationNode,
-  type TypeDeclNode,    // v0.3.3
+  type TypeDeclNode, // v0.3.3
   type StateNode,
   type StateFieldNode,
   type ContextNode,
@@ -31,11 +31,11 @@ import {
   type PatchStmtNode,
   type EffectStmtNode,
   type EffectArgNode,
-  type FailStmtNode,   // v0.3.2
-  type StopStmtNode,   // v0.3.2
+  type FailStmtNode, // v0.3.2
+  type StopStmtNode, // v0.3.2
   type TypeExprNode,
-  type ObjectTypeNode,   // v0.3.3
-  type TypeFieldNode,    // v0.3.3
+  type ObjectTypeNode, // v0.3.3
+  type TypeFieldNode, // v0.3.3
   type ExprNode,
   type PathNode,
   type PathSegmentNode,
@@ -197,7 +197,9 @@ export class Parser {
     }
 
     this.reportUnsupportedAnnotations(annotations);
-    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'state', 'context', 'computed', 'action', or 'flow'.`);
+    this.error(
+      `Unexpected token '${this.peek().lexeme}'. Expected 'state', 'context', 'computed', 'action', or 'flow'.`,
+    );
     this.advance(); // Skip the bad token
     return null;
   }
@@ -243,10 +245,7 @@ export class Parser {
       annotations: annotations.length > 0 ? annotations : undefined,
       typeExpr,
       initializer,
-      location: mergeLocations(
-        nameToken.location,
-        initializer?.location ?? typeExpr.location
-      ),
+      location: mergeLocations(nameToken.location, initializer?.location ?? typeExpr.location),
     };
   }
 
@@ -281,7 +280,7 @@ export class Parser {
       const initializer = this.parseExpression();
       this.errorAtToken(
         nameToken,
-        "Context fields declare external context shape only; initializers are not allowed"
+        "Context fields declare external context shape only; initializers are not allowed",
       );
       return {
         kind: "contextField",
@@ -446,18 +445,24 @@ export class Parser {
 
     // Detect common mistake: patch/effect without when block
     const token = this.peek();
-    if (token.kind === "PATCH" || token.lexeme === "patch" ||
-        token.kind === "EFFECT" || token.lexeme === "effect") {
+    if (
+      token.kind === "PATCH" ||
+      token.lexeme === "patch" ||
+      token.kind === "EFFECT" ||
+      token.lexeme === "effect"
+    ) {
       this.error(
         `'${token.lexeme}' must be inside a guard block (when, once, or onceIntent). ` +
-        `Wrap it: when true { ${token.lexeme} ... }`
+          `Wrap it: when true { ${token.lexeme} ... }`,
       );
       // Skip to end of statement or next guard keyword to prevent error cascade
       this.skipToRecoveryPoint();
       return null;
     }
 
-    this.error(`Unexpected token '${token.lexeme}'. Expected 'when', 'once', 'onceIntent', 'include', 'fail', or 'stop'.`);
+    this.error(
+      `Unexpected token '${token.lexeme}'. Expected 'when', 'once', 'onceIntent', 'include', 'fail', or 'stop'.`,
+    );
     this.advance();
     return null;
   }
@@ -473,7 +478,9 @@ export class Parser {
     if (this.check("PATCH")) return this.parsePatchStmt();
     if (this.check("EFFECT")) return this.parseEffectStmt();
 
-    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'when', 'include', 'once', 'onceIntent', 'patch', or 'effect'.`);
+    this.error(
+      `Unexpected token '${this.peek().lexeme}'. Expected 'when', 'include', 'once', 'onceIntent', 'patch', or 'effect'.`,
+    );
     this.advance();
     return null;
   }
@@ -485,7 +492,11 @@ export class Parser {
     let braceDepth = 0;
     while (!this.isAtEnd()) {
       const t = this.peek();
-      if (t.kind === "LBRACE") { braceDepth++; this.advance(); continue; }
+      if (t.kind === "LBRACE") {
+        braceDepth++;
+        this.advance();
+        continue;
+      }
       if (t.kind === "RBRACE") {
         if (braceDepth === 0) return; // Don't consume the closing brace
         braceDepth--;
@@ -495,14 +506,12 @@ export class Parser {
       // Stop before valid action-body statements at depth 0.
       if (
         braceDepth === 0 &&
-        (
-          t.kind === "WHEN" ||
+        (t.kind === "WHEN" ||
           t.kind === "ONCE" ||
           t.lexeme === "onceIntent" ||
           this.isIncludeContext() ||
           t.kind === "FAIL" ||
-          t.kind === "STOP"
-        )
+          t.kind === "STOP")
       ) {
         return;
       }
@@ -597,10 +606,12 @@ export class Parser {
     if (this.check("ONCE")) return this.parseOnceStmt();
     if (this.isOnceIntentContext()) return this.parseOnceIntentStmt();
     if (this.isIncludeContext()) return this.parseIncludeStmt();
-    if (this.check("FAIL")) return this.parseFailStmt();     // v0.3.2
-    if (this.check("STOP")) return this.parseStopStmt();     // v0.3.2
+    if (this.check("FAIL")) return this.parseFailStmt(); // v0.3.2
+    if (this.check("STOP")) return this.parseStopStmt(); // v0.3.2
 
-    this.error(`Unexpected token '${this.peek().lexeme}'. Expected 'patch', 'effect', 'when', 'once', 'onceIntent', 'include', 'fail', or 'stop'.`);
+    this.error(
+      `Unexpected token '${this.peek().lexeme}'. Expected 'patch', 'effect', 'when', 'once', 'onceIntent', 'include', 'fail', or 'stop'.`,
+    );
     this.advance();
     return null;
   }
@@ -896,7 +907,7 @@ export class Parser {
     while (true) {
       if (this.check("QUESTION") && this.peekNext().kind === "DOT") {
         throw this.errorAtCurrent(
-          "Object spread is the only bounded JavaScript-like sugar admitted in current MEL. Optional chaining is not supported."
+          "Object spread is the only bounded JavaScript-like sugar admitted in current MEL. Optional chaining is not supported.",
         );
       }
 
@@ -913,9 +924,7 @@ export class Parser {
       if (!op) break;
 
       this.advance(); // Consume operator
-      const nextPrecedence = isRightAssociative(this.previous().kind)
-        ? precedence - 1
-        : precedence;
+      const nextPrecedence = isRightAssociative(this.previous().kind) ? precedence - 1 : precedence;
       const right = this.parseExpression(nextPrecedence);
 
       left = {
@@ -1123,7 +1132,7 @@ export class Parser {
     while (!this.check("RBRACE") && !this.isAtEnd()) {
       if (this.check("LBRACKET")) {
         throw this.errorAtCurrent(
-          "Object spread is the only bounded JavaScript-like sugar admitted in current MEL. Computed object keys are not supported."
+          "Object spread is the only bounded JavaScript-like sugar admitted in current MEL. Computed object keys are not supported.",
         );
       }
 
@@ -1169,7 +1178,7 @@ export class Parser {
     while (!this.check("RBRACKET") && !this.isAtEnd()) {
       if (this.check("ELLIPSIS")) {
         throw this.errorAtCurrent(
-          "Object spread is the only bounded JavaScript-like sugar admitted in current MEL. Array spread is not supported."
+          "Object spread is the only bounded JavaScript-like sugar admitted in current MEL. Array spread is not supported.",
         );
       }
 
@@ -1239,10 +1248,29 @@ export class Parser {
     if (this.current === 0) return true;
     const prev = this.previous();
     const unaryPrecedingTokens: TokenKind[] = [
-      "LPAREN", "LBRACKET", "LBRACE", "COMMA", "COLON", "EQ",
-      "PLUS", "MINUS", "STAR", "SLASH", "PERCENT", "AT",
-      "EQ_EQ", "BANG_EQ", "LT", "LT_EQ", "GT", "GT_EQ",
-      "AMP_AMP", "PIPE_PIPE", "BANG", "QUESTION", "QUESTION_QUESTION",
+      "LPAREN",
+      "LBRACKET",
+      "LBRACE",
+      "COMMA",
+      "COLON",
+      "EQ",
+      "PLUS",
+      "MINUS",
+      "STAR",
+      "SLASH",
+      "PERCENT",
+      "AT",
+      "EQ_EQ",
+      "BANG_EQ",
+      "LT",
+      "LT_EQ",
+      "GT",
+      "GT_EQ",
+      "AMP_AMP",
+      "PIPE_PIPE",
+      "BANG",
+      "QUESTION",
+      "QUESTION_QUESTION",
     ];
     return unaryPrecedingTokens.includes(prev.kind);
   }
@@ -1364,7 +1392,8 @@ export class Parser {
       this.diagnostics.push({
         severity: "error",
         code: "E053",
-        message: "@meta can attach only to domain, type, type field, state field, computed, or action declarations.",
+        message:
+          "@meta can attach only to domain, type, type field, state field, computed, or action declarations.",
         location: annotation.location,
       });
     }

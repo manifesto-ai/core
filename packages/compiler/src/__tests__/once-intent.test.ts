@@ -11,7 +11,10 @@ import { compileMelDomain } from "../api/index.js";
 import { sha256Sync } from "@manifesto-ai/core";
 import type { CoreFlowNode } from "../generator/ir.js";
 
-function collectCausalGuardNodes(flow: CoreFlowNode, acc: Extract<CoreFlowNode, { kind: "causalGuard" }>[] = []): Extract<CoreFlowNode, { kind: "causalGuard" }>[] {
+function collectCausalGuardNodes(
+  flow: CoreFlowNode,
+  acc: Extract<CoreFlowNode, { kind: "causalGuard" }>[] = [],
+): Extract<CoreFlowNode, { kind: "causalGuard" }>[] {
   if (flow.kind === "causalGuard") {
     acc.push(flow);
     collectCausalGuardNodes(flow.body, acc);

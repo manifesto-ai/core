@@ -205,7 +205,9 @@ describe("Hash Utilities", () => {
       };
 
       const hash1 = await hashSchemaEffective(schemaBase);
-      const hash2 = await hashSchemaEffective(schemaWithPlatform as Parameters<typeof hashSchema>[0]);
+      const hash2 = await hashSchemaEffective(
+        schemaWithPlatform as Parameters<typeof hashSchema>[0],
+      );
       expect(hash1).not.toBe(hash2);
     });
   });

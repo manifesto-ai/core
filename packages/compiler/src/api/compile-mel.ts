@@ -9,14 +9,8 @@
 import type { Diagnostic } from "../diagnostics/types.js";
 import type { DomainSchema } from "../generator/ir.js";
 import type { RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.js";
-import type {
-  AnnotationIndex,
-  DomainModule,
-} from "../annotations.js";
-import type {
-  SourceMapEmissionContext,
-  SourceMapIndex,
-} from "../source-map.js";
+import type { AnnotationIndex, DomainModule } from "../annotations.js";
+import type { SourceMapEmissionContext, SourceMapIndex } from "../source-map.js";
 
 import { buildAnnotationIndex } from "../annotations.js";
 import { tokenize, type Token } from "../lexer/index.js";
@@ -26,10 +20,7 @@ import { analyzeScope } from "../analyzer/scope.js";
 import { validateSemantics } from "../analyzer/validator.js";
 import { validateAndExpandFlows } from "../analyzer/flow-composition.js";
 import { extractSchemaGraph } from "../schema-graph.js";
-import {
-  createDefaultSourceMapEmissionContext,
-  extractSourceMap,
-} from "../source-map.js";
+import { createDefaultSourceMapEmissionContext, extractSourceMap } from "../source-map.js";
 import { compileMelPatchText } from "./compile-mel-patch.js";
 
 const COMPILER_VERSION = "3.5.0";
@@ -190,7 +181,7 @@ export interface CompileMelPatchResult {
  */
 export function compileMelDomain(
   melText: string,
-  options?: CompileMelDomainOptions
+  options?: CompileMelDomainOptions,
 ): CompileMelDomainResult {
   const result = compileMelArtifacts(melText, options);
   return {
@@ -250,13 +241,25 @@ function compileMelArtifacts(
     tokens = lexResult.tokens;
 
     // Collect lexer diagnostics (unterminated strings, invalid characters, etc.)
-    const lexErrors = lexResult.diagnostics.filter(d => d.severity === "error");
+    const lexErrors = lexResult.diagnostics.filter((d) => d.severity === "error");
     if (lexErrors.length > 0) {
       errors.push(...lexErrors);
-      trace.push({ phase: "lex", durationMs: performance.now() - lexStart, details: { tokenCount: tokens.length } });
-      return { program: null, schema: null, annotations: null, sourceMap: null, trace, warnings, errors };
+      trace.push({
+        phase: "lex",
+        durationMs: performance.now() - lexStart,
+        details: { tokenCount: tokens.length },
+      });
+      return {
+        program: null,
+        schema: null,
+        annotations: null,
+        sourceMap: null,
+        trace,
+        warnings,
+        errors,
+      };
     }
-    const lexWarnings = lexResult.diagnostics.filter(d => d.severity === "warning");
+    const lexWarnings = lexResult.diagnostics.filter((d) => d.severity === "warning");
     warnings.push(...lexWarnings);
   } catch (e) {
     const error = e as Error;
@@ -264,23 +267,46 @@ function compileMelArtifacts(
       severity: "error",
       code: "E_LEX",
       message: error.message,
-      location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } },
+      location: {
+        start: { line: 1, column: 1, offset: 0 },
+        end: { line: 1, column: 1, offset: 0 },
+      },
     });
     trace.push({ phase: "lex", durationMs: performance.now() - lexStart });
-    return { program: null, schema: null, annotations: null, sourceMap: null, trace, warnings, errors };
+    return {
+      program: null,
+      schema: null,
+      annotations: null,
+      sourceMap: null,
+      trace,
+      warnings,
+      errors,
+    };
   }
-  trace.push({ phase: "lex", durationMs: performance.now() - lexStart, details: { tokenCount: tokens.length } });
+  trace.push({
+    phase: "lex",
+    durationMs: performance.now() - lexStart,
+    details: { tokenCount: tokens.length },
+  });
 
   // Phase 2: Parse
   const parseStart = performance.now();
   let ast: ProgramNode;
   try {
     const parseResult = parse(tokens);
-    const parseErrors = parseResult.diagnostics.filter(d => d.severity === "error");
+    const parseErrors = parseResult.diagnostics.filter((d) => d.severity === "error");
     if (parseErrors.length > 0) {
       errors.push(...parseErrors);
       trace.push({ phase: "parse", durationMs: performance.now() - parseStart });
-      return { program: null, schema: null, annotations: null, sourceMap: null, trace, warnings, errors: capDiagnostics(errors) };
+      return {
+        program: null,
+        schema: null,
+        annotations: null,
+        sourceMap: null,
+        trace,
+        warnings,
+        errors: capDiagnostics(errors),
+      };
     }
     ast = parseResult.program as ProgramNode;
   } catch (e) {
@@ -289,10 +315,21 @@ function compileMelArtifacts(
       severity: "error",
       code: "E_PARSE",
       message: error.message,
-      location: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } },
+      location: {
+        start: { line: 1, column: 1, offset: 0 },
+        end: { line: 1, column: 1, offset: 0 },
+      },
     });
     trace.push({ phase: "parse", durationMs: performance.now() - parseStart });
-    return { program: null, schema: null, annotations: null, sourceMap: null, trace, warnings, errors };
+    return {
+      program: null,
+      schema: null,
+      annotations: null,
+      sourceMap: null,
+      trace,
+      warnings,
+      errors,
+    };
   }
   trace.push({ phase: "parse", durationMs: performance.now() - parseStart });
 
@@ -306,13 +343,13 @@ function compileMelArtifacts(
   const validateResult = validateSemantics(flowResult.program);
   const analyzeErrors = [
     ...flowErrors,
-    ...scopeResult.diagnostics.filter(d => d.severity === "error"),
-    ...validateResult.diagnostics.filter(d => d.severity === "error"),
+    ...scopeResult.diagnostics.filter((d) => d.severity === "error"),
+    ...validateResult.diagnostics.filter((d) => d.severity === "error"),
   ];
   const analyzeWarnings = [
     ...flowWarnings,
-    ...scopeResult.diagnostics.filter(d => d.severity === "warning"),
-    ...validateResult.diagnostics.filter(d => d.severity === "warning"),
+    ...scopeResult.diagnostics.filter((d) => d.severity === "warning"),
+    ...validateResult.diagnostics.filter((d) => d.severity === "warning"),
   ];
   warnings.push(...analyzeWarnings);
   trace.push({ phase: "analyze", durationMs: performance.now() - analyzeStart });
@@ -476,7 +513,7 @@ function capDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
  */
 export function compileMelPatch(
   melText: string,
-  options: CompileMelPatchOptions
+  options: CompileMelPatchOptions,
 ): CompileMelPatchResult {
   return compileMelPatchText(melText, options);
 }

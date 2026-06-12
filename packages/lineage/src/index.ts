@@ -14,5 +14,8 @@ export type {
   LineageConfig,
   LineageInstance,
 } from "./runtime-types.js";
-export { InMemoryLineageStore, createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
+export {
+  InMemoryLineageStore,
+  createInMemoryLineageStore,
+} from "./store/in-memory-lineage-store.js";
 export { withLineage } from "./with-lineage.js";

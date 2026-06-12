@@ -24,12 +24,7 @@ export const LCTS_SUITES = [
 
 export type LineageComplianceSuite = (typeof LCTS_SUITES)[number];
 
-export type {
-  ComplianceStatus,
-  RuleLevel,
-  RuleLifecycle,
-  RuleMode,
-};
+export type { ComplianceStatus, RuleLevel, RuleLifecycle, RuleMode };
 
 export type LineageEvidence = ComplianceEvidence;
 
@@ -45,7 +40,11 @@ export type LineageComplianceResult = ComplianceResult<LineageEvidence>;
 
 export interface LineageComplianceAdapter {
   computeSnapshotHash(snapshot: Snapshot): Promise<string>;
-  computeWorldId(schemaHash: string, snapshotHash: string, parentWorldId: string | null): Promise<string>;
+  computeWorldId(
+    schemaHash: string,
+    snapshotHash: string,
+    parentWorldId: string | null,
+  ): Promise<string>;
   createMemoryStore(): LineageStore;
   createService(store: LineageStore): LineageService;
   exports(): Record<string, unknown>;

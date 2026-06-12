@@ -5,11 +5,7 @@
  */
 import { getAttachedExtensionKernel } from "./compat/internal.js";
 import type { ExtensionKernel } from "./extensions-types.js";
-import type {
-  BaseLaws,
-  ActivatedInstance,
-  ManifestoDomainShape,
-} from "./types.js";
+import type { BaseLaws, ActivatedInstance, ManifestoDomainShape } from "./types.js";
 
 export type {
   ExtensionKernel,
@@ -22,10 +18,7 @@ export type {
 } from "./extensions-types.js";
 export { createSimulationSession } from "./projection/simulation-session.js";
 
-export function getExtensionKernel<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
->(
+export function getExtensionKernel<T extends ManifestoDomainShape, Laws extends BaseLaws>(
   app: ActivatedInstance<T, Laws>,
 ): ExtensionKernel<T> {
   return getAttachedExtensionKernel<T>(app as object);

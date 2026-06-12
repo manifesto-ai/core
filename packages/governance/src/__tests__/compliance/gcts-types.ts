@@ -13,21 +13,11 @@ import type {
 import type { ProposalStatus } from "../../index.js";
 import type { DefaultGovernanceService, InMemoryGovernanceStore } from "../../provider.js";
 
-export const GCTS_SUITES = [
-  "lifecycle",
-  "events",
-  "seams",
-  "matrix",
-] as const;
+export const GCTS_SUITES = ["lifecycle", "events", "seams", "matrix"] as const;
 
 export type GovernanceComplianceSuite = (typeof GCTS_SUITES)[number];
 
-export type {
-  ComplianceStatus,
-  RuleLevel,
-  RuleLifecycle,
-  RuleMode,
-};
+export type { ComplianceStatus, RuleLevel, RuleLifecycle, RuleMode };
 
 export type GovernanceEvidence = ComplianceEvidence;
 
@@ -47,7 +37,7 @@ export interface GovernanceComplianceAdapter {
   createStore(): InMemoryGovernanceStore;
   createService(
     store: InMemoryGovernanceStore,
-    options?: ConstructorParameters<typeof DefaultGovernanceService>[1]
+    options?: ConstructorParameters<typeof DefaultGovernanceService>[1],
   ): DefaultGovernanceService;
   exports(): Record<string, unknown>;
 }

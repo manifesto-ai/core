@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createManifesto } from "@manifesto-ai/sdk";
-import {
-  createSimulationSession,
-  getExtensionKernel,
-} from "@manifesto-ai/sdk/extensions";
+import { createSimulationSession, getExtensionKernel } from "@manifesto-ai/sdk/extensions";
 
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
 import {
@@ -248,10 +245,10 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
         requirements: expect.any(Array),
       });
 
-      const stopped = await createManifesto<HaltingDomain>(
-        createHaltingSchema(),
-        {},
-      ).activate().with({ report: "full" }).action.finalize.submit();
+      const stopped = await createManifesto<HaltingDomain>(createHaltingSchema(), {})
+        .activate()
+        .with({ report: "full" })
+        .action.finalize.submit();
       expect(stopped).toMatchObject({
         ok: true,
         status: "settled",
@@ -259,10 +256,10 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
         report: { outcome: { kind: "stop" } },
       });
 
-      const failed = await createManifesto<FailingDomain>(
-        createFailingSchema(),
-        {},
-      ).activate().with({ report: "full" }).action.fail.submit();
+      const failed = await createManifesto<FailingDomain>(createFailingSchema(), {})
+        .activate()
+        .with({ report: "full" })
+        .action.fail.submit();
       expect(failed).toMatchObject({
         ok: true,
         status: "settled",
@@ -299,12 +296,14 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
       const result = await app.action.increment.submit();
 
       expect(result.ok).toBe(true);
-      expect(settled).toHaveBeenCalledWith(expect.objectContaining({
-        action: "increment",
-        mode: "base",
-        outcome: { kind: "ok" },
-        schemaHash: app.inspect.schemaHash(),
-      }));
+      expect(settled).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "increment",
+          mode: "base",
+          outcome: { kind: "ok" },
+          schemaHash: app.inspect.schemaHash(),
+        }),
+      );
       expect(afterThrow).toHaveBeenCalledTimes(1);
       expect(sequence).toEqual([
         "submission:admitted",
@@ -349,13 +348,15 @@ describe("ACTS SDK v5 Action Candidate Suite", () => {
 
       expect(app.inspect.schemaHash()).toBe(app.inspect.canonicalSnapshot().meta.schemaHash);
       expect(app.inspect.action("increment")).toEqual(app.action.increment.info());
-      expect(app.inspect.availableActions().map((action) => action.name))
-        .toContain("incrementIfEven");
+      expect(app.inspect.availableActions().map((action) => action.name)).toContain(
+        "incrementIfEven",
+      );
 
       await app.action.increment.submit();
 
-      expect(app.inspect.availableActions().map((action) => action.name))
-        .not.toContain("incrementIfEven");
+      expect(app.inspect.availableActions().map((action) => action.name)).not.toContain(
+        "incrementIfEven",
+      );
       expect("getCanonicalSnapshot" in app).toBe(false);
       expect("getAvailableActions" in app).toBe(false);
     },

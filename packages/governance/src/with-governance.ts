@@ -1,12 +1,5 @@
-import type {
-  ComposableManifesto,
-  GovernanceLaws,
-  ManifestoDomainShape,
-} from "@manifesto-ai/sdk";
-import {
-  DisposedError,
-  ManifestoError,
-} from "@manifesto-ai/sdk";
+import type { ComposableManifesto, GovernanceLaws, ManifestoDomainShape } from "@manifesto-ai/sdk";
+import { DisposedError, ManifestoError } from "@manifesto-ai/sdk";
 import {
   activateComposable,
   assertComposableNotActivated,
@@ -16,9 +9,7 @@ import {
   type GovernanceRuntimeKernel,
   type GovernanceRuntimeKernelFactory,
 } from "@manifesto-ai/sdk/provider";
-import {
-  type BranchId,
-} from "@manifesto-ai/lineage";
+import { type BranchId } from "@manifesto-ai/lineage";
 import {
   createLineageRuntimeController,
   getLineageDecoration,
@@ -43,18 +34,11 @@ import type {
   GovernanceInstance,
   LineageComposableManifestoInput,
 } from "./runtime-types.js";
-import type {
-  ActorAuthorityBinding,
-  DecisionRecord,
-  Proposal,
-  ProposalId,
-} from "./types.js";
+import type { ActorAuthorityBinding, DecisionRecord, Proposal, ProposalId } from "./types.js";
 
 const GOVERNANCE_LAWS: GovernanceLaws = Object.freeze({ __governanceLaws: true });
 
-export function withGovernance<
-  T extends ManifestoDomainShape,
->(
+export function withGovernance<T extends ManifestoDomainShape>(
   manifesto: LineageComposableManifestoInput<T>,
   config: GovernanceConfig<T>,
 ): GovernanceComposableManifesto<T> {
@@ -78,14 +62,8 @@ export function withGovernance<
     }) as GovernedComposableLaws,
     schema: manifesto.schema,
     activate() {
-      activateComposable(
-        decorated as unknown as ComposableManifesto<T, GovernedComposableLaws>,
-      );
-      return activateGovernanceRuntime<T>(
-        createGovernanceKernel(),
-        explicitLineage.config,
-        config,
-      );
+      activateComposable(decorated as unknown as ComposableManifesto<T, GovernedComposableLaws>);
+      return activateGovernanceRuntime<T>(createGovernanceKernel(), explicitLineage.config, config);
     },
   };
 
@@ -126,10 +104,11 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
       return bindingsReady;
     }
 
-    bindingsReady = Promise
-      .all(config.bindings.map(async (binding) => {
+    bindingsReady = Promise.all(
+      config.bindings.map(async (binding) => {
         await governanceStore.putActorBinding(binding);
-      }))
+      }),
+    )
       .then(() => undefined)
       .catch((error) => {
         bindingsReady = null;
@@ -226,13 +205,10 @@ function activateGovernanceRuntime<T extends ManifestoDomainShape>(
     getDecisionRecord,
   });
 
-  runtime = attachWaitForProposalRuntime(
-    governed,
-    {
-      isDisposed: kernel.isDisposed,
-      deriveExecutionOutcome: kernel.deriveExecutionOutcome,
-    },
-  );
+  runtime = attachWaitForProposalRuntime(governed, {
+    isDisposed: kernel.isDisposed,
+    deriveExecutionOutcome: kernel.deriveExecutionOutcome,
+  });
 
   void kernel.enqueue(resumePendingSettlements).catch(() => {
     // Activation recovery is best-effort; proposal-specific waiters surface terminal state.

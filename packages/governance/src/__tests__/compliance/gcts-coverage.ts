@@ -7,12 +7,15 @@ import type {
 function complianceCase(
   caseId: string,
   suite: GovernanceComplianceSuite,
-  description: string
+  description: string,
 ): GovernanceComplianceCase {
   return { caseId, suite, description };
 }
 
-function coverMany(ruleIds: readonly string[], caseIds: readonly string[]): GovernanceComplianceCoverageEntry[] {
+function coverMany(
+  ruleIds: readonly string[],
+  caseIds: readonly string[],
+): GovernanceComplianceCoverageEntry[] {
   return ruleIds.map((ruleId) => ({ ruleId, caseIds: [...caseIds] }));
 }
 
@@ -33,63 +36,63 @@ export const GOVERNANCE_COMPLIANCE_CASES: readonly GovernanceComplianceCase[] = 
   complianceCase(
     GCTS_CASES.LIFECYCLE_STATE_MACHINE,
     "lifecycle",
-    "Native governance implements monotonic transitions including ingress-terminal superseded."
+    "Native governance implements monotonic transitions including ingress-terminal superseded.",
   ),
   complianceCase(
     GCTS_CASES.LIFECYCLE_BRANCH_GATES,
     "lifecycle",
-    "Native governance enforces branch identity, gate occupancy, stale head invalidation, and stale-result discard."
+    "Native governance enforces branch identity, gate occupancy, stale head invalidation, and stale-result discard.",
   ),
   complianceCase(
     GCTS_CASES.LIFECYCLE_FINALIZE_PURITY,
     "lifecycle",
-    "Seal finalization stays pure on the current finalize() path."
+    "Seal finalization stays pure on the current finalize() path.",
   ),
   complianceCase(
     GCTS_CASES.LIFECYCLE_OUTCOME_CROSSCHECK,
     "lifecycle",
-    "finalize() cross-checks derived outcome against lineage terminalStatus before producing a governance commit."
+    "finalize() cross-checks derived outcome against lineage terminalStatus before producing a governance commit.",
   ),
   complianceCase(
     GCTS_CASES.LIFECYCLE_ATTEMPT_PROVENANCE,
     "lifecycle",
-    "Governance-active seals preserve proposal provenance through lineage SealAttempt records."
+    "Governance-active seals preserve proposal provenance through lineage SealAttempt records.",
   ),
   complianceCase(
     GCTS_CASES.EVENTS_DISPATCHER_SURFACE,
     "events",
-    "Governance exports a facade-compatible dispatcher factory whose public surface is emitSealCompleted() only."
+    "Governance exports a facade-compatible dispatcher factory whose public surface is emitSealCompleted() only.",
   ),
   complianceCase(
     GCTS_CASES.EVENTS_POST_COMMIT_OUTCOMES,
     "events",
-    "Governance emits execution outcome events only through the explicit post-commit dispatcher path."
+    "Governance emits execution outcome events only through the explicit post-commit dispatcher path.",
   ),
   complianceCase(
     GCTS_CASES.EVENTS_FAILED_PAYLOAD,
     "events",
-    "execution:failed payloads expose currentError and pendingRequirements without accumulated error history."
+    "execution:failed payloads expose currentError and pendingRequirements without accumulated error history.",
   ),
   complianceCase(
     GCTS_CASES.EVENTS_WORLD_PARENT_CONTINUITY,
     "events",
-    "world:created.from follows the committed lineage continuity parent rather than proposal.baseWorld."
+    "world:created.from follows the committed lineage continuity parent rather than proposal.baseWorld.",
   ),
   complianceCase(
     GCTS_CASES.SEAMS_NATIVE_SURFACE,
     "seams",
-    "Governance package exposes native store/service exports without world or host internals, and does not own execution abstraction types."
+    "Governance package exposes native store/service exports without world or host internals, and does not own execution abstraction types.",
   ),
 ] as const;
 
 export const GOVERNANCE_RULE_COVERAGE: readonly GovernanceComplianceCoverageEntry[] = [
   ...coverMany(
     ["GOV-TRANS-1", "GOV-STAGE-7", "GOV-TRANS-3", "GOV-TRANS-4", "GOV-BRANCH-1"],
-    [GCTS_CASES.LIFECYCLE_STATE_MACHINE]
+    [GCTS_CASES.LIFECYCLE_STATE_MACHINE],
   ),
   ...coverMany(
     ["GOV-BRANCH-GATE-1", "GOV-BRANCH-GATE-5", "GOV-BRANCH-GATE-6", "GOV-BRANCH-GATE-7"],
-    [GCTS_CASES.LIFECYCLE_BRANCH_GATES]
+    [GCTS_CASES.LIFECYCLE_BRANCH_GATES],
   ),
   ...coverMany(["GOV-SEAL-2"], [GCTS_CASES.LIFECYCLE_FINALIZE_PURITY]),
   ...coverMany(["GOV-SEAL-1"], [GCTS_CASES.LIFECYCLE_OUTCOME_CROSSCHECK]),
@@ -97,11 +100,14 @@ export const GOVERNANCE_RULE_COVERAGE: readonly GovernanceComplianceCoverageEntr
   ...coverMany(["GOV-EVT-DISP-1", "GOV-EVT-DISP-2"], [GCTS_CASES.EVENTS_DISPATCHER_SURFACE]),
   ...coverMany(
     ["GOV-EVT-DISP-3", "GOV-EXEC-EVT-1", "GOV-EXEC-EVT-2", "GOV-EXEC-EVT-3", "GOV-EXEC-EVT-4"],
-    [GCTS_CASES.EVENTS_POST_COMMIT_OUTCOMES]
+    [GCTS_CASES.EVENTS_POST_COMMIT_OUTCOMES],
   ),
   ...coverMany(["GOV-EXEC-EVT-5"], [GCTS_CASES.EVENTS_FAILED_PAYLOAD]),
   ...coverMany(["GOV-EXEC-EVT-6"], [GCTS_CASES.EVENTS_WORLD_PARENT_CONTINUITY]),
-  ...coverMany(["GOV-BOUNDARY-5", "GOV-DEP-1", "GOV-STORE-3", "GOV-STORE-4"], [GCTS_CASES.SEAMS_NATIVE_SURFACE]),
+  ...coverMany(
+    ["GOV-BOUNDARY-5", "GOV-DEP-1", "GOV-STORE-3", "GOV-STORE-4"],
+    [GCTS_CASES.SEAMS_NATIVE_SURFACE],
+  ),
 ] as const;
 
 export function caseTitle(caseId: string, description: string): string {

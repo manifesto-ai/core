@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  hashSchemaSync,
-  semanticPathToPatchPath,
-  type DomainSchema,
-} from "@manifesto-ai/core";
+import { hashSchemaSync, semanticPathToPatchPath, type DomainSchema } from "@manifesto-ai/core";
 
 import {
   AlreadyActivatedError,
@@ -126,16 +122,20 @@ describe("createManifesto()", () => {
   });
 
   it("rejects reserved effects and DomainModule artifacts", () => {
-    expect(() => createManifesto<CounterDomain>(
-      createCounterSchema(),
-      { "system.get": async () => [] },
-    )).toThrow(ReservedEffectError);
+    expect(() =>
+      createManifesto<CounterDomain>(createCounterSchema(), { "system.get": async () => [] }),
+    ).toThrow(ReservedEffectError);
 
-    expect(() => createManifesto<CounterDomain>({
-      schema: createCounterSchema(),
-      graph: {},
-      annotations: {},
-    } as unknown as DomainSchema, {})).toThrowError(
+    expect(() =>
+      createManifesto<CounterDomain>(
+        {
+          schema: createCounterSchema(),
+          graph: {},
+          annotations: {},
+        } as unknown as DomainSchema,
+        {},
+      ),
+    ).toThrowError(
       expect.objectContaining<Partial<ManifestoError>>({
         code: "SCHEMA_ERROR",
       }),

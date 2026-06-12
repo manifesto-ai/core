@@ -22,10 +22,7 @@ import {
 
 const ENTITY_LOOKUP_FNS = new Set(["findById", "existsById"]);
 const ENTITY_TRANSFORM_FNS = new Set(["updateById", "removeById"]);
-const ENTITY_PRIMITIVE_FNS = new Set([
-  ...ENTITY_LOOKUP_FNS,
-  ...ENTITY_TRANSFORM_FNS,
-]);
+const ENTITY_PRIMITIVE_FNS = new Set([...ENTITY_LOOKUP_FNS, ...ENTITY_TRANSFORM_FNS]);
 
 type ExprContext = "computed" | "action" | "guard" | "available" | "dispatchable" | "patch";
 
@@ -39,7 +36,7 @@ function addDiagnostic(
   dedupe: Set<string>,
   code: string,
   message: string,
-  location: Diagnostic["location"]
+  location: Diagnostic["location"],
 ): void {
   const key = `${code}:${location.start.offset}:${location.end.offset}:${message}`;
   if (dedupe.has(key)) {
@@ -83,7 +80,7 @@ function validateAction(
   params: TypeEnv,
   symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
-  dedupe: Set<string>
+  dedupe: Set<string>,
 ): void {
   if (action.available) {
     validateExpr(action.available, "available", params, symbols, diagnostics, dedupe, 0);
@@ -102,7 +99,7 @@ function validateGuardedStmt(
   params: TypeEnv,
   symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
-  dedupe: Set<string>
+  dedupe: Set<string>,
 ): void {
   switch (stmt.kind) {
     case "when":
@@ -140,7 +137,7 @@ function validateInnerStmt(
   params: TypeEnv,
   symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
-  dedupe: Set<string>
+  dedupe: Set<string>,
 ): void {
   switch (stmt.kind) {
     case "when":
@@ -201,13 +198,12 @@ function validateExpr(
   symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
   dedupe: Set<string>,
-  transformDepth: number
+  transformDepth: number,
 ): void {
   switch (expr.kind) {
     case "functionCall": {
       validateEntityCall(expr, context, env, symbols, diagnostics, dedupe, transformDepth);
-      const nextTransformDepth =
-        transformDepth + (ENTITY_TRANSFORM_FNS.has(expr.name) ? 1 : 0);
+      const nextTransformDepth = transformDepth + (ENTITY_TRANSFORM_FNS.has(expr.name) ? 1 : 0);
       for (const arg of expr.args) {
         validateExpr(arg, context, env, symbols, diagnostics, dedupe, nextTransformDepth);
       }
@@ -247,7 +243,7 @@ function validateExpr(
           symbols,
           diagnostics,
           dedupe,
-          transformDepth
+          transformDepth,
         );
       }
       break;
@@ -273,7 +269,7 @@ function validateEntityCall(
   symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
   dedupe: Set<string>,
-  transformDepth: number
+  transformDepth: number,
 ): void {
   if (!ENTITY_PRIMITIVE_FNS.has(expr.name) || expr.args.length === 0) {
     return;
@@ -286,7 +282,7 @@ function validateEntityCall(
         dedupe,
         "E035",
         "updateById/removeById are not allowed in available conditions.",
-        expr.location
+        expr.location,
       );
     } else if (context === "dispatchable") {
       addDiagnostic(
@@ -294,7 +290,7 @@ function validateEntityCall(
         dedupe,
         "E048",
         "updateById/removeById are not allowed in dispatchable conditions.",
-        expr.location
+        expr.location,
       );
     } else if (context === "guard") {
       addDiagnostic(
@@ -302,7 +298,7 @@ function validateEntityCall(
         dedupe,
         "E034",
         "updateById/removeById are not allowed in guard conditions.",
-        expr.location
+        expr.location,
       );
     } else if (context !== "patch") {
       addDiagnostic(
@@ -310,7 +306,7 @@ function validateEntityCall(
         dedupe,
         "E031",
         "updateById/removeById are only allowed in patch RHS.",
-        expr.location
+        expr.location,
       );
     }
 
@@ -320,7 +316,7 @@ function validateEntityCall(
         dedupe,
         "E032",
         "Nested transform primitives are not allowed.",
-        expr.location
+        expr.location,
       );
     }
 
@@ -330,7 +326,7 @@ function validateEntityCall(
         dedupe,
         "E033",
         "Transform primitive collection argument must resolve to a state path.",
-        expr.args[0].location
+        expr.args[0].location,
       );
     }
   }
@@ -347,7 +343,7 @@ function validateEntityCall(
       dedupe,
       "E030",
       "Collection element type must declare an 'id' field for entity primitives.",
-      expr.args[0].location
+      expr.args[0].location,
     );
     return;
   }
@@ -358,7 +354,7 @@ function validateEntityCall(
       dedupe,
       "E030a",
       "Entity 'id' field must be string or number.",
-      expr.args[0].location
+      expr.args[0].location,
     );
   }
 }
@@ -367,7 +363,7 @@ function validateInitializerUniqueness(
   domain: DomainNode,
   symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
-  dedupe: Set<string>
+  dedupe: Set<string>,
 ): void {
   for (const member of domain.members) {
     if (member.kind !== "state") {
@@ -384,7 +380,7 @@ function validateFieldInitializerUniqueness(
   field: StateFieldNode,
   symbols: DomainTypeSymbols,
   diagnostics: Diagnostic[],
-  dedupe: Set<string>
+  dedupe: Set<string>,
 ): void {
   if (!field.initializer || field.initializer.kind !== "arrayLiteral") {
     return;
@@ -419,7 +415,7 @@ function validateFieldInitializerUniqueness(
         dedupe,
         "E030b",
         "Duplicate '.id' values detected in state initializer.",
-        id.location
+        id.location,
       );
       continue;
     }
@@ -427,9 +423,7 @@ function validateFieldInitializerUniqueness(
   }
 }
 
-function resolveLiteralEntityId(
-  expr: ExprNode
-): LiteralEntityIdResolution {
+function resolveLiteralEntityId(expr: ExprNode): LiteralEntityIdResolution {
   if (expr.kind !== "objectLiteral") {
     return { kind: "unknown" };
   }
@@ -469,14 +463,14 @@ function resolveLiteralEntityId(
 function getCollectionElementType(
   expr: ExprNode,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   return getArrayElementType(inferExprType(expr, env, symbols), symbols);
 }
 
 function getEntityIdType(
   elementType: TypeExprNode,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   return getPropertyType(elementType, "id", symbols);
 }

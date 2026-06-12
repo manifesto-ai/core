@@ -6,16 +6,13 @@
 
 import { Command } from "commander";
 import { readFileSync, writeFileSync, existsSync } from "fs";
-import { resolve, } from "path";
+import { resolve } from "path";
 import { compile, check, parseSource, tokenize } from "../index.js";
 import { formatDiagnostics } from "./formatter.js";
 
 const program = new Command();
 
-program
-  .name("mel")
-  .description("MEL (Manifesto Expression Language) Compiler")
-  .version("0.1.0");
+program.name("mel").description("MEL (Manifesto Expression Language) Compiler").version("0.1.0");
 
 // ============ compile command ============
 
@@ -44,9 +41,7 @@ program
     }
 
     const schema = result.schema;
-    const json = options.pretty
-      ? JSON.stringify(schema, null, 2)
-      : JSON.stringify(schema);
+    const json = options.pretty ? JSON.stringify(schema, null, 2) : JSON.stringify(schema);
 
     if (options.stdout) {
       console.log(json);
@@ -104,9 +99,15 @@ program
     const source = readFileSync(inputPath, "utf-8");
     const { program: ast, diagnostics } = parseSource(source);
 
-    if (diagnostics.some(d => d.severity === "error")) {
+    if (diagnostics.some((d) => d.severity === "error")) {
       console.error("Parse errors:\n");
-      console.error(formatDiagnostics(diagnostics.filter(d => d.severity === "error"), source, inputPath));
+      console.error(
+        formatDiagnostics(
+          diagnostics.filter((d) => d.severity === "error"),
+          source,
+          inputPath,
+        ),
+      );
       process.exit(1);
     }
 
@@ -130,15 +131,21 @@ program
     const source = readFileSync(inputPath, "utf-8");
     const { tokens, diagnostics } = tokenize(source);
 
-    if (diagnostics.some(d => d.severity === "error")) {
+    if (diagnostics.some((d) => d.severity === "error")) {
       console.error("Lexer errors:\n");
-      console.error(formatDiagnostics(diagnostics.filter(d => d.severity === "error"), source, inputPath));
+      console.error(
+        formatDiagnostics(
+          diagnostics.filter((d) => d.severity === "error"),
+          source,
+          inputPath,
+        ),
+      );
       process.exit(1);
     }
 
     for (const token of tokens) {
       console.log(
-        `${token.kind.padEnd(20)} ${JSON.stringify(token.lexeme).padEnd(20)} @ ${token.location.start.line}:${token.location.start.column}`
+        `${token.kind.padEnd(20)} ${JSON.stringify(token.lexeme).padEnd(20)} @ ${token.location.start.line}:${token.location.start.column}`,
       );
     }
   });

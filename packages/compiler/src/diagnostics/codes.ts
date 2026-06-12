@@ -241,7 +241,8 @@ export const DIAGNOSTIC_CODES: Record<string, DiagnosticCode> = {
   },
   E053: {
     code: "E053",
-    message: "@meta can attach only to domain, type, type field, state field, computed, or action declarations",
+    message:
+      "@meta can attach only to domain, type, type field, state field, computed, or action declarations",
     category: "syntax",
   },
   E054: {

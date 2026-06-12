@@ -17,7 +17,7 @@ export function applySystemDelta(snapshot: Snapshot, delta: SystemDelta): Snapsh
   const nextPending = applyRequirementDelta(
     snapshot.system.pendingRequirements,
     removeRequirementIds,
-    addRequirements
+    addRequirements,
   );
 
   const nextSystem: SystemState = {
@@ -45,11 +45,11 @@ export function applySystemDelta(snapshot: Snapshot, delta: SystemDelta): Snapsh
 function applyRequirementDelta(
   current: readonly Requirement[],
   removeRequirementIds: ReadonlySet<string>,
-  addRequirements: readonly Requirement[]
+  addRequirements: readonly Requirement[],
 ): Requirement[] {
   const incomingIds = new Set(addRequirements.map((requirement) => requirement.id));
   const retained = current.filter(
-    (requirement) => !removeRequirementIds.has(requirement.id) && !incomingIds.has(requirement.id)
+    (requirement) => !removeRequirementIds.has(requirement.id) && !incomingIds.has(requirement.id),
   );
 
   return [...retained, ...addRequirements];
@@ -104,16 +104,16 @@ function isErrorValueEqual(a: ErrorValue | null, b: ErrorValue | null): boolean 
 
 function isRequirementEqual(a: Requirement, b: Requirement): boolean {
   return (
-    a.id === b.id
-    && a.type === b.type
-    && a.actionId === b.actionId
-    && a.createdAt === b.createdAt
-    && a.flowPosition.nodePath === b.flowPosition.nodePath
-    && a.flowPosition.snapshotVersion === b.flowPosition.snapshotVersion
-    && JSON.stringify(a.params) === JSON.stringify(b.params)
+    a.id === b.id &&
+    a.type === b.type &&
+    a.actionId === b.actionId &&
+    a.createdAt === b.createdAt &&
+    a.flowPosition.nodePath === b.flowPosition.nodePath &&
+    a.flowPosition.snapshotVersion === b.flowPosition.snapshotVersion &&
+    JSON.stringify(a.params) === JSON.stringify(b.params)
   );
 }
 
 function hasOwn<T extends object, K extends PropertyKey>(obj: T, key: K): boolean {
-  return Object.prototype.hasOwnProperty.call(obj, key);
+  return Object.hasOwn(obj, key);
 }

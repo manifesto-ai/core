@@ -41,11 +41,7 @@ const excludedMaintainedPaths = new Set([
   "docs/guides/typed-patch-ops.md",
 ]);
 
-const packageMaintainedDocs = [
-  "README.md",
-  "docs/README.md",
-  "docs/GUIDE.md",
-];
+const packageMaintainedDocs = ["README.md", "docs/README.md", "docs/GUIDE.md"];
 
 const legacyApiPatterns = [
   { label: "createManifestoWorld", pattern: /\bcreateManifestoWorld\b/g },
@@ -100,11 +96,13 @@ const globalForbiddenPatterns = [
   },
   {
     label: "retired missing once marker error",
-    pattern: /Missing marker patch in once|Wrong marker in once|must have 'patch .* = \$runtime\.intent\.id'/g,
+    pattern:
+      /Missing marker patch in once|Wrong marker in once|must have 'patch .* = \$runtime\.intent\.id'/g,
   },
   {
     label: "retired manual once marker wording",
-    pattern: /Marker patch MUST be first|once\(\) has marker patch as FIRST statement|patch .*=\s*\$runtime\.intent\.id\s*\/\/\s*MUST/g,
+    pattern:
+      /Marker patch MUST be first|once\(\) has marker patch as FIRST statement|patch .*=\s*\$runtime\.intent\.id\s*\/\/\s*MUST/g,
   },
   {
     label: "retired SPEC-v1.3.0 reference",
@@ -245,7 +243,7 @@ async function collectMarkdownFiles(relativePath) {
     }
     const childRelative = path.posix.join(relativePath, entry.name);
     if (entry.isDirectory()) {
-      files.push(...await collectMarkdownFiles(childRelative));
+      files.push(...(await collectMarkdownFiles(childRelative)));
       continue;
     }
     if (entry.isFile() && entry.name.endsWith(".md")) {

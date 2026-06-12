@@ -17,11 +17,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
-import {
-  createTestSchema,
-  createTestIntent,
-  createTestSnapshot,
-} from "../../helpers/index.js";
+import { createTestSchema, createTestIntent, createTestSnapshot } from "../../helpers/index.js";
 import { createTestEffectRunner } from "../hcts-adapter.js";
 
 describe("HCTS Mailbox Tests", () => {
@@ -44,7 +40,8 @@ describe("HCTS Mailbox Tests", () => {
           setCounter: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("counter"),
+              op: "set",
+              path: pp("counter"),
               value: { kind: "lit", value: 1 },
             },
           },
@@ -132,7 +129,8 @@ describe("HCTS Mailbox Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("done"),
+              op: "set",
+              path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -218,12 +216,14 @@ describe("HCTS Mailbox Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set", path: pp("a"),
+                  op: "set",
+                  path: pp("a"),
                   value: { kind: "lit", value: 1 },
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("b"),
+                  op: "set",
+                  path: pp("b"),
                   value: { kind: "lit", value: 2 },
                 },
               ],
@@ -260,12 +260,16 @@ describe("HCTS Mailbox Tests", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("counter"),
+              op: "set",
+              path: pp("counter"),
               value: {
                 kind: "add",
                 left: {
                   kind: "coalesce",
-                  args: [{ kind: "get", path: "counter" }, { kind: "lit", value: 0 }],
+                  args: [
+                    { kind: "get", path: "counter" },
+                    { kind: "lit", value: 0 },
+                  ],
                 },
                 right: { kind: "lit", value: 1 },
               },
@@ -296,5 +300,4 @@ describe("HCTS Mailbox Tests", () => {
       expect((result.state as Record<string, unknown>).counter).toBe(3);
     });
   });
-
 });

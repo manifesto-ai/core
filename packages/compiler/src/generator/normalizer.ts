@@ -13,40 +13,51 @@ import type { BinaryOperator } from "../parser/ast.js";
 export function normalizeExpr(
   op: BinaryOperator,
   left: CoreExprNode,
-  right: CoreExprNode
+  right: CoreExprNode,
 ): CoreExprNode {
   switch (op) {
     // Arithmetic
-    case "+": return { kind: "add", left, right };
-    case "-": return { kind: "sub", left, right };
-    case "*": return { kind: "mul", left, right };
-    case "/": return { kind: "div", left, right };
-    case "%": return { kind: "mod", left, right };
+    case "+":
+      return { kind: "add", left, right };
+    case "-":
+      return { kind: "sub", left, right };
+    case "*":
+      return { kind: "mul", left, right };
+    case "/":
+      return { kind: "div", left, right };
+    case "%":
+      return { kind: "mod", left, right };
 
     // Comparison
-    case "==": return { kind: "eq", left, right };
-    case "!=": return { kind: "neq", left, right };
-    case "<": return { kind: "lt", left, right };
-    case "<=": return { kind: "lte", left, right };
-    case ">": return { kind: "gt", left, right };
-    case ">=": return { kind: "gte", left, right };
+    case "==":
+      return { kind: "eq", left, right };
+    case "!=":
+      return { kind: "neq", left, right };
+    case "<":
+      return { kind: "lt", left, right };
+    case "<=":
+      return { kind: "lte", left, right };
+    case ">":
+      return { kind: "gt", left, right };
+    case ">=":
+      return { kind: "gte", left, right };
 
     // Logical
-    case "&&": return { kind: "and", args: [left, right] };
-    case "||": return { kind: "or", args: [left, right] };
+    case "&&":
+      return { kind: "and", args: [left, right] };
+    case "||":
+      return { kind: "or", args: [left, right] };
 
     // Nullish coalescing
-    case "??": return { kind: "coalesce", args: [left, right] };
+    case "??":
+      return { kind: "coalesce", args: [left, right] };
   }
 }
 
 /**
  * Function name to Core ExprNode mapping
  */
-export function normalizeFunctionCall(
-  name: string,
-  args: CoreExprNode[]
-): CoreExprNode {
+export function normalizeFunctionCall(name: string, args: CoreExprNode[]): CoreExprNode {
   switch (name) {
     // ============ Arithmetic ============
     case "add":

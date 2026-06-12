@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "rootDir": "./src",
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@manifesto-ai/sdk": ["../../packages/sdk/dist/index.d.ts"],

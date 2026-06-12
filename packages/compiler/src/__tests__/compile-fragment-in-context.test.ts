@@ -33,9 +33,11 @@ domain Demo {
 function applyEdits(source: string, edits: readonly MelTextEdit[]): string {
   return [...edits]
     .sort((a, b) => (b.range.start.offset ?? 0) - (a.range.start.offset ?? 0))
-    .reduce((current, edit) =>
-      `${current.slice(0, edit.range.start.offset)}${edit.replacement}${current.slice(edit.range.end.offset)}`,
-      source);
+    .reduce(
+      (current, edit) =>
+        `${current.slice(0, edit.range.start.offset)}${edit.replacement}${current.slice(edit.range.end.offset)}`,
+      source,
+    );
 }
 
 function expectNoMaterialization(result: MelEditResult, code: string, source = SOURCE): void {
@@ -48,11 +50,15 @@ function expectNoMaterialization(result: MelEditResult, code: string, source = S
 
 describe("compileFragmentInContext", () => {
   it("adds computed declarations and reports schema impact", () => {
-    const result = compileFragmentInContext(SOURCE, {
-      kind: "addComputed",
-      name: "next",
-      expr: "add(count, 1)",
-    }, { includeModule: true, includeSchemaDiff: true });
+    const result = compileFragmentInContext(
+      SOURCE,
+      {
+        kind: "addComputed",
+        name: "next",
+        expr: "add(count, 1)",
+      },
+      { includeModule: true, includeSchemaDiff: true },
+    );
 
     expect(result.ok).toBe(true);
     expect(result.module?.schema.computed.fields.next).toBeDefined();
@@ -63,20 +69,24 @@ describe("compileFragmentInContext", () => {
   });
 
   it("replaces only an action body while preserving action identity, params, annotations, and guards", () => {
-    const result = compileFragmentInContext(SOURCE, {
-      kind: "replaceActionBody",
-      target: "action:increment",
-      body: `
+    const result = compileFragmentInContext(
+      SOURCE,
+      {
+        kind: "replaceActionBody",
+        target: "action:increment",
+        body: `
         when true {
           patch count = add(count, 2)
         }
       `,
-    }, { includeModule: true });
+      },
+      { includeModule: true },
+    );
 
     expect(result.ok).toBe(true);
     expect(result.changedTargets).toEqual(["action:increment"]);
     expect(result.newSource).toContain("action increment(by: number) available when gt(count, -1)");
-    expect(result.newSource).toContain("@meta(\"ui:button\")");
+    expect(result.newSource).toContain('@meta("ui:button")');
     expect(result.newSource).toContain("patch count = add(count, 2)");
     expect(result.module?.schema.actions.increment.params).toEqual(["by"]);
     expect(result.module?.annotations.entries["action:increment"]).toEqual([{ tag: "ui:button" }]);
@@ -119,28 +129,40 @@ domain Demo {
   }
 }
 `;
-    const added = compileFragmentInContext(withoutGuards, {
-      kind: "addDispatchable",
-      target: "action:submit",
-      expr: "gt(count, -1)",
-    }, { includeModule: true });
-    const replaced = compileFragmentInContext(SOURCE, {
-      kind: "replaceAvailable",
-      target: "action:increment",
-      expr: "gt(count, 0)",
-    }, { includeModule: true });
-    const beforeDispatchable = compileFragmentInContext(`
+    const added = compileFragmentInContext(
+      withoutGuards,
+      {
+        kind: "addDispatchable",
+        target: "action:submit",
+        expr: "gt(count, -1)",
+      },
+      { includeModule: true },
+    );
+    const replaced = compileFragmentInContext(
+      SOURCE,
+      {
+        kind: "replaceAvailable",
+        target: "action:increment",
+        expr: "gt(count, 0)",
+      },
+      { includeModule: true },
+    );
+    const beforeDispatchable = compileFragmentInContext(
+      `
 domain Demo {
   state { count: number = 0 }
   action submit() dispatchable when gt(count, -1) {
     when true { patch count = add(count, 1) }
   }
 }
-`, {
-      kind: "addAvailable",
-      target: "action:submit",
-      expr: "true",
-    }, { includeModule: true });
+`,
+      {
+        kind: "addAvailable",
+        target: "action:submit",
+        expr: "true",
+      },
+      { includeModule: true },
+    );
 
     expect(added.ok).toBe(true);
     expect(added.module?.schema.actions.submit.dispatchable).toBeDefined();
@@ -148,16 +170,22 @@ domain Demo {
     expect(replaced.module?.schema.actions.increment.available).toBeDefined();
     expect(replaced.newSource).toContain("available when gt(count, 0)");
     expect(beforeDispatchable.ok).toBe(true);
-    expect(beforeDispatchable.newSource).toContain("available when true dispatchable when gt(count, -1)");
+    expect(beforeDispatchable.newSource).toContain(
+      "available when true dispatchable when gt(count, -1)",
+    );
   });
 
   it("returns diagnostics without materialization for stale modules, target errors, fragments, and unsafe removal", () => {
     const module = compileMelModule(SOURCE, { mode: "module" }).module!;
-    const stale = compileFragmentInContext(`${SOURCE}\n`, {
-      kind: "addComputed",
-      name: "next",
-      expr: "count",
-    }, { baseModule: module });
+    const stale = compileFragmentInContext(
+      `${SOURCE}\n`,
+      {
+        kind: "addComputed",
+        name: "next",
+        expr: "count",
+      },
+      { baseModule: module },
+    );
     const missing = compileFragmentInContext(SOURCE, {
       kind: "replaceComputedExpr",
       target: "computed:missing",
@@ -179,10 +207,18 @@ domain Demo {
     });
 
     expect(stale.diagnostics.map((diagnostic) => diagnostic.code)).toContain("E_STALE_MODULE");
-    expect(missing.diagnostics.map((diagnostic) => diagnostic.code)).toContain("E_TARGET_NOT_FOUND");
-    expect(mismatch.diagnostics.map((diagnostic) => diagnostic.code)).toContain("E_TARGET_KIND_MISMATCH");
-    expect(smuggled.diagnostics.map((diagnostic) => diagnostic.code)).toContain("E_FRAGMENT_SCOPE_VIOLATION");
-    expect(remove.diagnostics.map((diagnostic) => diagnostic.code)).toContain("E_REMOVE_BLOCKED_BY_REFERENCES");
+    expect(missing.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
+      "E_TARGET_NOT_FOUND",
+    );
+    expect(mismatch.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
+      "E_TARGET_KIND_MISMATCH",
+    );
+    expect(smuggled.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
+      "E_FRAGMENT_SCOPE_VIOLATION",
+    );
+    expect(remove.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
+      "E_REMOVE_BLOCKED_BY_REFERENCES",
+    );
     for (const result of [stale, missing, mismatch, smuggled, remove]) {
       expect(result.edits).toEqual([]);
     }
@@ -195,10 +231,14 @@ domain Demo {
   computed unused = 1
 }
 `;
-    const result = compileFragmentInContext(source, {
-      kind: "removeDeclaration",
-      target: "computed:unused",
-    }, { includeModule: true, includeSchemaDiff: true });
+    const result = compileFragmentInContext(
+      source,
+      {
+        kind: "removeDeclaration",
+        target: "computed:unused",
+      },
+      { includeModule: true, includeSchemaDiff: true },
+    );
 
     expect(result.ok).toBe(true);
     expect(result.newSource).not.toContain("computed unused");
@@ -224,11 +264,15 @@ domain Demo {
   }
 }
 `;
-    const result = compileFragmentInContext(source, {
-      kind: "renameDeclaration",
-      target: "state_field:count",
-      newName: "total",
-    }, { includeModule: true, includeSchemaDiff: true });
+    const result = compileFragmentInContext(
+      source,
+      {
+        kind: "renameDeclaration",
+        target: "state_field:count",
+        newName: "total",
+      },
+      { includeModule: true, includeSchemaDiff: true },
+    );
 
     expect(result.ok).toBe(true);
     expect(result.newSource).toContain("total: number = 0");
@@ -285,16 +329,24 @@ domain Demo {
   computed label = add(doubled, 1)
 }
 `;
-    const renamedComputed = compileFragmentInContext(source, {
-      kind: "renameDeclaration",
-      target: "computed:doubled",
-      newName: "doubleCount",
-    }, { includeModule: true, includeSchemaDiff: true });
-    const renamedType = compileFragmentInContext(source, {
-      kind: "renameDeclaration",
-      target: "type:Task",
-      newName: "Todo",
-    }, { includeModule: true, includeSchemaDiff: true });
+    const renamedComputed = compileFragmentInContext(
+      source,
+      {
+        kind: "renameDeclaration",
+        target: "computed:doubled",
+        newName: "doubleCount",
+      },
+      { includeModule: true, includeSchemaDiff: true },
+    );
+    const renamedType = compileFragmentInContext(
+      source,
+      {
+        kind: "renameDeclaration",
+        target: "type:Task",
+        newName: "Todo",
+      },
+      { includeModule: true, includeSchemaDiff: true },
+    );
 
     expect(renamedComputed.ok).toBe(true);
     expect(renamedComputed.newSource).toContain("computed doubleCount = mul(count, 2)");
@@ -336,15 +388,23 @@ domain Demo {
   computed taskTitle = task.title
 }
 `;
-    const rename = compileFragmentInContext(unreferenced, {
-      kind: "renameDeclaration",
-      target: "type_field:Task.title",
-      newName: "label",
-    }, { includeModule: true, includeSchemaDiff: true });
-    const remove = compileFragmentInContext(unreferenced, {
-      kind: "removeDeclaration",
-      target: "type_field:Task.title",
-    }, { includeModule: true, includeSchemaDiff: true });
+    const rename = compileFragmentInContext(
+      unreferenced,
+      {
+        kind: "renameDeclaration",
+        target: "type_field:Task.title",
+        newName: "label",
+      },
+      { includeModule: true, includeSchemaDiff: true },
+    );
+    const remove = compileFragmentInContext(
+      unreferenced,
+      {
+        kind: "removeDeclaration",
+        target: "type_field:Task.title",
+      },
+      { includeModule: true, includeSchemaDiff: true },
+    );
     const blocked = compileFragmentInContext(referenced, {
       kind: "renameDeclaration",
       target: "type_field:Task.title",
@@ -353,7 +413,11 @@ domain Demo {
 
     expect(rename.ok).toBe(true);
     expect(rename.newSource).toContain("label: string");
-    expect(rename.changedTargets).toEqual(["type:Task", "type_field:Task.label", "type_field:Task.title"]);
+    expect(rename.changedTargets).toEqual([
+      "type:Task",
+      "type_field:Task.label",
+      "type_field:Task.title",
+    ]);
     expect(rename.schemaDiff?.removedTargets).toContain("type_field:Task.title");
     expect(rename.schemaDiff?.addedTargets).toContain("type_field:Task.label");
 
@@ -396,11 +460,14 @@ domain Demo {
         throw new Error("getter must not run");
       },
     });
-    const proxyPayload = new Proxy({}, {
-      ownKeys() {
-        throw new Error("proxy trap must not escape");
+    const proxyPayload = new Proxy(
+      {},
+      {
+        ownKeys() {
+          throw new Error("proxy trap must not escape");
+        },
       },
-    });
+    );
     const sparseArray = new Array(1);
 
     const invalidKey = compileFragmentInContext(SOURCE, {
@@ -450,14 +517,17 @@ domain Demo {
         throw new Error("param getter must not run");
       },
     });
-    const paramProxy = new Proxy({ name: "value", type: "number" }, {
-      get(target, property, receiver) {
-        if (property === "name" || property === "type") {
-          throw new Error("param proxy trap must not escape");
-        }
-        return Reflect.get(target, property, receiver);
+    const paramProxy = new Proxy(
+      { name: "value", type: "number" },
+      {
+        get(target, property, receiver) {
+          if (property === "name" || property === "type") {
+            throw new Error("param proxy trap must not escape");
+          }
+          return Reflect.get(target, property, receiver);
+        },
       },
-    });
+    );
 
     const nullOp = compileFragmentInContext(SOURCE, null as never);
     const arrayOp = compileFragmentInContext(SOURCE, [

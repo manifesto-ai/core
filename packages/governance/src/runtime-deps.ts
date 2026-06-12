@@ -1,9 +1,6 @@
 import type { ManifestoDomainShape } from "@manifesto-ai/sdk";
 import type { GovernanceRuntimeKernel } from "@manifesto-ai/sdk/provider";
-import type {
-  LineageRuntimeController,
-  LineageService,
-} from "@manifesto-ai/lineage/provider";
+import type { LineageRuntimeController, LineageService } from "@manifesto-ai/lineage/provider";
 
 import type { AuthorityEvaluator } from "./authority/evaluator.js";
 import type { GovernanceConfig } from "./runtime-types.js";

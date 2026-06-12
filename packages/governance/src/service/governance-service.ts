@@ -51,7 +51,7 @@ export interface GovernanceServiceOptions {
 export class DefaultGovernanceService implements GovernanceService {
   public constructor(
     private readonly store: GovernanceStore,
-    private readonly options: GovernanceServiceOptions = {}
+    private readonly options: GovernanceServiceOptions = {},
   ) {}
 
   createProposal(input: CreateProposalInput): Proposal {
@@ -83,7 +83,7 @@ export class DefaultGovernanceService implements GovernanceService {
   beginExecution(proposal: Proposal): Proposal & { readonly status: "executing" } {
     if (!proposal.decisionId) {
       throw new Error(
-        "GOV-EXEC-1 violation: approved proposal requires decisionId before execution can begin"
+        "GOV-EXEC-1 violation: approved proposal requires decisionId before execution can begin",
       );
     }
 
@@ -95,7 +95,7 @@ export class DefaultGovernanceService implements GovernanceService {
   failExecution(
     proposal: Proposal,
     completedAt: number,
-    resultWorld?: WorldId
+    resultWorld?: WorldId,
   ): Proposal & { readonly status: "failed" } {
     return this.transitionProposal(proposal, "failed", {
       completedAt,
@@ -108,11 +108,11 @@ export class DefaultGovernanceService implements GovernanceService {
   async prepareAuthorityResult(
     proposal: Proposal,
     response: Extract<AuthorityResponse, { kind: "approved" | "rejected" }>,
-    options: PrepareAuthorityResultOptions
+    options: PrepareAuthorityResultOptions,
   ): Promise<PreparedAuthorityResult> {
     if (proposal.status !== "submitted" && proposal.status !== "evaluating") {
       throw new Error(
-        `GOV-TRANS-1 violation: authority result requires ingress proposal, received ${proposal.status}`
+        `GOV-TRANS-1 violation: authority result requires ingress proposal, received ${proposal.status}`,
       );
     }
 
@@ -187,7 +187,7 @@ export class DefaultGovernanceService implements GovernanceService {
 
   async invalidateStaleIngress(
     branchId: string,
-    currentEpoch?: number
+    currentEpoch?: number,
   ): Promise<readonly Proposal[]> {
     const branchInfo = await this.resolveBranchInfo(branchId);
     const nextEpoch = currentEpoch ?? branchInfo?.epoch;
@@ -195,16 +195,12 @@ export class DefaultGovernanceService implements GovernanceService {
       throw new Error(`Cannot invalidate stale ingress without branch epoch for ${branchId}`);
     }
 
-    return (await this.store
-      .getProposalsByBranch(branchId))
+    return (await this.store.getProposalsByBranch(branchId))
       .filter((proposal) => isIngressStatus(proposal.status) && proposal.epoch < nextEpoch)
       .map((proposal) => this.prepareSupersede(proposal, "head_advance"));
   }
 
-  shouldDiscardAuthorityResult(
-    proposal: Proposal,
-    currentEpoch: number
-  ): boolean {
+  shouldDiscardAuthorityResult(proposal: Proposal, currentEpoch: number): boolean {
     return proposal.epoch < currentEpoch;
   }
 
@@ -221,11 +217,11 @@ export class DefaultGovernanceService implements GovernanceService {
   async finalize(
     executingProposal: Proposal,
     lineageCommit: PreparedLineageCommit,
-    completedAt: number
+    completedAt: number,
   ): Promise<PreparedGovernanceCommit> {
     if (executingProposal.status !== "executing") {
       throw new Error(
-        `GOV-SEAL-6 violation: finalize() requires executing proposal, received ${executingProposal.status}`
+        `GOV-SEAL-6 violation: finalize() requires executing proposal, received ${executingProposal.status}`,
       );
     }
     if (!executingProposal.decisionId) {
@@ -235,14 +231,14 @@ export class DefaultGovernanceService implements GovernanceService {
     const decisionRecord = await this.store.getDecisionRecord(executingProposal.decisionId);
     if (!decisionRecord) {
       throw new Error(
-        `GOV-SEAL-6 violation: decision record ${executingProposal.decisionId} not found`
+        `GOV-SEAL-6 violation: decision record ${executingProposal.decisionId} not found`,
       );
     }
 
     const derivedOutcome = this.deriveOutcome(lineageCommit.terminalSnapshot);
     if (derivedOutcome !== lineageCommit.terminalStatus) {
       throw new Error(
-        `GOV-SEAL-1 violation: deriveOutcome=${derivedOutcome} but lineageCommit.terminalStatus=${lineageCommit.terminalStatus}`
+        `GOV-SEAL-1 violation: deriveOutcome=${derivedOutcome} but lineageCommit.terminalStatus=${lineageCommit.terminalStatus}`,
       );
     }
 
@@ -257,10 +253,7 @@ export class DefaultGovernanceService implements GovernanceService {
     });
   }
 
-  createProposalSubmittedEvent(
-    proposal: Proposal,
-    timestamp = Date.now()
-  ): ProposalSubmittedEvent {
+  createProposalSubmittedEvent(proposal: Proposal, timestamp = Date.now()): ProposalSubmittedEvent {
     return freeze({
       type: "proposal:submitted",
       timestamp,
@@ -280,7 +273,7 @@ export class DefaultGovernanceService implements GovernanceService {
 
   createProposalEvaluatingEvent(
     proposal: Proposal,
-    timestamp = Date.now()
+    timestamp = Date.now(),
   ): ProposalEvaluatingEvent {
     return freeze({
       type: "proposal:evaluating",
@@ -292,7 +285,7 @@ export class DefaultGovernanceService implements GovernanceService {
   createProposalDecidedEvent(
     proposal: Proposal,
     decisionRecord: DecisionRecord,
-    timestamp = Date.now()
+    timestamp = Date.now(),
   ): ProposalDecidedEvent {
     return freeze({
       type: "proposal:decided",
@@ -309,11 +302,11 @@ export class DefaultGovernanceService implements GovernanceService {
   createProposalSupersededEvent(
     proposal: Proposal,
     currentEpoch: number,
-    timestamp = Date.now()
+    timestamp = Date.now(),
   ): ProposalSupersededEvent {
     if (proposal.status !== "superseded" || !proposal.supersededReason) {
       throw new Error(
-        "GOV-EPOCH-5 violation: superseded event requires proposal.status='superseded' with supersededReason"
+        "GOV-EPOCH-5 violation: superseded event requires proposal.status='superseded' with supersededReason",
       );
     }
 
@@ -329,12 +322,10 @@ export class DefaultGovernanceService implements GovernanceService {
 
   createExecutionCompletedEvent(
     proposal: Proposal,
-    timestamp = Date.now()
+    timestamp = Date.now(),
   ): ExecutionCompletedEvent {
     if (!proposal.resultWorld) {
-      throw new Error(
-        "GOV-EVT-6 violation: execution:completed requires proposal.resultWorld"
-      );
+      throw new Error("GOV-EVT-6 violation: execution:completed requires proposal.resultWorld");
     }
 
     return freeze({
@@ -349,12 +340,10 @@ export class DefaultGovernanceService implements GovernanceService {
   createExecutionFailedEvent(
     proposal: Proposal,
     error: ErrorInfo,
-    timestamp = Date.now()
+    timestamp = Date.now(),
   ): ExecutionFailedEvent {
     if (!proposal.resultWorld) {
-      throw new Error(
-        "GOV-EVT-7 violation: execution:failed requires proposal.resultWorld"
-      );
+      throw new Error("GOV-EVT-7 violation: execution:failed requires proposal.resultWorld");
     }
 
     return freeze({
@@ -378,7 +367,7 @@ export class DefaultGovernanceService implements GovernanceService {
     proposalId: ProposalId,
     from: WorldId,
     outcome: "completed" | "failed",
-    timestamp = Date.now()
+    timestamp = Date.now(),
   ): WorldCreatedEvent {
     return freeze({
       type: "world:created",
@@ -393,7 +382,7 @@ export class DefaultGovernanceService implements GovernanceService {
   createWorldForkedEvent(
     branchId: BranchId,
     forkPoint: WorldId,
-    timestamp = Date.now()
+    timestamp = Date.now(),
   ): WorldForkedEvent {
     return freeze({
       type: "world:forked",
@@ -411,7 +400,7 @@ export class DefaultGovernanceService implements GovernanceService {
     const occupant = await this.store.getExecutionStageProposal(proposal.branchId);
     if (occupant && occupant.proposalId !== proposal.proposalId) {
       throw new Error(
-        `GOV-BRANCH-GATE-1 violation: branch ${proposal.branchId} already occupied by ${occupant.proposalId}`
+        `GOV-BRANCH-GATE-1 violation: branch ${proposal.branchId} already occupied by ${occupant.proposalId}`,
       );
     }
   }
@@ -426,34 +415,35 @@ export class DefaultGovernanceService implements GovernanceService {
       resultWorld?: WorldId;
       supersededReason?: SupersedeReason;
       approvedScope?: unknown;
-    } = {}
+    } = {},
   ): Proposal {
     if (!isValidTransition(proposal.status, to)) {
       throw new Error(
-        `GOV-TRANS-1 violation: invalid transition ${proposal.status} -> ${to}; valid targets are ${getValidTransitions(proposal.status).join(", ")}`
+        `GOV-TRANS-1 violation: invalid transition ${proposal.status} -> ${to}; valid targets are ${getValidTransitions(proposal.status).join(", ")}`,
       );
     }
 
     if (to === "superseded") {
       if (updates.decisionId != null) {
-        throw new Error("GOV-TRANS-3 violation: superseded transition must not create DecisionRecord");
+        throw new Error(
+          "GOV-TRANS-3 violation: superseded transition must not create DecisionRecord",
+        );
       }
       if (!updates.supersededReason) {
         throw new Error("GOV-STAGE-7 violation: superseded proposal must record supersededReason");
       }
     }
 
-    if (
-      transitionCreatesDecisionRecord(proposal.status, to) &&
-      updates.decisionId == null
-    ) {
+    if (transitionCreatesDecisionRecord(proposal.status, to) && updates.decisionId == null) {
       throw new Error(
-        `GOV-TRANS-2 violation: transition ${proposal.status} -> ${to} requires decisionId`
+        `GOV-TRANS-2 violation: transition ${proposal.status} -> ${to} requires decisionId`,
       );
     }
 
     if (to !== "superseded" && updates.supersededReason != null) {
-      throw new Error("GOV-TRANS-4 violation: supersededReason is only valid on superseded proposals");
+      throw new Error(
+        "GOV-TRANS-4 violation: supersededReason is only valid on superseded proposals",
+      );
     }
 
     if (isExecutionStageStatus(proposal.status) && to === "superseded") {
@@ -478,7 +468,7 @@ export class DefaultGovernanceService implements GovernanceService {
 
 export function createGovernanceService(
   store: GovernanceStore,
-  options?: GovernanceServiceOptions
+  options?: GovernanceServiceOptions,
 ): DefaultGovernanceService {
   return new DefaultGovernanceService(store, options);
 }

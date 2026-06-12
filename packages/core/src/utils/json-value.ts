@@ -26,11 +26,7 @@ function isPlainObject(value: object): boolean {
   return proto === Object.prototype || proto === null;
 }
 
-function walk(
-  value: unknown,
-  path: string,
-  ancestors: Set<object>,
-): JsonValueViolation | null {
+function walk(value: unknown, path: string, ancestors: Set<object>): JsonValueViolation | null {
   if (value === null) {
     return null;
   }

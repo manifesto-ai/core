@@ -27,7 +27,7 @@ export interface EffectContext {
 export type EffectHandler = (
   type: string,
   params: Record<string, unknown>,
-  context: EffectContext
+  context: EffectContext,
 ) => Promise<Patch[]>;
 
 /**

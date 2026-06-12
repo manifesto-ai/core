@@ -79,7 +79,8 @@ describe("Golden: Complex Effect Scenarios", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set", path: pp("loading"),
+                  op: "set",
+                  path: pp("loading"),
                   value: { kind: "lit", value: true },
                 },
                 {
@@ -97,12 +98,16 @@ describe("Golden: Complex Effect Scenarios", () => {
         incrementCounter: {
           flow: {
             kind: "patch",
-            op: "set", path: pp("fetchCount"),
+            op: "set",
+            path: pp("fetchCount"),
             value: {
               kind: "add",
               left: {
                 kind: "coalesce",
-                args: [{ kind: "get", path: "fetchCount" }, { kind: "lit", value: 0 }],
+                args: [
+                  { kind: "get", path: "fetchCount" },
+                  { kind: "lit", value: 0 },
+                ],
               },
               right: { kind: "lit", value: 1 },
             },
@@ -132,7 +137,8 @@ describe("Golden: Complex Effect Scenarios", () => {
             },
             else: {
               kind: "patch",
-              op: "set", path: pp("errorMessage"),
+              op: "set",
+              path: pp("errorMessage"),
               value: { kind: "lit", value: "No fetches yet" },
             },
           },
@@ -161,12 +167,14 @@ describe("Golden: Complex Effect Scenarios", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set", path: pp("response"),
+                op: "set",
+                path: pp("response"),
                 value: { kind: "lit", value: null },
               },
               {
                 kind: "patch",
-                op: "set", path: pp("lastUrl"),
+                op: "set",
+                path: pp("lastUrl"),
                 value: { kind: "lit", value: "" },
               },
             ],
@@ -318,7 +326,7 @@ describe("Golden: Complex Effect Scenarios", () => {
         intents: [
           { type: "simpleFetch" },
           { type: "incrementCounter" },
-          { type: "resetResponse" },  // Reset to allow another fetch
+          { type: "resetResponse" }, // Reset to allow another fetch
           { type: "conditionalFetch" }, // Now fetchCount > 0, should fetch
         ],
       };
@@ -375,7 +383,7 @@ describe("Golden: Complex Effect Scenarios", () => {
 
       // All runs should have same final state
       const states = verification.results.map((r) =>
-        JSON.stringify(stripHostState(r.finalSnapshot.state))
+        JSON.stringify(stripHostState(r.finalSnapshot.state)),
       );
       expect(new Set(states).size).toBe(1);
 
@@ -406,9 +414,7 @@ describe("Golden: Complex Effect Scenarios", () => {
       const result = await runner.execute(scenario);
 
       // Check for core events at minimum
-      const coreEvents = result.trace.filter(
-        (e) => e.t === "core:compute" || e.t === "core:apply"
-      );
+      const coreEvents = result.trace.filter((e) => e.t === "core:compute" || e.t === "core:apply");
 
       // Should have some core events
       expect(coreEvents.length).toBeGreaterThan(0);
@@ -456,11 +462,11 @@ describe("Golden: Complex Effect Scenarios", () => {
         },
         effectHandlers: createEffectHandlers(),
         intents: [
-          { type: "incrementCounter" },  // fetchCount = 1
-          { type: "incrementCounter" },  // fetchCount = 2
-          { type: "conditionalFetch" },  // Execute (fetchCount > 0)
-          { type: "resetResponse" },     // Reset to allow another fetch
-          { type: "simpleFetch" },       // Another fetch
+          { type: "incrementCounter" }, // fetchCount = 1
+          { type: "incrementCounter" }, // fetchCount = 2
+          { type: "conditionalFetch" }, // Execute (fetchCount > 0)
+          { type: "resetResponse" }, // Reset to allow another fetch
+          { type: "simpleFetch" }, // Another fetch
         ],
       };
 
@@ -486,11 +492,11 @@ describe("Golden: Complex Effect Scenarios", () => {
         },
         effectHandlers: createEffectHandlers(),
         intents: [
-          { type: "conditionalFetch" },  // Skip (fetchCount=0), sets errorMessage
-          { type: "incrementCounter" },  // fetchCount = 1
-          { type: "resetResponse" },     // Reset to allow fetch
-          { type: "conditionalFetch" },  // Execute (fetchCount=1 > 0)
-          { type: "incrementCounter" },  // fetchCount = 2
+          { type: "conditionalFetch" }, // Skip (fetchCount=0), sets errorMessage
+          { type: "incrementCounter" }, // fetchCount = 1
+          { type: "resetResponse" }, // Reset to allow fetch
+          { type: "conditionalFetch" }, // Execute (fetchCount=1 > 0)
+          { type: "incrementCounter" }, // fetchCount = 2
         ],
       };
 

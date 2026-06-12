@@ -35,9 +35,7 @@ function inventoryMany(
     notes?: string;
   },
 ): ActivationComplianceInventoryItem[] {
-  return ruleIds.map((ruleId) =>
-    inventory(ruleId, specSection, level, suite, options)
-  );
+  return ruleIds.map((ruleId) => inventory(ruleId, specSection, level, suite, options));
 }
 
 export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryItem[] = [
@@ -59,16 +57,12 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
     "MUST",
     "base",
     {
-      notes: "Legacy ACTS-BASE IDs now track the v5 action-candidate root surface, not retired v3 runtime verbs.",
+      notes:
+        "Legacy ACTS-BASE IDs now track the v5 action-candidate root surface, not retired v3 runtime verbs.",
     },
   ),
   ...inventoryMany(
-    [
-      "ACTS-LIN-1",
-      "ACTS-LIN-2",
-      "ACTS-LIN-3",
-      "ACTS-LIN-4",
-    ],
+    ["ACTS-LIN-1", "ACTS-LIN-2", "ACTS-LIN-3", "ACTS-LIN-4"],
     "Lineage SPEC v5 §2/§3/§4",
     "MUST",
     "lineage",
@@ -89,21 +83,18 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
     "MUST",
     "governance",
     {
-      notes: "ADR-026 PR-5/PR-6 governance CTS rules cover v5 submit, raw ProposalRef identity, settlement re-attachment, canonical root backdoor absence, and governance proposal telemetry.",
+      notes:
+        "ADR-026 PR-5/PR-6 governance CTS rules cover v5 submit, raw ProposalRef identity, settlement re-attachment, canonical root backdoor absence, and governance proposal telemetry.",
     },
   ),
   ...inventoryMany(
-    [
-      "ACTS-TYPE-1",
-      "ACTS-TYPE-2",
-      "ACTS-TYPE-3",
-      "ACTS-TYPE-4",
-    ],
+    ["ACTS-TYPE-1", "ACTS-TYPE-2", "ACTS-TYPE-3", "ACTS-TYPE-4"],
     "SDK SPEC v5 §5/§7/§8/§11; Lineage SPEC v5 §2/§3/§4; Governance SPEC v5 §3/§4/§5",
     "MUST",
     "types",
     {
-      notes: "Compile-time fixtures are enforced through tsc --noEmit with @ts-expect-error against the current package-level runtime types.",
+      notes:
+        "Compile-time fixtures are enforced through tsc --noEmit with @ts-expect-error against the current package-level runtime types.",
     },
   ),
   ...inventoryMany(
@@ -124,20 +115,18 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
     "MUST",
     "base",
     {
-      notes: "ADR-026 v5 action-candidate CTS rules covered by executable runtime cases. Granular SDK-* inventory rows below mirror the ADR rule IDs for audit traceability.",
+      notes:
+        "ADR-026 v5 action-candidate CTS rules covered by executable runtime cases. Granular SDK-* inventory rows below mirror the ADR rule IDs for audit traceability.",
     },
   ),
   ...inventoryMany(
-    [
-      "ACTS-V5-TYPE-1",
-      "ACTS-V5-TYPE-2",
-      "ACTS-V5-TYPE-3",
-    ],
+    ["ACTS-V5-TYPE-1", "ACTS-V5-TYPE-2", "ACTS-V5-TYPE-3"],
     "SDK SPEC v5 §5/§7/§8/§11/§13/§14",
     "MUST",
     "types",
     {
-      notes: "ADR-026 v5 type rules covered by executable tsc fixtures and positive runtime-surface type assertions.",
+      notes:
+        "ADR-026 v5 type rules covered by executable tsc fixtures and positive runtime-surface type assertions.",
     },
   ),
   ...inventoryMany(
@@ -153,27 +142,16 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
     "MUST",
     "base",
     {
-      notes: "Granular ADR-026 root and snapshot rules covered by the v5 action-candidate surface case.",
+      notes:
+        "Granular ADR-026 root and snapshot rules covered by the v5 action-candidate surface case.",
     },
   ),
+  ...inventoryMany(["SDK-ROOT-7", "SDK-SNAPSHOT-4"], "ADR-026 §4/§10", "MUST_NOT", "base", {
+    notes:
+      "Granular ADR-026 root/snapshot forbidden-surface rules covered by v5 root-shape assertions.",
+  }),
   ...inventoryMany(
-    [
-      "SDK-ROOT-7",
-      "SDK-SNAPSHOT-4",
-    ],
-    "ADR-026 §4/§10",
-    "MUST_NOT",
-    "base",
-    {
-      notes: "Granular ADR-026 root/snapshot forbidden-surface rules covered by v5 root-shape assertions.",
-    },
-  ),
-  ...inventoryMany(
-    [
-      "SDK-ROOT-4",
-      "SDK-ROOT-6",
-      "SDK-SUBMIT-11",
-    ],
+    ["SDK-ROOT-4", "SDK-ROOT-6", "SDK-SUBMIT-11"],
     "ADR-026 §4/§8",
     "MUST",
     "types",
@@ -181,15 +159,10 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
       notes: "Granular governance/generic-mode type reachability rules covered by tsc fixtures.",
     },
   ),
-  inventory(
-    "SDK-ROOT-5",
-    "ADR-026 §4/§8",
-    "MUST",
-    "governance",
-    {
-      notes: "Granular governance settlement re-attachment rule covered by the governance settlement CTS case.",
-    },
-  ),
+  inventory("SDK-ROOT-5", "ADR-026 §4/§8", "MUST", "governance", {
+    notes:
+      "Granular governance settlement re-attachment rule covered by the governance settlement CTS case.",
+  }),
   ...inventoryMany(
     [
       "SDK-ADMISSION-1",
@@ -209,17 +182,13 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
     },
   ),
   ...inventoryMany(
-    [
-      "SDK-ADMISSION-2",
-      "SDK-ADMISSION-3",
-      "SDK-PREVIEW-2",
-      "SDK-PREVIEW-3",
-    ],
+    ["SDK-ADMISSION-2", "SDK-ADMISSION-3", "SDK-PREVIEW-2", "SDK-PREVIEW-3"],
     "ADR-026 §6/§7",
     "MUST_NOT",
     "base",
     {
-      notes: "Granular admission/preview non-mutation and no-bypass rules covered by the v5 admission/preview case.",
+      notes:
+        "Granular admission/preview non-mutation and no-bypass rules covered by the v5 admission/preview case.",
     },
   ),
   ...inventoryMany(
@@ -243,41 +212,26 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
     "MUST",
     "base",
     {
-      notes: "Granular submit/result/outcome rules covered by base, lineage, and governance submit CTS cases.",
+      notes:
+        "Granular submit/result/outcome rules covered by base, lineage, and governance submit CTS cases.",
     },
   ),
   ...inventoryMany(
-    [
-      "SDK-SUBMIT-3",
-      "SDK-SUBMIT-8",
-      "SDK-SUBMIT-10",
-    ],
+    ["SDK-SUBMIT-3", "SDK-SUBMIT-8", "SDK-SUBMIT-10"],
     "ADR-026 §8",
     "MUST_NOT",
     "base",
     {
-      notes: "Granular submit forbidden-backdoor rules covered by root-shape and decorated-runtime CTS cases.",
+      notes:
+        "Granular submit forbidden-backdoor rules covered by root-shape and decorated-runtime CTS cases.",
     },
   ),
+  ...inventoryMany(["SDK-SUBMIT-15", "SDK-SUBMIT-16"], "ADR-026 §8", "MUST", "governance", {
+    notes:
+      "Granular ProposalRef durability rules covered by governance settlement re-attachment CTS.",
+  }),
   ...inventoryMany(
-    [
-      "SDK-SUBMIT-15",
-      "SDK-SUBMIT-16",
-    ],
-    "ADR-026 §8",
-    "MUST",
-    "governance",
-    {
-      notes: "Granular ProposalRef durability rules covered by governance settlement re-attachment CTS.",
-    },
-  ),
-  ...inventoryMany(
-    [
-      "SDK-OBSERVE-1",
-      "SDK-OBSERVE-2",
-      "SDK-OBSERVE-3",
-      "SDK-OBSERVE-5",
-    ],
+    ["SDK-OBSERVE-1", "SDK-OBSERVE-2", "SDK-OBSERVE-3", "SDK-OBSERVE-5"],
     "ADR-026 §11",
     "MUST",
     "base",
@@ -285,23 +239,11 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
       notes: "Granular observe rules covered by observe.event and observe.state CTS cases.",
     },
   ),
-  inventory(
-    "SDK-OBSERVE-4",
-    "ADR-026 §11",
-    "MUST_NOT",
-    "base",
-    {
-      notes: "Granular observe no-snapshot-payload rule covered by observe.event CTS.",
-    },
-  ),
+  inventory("SDK-OBSERVE-4", "ADR-026 §11", "MUST_NOT", "base", {
+    notes: "Granular observe no-snapshot-payload rule covered by observe.event CTS.",
+  }),
   ...inventoryMany(
-    [
-      "SDK-INSPECT-1",
-      "SDK-INSPECT-2",
-      "SDK-INSPECT-3",
-      "SDK-INSPECT-4",
-      "SDK-INSPECT-6",
-    ],
+    ["SDK-INSPECT-1", "SDK-INSPECT-2", "SDK-INSPECT-3", "SDK-INSPECT-4", "SDK-INSPECT-6"],
     "ADR-026 §12",
     "MUST",
     "base",
@@ -309,47 +251,20 @@ export const ACTIVATION_SPEC_INVENTORY: readonly ActivationComplianceInventoryIt
       notes: "Granular inspect rules covered by inspect CTS.",
     },
   ),
-  inventory(
-    "SDK-INSPECT-5",
-    "ADR-026 §12",
-    "MUST_NOT",
-    "base",
-    {
-      notes: "Granular inspect no-v3-root rule covered by inspect CTS.",
-    },
-  ),
-  ...inventoryMany(
-    [
-      "SDK-EXT-1",
-      "SDK-EXT-4",
-    ],
-    "ADR-026 §13",
-    "MUST",
-    "base",
-    {
-      notes: "Granular extension-kernel placement and read-only session rules covered by extension CTS.",
-    },
-  ),
-  ...inventoryMany(
-    [
-      "SDK-EXT-2",
-      "SDK-EXT-3",
-    ],
-    "ADR-026 §13",
-    "MUST_NOT",
-    "base",
-    {
-      notes: "Granular extension no-root-kernel/no-mutation-backdoor rules covered by extension CTS.",
-    },
-  ),
+  inventory("SDK-INSPECT-5", "ADR-026 §12", "MUST_NOT", "base", {
+    notes: "Granular inspect no-v3-root rule covered by inspect CTS.",
+  }),
+  ...inventoryMany(["SDK-EXT-1", "SDK-EXT-4"], "ADR-026 §13", "MUST", "base", {
+    notes:
+      "Granular extension-kernel placement and read-only session rules covered by extension CTS.",
+  }),
+  ...inventoryMany(["SDK-EXT-2", "SDK-EXT-3"], "ADR-026 §13", "MUST_NOT", "base", {
+    notes: "Granular extension no-root-kernel/no-mutation-backdoor rules covered by extension CTS.",
+  }),
 ] as const;
 
-export function getInventoryRuleOrThrow(
-  ruleId: string,
-): ActivationComplianceInventoryItem {
-  const rule = ACTIVATION_SPEC_INVENTORY.find(
-    (candidate) => candidate.ruleId === ruleId,
-  );
+export function getInventoryRuleOrThrow(ruleId: string): ActivationComplianceInventoryItem {
+  const rule = ACTIVATION_SPEC_INVENTORY.find((candidate) => candidate.ruleId === ruleId);
   if (!rule) {
     throw new Error(`Unknown activation CTS inventory rule: ${ruleId}`);
   }

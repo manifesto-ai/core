@@ -1,24 +1,14 @@
-import type {
-  HostContextProvider,
-  ManifestoHost,
-} from "@manifesto-ai/host";
-import type {
-  DomainSchema,
-} from "@manifesto-ai/core";
+import type { HostContextProvider, ManifestoHost } from "@manifesto-ai/host";
+import type { DomainSchema } from "@manifesto-ai/core";
 
-import {
-  ACTION_PARAM_NAMES,
-  ACTION_SINGLE_PARAM_OBJECT_VALUE,
-} from "../compat/runtime-symbols.js";
+import { ACTION_PARAM_NAMES, ACTION_SINGLE_PARAM_OBJECT_VALUE } from "../compat/runtime-symbols.js";
 import type {
   ActionAnnotation,
   BaseComposableLaws,
   ManifestoDomainShape,
   TypedActionRef,
 } from "../types.js";
-import type {
-  SnapshotProjectionPlan,
-} from "../projection/snapshot-projection.js";
+import type { SnapshotProjectionPlan } from "../projection/snapshot-projection.js";
 
 export const RESERVED_EFFECT_TYPE = "system.get";
 export const RESERVED_NAMESPACE_PREFIX = "system.";
@@ -36,7 +26,9 @@ export type ActionAnnotationMap = Readonly<Record<string, ActionAnnotation>>;
 export type ResolvedSchema = {
   readonly schema: DomainSchema;
   readonly actionParamMetadata: Readonly<Record<string, ActionParamMetadata>>;
-  readonly actionSingleParamObjectValueMetadata: Readonly<Record<string, ActionSingleParamObjectValueMetadata>>;
+  readonly actionSingleParamObjectValueMetadata: Readonly<
+    Record<string, ActionSingleParamObjectValueMetadata>
+  >;
   readonly actionAnnotations: ActionAnnotationMap;
   readonly projectionPlan: SnapshotProjectionPlan;
 };

@@ -1,18 +1,17 @@
 import { expect } from "vitest";
-import type {
-  ComplianceEvidence,
-  ComplianceResult,
-  ComplianceRule,
-} from "./types.js";
+import type { ComplianceEvidence, ComplianceResult, ComplianceRule } from "./types.js";
 
 export function noteEvidence(summary: string, details?: unknown): ComplianceEvidence {
   return { kind: "note", summary, details };
 }
 
-export function passRule<TSuite extends string, TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
+export function passRule<
+  TSuite extends string,
+  TEvidence extends ComplianceEvidence<string> = ComplianceEvidence,
+>(
   rule: ComplianceRule<TSuite>,
   message?: string,
-  evidence?: TEvidence[]
+  evidence?: TEvidence[],
 ): ComplianceResult<TEvidence> {
   return {
     ruleId: rule.ruleId,
@@ -24,10 +23,13 @@ export function passRule<TSuite extends string, TEvidence extends ComplianceEvid
   };
 }
 
-export function failRule<TSuite extends string, TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
+export function failRule<
+  TSuite extends string,
+  TEvidence extends ComplianceEvidence<string> = ComplianceEvidence,
+>(
   rule: ComplianceRule<TSuite>,
   message?: string,
-  evidence?: TEvidence[]
+  evidence?: TEvidence[],
 ): ComplianceResult<TEvidence> {
   return {
     ruleId: rule.ruleId,
@@ -39,10 +41,13 @@ export function failRule<TSuite extends string, TEvidence extends ComplianceEvid
   };
 }
 
-export function warnRule<TSuite extends string, TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
+export function warnRule<
+  TSuite extends string,
+  TEvidence extends ComplianceEvidence<string> = ComplianceEvidence,
+>(
   rule: ComplianceRule<TSuite>,
   message?: string,
-  evidence?: TEvidence[]
+  evidence?: TEvidence[],
 ): ComplianceResult<TEvidence> {
   return {
     ruleId: rule.ruleId,
@@ -54,14 +59,17 @@ export function warnRule<TSuite extends string, TEvidence extends ComplianceEvid
   };
 }
 
-export function evaluateRule<TSuite extends string, TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
+export function evaluateRule<
+  TSuite extends string,
+  TEvidence extends ComplianceEvidence<string> = ComplianceEvidence,
+>(
   rule: ComplianceRule<TSuite>,
   satisfied: boolean,
   options: {
     passMessage?: string;
     failMessage: string;
     evidence?: TEvidence[];
-  }
+  },
 ): ComplianceResult<TEvidence> {
   if (satisfied) {
     return passRule(rule, options.passMessage, options.evidence);
@@ -83,7 +91,7 @@ function formatEvidence(evidence: readonly ComplianceEvidence<string>[] | undefi
 }
 
 export function expectCompliance<TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
-  result: ComplianceResult<TEvidence>
+  result: ComplianceResult<TEvidence>,
 ): void {
   if (result.status === "FAIL") {
     const message = result.message ?? `Rule ${result.ruleId} violated`;
@@ -92,9 +100,9 @@ export function expectCompliance<TEvidence extends ComplianceEvidence<string> = 
   }
 }
 
-export function expectAllCompliance<TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
-  results: readonly ComplianceResult<TEvidence>[]
-): void {
+export function expectAllCompliance<
+  TEvidence extends ComplianceEvidence<string> = ComplianceEvidence,
+>(results: readonly ComplianceResult<TEvidence>[]): void {
   for (const result of results) {
     expectCompliance(result);
   }

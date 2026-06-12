@@ -10,16 +10,8 @@ import {
 
 describe("@manifesto-ai/governance state machine", () => {
   it("models split-native superseded transitions", () => {
-    expect(getValidTransitions("submitted")).toEqual([
-      "evaluating",
-      "rejected",
-      "superseded",
-    ]);
-    expect(getValidTransitions("evaluating")).toEqual([
-      "approved",
-      "rejected",
-      "superseded",
-    ]);
+    expect(getValidTransitions("submitted")).toEqual(["evaluating", "rejected", "superseded"]);
+    expect(getValidTransitions("evaluating")).toEqual(["approved", "rejected", "superseded"]);
     expect(getValidTransitions("superseded")).toEqual([]);
     expect(isValidTransition("approved", "superseded")).toBe(false);
     expect(isValidTransition("executing", "superseded")).toBe(false);

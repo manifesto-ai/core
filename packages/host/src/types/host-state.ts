@@ -37,7 +37,6 @@ export interface HostOwnedState {
    * Last host-recorded error (optional)
    */
   readonly lastError?: ErrorValue | null;
-
 }
 
 /**
@@ -54,7 +53,7 @@ export function getHostState(snapshotOrData: unknown): HostOwnedState | undefine
   if ("namespaces" in snapshotOrData) {
     const namespaces = (snapshotOrData as Pick<Snapshot, "namespaces">).namespaces;
     const host = namespaces.host;
-    return isObjectRecord(host) ? host as HostOwnedState : undefined;
+    return isObjectRecord(host) ? (host as HostOwnedState) : undefined;
   }
 
   return undefined;
@@ -69,7 +68,7 @@ export function getLegacyDataRootHostState(data: unknown): HostOwnedState | unde
   }
 
   const host = (data as { $host: unknown }).$host;
-  return isObjectRecord(host) ? host as HostOwnedState : undefined;
+  return isObjectRecord(host) ? (host as HostOwnedState) : undefined;
 }
 
 /**
@@ -79,10 +78,7 @@ export function getLegacyDataRootHostState(data: unknown): HostOwnedState | unde
  * @param intentId - Intent ID to look up
  * @returns IntentSlot if found, undefined otherwise
  */
-export function getIntentSlot(
-  snapshotOrData: unknown,
-  intentId: string
-): IntentSlot | undefined {
+export function getIntentSlot(snapshotOrData: unknown, intentId: string): IntentSlot | undefined {
   const hostState = getHostState(snapshotOrData);
   return hostState?.intentSlots?.[intentId];
 }

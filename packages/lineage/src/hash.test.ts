@@ -10,7 +10,7 @@ import {
 
 function createTestSnapshot(
   state: Record<string, unknown>,
-  overrides?: Partial<Snapshot>
+  overrides?: Partial<Snapshot>,
 ): Snapshot {
   return {
     state,
@@ -45,7 +45,7 @@ describe("@manifesto-ai/lineage hash", () => {
           host: { internal: true },
           mel: { guards: { intent: { guard: "true" } } },
         },
-      }
+      },
     );
     const changed = createTestSnapshot(
       { count: 1 },
@@ -62,7 +62,7 @@ describe("@manifesto-ai/lineage hash", () => {
           host: { internal: false },
           mel: { guards: { intent: { guard: "false" } } },
         },
-      }
+      },
     );
 
     expect(computeSnapshotHash(base)).toBe(computeSnapshotHash(changed));
@@ -90,7 +90,7 @@ describe("@manifesto-ai/lineage hash", () => {
           host: { legacy: true },
           mel: { guards: { intent: { guard: "true" } } },
         },
-      }
+      },
     );
     const expected = computeHash({
       state: { count: 1, nested: { ok: true } },
@@ -106,37 +106,53 @@ describe("@manifesto-ai/lineage hash", () => {
 
   it("derives terminal status from pending requirements and lastError", () => {
     expect(deriveTerminalStatus(createTestSnapshot({}))).toBe("completed");
-    expect(deriveTerminalStatus(createTestSnapshot({}, {
-      system: {
-        status: "idle",
-        lastError: null,
-        pendingRequirements: [{
-          id: "req-1",
-          type: "effect",
-          params: {},
-          actionId: "action-1",
-          flowPosition: {
-            nodePath: "/effects/0",
-            snapshotVersion: 1,
+    expect(
+      deriveTerminalStatus(
+        createTestSnapshot(
+          {},
+          {
+            system: {
+              status: "idle",
+              lastError: null,
+              pendingRequirements: [
+                {
+                  id: "req-1",
+                  type: "effect",
+                  params: {},
+                  actionId: "action-1",
+                  flowPosition: {
+                    nodePath: "/effects/0",
+                    snapshotVersion: 1,
+                  },
+                  createdAt: 0,
+                },
+              ],
+              currentAction: null,
+            },
           },
-          createdAt: 0,
-        }],
-        currentAction: null,
-      },
-    }))).toBe("failed");
-    expect(deriveTerminalStatus(createTestSnapshot({}, {
-      system: {
-        status: "idle",
-        lastError: {
-          code: "ERR",
-          message: "boom",
-          source: { actionId: "a", nodePath: "/x" },
-          timestamp: 0,
-        },
-        pendingRequirements: [],
-        currentAction: null,
-      },
-    }))).toBe("failed");
+        ),
+      ),
+    ).toBe("failed");
+    expect(
+      deriveTerminalStatus(
+        createTestSnapshot(
+          {},
+          {
+            system: {
+              status: "idle",
+              lastError: {
+                code: "ERR",
+                message: "boom",
+                source: { actionId: "a", nodePath: "/x" },
+                timestamp: 0,
+              },
+              pendingRequirements: [],
+              currentAction: null,
+            },
+          },
+        ),
+      ),
+    ).toBe("failed");
   });
 
   it("treats host namespace lastError as current terminal error without hashing unrelated host state", () => {
@@ -146,18 +162,24 @@ describe("@manifesto-ai/lineage hash", () => {
       source: { actionId: "intent-1", nodePath: "host.fulfill" },
       timestamp: 123,
     };
-    const hostFailed = createTestSnapshot({}, {
-      namespaces: {
-        host: { internal: true, lastError: hostError },
-        mel: { guards: { intent: {} } },
+    const hostFailed = createTestSnapshot(
+      {},
+      {
+        namespaces: {
+          host: { internal: true, lastError: hostError },
+          mel: { guards: { intent: {} } },
+        },
       },
-    });
-    const hostChanged = createTestSnapshot({}, {
-      namespaces: {
-        host: { internal: false, changed: true },
-        mel: { guards: { intent: {} } },
+    );
+    const hostChanged = createTestSnapshot(
+      {},
+      {
+        namespaces: {
+          host: { internal: false, changed: true },
+          mel: { guards: { intent: {} } },
+        },
       },
-    });
+    );
 
     expect(deriveTerminalStatus(hostFailed)).toBe("failed");
     expect(createSnapshotHashInput(hostFailed).system).toMatchObject({
@@ -174,10 +196,10 @@ describe("@manifesto-ai/lineage hash", () => {
   it("computes deterministic world ids", () => {
     const snapshotHash = computeSnapshotHash(createTestSnapshot({ count: 1 }));
     expect(computeWorldId("schema-hash", snapshotHash, null)).toBe(
-      computeWorldId("schema-hash", snapshotHash, null)
+      computeWorldId("schema-hash", snapshotHash, null),
     );
     expect(computeWorldId("schema-hash", snapshotHash, "parent-a")).not.toBe(
-      computeWorldId("schema-hash", snapshotHash, "parent-b")
+      computeWorldId("schema-hash", snapshotHash, "parent-b"),
     );
   });
 });

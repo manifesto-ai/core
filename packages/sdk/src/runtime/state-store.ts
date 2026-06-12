@@ -11,13 +11,9 @@ import type {
   Snapshot,
   Unsubscribe,
 } from "../types.js";
-import {
-  cloneAndDeepFreeze,
-  projectedSnapshotsEqual,
-} from "../projection/snapshot-projection.js";
-import type {
-  RuntimeStateStore,
-} from "./facets.js";
+import { cloneAndDeepFreeze, projectedSnapshotsEqual } from "../projection/snapshot-projection.js";
+import type { RuntimeStateStore } from "./facets.js";
+import { findCanonicalSnapshotValueViolation } from "./snapshot-value-domain.js";
 
 const SNAPSHOT_TOP_LEVEL_KEYS = new Set([
   "state",
@@ -46,9 +42,7 @@ function assertCanonicalSnapshotShape(snapshot: CoreSnapshot): void {
   }
 
   const record = snapshot as unknown as Record<string, unknown>;
-  const unknownKeys = Object.keys(record).filter(
-    (key) => !SNAPSHOT_TOP_LEVEL_KEYS.has(key),
-  );
+  const unknownKeys = Object.keys(record).filter((key) => !SNAPSHOT_TOP_LEVEL_KEYS.has(key));
   if (unknownKeys.length > 0) {
     const dataHint = unknownKeys.includes("data")
       ? ' Domain state lives under "state" since v5; the v4 "data" key was renamed.'
@@ -69,6 +63,18 @@ function assertCanonicalSnapshotShape(snapshot: CoreSnapshot): void {
       );
     }
   }
+}
+
+function assertCanonicalSnapshotValueDomain(snapshot: CoreSnapshot): void {
+  const violation = findCanonicalSnapshotValueViolation(snapshot);
+  if (!violation) {
+    return;
+  }
+
+  throw new ManifestoError(
+    "INVALID_SNAPSHOT_VALUE",
+    `Visible snapshot contains a non-JSON value at ${violation.path}: ${violation.reason}`,
+  );
 }
 
 interface Subscriber<TState, TComputed, R> {
@@ -92,9 +98,7 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
   projectSnapshotFromCanonical,
 }: RuntimeStateStoreOptions<T>): RuntimeStateStore<T> {
   let visibleCanonicalSnapshot: CoreSnapshot = structuredClone(initialCanonicalSnapshot);
-  let visibleProjectedSnapshot = projectSnapshotFromCanonical(
-    visibleCanonicalSnapshot,
-  );
+  let visibleProjectedSnapshot = projectSnapshotFromCanonical(visibleCanonicalSnapshot);
   let visibleCanonicalReadSnapshot = cloneAndDeepFreeze(
     visibleCanonicalSnapshot as CanonicalSnapshot<T["state"]>,
   );
@@ -179,15 +183,14 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
     options?: { readonly notify?: boolean },
   ): Snapshot<T["state"], T["computed"]> {
     assertCanonicalSnapshotShape(snapshot);
+    assertCanonicalSnapshotValueDomain(snapshot);
     visibleCanonicalSnapshot = structuredClone(snapshot);
     host.reset(structuredClone(visibleCanonicalSnapshot));
     visibleCanonicalReadSnapshot = cloneAndDeepFreeze(
       visibleCanonicalSnapshot as CanonicalSnapshot<T["state"]>,
     );
 
-    const nextProjectedSnapshot = projectSnapshotFromCanonical(
-      visibleCanonicalSnapshot,
-    );
+    const nextProjectedSnapshot = projectSnapshotFromCanonical(visibleCanonicalSnapshot);
     const projectedChanged = !projectedSnapshotsEqual(
       nextProjectedSnapshot,
       visibleProjectedSnapshot,
@@ -226,11 +229,12 @@ export function createRuntimeStateStore<T extends ManifestoDomainShape>({
   }
 
   function enqueue<R>(task: () => Promise<R>): Promise<R> {
-    const result = dispatchQueue
-      .catch(() => {})
-      .then(task);
+    const result = dispatchQueue.catch(() => {}).then(task);
 
-    dispatchQueue = result.then(() => undefined, () => undefined);
+    dispatchQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
     return result;
   }
 

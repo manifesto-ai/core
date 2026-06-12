@@ -10,19 +10,10 @@ import {
   createCounterSchema,
   type CounterDomain,
 } from "../../../../sdk/src/__tests__/helpers/schema.ts";
-import {
-  createInMemoryLineageStore,
-  withLineage,
-} from "../../../../lineage/src/index.ts";
-import {
-  createInMemoryGovernanceStore,
-  withGovernance,
-} from "../../index.ts";
+import { createInMemoryLineageStore, withLineage } from "../../../../lineage/src/index.ts";
+import { createInMemoryGovernanceStore, withGovernance } from "../../index.ts";
 
-function submitGoverned<
-  T extends ManifestoDomainShape,
-  K extends ActionName<T>,
->(
+function submitGoverned<T extends ManifestoDomainShape, K extends ActionName<T>>(
   runtime: ManifestoApp<T, "governance">,
   action: K,
   ...args: ActionArgs<T, K>
@@ -31,10 +22,9 @@ function submitGoverned<
 }
 
 const governed = withGovernance<CounterDomain>(
-  withLineage<CounterDomain>(
-    createManifesto<CounterDomain>(createCounterSchema(), {}),
-    { store: createInMemoryLineageStore() },
-  ),
+  withLineage<CounterDomain>(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+    store: createInMemoryLineageStore(),
+  }),
   {
     governanceStore: createInMemoryGovernanceStore(),
     bindings: [],

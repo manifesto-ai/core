@@ -1,16 +1,8 @@
-import {
-  hashSchemaSync,
-  semanticPathToPatchPath,
-  type DomainSchema,
-} from "@manifesto-ai/core";
+import { hashSchemaSync, semanticPathToPatchPath, type DomainSchema } from "@manifesto-ai/core";
 import { describe, it } from "vitest";
 import { extractSchemaGraph } from "../../../index.js";
 import { createCompilerComplianceAdapter } from "../ccts-adapter.js";
-import {
-  evaluateRule,
-  expectAllCompliance,
-  noteEvidence,
-} from "../ccts-assertions.js";
+import { evaluateRule, expectAllCompliance, noteEvidence } from "../ccts-assertions.js";
 import { CCTS_CASES, caseTitle } from "../ccts-coverage.js";
 import { getRuleOrThrow } from "../ccts-rules.js";
 
@@ -55,17 +47,18 @@ describe("CCTS Introspection Suite", () => {
       const computedNodes = graph.nodes.filter((node) => node.kind === "computed");
       const actionNodes = graph.nodes.filter((node) => node.kind === "action");
       const deterministic = JSON.stringify(graph) === JSON.stringify(again);
-      const edgesSorted = graph.edges.every((edge, index, edges) =>
-        index === 0
-        || compareSchemaGraphEdges(edges[index - 1]!, edge) <= 0);
+      const edgesSorted = graph.edges.every(
+        (edge, index, edges) =>
+          index === 0 || compareSchemaGraphEdges(edges[index - 1]!, edge) <= 0,
+      );
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("SGRAPH-1"),
-          compiled.success
-            && nodeIds.includes("state:tasks")
-            && nodeIds.includes("state:status")
-            && stateNodes.length === 2,
+          compiled.success &&
+            nodeIds.includes("state:tasks") &&
+            nodeIds.includes("state:status") &&
+            stateNodes.length === 2,
           {
             passMessage: "Projected top-level state nodes are emitted.",
             failMessage: "Projected top-level state nodes were not emitted as expected.",
@@ -99,27 +92,19 @@ describe("CCTS Introspection Suite", () => {
             evidence: [noteEvidence("Observed nodes", graph.nodes)],
           },
         ),
-        evaluateRule(
-          getRuleOrThrow("SGRAPH-14"),
-          compiled.success && graph.nodes.length > 0,
-          {
-            passMessage: "SchemaGraph extraction succeeds from DomainSchema alone.",
-            failMessage: "SchemaGraph extraction did not succeed from the compiled DomainSchema.",
-            evidence: [noteEvidence("Observed graph", graph)],
-          },
-        ),
-        evaluateRule(
-          getRuleOrThrow("SGRAPH-15"),
-          deterministic && edgesSorted,
-          {
-            passMessage: "SchemaGraph ordering is deterministic for the same schema.",
-            failMessage: "SchemaGraph ordering changed across equivalent extraction calls.",
-            evidence: [
-              noteEvidence("First extraction", graph),
-              noteEvidence("Second extraction", again),
-            ],
-          },
-        ),
+        evaluateRule(getRuleOrThrow("SGRAPH-14"), compiled.success && graph.nodes.length > 0, {
+          passMessage: "SchemaGraph extraction succeeds from DomainSchema alone.",
+          failMessage: "SchemaGraph extraction did not succeed from the compiled DomainSchema.",
+          evidence: [noteEvidence("Observed graph", graph)],
+        }),
+        evaluateRule(getRuleOrThrow("SGRAPH-15"), deterministic && edgesSorted, {
+          passMessage: "SchemaGraph ordering is deterministic for the same schema.",
+          failMessage: "SchemaGraph ordering changed across equivalent extraction calls.",
+          evidence: [
+            noteEvidence("First extraction", graph),
+            noteEvidence("Second extraction", again),
+          ],
+        }),
       ]);
     },
   );
@@ -151,8 +136,8 @@ describe("CCTS Introspection Suite", () => {
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("SGRAPH-5"),
-          edges.includes("state:count|feeds|computed:total")
-            && edges.includes("computed:total|feeds|computed:final"),
+          edges.includes("state:count|feeds|computed:total") &&
+            edges.includes("computed:total|feeds|computed:final"),
           {
             passMessage: "Computed deps emit feeds edges.",
             failMessage: "Computed deps did not emit the expected feeds edges.",
@@ -161,8 +146,8 @@ describe("CCTS Introspection Suite", () => {
         ),
         evaluateRule(
           getRuleOrThrow("SGRAPH-6"),
-          edges.includes("state:count|feeds|computed:total")
-            && edges.includes("computed:total|feeds|computed:final"),
+          edges.includes("state:count|feeds|computed:total") &&
+            edges.includes("computed:total|feeds|computed:final"),
           {
             passMessage: "Feeds edges reuse the compiler's extracted dependency roots.",
             failMessage: "Feeds edges did not align with extracted dependency roots.",
@@ -178,15 +163,11 @@ describe("CCTS Introspection Suite", () => {
             evidence: [noteEvidence("Observed edges", edges)],
           },
         ),
-        evaluateRule(
-          getRuleOrThrow("SGRAPH-11"),
-          !edges.some((edge) => edge.includes("$")),
-          {
-            passMessage: "Unlock extraction remains within the pure state/computed surface.",
-            failMessage: "Unlock extraction leaked non-domain roots.",
-            evidence: [noteEvidence("Observed edges", edges)],
-          },
-        ),
+        evaluateRule(getRuleOrThrow("SGRAPH-11"), !edges.some((edge) => edge.includes("$")), {
+          passMessage: "Unlock extraction remains within the pure state/computed surface.",
+          failMessage: "Unlock extraction leaked non-domain roots.",
+          evidence: [noteEvidence("Observed edges", edges)],
+        }),
       ]);
     },
   );
@@ -304,9 +285,7 @@ describe("CCTS Introspection Suite", () => {
             flow: {
               kind: "patch",
               op: "set",
-              path: [
-                { kind: "expr", expr: { kind: "lit", value: "tasks" } },
-              ],
+              path: [{ kind: "expr", expr: { kind: "lit", value: "tasks" } }],
               value: { kind: "lit", value: ["dynamic"] },
             },
           },
@@ -325,16 +304,21 @@ describe("CCTS Introspection Suite", () => {
         },
       });
       const normalizedGraph = extractSchemaGraph(normalizedSchema);
-      const normalizedEdges = normalizedGraph.edges.map((edge) =>
-        `${edge.from}|${edge.relation}|${edge.to}`);
-      const taskMutatesCount = normalizedGraph.edges.filter((edge) =>
-        edge.from === "action:mutatePaths"
-        && edge.relation === "mutates"
-        && edge.to === "state:tasks").length;
-      const boxMutatesCount = normalizedGraph.edges.filter((edge) =>
-        edge.from === "action:mutatePaths"
-        && edge.relation === "mutates"
-        && edge.to === "state:box").length;
+      const normalizedEdges = normalizedGraph.edges.map(
+        (edge) => `${edge.from}|${edge.relation}|${edge.to}`,
+      );
+      const taskMutatesCount = normalizedGraph.edges.filter(
+        (edge) =>
+          edge.from === "action:mutatePaths" &&
+          edge.relation === "mutates" &&
+          edge.to === "state:tasks",
+      ).length;
+      const boxMutatesCount = normalizedGraph.edges.filter(
+        (edge) =>
+          edge.from === "action:mutatePaths" &&
+          edge.relation === "mutates" &&
+          edge.to === "state:box",
+      ).length;
       const callSchema = withHash({
         id: "manifesto:ccts-introspection-call-roots",
         version: "1.0.0",
@@ -370,16 +354,15 @@ describe("CCTS Introspection Suite", () => {
         },
       });
       const callGraph = extractSchemaGraph(callSchema);
-      const callEdges = callGraph.edges.map((edge) =>
-        `${edge.from}|${edge.relation}|${edge.to}`);
+      const callEdges = callGraph.edges.map((edge) => `${edge.from}|${edge.relation}|${edge.to}`);
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("SGRAPH-7"),
-          edges.includes("action:mutate|mutates|state:tasks")
-            && taskMutatesCount === 1
-            && callEdges.includes("action:wrapper|mutates|state:tasks")
-            && callEdges.includes("action:nestedWrapper|mutates|state:tasks"),
+          edges.includes("action:mutate|mutates|state:tasks") &&
+            taskMutatesCount === 1 &&
+            callEdges.includes("action:wrapper|mutates|state:tasks") &&
+            callEdges.includes("action:nestedWrapper|mutates|state:tasks"),
           {
             passMessage: "Patch targets emit mutates edges.",
             failMessage: "Patch targets did not emit the expected mutates edge.",
@@ -392,10 +375,10 @@ describe("CCTS Introspection Suite", () => {
         ),
         evaluateRule(
           getRuleOrThrow("SGRAPH-8"),
-          edges.includes("action:mutate|mutates|state:box")
-            && normalizedEdges.includes("action:mutatePaths|mutates|state:box")
-            && normalizedEdges.includes("action:mutatePaths|mutates|state:items")
-            && boxMutatesCount === 1,
+          edges.includes("action:mutate|mutates|state:box") &&
+            normalizedEdges.includes("action:mutatePaths|mutates|state:box") &&
+            normalizedEdges.includes("action:mutatePaths|mutates|state:items") &&
+            boxMutatesCount === 1,
           {
             passMessage: "effect into targets emit mutates edges.",
             failMessage: "effect into targets did not emit the expected mutates edge.",
@@ -407,13 +390,13 @@ describe("CCTS Introspection Suite", () => {
         ),
         evaluateRule(
           getRuleOrThrow("SGRAPH-9"),
-          !edges.includes("action:mutate|mutates|state:count")
-            && edges.includes("action:mutate|mutates|state:box")
-            && !normalizedEdges.includes("action:mutatePaths|mutates|state:count")
-            && normalizedEdges.includes("action:mutatePaths|mutates|state:box")
-            && normalizedEdges.includes("action:mutatePaths|mutates|state:items")
-            && !normalizedEdges.includes("action:dynamicRoot|mutates|state:tasks")
-            && normalizedEdges.includes("action:dynamicNested|mutates|state:items"),
+          !edges.includes("action:mutate|mutates|state:count") &&
+            edges.includes("action:mutate|mutates|state:box") &&
+            !normalizedEdges.includes("action:mutatePaths|mutates|state:count") &&
+            normalizedEdges.includes("action:mutatePaths|mutates|state:box") &&
+            normalizedEdges.includes("action:mutatePaths|mutates|state:items") &&
+            !normalizedEdges.includes("action:dynamicRoot|mutates|state:tasks") &&
+            normalizedEdges.includes("action:dynamicNested|mutates|state:items"),
           {
             passMessage: "Mutation roots are extracted from the top-level target segment.",
             failMessage: "Mutation roots were not reduced to the top-level target segment.",
@@ -478,8 +461,7 @@ describe("CCTS Introspection Suite", () => {
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("SGRAPH-12"),
-          !nodeIds.includes("state:$host")
-            && !edges.some((edge) => edge.includes("$")),
+          !nodeIds.includes("state:$host") && !edges.some((edge) => edge.includes("$")),
           {
             passMessage: "Platform-owned $* substrate is excluded from SchemaGraph.",
             failMessage: "Platform-owned $* substrate leaked into SchemaGraph.",
@@ -491,9 +473,9 @@ describe("CCTS Introspection Suite", () => {
         ),
         evaluateRule(
           getRuleOrThrow("SGRAPH-13"),
-          nodeIds.includes("computed:publicCount")
-            && !nodeIds.includes("computed:hostValue")
-            && !nodeIds.includes("computed:hostDerived"),
+          nodeIds.includes("computed:publicCount") &&
+            !nodeIds.includes("computed:hostValue") &&
+            !nodeIds.includes("computed:hostDerived"),
           {
             passMessage: "Computed nodes tainted by transitive $* deps are excluded.",
             failMessage: "Computed nodes tainted by transitive $* deps were not excluded.",
@@ -538,9 +520,9 @@ describe("CCTS Introspection Suite", () => {
         ),
         evaluateRule(
           getRuleOrThrow("SGRAPH-12"),
-          compiled.success
-            && !nodeIds.some((id) => id.includes("$mel") || id.includes("guards"))
-            && !edges.some((edge) => edge.includes("$mel") || edge.includes("guards")),
+          compiled.success &&
+            !nodeIds.some((id) => id.includes("$mel") || id.includes("guards")) &&
+            !edges.some((edge) => edge.includes("$mel") || edge.includes("guards")),
           {
             passMessage: "Core-owned onceIntent guard bookkeeping stays outside SchemaGraph.",
             failMessage: "onceIntent guard bookkeeping leaked into SchemaGraph.",
@@ -560,8 +542,8 @@ function compareSchemaGraphEdges(
   right: { from: string; to: string; relation: string },
 ): number {
   return (
-    left.from.localeCompare(right.from)
-    || left.to.localeCompare(right.to)
-    || left.relation.localeCompare(right.relation)
+    left.from.localeCompare(right.from) ||
+    left.to.localeCompare(right.to) ||
+    left.relation.localeCompare(right.relation)
   );
 }

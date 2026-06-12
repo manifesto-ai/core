@@ -2,11 +2,7 @@ import { semanticPathToPatchPath } from "@manifesto-ai/core";
 import { describe, it, expect } from "vitest";
 
 import { createHost } from "../../host.js";
-import {
-  createTestSchema,
-  createTestIntentWithId,
-  stripHostState,
-} from "../helpers/index.js";
+import { createTestSchema, createTestIntentWithId, stripHostState } from "../helpers/index.js";
 
 const pp = semanticPathToPatchPath;
 
@@ -29,7 +25,10 @@ function createIncrementHost() {
             kind: "add",
             left: {
               kind: "coalesce",
-              args: [{ kind: "get", path: "count" }, { kind: "lit", value: 0 }],
+              args: [
+                { kind: "get", path: "count" },
+                { kind: "lit", value: 0 },
+              ],
             },
             right: { kind: "lit", value: 1 },
           },

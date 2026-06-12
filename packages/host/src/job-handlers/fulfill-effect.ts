@@ -20,7 +20,13 @@
  * - ERR-FE-5: Error patch recording failure escalates to ExecutionKey-level fatal
  */
 
-import { toJcs, type ErrorValue, type NamespaceDelta, type Requirement, type Snapshot } from "@manifesto-ai/core";
+import {
+  toJcs,
+  type ErrorValue,
+  type NamespaceDelta,
+  type Requirement,
+  type Snapshot,
+} from "@manifesto-ai/core";
 import type { ExecutionContext } from "../types/execution.js";
 import type { FulfillEffectJob } from "../types/job.js";
 import { createContinueComputeJob } from "../types/job.js";
@@ -39,10 +45,7 @@ import { getHostState } from "../types/host-state.js";
  * @see SPEC §10.7.3 Implementation (Stale-Safe)
  * @see SPEC §13.4.3 Safe FulfillEffect Pattern
  */
-export function handleFulfillEffect(
-  job: FulfillEffectJob,
-  ctx: ExecutionContext
-): void {
+export function handleFulfillEffect(job: FulfillEffectJob, ctx: ExecutionContext): void {
   // Emit job:start trace
   ctx.trace({
     t: "job:start",
@@ -65,9 +68,7 @@ export function handleFulfillEffect(
   });
 
   const snapshot = ctx.getSnapshot();
-  const requirement = snapshot.system.pendingRequirements.find(
-    (r) => r.id === job.requirementId
-  );
+  const requirement = snapshot.system.pendingRequirements.find((r) => r.id === job.requirementId);
 
   // FULFILL-0: Check if requirement is still pending
   if (!requirement) {
@@ -101,7 +102,10 @@ export function handleFulfillEffect(
     const partitionedNamespaceDelta = partitionHostNamespaceDeltas(job.namespaceDelta ?? []);
     if (partitionedNamespaceDelta.hostDeltas.length > 0) {
       const beforeNamespace = ctx.getSnapshot();
-      const afterNamespace = ctx.applyNamespaceDeltas(partitionedNamespaceDelta.hostDeltas, "effect-namespace");
+      const afterNamespace = ctx.applyNamespaceDeltas(
+        partitionedNamespaceDelta.hostDeltas,
+        "effect-namespace",
+      );
       applyError ??= getApplyReportedError(beforeNamespace, afterNamespace);
     }
     applyError ??= partitionedNamespaceDelta.error;
@@ -151,7 +155,7 @@ export function handleFulfillEffect(
     });
     ctx.escalateToFatal(
       job.intentId,
-      clearError instanceof Error ? clearError : new Error(String(clearError))
+      clearError instanceof Error ? clearError : new Error(String(clearError)),
     );
 
     // Emit job:end trace
@@ -173,7 +177,7 @@ export function handleFulfillEffect(
         job.intentId,
         requirement,
         { code: "EFFECT_APPLY_FAILED", message: applyError.message },
-        ctx
+        ctx,
       );
     } catch (patchError) {
       ctx.trace({
@@ -183,9 +187,8 @@ export function handleFulfillEffect(
         phase: "error-patch",
         error: patchError instanceof Error ? patchError.message : String(patchError),
       });
-      errorRecordingFailure = patchError instanceof Error
-        ? patchError
-        : new Error(String(patchError));
+      errorRecordingFailure =
+        patchError instanceof Error ? patchError : new Error(String(patchError));
     }
   }
 
@@ -201,9 +204,8 @@ export function handleFulfillEffect(
         phase: "error-patch",
         error: patchError instanceof Error ? patchError.message : String(patchError),
       });
-      errorRecordingFailure = patchError instanceof Error
-        ? patchError
-        : new Error(String(patchError));
+      errorRecordingFailure =
+        patchError instanceof Error ? patchError : new Error(String(patchError));
     }
   }
 
@@ -242,15 +244,16 @@ export function handleFulfillEffect(
   });
 }
 
-function partitionHostNamespaceDeltas(
-  deltas: readonly NamespaceDelta[],
-): { readonly hostDeltas: readonly NamespaceDelta[]; readonly error: Error | null } {
+function partitionHostNamespaceDeltas(deltas: readonly NamespaceDelta[]): {
+  readonly hostDeltas: readonly NamespaceDelta[];
+  readonly error: Error | null;
+} {
   const hostDeltas = deltas.filter((delta) => delta.namespace === "host");
-  const rejectedNamespaces = [...new Set(
-    deltas
-      .filter((delta) => delta.namespace !== "host")
-      .map((delta) => delta.namespace),
-  )];
+  const rejectedNamespaces = [
+    ...new Set(
+      deltas.filter((delta) => delta.namespace !== "host").map((delta) => delta.namespace),
+    ),
+  ];
 
   if (rejectedNamespaces.length === 0) {
     return { hostDeltas, error: null };
@@ -273,7 +276,7 @@ function applyHostErrorPatch(
   intentId: string,
   requirement: Requirement,
   error: { code: string; message: string },
-  ctx: ExecutionContext
+  ctx: ExecutionContext,
 ): Error | null {
   const snapshot = ctx.getSnapshot();
   const frozenContext = ctx.getFrozenContext();
@@ -294,14 +297,18 @@ function applyHostErrorPatch(
   };
 
   const after = ctx.applyNamespaceDeltas(
-    [{
-      namespace: "host",
-      patches: [{
-        op: "set",
-        path: [{ kind: "prop", name: "lastError" }],
-        value: errorValue,
-      }],
-    }],
+    [
+      {
+        namespace: "host",
+        patches: [
+          {
+            op: "set",
+            path: [{ kind: "prop", name: "lastError" }],
+            value: errorValue,
+          },
+        ],
+      },
+    ],
     "error",
   );
 

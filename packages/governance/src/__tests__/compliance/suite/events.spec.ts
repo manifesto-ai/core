@@ -6,24 +6,14 @@ import {
   createInMemoryGovernanceStore,
   type GovernanceEvent,
 } from "../../../provider.js";
-import {
-  createInMemoryLineageStore,
-  type ComputeEnvelope,
-} from "@manifesto-ai/lineage";
+import { createInMemoryLineageStore, type ComputeEnvelope } from "@manifesto-ai/lineage";
 import { createLineageService } from "@manifesto-ai/lineage/provider";
 import { createGovernanceComplianceAdapter } from "../gcts-adapter.js";
-import {
-  evaluateRule,
-  expectAllCompliance,
-  noteEvidence,
-} from "../gcts-assertions.js";
+import { evaluateRule, expectAllCompliance, noteEvidence } from "../gcts-assertions.js";
 import { caseTitle, GCTS_CASES } from "../gcts-coverage.js";
 import { getRuleOrThrow } from "../gcts-rules.js";
 
-function createTestComputeEnvelope(
-  type = "demo.intent",
-  intentId = "intent-1",
-): ComputeEnvelope {
+function createTestComputeEnvelope(type = "demo.intent", intentId = "intent-1"): ComputeEnvelope {
   return {
     intent: { type, intentId },
     context: {
@@ -36,10 +26,7 @@ function createTestComputeEnvelope(
   };
 }
 
-function createSnapshot(
-  data: Record<string, unknown>,
-  overrides?: Partial<Snapshot>
-): Snapshot {
+function createSnapshot(data: Record<string, unknown>, overrides?: Partial<Snapshot>): Snapshot {
   return {
     data,
     computed: {},
@@ -90,7 +77,7 @@ describe("GCTS Events Suite", () => {
   it(
     caseTitle(
       GCTS_CASES.EVENTS_DISPATCHER_SURFACE,
-      "Governance exports a facade-compatible dispatcher factory whose public surface is emitSealCompleted() only."
+      "Governance exports a facade-compatible dispatcher factory whose public surface is emitSealCompleted() only.",
     ),
     async () => {
       const exported = adapter.exports();
@@ -106,26 +93,37 @@ describe("GCTS Events Suite", () => {
           getRuleOrThrow("GOV-EVT-DISP-1"),
           publicKeys.length === 1 && publicKeys[0] === "emitSealCompleted",
           {
-            passMessage: "Governance dispatcher matches the facade-owned seam with a single emitSealCompleted() method.",
+            passMessage:
+              "Governance dispatcher matches the facade-owned seam with a single emitSealCompleted() method.",
             failMessage: "Governance dispatcher surface drifted from the facade-owned seam.",
-            evidence: [noteEvidence("Inspected the dispatcher instance produced by the public factory and enumerated its public keys.")],
-          }
+            evidence: [
+              noteEvidence(
+                "Inspected the dispatcher instance produced by the public factory and enumerated its public keys.",
+              ),
+            ],
+          },
         ),
         evaluateRule(getRuleOrThrow("GOV-EVT-DISP-2"), typeof createDispatcher === "function", {
-          passMessage: "Governance exposes a provider-scoped createGovernanceEventDispatcher() factory.",
-          failMessage: "Governance is missing the provider-scoped dispatcher factory required by the facade seam.",
-          evidence: [noteEvidence("Verified createGovernanceEventDispatcher is present on the governance provider exports.")],
+          passMessage:
+            "Governance exposes a provider-scoped createGovernanceEventDispatcher() factory.",
+          failMessage:
+            "Governance is missing the provider-scoped dispatcher factory required by the facade seam.",
+          evidence: [
+            noteEvidence(
+              "Verified createGovernanceEventDispatcher is present on the governance provider exports.",
+            ),
+          ],
         }),
       ]);
 
       expect(publicKeys).toEqual(["emitSealCompleted"]);
-    }
+    },
   );
 
   it(
     caseTitle(
       GCTS_CASES.EVENTS_POST_COMMIT_OUTCOMES,
-      "Governance emits execution outcome events only through the explicit post-commit dispatcher path."
+      "Governance emits execution outcome events only through the explicit post-commit dispatcher path.",
     ),
     async () => {
       const successCtx = await bootstrapGovernance();
@@ -144,7 +142,7 @@ describe("GCTS Events Suite", () => {
       const successApproved = await successCtx.governanceService.prepareAuthorityResult(
         { ...successProposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
-        { decidedAt: 21 }
+        { decidedAt: 21 },
       );
       if (!successApproved.decisionRecord) {
         throw new Error("expected decisionRecord");
@@ -163,7 +161,11 @@ describe("GCTS Events Suite", () => {
         proposalRef: successExecuting.proposalId,
         decisionRef: successApproved.decisionRecord.decisionId,
       });
-      const successGovernanceCommit = await successCtx.governanceService.finalize(successExecuting, successCommit, 23);
+      const successGovernanceCommit = await successCtx.governanceService.finalize(
+        successExecuting,
+        successCommit,
+        23,
+      );
       const successDispatcher = createGovernanceEventDispatcher({
         service: successCtx.governanceService,
         sink: {
@@ -190,7 +192,7 @@ describe("GCTS Events Suite", () => {
       const failedApproved = await failedCtx.governanceService.prepareAuthorityResult(
         { ...failedProposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
-        { decidedAt: 31 }
+        { decidedAt: 31 },
       );
       if (!failedApproved.decisionRecord) {
         throw new Error("expected decisionRecord");
@@ -218,13 +220,17 @@ describe("GCTS Events Suite", () => {
               pendingRequirements: [],
               currentAction: null,
             },
-          }
+          },
         ),
         createdAt: 32,
         proposalRef: failedExecuting.proposalId,
         decisionRef: failedApproved.decisionRecord.decisionId,
       });
-      const failedGovernanceCommit = await failedCtx.governanceService.finalize(failedExecuting, failedCommit, 33);
+      const failedGovernanceCommit = await failedCtx.governanceService.finalize(
+        failedExecuting,
+        failedCommit,
+        33,
+      );
       const failedDispatcher = createGovernanceEventDispatcher({
         service: failedCtx.governanceService,
         sink: {
@@ -239,42 +245,70 @@ describe("GCTS Events Suite", () => {
       successDispatcher.emitSealCompleted(successGovernanceCommit, successCommit);
       failedDispatcher.emitSealCompleted(failedGovernanceCommit, failedCommit);
 
-      const successOutcomeOk = successEvents.length === 2
-        && successEvents[0]?.type === "world:created"
-        && successEvents[1]?.type === "execution:completed";
-      const failedOutcomeOk = failedEvents.length === 2
-        && failedEvents[0]?.type === "world:created"
-        && failedEvents[1]?.type === "execution:failed";
+      const successOutcomeOk =
+        successEvents.length === 2 &&
+        successEvents[0]?.type === "world:created" &&
+        successEvents[1]?.type === "execution:completed";
+      const failedOutcomeOk =
+        failedEvents.length === 2 &&
+        failedEvents[0]?.type === "world:created" &&
+        failedEvents[1]?.type === "execution:failed";
 
       expectAllCompliance([
-        evaluateRule(
-          getRuleOrThrow("GOV-EVT-DISP-3"),
-          noPreDispatchEvents,
-          {
-            passMessage: "Governance emits nothing during proposal evaluation/finalization; events flow only through the explicit post-commit dispatcher seam.",
-            failMessage: "Governance emitted events before the explicit post-commit dispatcher path was invoked.",
-            evidence: [noteEvidence("Observed empty event sinks through createProposal(), prepareAuthorityResult(), and finalize() until emitSealCompleted() was called.")],
-          }
-        ),
+        evaluateRule(getRuleOrThrow("GOV-EVT-DISP-3"), noPreDispatchEvents, {
+          passMessage:
+            "Governance emits nothing during proposal evaluation/finalization; events flow only through the explicit post-commit dispatcher seam.",
+          failMessage:
+            "Governance emitted events before the explicit post-commit dispatcher path was invoked.",
+          evidence: [
+            noteEvidence(
+              "Observed empty event sinks through createProposal(), prepareAuthorityResult(), and finalize() until emitSealCompleted() was called.",
+            ),
+          ],
+        }),
         evaluateRule(getRuleOrThrow("GOV-EXEC-EVT-1"), successOutcomeOk, {
-          passMessage: "Completed governed seals emit world:created followed by execution:completed.",
-          failMessage: "Completed governed seals did not emit the expected post-commit execution:completed sequence.",
-          evidence: [noteEvidence("Ran a completed terminal seal through the dispatcher and verified ordered post-commit events.")],
+          passMessage:
+            "Completed governed seals emit world:created followed by execution:completed.",
+          failMessage:
+            "Completed governed seals did not emit the expected post-commit execution:completed sequence.",
+          evidence: [
+            noteEvidence(
+              "Ran a completed terminal seal through the dispatcher and verified ordered post-commit events.",
+            ),
+          ],
         }),
         evaluateRule(getRuleOrThrow("GOV-EXEC-EVT-2"), failedOutcomeOk, {
-          passMessage: "Failed governed seals emit world:created followed by execution:failed while still sealing the failed lineage record.",
-          failMessage: "Failed governed seals did not emit the expected post-commit execution:failed sequence.",
-          evidence: [noteEvidence("Ran a failed terminal seal through the dispatcher and verified the failed lineage record still produced post-commit events.")],
+          passMessage:
+            "Failed governed seals emit world:created followed by execution:failed while still sealing the failed lineage record.",
+          failMessage:
+            "Failed governed seals did not emit the expected post-commit execution:failed sequence.",
+          evidence: [
+            noteEvidence(
+              "Ran a failed terminal seal through the dispatcher and verified the failed lineage record still produced post-commit events.",
+            ),
+          ],
         }),
         evaluateRule(getRuleOrThrow("GOV-EXEC-EVT-3"), successOutcomeOk && failedOutcomeOk, {
-          passMessage: "Execution result events are emitted only on the explicit post-commit dispatcher path.",
-          failMessage: "Execution result events were not consistently emitted through the explicit post-commit dispatcher path.",
-          evidence: [noteEvidence("Both completed and failed outcomes remained silent before emitSealCompleted(), then emitted ordered post-commit events.")],
+          passMessage:
+            "Execution result events are emitted only on the explicit post-commit dispatcher path.",
+          failMessage:
+            "Execution result events were not consistently emitted through the explicit post-commit dispatcher path.",
+          evidence: [
+            noteEvidence(
+              "Both completed and failed outcomes remained silent before emitSealCompleted(), then emitted ordered post-commit events.",
+            ),
+          ],
         }),
         evaluateRule(getRuleOrThrow("GOV-EXEC-EVT-4"), noPreDispatchEvents, {
-          passMessage: "Governance does not emit execution result events during execution or finalize().",
-          failMessage: "Governance emitted execution result events before the terminal post-commit dispatcher path.",
-          evidence: [noteEvidence("No governance events were observed while proposals moved through execution-stage preparation/finalization.")],
+          passMessage:
+            "Governance does not emit execution result events during execution or finalize().",
+          failMessage:
+            "Governance emitted execution result events before the terminal post-commit dispatcher path.",
+          evidence: [
+            noteEvidence(
+              "No governance events were observed while proposals moved through execution-stage preparation/finalization.",
+            ),
+          ],
         }),
       ]);
 
@@ -321,13 +355,13 @@ describe("GCTS Events Suite", () => {
           },
         },
       ]);
-    }
+    },
   );
 
   it(
     caseTitle(
       GCTS_CASES.EVENTS_WORLD_PARENT_CONTINUITY,
-      "world:created.from follows the committed lineage parent even when branch tip advanced past proposal.baseWorld."
+      "world:created.from follows the committed lineage parent even when branch tip advanced past proposal.baseWorld.",
     ),
     async () => {
       const ctx = await bootstrapGovernance();
@@ -346,7 +380,7 @@ describe("GCTS Events Suite", () => {
       const failedApproved = await ctx.governanceService.prepareAuthorityResult(
         { ...failedProposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
-        { decidedAt: 71 }
+        { decidedAt: 71 },
       );
       if (!failedApproved.decisionRecord) {
         throw new Error("expected decisionRecord");
@@ -371,8 +405,8 @@ describe("GCTS Events Suite", () => {
               pendingRequirements: [],
               currentAction: null,
             },
-        }
-      ),
+          },
+        ),
         createdAt: 72,
         proposalRef: failedApproved.proposal.proposalId,
         decisionRef: failedApproved.decisionRecord.decisionId,
@@ -394,7 +428,7 @@ describe("GCTS Events Suite", () => {
       const successApproved = await ctx.governanceService.prepareAuthorityResult(
         { ...successProposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
-        { decidedAt: 74 }
+        { decidedAt: 74 },
       );
       if (!successApproved.decisionRecord) {
         throw new Error("expected decisionRecord");
@@ -413,7 +447,11 @@ describe("GCTS Events Suite", () => {
         proposalRef: successExecuting.proposalId,
         decisionRef: successApproved.decisionRecord.decisionId,
       });
-      const successGovernanceCommit = await ctx.governanceService.finalize(successExecuting, successCommit, 76);
+      const successGovernanceCommit = await ctx.governanceService.finalize(
+        successExecuting,
+        successCommit,
+        76,
+      );
       const dispatcher = createGovernanceEventDispatcher({
         service: ctx.governanceService,
         sink: {
@@ -427,13 +465,23 @@ describe("GCTS Events Suite", () => {
       dispatcher.emitSealCompleted(successGovernanceCommit, successCommit);
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("GOV-EXEC-EVT-6"), successCommit.edge.from !== successGovernanceCommit.proposal.baseWorld
-          && events[0]?.type === "world:created"
-          && events[0]?.from === successCommit.edge.from, {
-          passMessage: "world:created.from follows the committed lineage parent even when failed seals advanced branch tip past proposal.baseWorld.",
-          failMessage: "world:created.from drifted back to proposal.baseWorld instead of the committed lineage parent.",
-          evidence: [noteEvidence("Sealed a failed world first so tip advanced without head advance, then verified world:created.from matched lineageCommit.edge.from rather than proposal.baseWorld on the next completed seal.")],
-        }),
+        evaluateRule(
+          getRuleOrThrow("GOV-EXEC-EVT-6"),
+          successCommit.edge.from !== successGovernanceCommit.proposal.baseWorld &&
+            events[0]?.type === "world:created" &&
+            events[0]?.from === successCommit.edge.from,
+          {
+            passMessage:
+              "world:created.from follows the committed lineage parent even when failed seals advanced branch tip past proposal.baseWorld.",
+            failMessage:
+              "world:created.from drifted back to proposal.baseWorld instead of the committed lineage parent.",
+            evidence: [
+              noteEvidence(
+                "Sealed a failed world first so tip advanced without head advance, then verified world:created.from matched lineageCommit.edge.from rather than proposal.baseWorld on the next completed seal.",
+              ),
+            ],
+          },
+        ),
       ]);
 
       expect(events[0]).toEqual({
@@ -444,13 +492,13 @@ describe("GCTS Events Suite", () => {
         proposalId: successGovernanceCommit.proposal.proposalId,
         outcome: "completed",
       });
-    }
+    },
   );
 
   it(
     caseTitle(
       GCTS_CASES.EVENTS_FAILED_PAYLOAD,
-      "execution:failed payloads expose currentError and pendingRequirements without accumulated error history."
+      "execution:failed payloads expose currentError and pendingRequirements without accumulated error history.",
     ),
     async () => {
       const ctx = await bootstrapGovernance();
@@ -469,7 +517,7 @@ describe("GCTS Events Suite", () => {
       const approved = await ctx.governanceService.prepareAuthorityResult(
         { ...proposal, status: "evaluating" },
         { kind: "approved", approvedScope: null },
-        { decidedAt: 41 }
+        { decidedAt: 41 },
       );
       if (!approved.decisionRecord) {
         throw new Error("expected decisionRecord");
@@ -506,7 +554,7 @@ describe("GCTS Events Suite", () => {
               ],
               currentAction: null,
             },
-          }
+          },
         ),
         createdAt: 42,
         proposalRef: executing.proposalId,
@@ -526,14 +574,21 @@ describe("GCTS Events Suite", () => {
       dispatcher.emitSealCompleted(governanceCommit, lineageCommit);
       const failedEvent = events[1];
       const failedPayload = failedEvent?.type === "execution:failed" ? failedEvent.error : null;
-      const currentErrorOnly = failedPayload?.currentError?.code === "ERR-PRIMARY"
-        && !("details" in (failedPayload as Record<string, unknown>));
+      const currentErrorOnly =
+        failedPayload?.currentError?.code === "ERR-PRIMARY" &&
+        !("details" in (failedPayload as Record<string, unknown>));
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("GOV-EXEC-EVT-5"), currentErrorOnly, {
-          passMessage: "execution:failed payloads surface only the current error view through currentError.",
-          failMessage: "execution:failed payloads leaked accumulated error history instead of the current error view.",
-          evidence: [noteEvidence("Built a terminal snapshot with lastError plus pending requirements and verified the emitted payload only exposed currentError and pending requirement ids.")],
+          passMessage:
+            "execution:failed payloads surface only the current error view through currentError.",
+          failMessage:
+            "execution:failed payloads leaked accumulated error history instead of the current error view.",
+          evidence: [
+            noteEvidence(
+              "Built a terminal snapshot with lastError plus pending requirements and verified the emitted payload only exposed currentError and pending requirement ids.",
+            ),
+          ],
         }),
       ]);
 
@@ -554,6 +609,6 @@ describe("GCTS Events Suite", () => {
           pendingRequirements: ["req-22"],
         },
       });
-    }
+    },
   );
 });

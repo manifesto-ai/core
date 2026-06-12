@@ -13,10 +13,8 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const vitest = path.join(root, "node_modules", "vitest", "vitest.mjs");
 
-const result = spawnSync(
-  process.execPath,
-  [vitest, ...process.argv.slice(2)],
-  { stdio: "inherit" },
-);
+const result = spawnSync(process.execPath, [vitest, ...process.argv.slice(2)], {
+  stdio: "inherit",
+});
 
 process.exit(result.status ?? 1);

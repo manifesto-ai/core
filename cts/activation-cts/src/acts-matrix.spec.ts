@@ -7,15 +7,9 @@ import {
   expectUniqueRuleIds,
 } from "@manifesto-ai/cts-kit";
 import { ACTS_SUITES } from "./acts-types.js";
-import {
-  ACTIVATION_COMPLIANCE_RULES,
-  getRulesBySuite,
-} from "./acts-rules.js";
+import { ACTIVATION_COMPLIANCE_RULES, getRulesBySuite } from "./acts-rules.js";
 import { ACTIVATION_SPEC_INVENTORY } from "./acts-spec-inventory.js";
-import {
-  ACTIVATION_COMPLIANCE_CASES,
-  ACTIVATION_RULE_COVERAGE,
-} from "./acts-coverage.js";
+import { ACTIVATION_COMPLIANCE_CASES, ACTIVATION_RULE_COVERAGE } from "./acts-coverage.js";
 
 describe("ACTS Rule Matrix", () => {
   it("ACTS-MATRIX-001: rule ids are unique", () => {
@@ -23,10 +17,7 @@ describe("ACTS Rule Matrix", () => {
   });
 
   it("ACTS-MATRIX-002: every inventory rule is registered with matching metadata", () => {
-    expectInventoryRegistryParity(
-      ACTIVATION_SPEC_INVENTORY,
-      ACTIVATION_COMPLIANCE_RULES,
-    );
+    expectInventoryRegistryParity(ACTIVATION_SPEC_INVENTORY, ACTIVATION_COMPLIANCE_RULES);
   });
 
   it("ACTS-MATRIX-003: coverage references only registered rules and declared case ids", () => {
@@ -38,10 +29,7 @@ describe("ACTS Rule Matrix", () => {
   });
 
   it("ACTS-MATRIX-004: every non-superseded rule is covered by at least one ACTS case", () => {
-    expectCoverageCompleteness(
-      ACTIVATION_COMPLIANCE_RULES,
-      ACTIVATION_RULE_COVERAGE,
-    );
+    expectCoverageCompleteness(ACTIVATION_COMPLIANCE_RULES, ACTIVATION_RULE_COVERAGE);
   });
 
   it("ACTS-MATRIX-005: every suite has at least one mapped rule", () => {

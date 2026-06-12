@@ -2,7 +2,7 @@ import type { DomainSchema, TypeDefinition, TypeSpec } from "@manifesto-ai/core"
 import { hashSchemaSync } from "@manifesto-ai/core";
 
 export function createTestSchema(
-  overrides: Partial<Omit<DomainSchema, "hash">> = {}
+  overrides: Partial<Omit<DomainSchema, "hash">> = {},
 ): DomainSchema {
   const base = {
     id: "manifesto:test",
@@ -18,10 +18,7 @@ export function createTestSchema(
   return { ...base, hash };
 }
 
-export function createTypeSpec(
-  name: string,
-  definition: TypeDefinition
-): TypeSpec {
+export function createTypeSpec(name: string, definition: TypeDefinition): TypeSpec {
   return { name, definition };
 }
 
@@ -43,7 +40,7 @@ export function recordType(key: TypeDefinition, value: TypeDefinition): TypeDefi
 }
 
 export function objectType(
-  fields: Record<string, { type: TypeDefinition; optional: boolean }>
+  fields: Record<string, { type: TypeDefinition; optional: boolean }>,
 ): TypeDefinition {
   return { kind: "object", fields };
 }

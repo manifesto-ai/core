@@ -1,14 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  hashSchemaSync,
-  semanticPathToPatchPath,
-  type DomainSchema,
-} from "@manifesto-ai/core";
+import { hashSchemaSync, semanticPathToPatchPath, type DomainSchema } from "@manifesto-ai/core";
 import { createManifesto } from "@manifesto-ai/sdk";
-import {
-  createInMemoryLineageStore,
-  withLineage,
-} from "@manifesto-ai/lineage";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 
 import { withGovernance } from "./with-governance.js";
 import { createInMemoryGovernanceStore } from "./store/in-memory-governance-store.js";
@@ -125,9 +118,7 @@ function activateGoverned(options: {
     {
       bindings: options.bindings,
       execution: EXECUTION,
-      ...(options.governanceStore
-        ? { governanceStore: options.governanceStore }
-        : {}),
+      ...(options.governanceStore ? { governanceStore: options.governanceStore } : {}),
     },
   ).activate();
 }

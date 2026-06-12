@@ -31,11 +31,7 @@ export function createTestIntent(type: string, input?: unknown): Intent {
 /**
  * Create a test intent with a specific intent ID (for deterministic tests)
  */
-export function createTestIntentWithId(
-  type: string,
-  intentId: string,
-  input?: unknown
-): Intent {
+export function createTestIntentWithId(type: string, intentId: string, input?: unknown): Intent {
   return {
     type,
     intentId,

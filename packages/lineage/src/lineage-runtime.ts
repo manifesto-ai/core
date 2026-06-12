@@ -1,8 +1,4 @@
-import type {
-  ErrorValue,
-  Intent,
-  Requirement,
-} from "@manifesto-ai/core";
+import type { ErrorValue, Intent, Requirement } from "@manifesto-ai/core";
 import {
   DisposedError,
   ManifestoError,
@@ -56,17 +52,11 @@ import {
   toLineageSealRuntimeFailure,
   type ResolvedLineageConfig,
 } from "./internal.js";
-import {
-  cloneAndFreezeActionPayload,
-  tryCloneAndFreezeActionPayload,
-} from "./action-payload.js";
+import { cloneAndFreezeActionPayload, tryCloneAndFreezeActionPayload } from "./action-payload.js";
 import { readSnapshotCurrentError } from "./snapshot-errors.js";
 import type { LineageInstance } from "./runtime-types.js";
 
-type Candidate<
-  T extends ManifestoDomainShape,
-  Name extends ActionName<T>,
-> = {
+type Candidate<T extends ManifestoDomainShape, Name extends ActionName<T>> = {
   readonly actionName: Name;
   readonly input: ActionInput<T, Name>;
   readonly intent: TypedIntent<T, Name> | null;
@@ -142,8 +132,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
     },
   });
 
-  const getAction = ((name: string) =>
-    actionByName.get(name)) as GetAction<T, "lineage">;
+  const getAction = ((name: string) => actionByName.get(name)) as GetAction<T, "lineage">;
 
   const runtime = {
     action: Object.freeze(action),
@@ -158,8 +147,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
       },
       availableActions(): readonly ActionInfo<ActionName<T>>[] {
         return Object.freeze(
-          kernel.getAvailableActions()
-            .map((name) => getActionInfo(name as ActionName<T>)),
+          kernel.getAvailableActions().map((name) => getActionInfo(name as ActionName<T>)),
         );
       },
       schemaHash(): string {
@@ -235,11 +223,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
         enumerable: true,
         configurable: false,
         writable: false,
-        value: createReadHandle(
-          name,
-          ref,
-          (snapshot) => snapshot.state[name],
-        ),
+        value: createReadHandle(name, ref, (snapshot) => snapshot.state[name]),
       });
     }
 
@@ -254,11 +238,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
         enumerable: true,
         configurable: false,
         writable: false,
-        value: createReadHandle(
-          name,
-          ref,
-          (snapshot) => snapshot.computed[name],
-        ),
+        value: createReadHandle(name, ref, (snapshot) => snapshot.computed[name]),
       });
     }
 
@@ -293,9 +273,8 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
   ): BoundAction<T, Name, "lineage"> {
     const candidate = createCandidate(name, args);
     const stableArgs = tryCloneAndFreezeActionPayload<readonly unknown[]>([...args]);
-    const createFreshCandidate = (): Candidate<T, Name> => stableArgs.ok
-      ? createCandidate(name, stableArgs.value as ActionArgs<T, Name>)
-      : candidate;
+    const createFreshCandidate = (): Candidate<T, Name> =>
+      stableArgs.ok ? createCandidate(name, stableArgs.value as ActionArgs<T, Name>) : candidate;
     return Object.freeze({
       action: name,
       input: candidate.input,
@@ -304,7 +283,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
       submit: () => submitCandidate(createFreshCandidate()),
       intent: () => {
         const fresh = createFreshCandidate();
-        return fresh.inputError ? null : fresh.intent as Intent | null;
+        return fresh.inputError ? null : (fresh.intent as Intent | null);
       },
     });
   }
@@ -327,10 +306,7 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
 
     try {
       const intent = cloneAndFreezeActionPayload(kernel.createIntent(actionRef, ...args));
-      const inputError = kernel.validateIntentInputFor(
-        kernel.getCanonicalSnapshot(),
-        intent,
-      );
+      const inputError = kernel.validateIntentInputFor(kernel.getCanonicalSnapshot(), intent);
       return Object.freeze({
         actionName: name,
         input: stableInput.value,
@@ -403,7 +379,8 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
       after: outcome.projected.afterSnapshot,
       changes: outcome.projected.changedPaths,
       requirements: simulated.requirements,
-      newAvailableActions: kernel.getAvailableActionsFor(simulated.snapshot)
+      newAvailableActions: kernel
+        .getAvailableActionsFor(simulated.snapshot)
         .map((name) => getActionInfo(name as ActionName<T>)),
       ...previewDiagnostics(simulated.diagnostics, runtimeView.diagnostics),
       error: simulated.snapshot.system.lastError,
@@ -435,7 +412,12 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
       const admission = admitCandidate(candidate, beforeCanonical);
       if (!admission.admission.ok || admission.intent === null) {
         const rejectedAdmission = admission.admission as AdmissionFailure<Name>;
-        emitSubmissionRejected(candidate.actionName, candidate.intent, rejectedAdmission, beforeCanonical);
+        emitSubmissionRejected(
+          candidate.actionName,
+          candidate.intent,
+          rejectedAdmission,
+          beforeCanonical,
+        );
         return Object.freeze({
           ok: false,
           mode: "lineage",
@@ -445,7 +427,12 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
       }
 
       const admittedIntent = admission.intent;
-      emitSubmissionAdmitted(candidate.actionName, admittedIntent, admission.admission, beforeCanonical);
+      emitSubmissionAdmitted(
+        candidate.actionName,
+        admittedIntent,
+        admission.admission,
+        beforeCanonical,
+      );
       emitSubmissionSubmitted(candidate.actionName, admittedIntent, beforeCanonical);
 
       let sealed: Awaited<ReturnType<typeof controller.sealIntent>>;
@@ -454,7 +441,8 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
           publishOnCompleted: true,
           assumeEnqueued: true,
           rejectPendingBeforeSeal: true,
-          context: context ?? kernel.createComputeContext(admittedIntent, captureViewExternalContext()),
+          context:
+            context ?? kernel.createComputeContext(admittedIntent, captureViewExternalContext()),
         });
       } catch (error) {
         const failure = toError(error);
@@ -462,7 +450,13 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
         const stage = runtimeFailure?.stage === "seal" ? "settlement" : "runtime";
         const failedSnapshot = kernel.getCanonicalSnapshot();
         const errorValue = toErrorValue(failure, admittedIntent, failedSnapshot);
-        emitSubmissionFailed(candidate.actionName, admittedIntent, errorValue, failedSnapshot, stage);
+        emitSubmissionFailed(
+          candidate.actionName,
+          admittedIntent,
+          errorValue,
+          failedSnapshot,
+          stage,
+        );
         throw new SubmissionFailedError(failure.message, stage, { cause: failure });
       }
 
@@ -502,20 +496,20 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
         outcome,
         ...(runtimeView.report !== "none"
           ? {
-            report: createLineageReport(
-              runtimeView.report,
-              candidate.actionName,
-              sealed.preparedCommit.worldId,
-              sealed.preparedCommit.branchId,
-              headAdvanced,
-              published,
-              outcome,
-              sealed.preparedCommit.world.snapshotHash,
-              dispatchOutcome.projected.changedPaths,
-              dispatchOutcome.canonical.pendingRequirements,
-              diagnostics,
-            ),
-          }
+              report: createLineageReport(
+                runtimeView.report,
+                candidate.actionName,
+                sealed.preparedCommit.worldId,
+                sealed.preparedCommit.branchId,
+                headAdvanced,
+                published,
+                outcome,
+                sealed.preparedCommit.world.snapshotHash,
+                dispatchOutcome.projected.changedPaths,
+                dispatchOutcome.canonical.pendingRequirements,
+                diagnostics,
+              ),
+            }
           : {}),
       }) as LineageSubmissionResult<T, Name>;
     });
@@ -545,13 +539,15 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
   function admitCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
     snapshot: CanonicalSnapshot<T["state"]>,
-  ): {
-    readonly admission: AdmissionOk<Name>;
-    readonly intent: TypedIntent<T, Name>;
-  } | {
-    readonly admission: AdmissionFailure<Name>;
-    readonly intent: null;
-  } {
+  ):
+    | {
+        readonly admission: AdmissionOk<Name>;
+        readonly intent: TypedIntent<T, Name>;
+      }
+    | {
+        readonly admission: AdmissionFailure<Name>;
+        readonly intent: null;
+      } {
     if (!kernel.isActionAvailableFor(snapshot, candidate.actionName)) {
       return {
         admission: Object.freeze({
@@ -600,7 +596,6 @@ export function createLineageRuntimeInstance<T extends ManifestoDomainShape>(
       intent: null,
     };
   }
-
 
   function getAvailabilityBlockers<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
@@ -726,36 +721,29 @@ function freezeRuntimeView<T extends ManifestoDomainShape>(
   return Object.freeze({ ...view });
 }
 
-function toActionInfo<
-  T extends ManifestoDomainShape,
-  Name extends ActionName<T>,
->(
+function toActionInfo<T extends ManifestoDomainShape, Name extends ActionName<T>>(
   metadata: TypedActionMetadata<T, Name>,
 ): ActionInfo<Name> {
-  const inputFields = metadata.input?.type === "object"
-    ? metadata.input.fields ?? {}
-    : {};
-  const parameterNames = metadata.params.length > 0
-    ? metadata.params
-    : Object.keys(inputFields);
+  const inputFields = metadata.input?.type === "object" ? (metadata.input.fields ?? {}) : {};
+  const parameterNames = metadata.params.length > 0 ? metadata.params : Object.keys(inputFields);
   const annotations = metadata.annotations;
-  const title = typeof annotations?.title === "string"
-    ? annotations.title
-    : undefined;
+  const title = typeof annotations?.title === "string" ? annotations.title : undefined;
 
   return Object.freeze({
     name: metadata.name,
     ...(title !== undefined ? { title } : {}),
     ...(metadata.description !== undefined ? { description: metadata.description } : {}),
-    parameters: Object.freeze(parameterNames.map((name) => {
-      const field = inputFields[name];
-      return Object.freeze({
-        name,
-        required: field?.required ?? true,
-        ...(field?.type !== undefined ? { type: fieldTypeToString(field.type) } : {}),
-        ...(field?.description !== undefined ? { description: field.description } : {}),
-      });
-    })),
+    parameters: Object.freeze(
+      parameterNames.map((name) => {
+        const field = inputFields[name];
+        return Object.freeze({
+          name,
+          required: field?.required ?? true,
+          ...(field?.type !== undefined ? { type: fieldTypeToString(field.type) } : {}),
+          ...(field?.description !== undefined ? { description: field.description } : {}),
+        });
+      }),
+    ),
     ...(annotations !== undefined ? { annotations } : {}),
   }) as ActionInfo<Name>;
 }
@@ -769,7 +757,6 @@ function fieldTypeToString(type: unknown): string {
   }
   return "unknown";
 }
-
 
 function createLineageReport(
   reportMode: SubmitReportMode | undefined,
@@ -824,11 +811,7 @@ function toExecutionOutcome<T extends ManifestoDomainShape>(
   if (dispatchOutcome.canonical.status === "error") {
     return Object.freeze({
       kind: "fail",
-      error: toErrorValue(
-        new Error("Runtime completed with error status"),
-        intent,
-        after,
-      ),
+      error: toErrorValue(new Error("Runtime completed with error status"), intent, after),
     }) as ExecutionOutcome;
   }
 
@@ -871,7 +854,5 @@ function toErrorValue<T extends ManifestoDomainShape>(
 }
 
 function toError(error: unknown): Error {
-  return error instanceof Error
-    ? error
-    : new Error(String(error));
+  return error instanceof Error ? error : new Error(String(error));
 }

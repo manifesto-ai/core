@@ -7,10 +7,7 @@ import {
   expectUniqueRuleIds,
 } from "@manifesto-ai/cts-kit";
 import { CCTS_SUITES } from "./ccts-types.js";
-import {
-  COMPILER_COMPLIANCE_RULES,
-  getRulesBySuite,
-} from "./ccts-rules.js";
+import { COMPILER_COMPLIANCE_RULES, getRulesBySuite } from "./ccts-rules.js";
 import { COMPILER_SPEC_INVENTORY } from "./ccts-spec-inventory.js";
 import { COMPILER_COMPLIANCE_CASES, COMPILER_RULE_COVERAGE } from "./ccts-coverage.js";
 
@@ -24,7 +21,11 @@ describe("CCTS Rule Matrix", () => {
   });
 
   it("CCTS-MATRIX-003: coverage references only registered rules and declared case ids", () => {
-    expectCoverageIntegrity(COMPILER_COMPLIANCE_RULES, COMPILER_COMPLIANCE_CASES, COMPILER_RULE_COVERAGE);
+    expectCoverageIntegrity(
+      COMPILER_COMPLIANCE_RULES,
+      COMPILER_COMPLIANCE_CASES,
+      COMPILER_RULE_COVERAGE,
+    );
   });
 
   it("CCTS-MATRIX-004: every non-superseded registry rule is covered by at least one CCTS case", () => {

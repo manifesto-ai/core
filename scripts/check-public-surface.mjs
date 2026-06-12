@@ -84,10 +84,7 @@ if (!rule) {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const dtsPath = path.join(
-  repoRoot,
-  rule.dtsPath ?? path.join(pkg, "dist/index.d.ts"),
-);
+const dtsPath = path.join(repoRoot, rule.dtsPath ?? path.join(pkg, "dist/index.d.ts"));
 const source = readFileSync(dtsPath, "utf8");
 const exportMatches = [...source.matchAll(/export(?:\s+type)?\s*\{([^}]+)\}/g)];
 const exportedNames = new Set();
@@ -107,21 +104,14 @@ for (const match of exportMatches) {
   }
 }
 
-const unexpected = [...exportedNames]
-  .filter((name) => !rule.allow.has(name))
-  .sort();
+const unexpected = [...exportedNames].filter((name) => !rule.allow.has(name)).sort();
 
 if (unexpected.length > 0) {
-  throw new Error(
-    `${ruleKey} exports unexpected symbols: ${unexpected.join(", ")}`,
-  );
+  throw new Error(`${ruleKey} exports unexpected symbols: ${unexpected.join(", ")}`);
 }
 
-const aliasMatches = [...source.matchAll(/\bas\s+([A-Za-z])\b/g)]
-  .map((match) => match[1]);
+const aliasMatches = [...source.matchAll(/\bas\s+([A-Za-z])\b/g)].map((match) => match[1]);
 
 if (aliasMatches.length > 0) {
-  throw new Error(
-    `${ruleKey} contains one-letter export aliases: ${aliasMatches.join(", ")}`,
-  );
+  throw new Error(`${ruleKey} contains one-letter export aliases: ${aliasMatches.join(", ")}`);
 }

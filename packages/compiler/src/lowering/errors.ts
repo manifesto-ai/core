@@ -43,7 +43,7 @@ export class LoweringError extends Error {
     options?: {
       path?: string[];
       details?: Record<string, unknown>;
-    }
+    },
   ) {
     super(message);
     this.name = "LoweringError";
@@ -62,12 +62,12 @@ export class LoweringError extends Error {
 export function invalidKindForContext(
   kind: string,
   context: string,
-  path?: string[]
+  path?: string[],
 ): LoweringError {
   return new LoweringError(
     "INVALID_KIND_FOR_CONTEXT",
     `Node kind '${kind}' is not allowed in ${context} context`,
-    { path, details: { kind, context } }
+    { path, details: { kind, context } },
   );
 }
 
@@ -78,11 +78,10 @@ export function invalidKindForContext(
  * throw unknownCallFn("unknownFunc");
  */
 export function unknownCallFn(fn: string, path?: string[]): LoweringError {
-  return new LoweringError(
-    "UNKNOWN_CALL_FN",
-    `Unknown function '${fn}' in call expression`,
-    { path, details: { fn } }
-  );
+  return new LoweringError("UNKNOWN_CALL_FN", `Unknown function '${fn}' in call expression`, {
+    path,
+    details: { fn },
+  });
 }
 
 /**
@@ -91,14 +90,11 @@ export function unknownCallFn(fn: string, path?: string[]): LoweringError {
  * @example
  * throw invalidSysPath(["system", "uuid"]);
  */
-export function invalidSysPath(
-  sysPath: string[],
-  path?: string[]
-): LoweringError {
+export function invalidSysPath(sysPath: string[], path?: string[]): LoweringError {
   return new LoweringError(
     "INVALID_SYS_PATH",
     `Dollar namespace path '${sysPath.join(".")}' is not allowed in this lowering context`,
-    { path, details: { sysPath } }
+    { path, details: { sysPath } },
   );
 }
 
@@ -108,14 +104,11 @@ export function invalidSysPath(
  * @example
  * throw unsupportedBase("call");
  */
-export function unsupportedBase(
-  baseKind: string,
-  path?: string[]
-): LoweringError {
+export function unsupportedBase(baseKind: string, path?: string[]): LoweringError {
   return new LoweringError(
     "UNSUPPORTED_BASE",
     `Unsupported base expression kind '${baseKind}'. Only var(item) is supported.`,
-    { path, details: { baseKind } }
+    { path, details: { baseKind } },
   );
 }
 
@@ -125,15 +118,11 @@ export function unsupportedBase(
  * @example
  * throw invalidShape("missing 'value' field");
  */
-export function invalidShape(
-  description: string,
-  path?: string[]
-): LoweringError {
-  return new LoweringError(
-    "INVALID_SHAPE",
-    `Invalid node shape: ${description}`,
-    { path, details: { description } }
-  );
+export function invalidShape(description: string, path?: string[]): LoweringError {
+  return new LoweringError("INVALID_SHAPE", `Invalid node shape: ${description}`, {
+    path,
+    details: { description },
+  });
 }
 
 /**
@@ -142,13 +131,9 @@ export function invalidShape(
  * @example
  * throw unknownNodeKind("foo");
  */
-export function unknownNodeKind(
-  kind: string,
-  path?: string[]
-): LoweringError {
-  return new LoweringError(
-    "UNKNOWN_NODE_KIND",
-    `Unknown expression node kind '${kind}'`,
-    { path, details: { kind } }
-  );
+export function unknownNodeKind(kind: string, path?: string[]): LoweringError {
+  return new LoweringError("UNKNOWN_NODE_KIND", `Unknown expression node kind '${kind}'`, {
+    path,
+    details: { kind },
+  });
 }

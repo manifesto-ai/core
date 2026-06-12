@@ -30,10 +30,7 @@ export type ProposalStatus =
   | "failed"
   | "superseded";
 
-export type SupersedeReason =
-  | "branch_switch"
-  | "head_advance"
-  | "manual_cancel";
+export type SupersedeReason = "branch_switch" | "head_advance" | "manual_cancel";
 
 export interface ActorRef {
   readonly actorId: ActorId;
@@ -214,8 +211,7 @@ export interface ErrorInfo {
   readonly pendingRequirements?: readonly string[];
 }
 
-export interface ProposalSubmittedEvent
-  extends BaseGovernanceEvent<"proposal:submitted"> {
+export interface ProposalSubmittedEvent extends BaseGovernanceEvent<"proposal:submitted"> {
   readonly proposalId: ProposalId;
   readonly actorId: ActorId;
   readonly baseWorld: WorldId;
@@ -229,52 +225,45 @@ export interface ProposalSubmittedEvent
   readonly epoch: number;
 }
 
-export interface ProposalEvaluatingEvent
-  extends BaseGovernanceEvent<"proposal:evaluating"> {
+export interface ProposalEvaluatingEvent extends BaseGovernanceEvent<"proposal:evaluating"> {
   readonly proposalId: ProposalId;
 }
 
-export interface ProposalDecidedEvent
-  extends BaseGovernanceEvent<"proposal:decided"> {
+export interface ProposalDecidedEvent extends BaseGovernanceEvent<"proposal:decided"> {
   readonly proposalId: ProposalId;
   readonly decisionId: DecisionId;
   readonly decision: "approved" | "rejected";
   readonly reason?: string;
 }
 
-export interface ProposalSupersededEvent
-  extends BaseGovernanceEvent<"proposal:superseded"> {
+export interface ProposalSupersededEvent extends BaseGovernanceEvent<"proposal:superseded"> {
   readonly proposalId: ProposalId;
   readonly currentEpoch: number;
   readonly proposalEpoch: number;
   readonly reason: SupersedeReason;
 }
 
-export interface ExecutionCompletedEvent
-  extends BaseGovernanceEvent<"execution:completed"> {
+export interface ExecutionCompletedEvent extends BaseGovernanceEvent<"execution:completed"> {
   readonly proposalId: ProposalId;
   readonly executionKey: ExecutionKey;
   readonly resultWorld: WorldId;
 }
 
-export interface ExecutionFailedEvent
-  extends BaseGovernanceEvent<"execution:failed"> {
+export interface ExecutionFailedEvent extends BaseGovernanceEvent<"execution:failed"> {
   readonly proposalId: ProposalId;
   readonly executionKey: ExecutionKey;
   readonly resultWorld: WorldId;
   readonly error: ErrorInfo;
 }
 
-export interface WorldCreatedEvent
-  extends BaseGovernanceEvent<"world:created"> {
+export interface WorldCreatedEvent extends BaseGovernanceEvent<"world:created"> {
   readonly world: WorldRecord;
   readonly from: WorldId;
   readonly proposalId: ProposalId;
   readonly outcome: "completed" | "failed";
 }
 
-export interface WorldForkedEvent
-  extends BaseGovernanceEvent<"world:forked"> {
+export interface WorldForkedEvent extends BaseGovernanceEvent<"world:forked"> {
   readonly branchId: BranchId;
   readonly forkPoint: WorldId;
 }
@@ -296,7 +285,7 @@ export interface GovernanceEventSink {
 export interface GovernanceEventDispatcher {
   emitSealCompleted(
     governanceCommit: PreparedGovernanceCommit,
-    lineageCommit: PreparedLineageCommit
+    lineageCommit: PreparedLineageCommit,
   ): void;
 }
 
@@ -350,63 +339,51 @@ export interface GovernanceService {
   failExecution(
     proposal: Proposal,
     completedAt: number,
-    resultWorld?: WorldId
+    resultWorld?: WorldId,
   ): Proposal & { readonly status: "failed" };
   prepareAuthorityResult(
     proposal: Proposal,
     response: Extract<AuthorityResponse, { kind: "approved" | "rejected" }>,
-    options: PrepareAuthorityResultOptions
+    options: PrepareAuthorityResultOptions,
   ): Promise<PreparedAuthorityResult>;
   prepareSupersede(proposal: Proposal, reason: SupersedeReason): Proposal;
-  invalidateStaleIngress(
-    branchId: BranchId,
-    currentEpoch?: number
-  ): Promise<readonly Proposal[]>;
+  invalidateStaleIngress(branchId: BranchId, currentEpoch?: number): Promise<readonly Proposal[]>;
   shouldDiscardAuthorityResult(proposal: Proposal, currentEpoch: number): boolean;
   deriveOutcome(terminalSnapshot: Snapshot): "completed" | "failed";
   finalize(
     executingProposal: Proposal,
     lineageCommit: PreparedLineageCommit,
-    completedAt: number
+    completedAt: number,
   ): Promise<PreparedGovernanceCommit>;
-  createProposalSubmittedEvent(
-    proposal: Proposal,
-    timestamp?: number
-  ): ProposalSubmittedEvent;
-  createProposalEvaluatingEvent(
-    proposal: Proposal,
-    timestamp?: number
-  ): ProposalEvaluatingEvent;
+  createProposalSubmittedEvent(proposal: Proposal, timestamp?: number): ProposalSubmittedEvent;
+  createProposalEvaluatingEvent(proposal: Proposal, timestamp?: number): ProposalEvaluatingEvent;
   createProposalDecidedEvent(
     proposal: Proposal,
     decisionRecord: DecisionRecord,
-    timestamp?: number
+    timestamp?: number,
   ): ProposalDecidedEvent;
   createProposalSupersededEvent(
     proposal: Proposal,
     currentEpoch: number,
-    timestamp?: number
+    timestamp?: number,
   ): ProposalSupersededEvent;
-  createExecutionCompletedEvent(
-    proposal: Proposal,
-    timestamp?: number
-  ): ExecutionCompletedEvent;
+  createExecutionCompletedEvent(proposal: Proposal, timestamp?: number): ExecutionCompletedEvent;
   createExecutionFailedEvent(
     proposal: Proposal,
     error: ErrorInfo,
-    timestamp?: number
+    timestamp?: number,
   ): ExecutionFailedEvent;
   createWorldCreatedEvent(
     world: WorldRecord,
     proposalId: ProposalId,
     from: WorldId,
     outcome: "completed" | "failed",
-    timestamp?: number
+    timestamp?: number,
   ): WorldCreatedEvent;
   createWorldForkedEvent(
     branchId: BranchId,
     forkPoint: WorldId,
-    timestamp?: number
+    timestamp?: number,
   ): WorldForkedEvent;
 }
 
@@ -422,10 +399,8 @@ export function createExecutionKey(proposalId: ProposalId, attempt = 1): Executi
   return `${proposalId}:${attempt}`;
 }
 
-export const defaultExecutionKeyPolicy: ExecutionKeyPolicy = ({
-  proposalId,
-  attempt,
-}) => createExecutionKey(proposalId, attempt);
+export const defaultExecutionKeyPolicy: ExecutionKeyPolicy = ({ proposalId, attempt }) =>
+  createExecutionKey(proposalId, attempt);
 
 export function createNoopGovernanceEventSink(): GovernanceEventSink {
   return {

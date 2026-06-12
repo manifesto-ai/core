@@ -18,9 +18,7 @@ const CONSTITUTION_AND_GOVERNANCE = [
   "docs/internals/fdr/index.md",
 ];
 
-const API_AND_GLOSSARY_PREFIX = [
-  "docs/internals/glossary.md",
-];
+const API_AND_GLOSSARY_PREFIX = ["docs/internals/glossary.md"];
 
 function parseArgs(argv) {
   let outDir = defaultOutDir;
@@ -90,19 +88,15 @@ async function collectFilesUnder(relativeDir, extensions) {
 function extractCurrentSpecPaths(specIndexContent) {
   const start = specIndexContent.indexOf("## Current Normative Package Specifications");
   const end = specIndexContent.indexOf("## Historical and Removed References");
-  const section = start >= 0 && end > start
-    ? specIndexContent.slice(start, end)
-    : specIndexContent;
+  const section = start >= 0 && end > start ? specIndexContent.slice(start, end) : specIndexContent;
 
   const paths = new Set();
-  const githubBlobPattern = /https:\/\/github\.com\/manifesto-ai\/core\/blob\/main\/([^)#\s]+\.md)/g;
+  const githubBlobPattern =
+    /https:\/\/github\.com\/manifesto-ai\/core\/blob\/main\/([^)#\s]+\.md)/g;
 
   for (const match of section.matchAll(githubBlobPattern)) {
     const relativePath = match[1];
-    if (
-      relativePath?.startsWith("packages/")
-      && !relativePath.endsWith("VERSION-INDEX.md")
-    ) {
+    if (relativePath?.startsWith("packages/") && !relativePath.endsWith("VERSION-INDEX.md")) {
       paths.add(relativePath);
     }
   }
@@ -165,14 +159,10 @@ async function collectCurrentPackageDocs() {
   const specIndexContent = await fs.readFile(path.join(repoRoot, specIndexPath), "utf8");
   const currentSpecPaths = extractCurrentSpecPaths(specIndexContent);
   const packageRoots = uniqueSorted(
-    currentSpecPaths
-      .map(packageRootOf)
-      .filter((value) => value !== null),
+    currentSpecPaths.map(packageRootOf).filter((value) => value !== null),
   );
 
-  const files = new Set([
-    "README.md",
-  ]);
+  const files = new Set(["README.md"]);
 
   for (const root of packageRoots) {
     const versionIndexPath = path.posix.join(root, "docs", "VERSION-INDEX.md");
@@ -189,16 +179,13 @@ async function collectCurrentPackageDocs() {
     }
 
     if (await pathExists(versionIndexPath)) {
-      const versionIndexContent = await fs.readFile(
-        path.join(repoRoot, versionIndexPath),
-        "utf8",
-      );
+      const versionIndexContent = await fs.readFile(path.join(repoRoot, versionIndexPath), "utf8");
 
       for (const currentDoc of extractCurrentVersionIndexDocPaths(
         versionIndexContent,
         versionIndexPath,
       )) {
-        if (currentDoc.startsWith(root) && await pathExists(currentDoc)) {
+        if (currentDoc.startsWith(root) && (await pathExists(currentDoc))) {
           files.add(currentDoc);
         }
       }
@@ -219,9 +206,7 @@ async function collectAdrFiles() {
   const content = await fs.readFile(path.join(repoRoot, adrIndexPath), "utf8");
   const start = content.indexOf("## Global ADRs");
   const end = content.indexOf("### ADR-006 Companion Evidence");
-  const section = start >= 0 && end > start
-    ? content.slice(start, end)
-    : content;
+  const section = start >= 0 && end > start ? content.slice(start, end) : content;
   const linkPattern = /\]\(\.\/([^)#\s]+)\)/g;
   const adrs = [];
 
@@ -234,18 +219,12 @@ async function collectAdrFiles() {
     adrs.push(path.posix.join("docs/internals/adr", target));
   }
 
-  return uniqueSorted([
-    adrIndexPath,
-    ...adrs,
-  ]);
+  return uniqueSorted([adrIndexPath, ...adrs]);
 }
 
 async function collectApiAndGlossaryDocs() {
   const apiDocs = await collectFilesUnder("docs/api", [".md"]);
-  return uniqueSorted([
-    ...API_AND_GLOSSARY_PREFIX,
-    ...apiDocs,
-  ]);
+  return uniqueSorted([...API_AND_GLOSSARY_PREFIX, ...apiDocs]);
 }
 
 async function collectMelDocs() {
@@ -314,11 +293,7 @@ async function renderBundle(bundle, generatedAt) {
 
   for (const file of bundle.files) {
     const content = await fs.readFile(path.join(repoRoot, file), "utf8");
-    sections.push([
-      `## Source: \`${file}\``,
-      "",
-      content.trimEnd(),
-    ].join("\n"));
+    sections.push([`## Source: \`${file}\``, "", content.trimEnd()].join("\n"));
   }
 
   return [
@@ -409,16 +384,9 @@ async function writeOutputs(outDir, bundles) {
   ];
 
   generatedFiles.push("manifest.md");
-  await fs.writeFile(
-    path.join(outDir, "manifest.md"),
-    `${summaryLines.join("\n")}\n`,
-    "utf8",
-  );
+  await fs.writeFile(path.join(outDir, "manifest.md"), `${summaryLines.join("\n")}\n`, "utf8");
 
-  const fullArchivePath = path.join(
-    path.dirname(outDir),
-    `${path.basename(outDir)}.tar.gz`,
-  );
+  const fullArchivePath = path.join(path.dirname(outDir), `${path.basename(outDir)}.tar.gz`);
   await createTarGz(fullArchivePath, outDir, generatedFiles);
 
   return manifest;
@@ -434,7 +402,9 @@ async function main() {
   }
 
   const manifest = await writeOutputs(options.outDir, bundles);
-  console.log(`Canonical docs bundles written to ${path.relative(repoRoot, options.outDir) || "."}`);
+  console.log(
+    `Canonical docs bundles written to ${path.relative(repoRoot, options.outDir) || "."}`,
+  );
   for (const bundle of manifest.bundles) {
     console.log(`- ${bundle.filename} (${bundle.sourceCount} sources)`);
   }

@@ -12,10 +12,7 @@ export class ReservedEffectError extends ManifestoError {
   readonly effectType: string;
 
   constructor(effectType: string) {
-    super(
-      "RESERVED_EFFECT",
-      `Effect type "${effectType}" is reserved and cannot be overridden`,
-    );
+    super("RESERVED_EFFECT", `Effect type "${effectType}" is reserved and cannot be overridden`);
     this.name = "ReservedEffectError";
     this.effectType = effectType;
   }
@@ -60,7 +57,11 @@ export class AlreadyActivatedError extends ManifestoError {
 export class SubmissionFailedError extends ManifestoError {
   readonly stage: "runtime" | "settlement";
 
-  constructor(message: string, stage: "runtime" | "settlement" = "runtime", options?: ErrorOptions) {
+  constructor(
+    message: string,
+    stage: "runtime" | "settlement" = "runtime",
+    options?: ErrorOptions,
+  ) {
     super("SUBMISSION_FAILED", message, options);
     this.name = "SubmissionFailedError";
     this.stage = stage;

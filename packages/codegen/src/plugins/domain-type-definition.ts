@@ -25,7 +25,7 @@ export type TypeDefinitionDiagnosticOptions = {
 
 export function typeDefinitionToDomainType(
   def: TypeDefinition,
-  options: TypeDefinitionDiagnosticOptions = {}
+  options: TypeDefinitionDiagnosticOptions = {},
 ): DomainType {
   switch (def.kind) {
     case "primitive":
@@ -40,29 +40,24 @@ export function typeDefinitionToDomainType(
       }
       warnUnknownTypeDefinition(
         options,
-        `Unsupported TypeDefinition primitive "${def.type}". Emitting "unknown".`
+        `Unsupported TypeDefinition primitive "${def.type}". Emitting "unknown".`,
       );
       return unknownType();
     case "literal":
       return literalType(def.value);
     case "array":
-      return arrayType(
-        typeDefinitionToDomainType(def.element, childOptions(options, "element"))
-      );
+      return arrayType(typeDefinitionToDomainType(def.element, childOptions(options, "element")));
     case "record":
       return recordType(
         typeDefinitionToDomainType(def.key, childOptions(options, "key")),
-        typeDefinitionToDomainType(def.value, childOptions(options, "value"))
+        typeDefinitionToDomainType(def.value, childOptions(options, "value")),
       );
     case "object": {
       const fields: Record<string, DomainTypeField> = {};
       for (const name of Object.keys(def.fields)) {
         const field = def.fields[name];
         fields[name] = {
-          type: typeDefinitionToDomainType(
-            field.type,
-            childOptions(options, `fields.${name}`)
-          ),
+          type: typeDefinitionToDomainType(field.type, childOptions(options, `fields.${name}`)),
           optional: field.optional,
         };
       }
@@ -71,17 +66,14 @@ export function typeDefinitionToDomainType(
     case "union":
       return unionOf(
         def.types.map((type, index) =>
-          typeDefinitionToDomainType(
-            type,
-            childOptions(options, `types.${index}`)
-          )
-        )
+          typeDefinitionToDomainType(type, childOptions(options, `types.${index}`)),
+        ),
       );
     case "ref":
       if (options.resolveRef && !options.resolveRef(def.name)) {
         warnUnknownTypeDefinition(
           options,
-          `Unresolved TypeDefinition ref "${def.name}". Emitting "unknown".`
+          `Unresolved TypeDefinition ref "${def.name}". Emitting "unknown".`,
         );
         return unknownType();
       }
@@ -90,7 +82,7 @@ export function typeDefinitionToDomainType(
       const unknownKind = (def as { readonly kind?: unknown }).kind;
       warnUnknownTypeDefinition(
         options,
-        `Unknown TypeDefinition kind "${String(unknownKind)}". Emitting "unknown".`
+        `Unknown TypeDefinition kind "${String(unknownKind)}". Emitting "unknown".`,
       );
       return unknownType();
     }
@@ -98,15 +90,12 @@ export function typeDefinitionToDomainType(
 }
 
 function isDomainPrimitive(value: string): value is DomainPrimitive {
-  return value === "string"
-    || value === "number"
-    || value === "boolean"
-    || value === "null";
+  return value === "string" || value === "number" || value === "boolean" || value === "null";
 }
 
 function childOptions(
   options: TypeDefinitionDiagnosticOptions,
-  segment: string
+  segment: string,
 ): TypeDefinitionDiagnosticOptions {
   if (!options.path) {
     return { ...options, path: segment };
@@ -116,7 +105,7 @@ function childOptions(
 
 function warnUnknownTypeDefinition(
   options: TypeDefinitionDiagnosticOptions,
-  message: string
+  message: string,
 ): void {
   if (!options.diagnostics || !options.plugin) {
     return;

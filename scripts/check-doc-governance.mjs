@@ -240,9 +240,7 @@ for (const target of policyTargets) {
   }
   for (const expected of target.expects ?? []) {
     if (!content.includes(expected)) {
-      failures.push(
-        `[missing token] ${target.label}: expected "${expected}" in ${target.path}`,
-      );
+      failures.push(`[missing token] ${target.label}: expected "${expected}" in ${target.path}`);
     }
   }
 }

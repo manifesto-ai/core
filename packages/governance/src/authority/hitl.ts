@@ -1,15 +1,10 @@
-import type {
-  ActorAuthorityBinding,
-  AuthorityResponse,
-  IntentScope,
-  Proposal,
-} from "../types.js";
+import type { ActorAuthorityBinding, AuthorityResponse, IntentScope, Proposal } from "../types.js";
 import type { AuthorityHandler, HITLPendingState } from "./types.js";
 
 export type HITLNotificationCallback = (
   proposalId: string,
   proposal: Proposal,
-  binding: ActorAuthorityBinding
+  binding: ActorAuthorityBinding,
 ) => void;
 
 export class HITLHandler implements AuthorityHandler {
@@ -23,10 +18,7 @@ export class HITLHandler implements AuthorityHandler {
     };
   }
 
-  async evaluate(
-    proposal: Proposal,
-    binding: ActorAuthorityBinding
-  ): Promise<AuthorityResponse> {
+  async evaluate(proposal: Proposal, binding: ActorAuthorityBinding): Promise<AuthorityResponse> {
     if (binding.policy.mode !== "hitl") {
       throw new Error(`HITLHandler received non-hitl policy: ${binding.policy.mode}`);
     }
@@ -57,8 +49,8 @@ export class HITLHandler implements AuthorityHandler {
           }
           reject(
             new Error(
-              `HITL decision timed out after ${policy.timeout}ms for proposal '${proposalId}'`
-            )
+              `HITL decision timed out after ${policy.timeout}ms for proposal '${proposalId}'`,
+            ),
           );
         }, policy.timeout);
       }
@@ -74,7 +66,7 @@ export class HITLHandler implements AuthorityHandler {
     proposalId: string,
     decision: "approved" | "rejected",
     reasoning?: string,
-    approvedScope?: IntentScope | null
+    approvedScope?: IntentScope | null,
   ): void {
     const state = this.pendingDecisions.get(proposalId);
     if (!state) {
@@ -92,7 +84,7 @@ export class HITLHandler implements AuthorityHandler {
         approvedScope:
           approvedScope !== undefined
             ? approvedScope
-            : state.proposal?.intent.scopeProposal ?? null,
+            : (state.proposal?.intent.scopeProposal ?? null),
       });
       return;
     }

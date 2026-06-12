@@ -33,9 +33,9 @@ describe("kernel contract seams (#421)", () => {
   it("decorator kernels are facet compositions, strictly narrower than the aggregate", () => {
     expectTypeOf<RuntimeKernel<Domain>>().toExtend<LineageRuntimeKernel<Domain>>();
     expectTypeOf<RuntimeKernel<Domain>>().toExtend<GovernanceRuntimeKernel<Domain>>();
-    expectTypeOf<
-      keyof LineageRuntimeKernel<Domain>
-    >().not.toEqualTypeOf<keyof RuntimeKernel<Domain>>();
+    expectTypeOf<keyof LineageRuntimeKernel<Domain>>().not.toEqualTypeOf<
+      keyof RuntimeKernel<Domain>
+    >();
   });
 
   it("provider seam re-exports stay source-compatible with the contract module", async () => {

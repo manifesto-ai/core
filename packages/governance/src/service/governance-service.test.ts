@@ -1,19 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Snapshot } from "@manifesto-ai/core";
-import {
-  createInMemoryLineageStore,
-  type ComputeEnvelope,
-} from "@manifesto-ai/lineage";
+import { createInMemoryLineageStore, type ComputeEnvelope } from "@manifesto-ai/lineage";
 import { createLineageService } from "@manifesto-ai/lineage/provider";
-import {
-  createGovernanceService,
-  createInMemoryGovernanceStore,
-} from "../provider.js";
+import { createGovernanceService, createInMemoryGovernanceStore } from "../provider.js";
 
-function createTestComputeEnvelope(
-  type = "demo.intent",
-  intentId = "intent-1",
-): ComputeEnvelope {
+function createTestComputeEnvelope(type = "demo.intent", intentId = "intent-1"): ComputeEnvelope {
   return {
     intent: { type, intentId },
     context: {
@@ -26,10 +17,7 @@ function createTestComputeEnvelope(
   };
 }
 
-function createSnapshot(
-  data: Record<string, unknown>,
-  overrides?: Partial<Snapshot>
-): Snapshot {
+function createSnapshot(data: Record<string, unknown>, overrides?: Partial<Snapshot>): Snapshot {
   return {
     data,
     computed: {},
@@ -108,11 +96,13 @@ describe("@manifesto-ai/governance service", () => {
       epoch: (await ctx.lineageService.getActiveBranch()).epoch,
     });
 
-    await expect(ctx.governanceService.prepareAuthorityResult(
-      { ...contender, status: "evaluating" },
-      { kind: "approved", approvedScope: null },
-      { decidedAt: 13 }
-    )).rejects.toThrow(/GOV-BRANCH-GATE-1/);
+    await expect(
+      ctx.governanceService.prepareAuthorityResult(
+        { ...contender, status: "evaluating" },
+        { kind: "approved", approvedScope: null },
+        { decidedAt: 13 },
+      ),
+    ).rejects.toThrow(/GOV-BRANCH-GATE-1/);
 
     await ctx.governanceStore.putProposal({
       ...occupied,
@@ -134,7 +124,7 @@ describe("@manifesto-ai/governance service", () => {
     const stale = await ctx.governanceService.prepareAuthorityResult(
       { ...contender, status: "evaluating" },
       { kind: "approved", approvedScope: null },
-      { decidedAt: 16 }
+      { decidedAt: 16 },
     );
 
     expect(stale.discarded).toBe(true);
@@ -175,8 +165,8 @@ describe("@manifesto-ai/governance service", () => {
     expect(
       ctx.governanceService.shouldDiscardAuthorityResult(
         stale,
-        (await ctx.lineageService.getBranch(ctx.genesis.branchId))!.epoch
-      )
+        (await ctx.lineageService.getBranch(ctx.genesis.branchId))!.epoch,
+      ),
     ).toBe(true);
   });
 
@@ -197,7 +187,7 @@ describe("@manifesto-ai/governance service", () => {
     const prepared = await ctx.governanceService.prepareAuthorityResult(
       { ...proposal, status: "evaluating" },
       { kind: "approved", approvedScope: null },
-      { decidedAt: 31 }
+      { decidedAt: 31 },
     );
     if (!prepared.decisionRecord) {
       throw new Error("expected decision record");

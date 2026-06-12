@@ -47,7 +47,8 @@ describe("HCTS Snapshot Ownership Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("done"),
+              op: "set",
+              path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -100,12 +101,14 @@ describe("HCTS Snapshot Ownership Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set", path: pp("step1"),
+                  op: "set",
+                  path: pp("step1"),
                   value: { kind: "lit", value: true },
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("step2"),
+                  op: "set",
+                  path: pp("step2"),
                   value: { kind: "lit", value: true },
                 },
               ],
@@ -233,7 +236,8 @@ describe("HCTS Snapshot Ownership Tests", () => {
           complete: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("done"),
+              op: "set",
+              path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -352,7 +356,8 @@ describe("HCTS Snapshot Ownership Tests", () => {
           resume: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("processed"),
+              op: "set",
+              path: pp("processed"),
               value: { kind: "lit", value: true },
             },
           },
@@ -371,7 +376,7 @@ describe("HCTS Snapshot Ownership Tests", () => {
             random: { seed: "restored-seed" },
           },
           external: {},
-        }
+        },
       );
 
       runtime.advanceTime(100);
@@ -403,7 +408,8 @@ describe("HCTS Snapshot Ownership Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("processed"),
+              op: "set",
+              path: pp("processed"),
               value: { kind: "lit", value: true },
             },
           },

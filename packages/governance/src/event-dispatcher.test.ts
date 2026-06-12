@@ -1,20 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Snapshot } from "@manifesto-ai/core";
-import {
-  createInMemoryLineageStore,
-  type ComputeEnvelope,
-} from "@manifesto-ai/lineage";
+import { createInMemoryLineageStore, type ComputeEnvelope } from "@manifesto-ai/lineage";
 import { createLineageService } from "@manifesto-ai/lineage/provider";
-import {
-  createInMemoryGovernanceStore,
-} from "./index.js";
+import { createInMemoryGovernanceStore } from "./index.js";
 import { createGovernanceEventDispatcher } from "./event-dispatcher.js";
 import { createGovernanceService } from "./service/governance-service.js";
 
-function createTestComputeEnvelope(
-  type = "demo.intent",
-  intentId = "intent-1",
-): ComputeEnvelope {
+function createTestComputeEnvelope(type = "demo.intent", intentId = "intent-1"): ComputeEnvelope {
   return {
     intent: { type, intentId },
     context: {
@@ -27,10 +19,7 @@ function createTestComputeEnvelope(
   };
 }
 
-function createSnapshot(
-  data: Record<string, unknown>,
-  overrides?: Partial<Snapshot>
-): Snapshot {
+function createSnapshot(data: Record<string, unknown>, overrides?: Partial<Snapshot>): Snapshot {
   return {
     data,
     computed: {},
@@ -81,7 +70,7 @@ async function bootstrap() {
   const approved = await governanceService.prepareAuthorityResult(
     { ...proposal, status: "evaluating" },
     { kind: "approved", approvedScope: null },
-    { decidedAt: 11 }
+    { decidedAt: 11 },
   );
   if (!approved.decisionRecord) {
     throw new Error("expected decision record");
@@ -130,7 +119,7 @@ describe("@manifesto-ai/governance event helpers", () => {
     const ctx = await bootstrap();
     const completed = ctx.governanceService.createExecutionCompletedEvent(
       ctx.completedProposal,
-      20
+      20,
     );
     const failed = ctx.governanceService.createExecutionFailedEvent(
       ctx.failedProposal,
@@ -143,19 +132,19 @@ describe("@manifesto-ai/governance event helpers", () => {
           timestamp: 19,
         },
       },
-      21
+      21,
     );
     const created = ctx.governanceService.createWorldCreatedEvent(
       ctx.lineageCommit.world,
       ctx.completedProposal.proposalId,
       ctx.lineageCommit.edge.from,
       "completed",
-      22
+      22,
     );
     const forked = ctx.governanceService.createWorldForkedEvent(
       ctx.completedProposal.branchId,
       ctx.completedProposal.baseWorld,
-      23
+      23,
     );
 
     expect(completed).toEqual({
@@ -253,7 +242,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
     const approved = await ctx.governanceService.prepareAuthorityResult(
       { ...proposal, status: "evaluating" },
       { kind: "approved", approvedScope: null },
-      { decidedAt: 31 }
+      { decidedAt: 31 },
     );
 
     if (!approved.decisionRecord) {
@@ -290,7 +279,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
         },
         decisionRecord: approved.decisionRecord,
       },
-      lineageCommit
+      lineageCommit,
     );
 
     expect(events).toEqual([
@@ -335,7 +324,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
     const approved = await ctx.governanceService.prepareAuthorityResult(
       { ...proposal, status: "evaluating" },
       { kind: "approved", approvedScope: null },
-      { decidedAt: 41 }
+      { decidedAt: 41 },
     );
 
     if (!approved.decisionRecord) {
@@ -370,7 +359,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
             ],
             currentAction: null,
           },
-        }
+        },
       ),
       createdAt: 42,
       proposalRef: approved.proposal.proposalId,
@@ -396,7 +385,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
         },
         decisionRecord: approved.decisionRecord,
       },
-      lineageCommit
+      lineageCommit,
     );
 
     expect(events).toEqual([
@@ -445,7 +434,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
     const failedApproved = await ctx.governanceService.prepareAuthorityResult(
       { ...failedProposal, status: "evaluating" },
       { kind: "approved", approvedScope: null },
-      { decidedAt: 61 }
+      { decidedAt: 61 },
     );
 
     if (!failedApproved.decisionRecord) {
@@ -471,7 +460,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
             pendingRequirements: [],
             currentAction: null,
           },
-        }
+        },
       ),
       createdAt: 62,
       proposalRef: failedApproved.proposal.proposalId,
@@ -494,7 +483,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
     const linearApproved = await ctx.governanceService.prepareAuthorityResult(
       { ...linearProposal, status: "evaluating" },
       { kind: "approved", approvedScope: null },
-      { decidedAt: 64 }
+      { decidedAt: 64 },
     );
 
     if (!linearApproved.decisionRecord) {
@@ -531,7 +520,7 @@ describe("@manifesto-ai/governance dispatcher", () => {
         },
         decisionRecord: linearApproved.decisionRecord,
       },
-      lineageCommit
+      lineageCommit,
     );
 
     expect(linearApproved.proposal.baseWorld).toBe(ctx.genesis.worldId);

@@ -25,16 +25,12 @@ export class EffectHandlerRegistry {
    * @param handler - Handler function
    * @param options - Handler options
    */
-  register(
-    type: string,
-    handler: EffectHandler,
-    options: EffectHandlerOptions = {}
-  ): void {
+  register(type: string, handler: EffectHandler, options: EffectHandlerOptions = {}): void {
     if (this.handlers.has(type)) {
       throw createHostError(
         "INVALID_STATE",
         `Effect handler for type "${type}" is already registered`,
-        { type }
+        { type },
       );
     }
 

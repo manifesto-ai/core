@@ -3,9 +3,7 @@ import {
   attachRuntimeKernelFactory,
   createRuntimeKernel,
 } from "../compat/internal.js";
-import {
-  createBaseRuntimeInstance,
-} from "../runtime/base-runtime.js";
+import { createBaseRuntimeInstance } from "../runtime/base-runtime.js";
 import type {
   BaseComposableLaws,
   ComposableManifesto,
@@ -14,28 +12,13 @@ import type {
   EffectHandler,
   ManifestoDomainShape,
 } from "../types.js";
-import {
-  ReservedEffectError,
-} from "../errors.js";
-import {
-  createInternalHost,
-} from "./internal-host.js";
-import {
-  buildCreateIntent,
-} from "./intent-packing.js";
-import {
-  resolveSchema,
-} from "./resolve-schema.js";
-import {
-  BASE_LAWS,
-  RESERVED_EFFECT_TYPE,
-} from "./shared.js";
-import {
-  buildTypedMel,
-} from "./typed-mel.js";
-import type {
-  DomainSchema,
-} from "@manifesto-ai/core";
+import { ReservedEffectError } from "../errors.js";
+import { createInternalHost } from "./internal-host.js";
+import { buildCreateIntent } from "./intent-packing.js";
+import { resolveSchema } from "./resolve-schema.js";
+import { BASE_LAWS, RESERVED_EFFECT_TYPE } from "./shared.js";
+import { buildTypedMel } from "./typed-mel.js";
+import type { DomainSchema } from "@manifesto-ai/core";
 
 export function createManifesto<T extends ManifestoDomainShape>(
   schemaInput: DomainSchema | string,
@@ -53,11 +36,7 @@ export function createManifesto<T extends ManifestoDomainShape>(
     schema: resolved.schema,
     activate() {
       activateComposable(manifesto);
-      const internalHost = createInternalHost(
-        resolved.schema,
-        resolved.projectionPlan,
-        effects,
-      );
+      const internalHost = createInternalHost(resolved.schema, resolved.projectionPlan, effects);
       return createBaseRuntimeInstance(
         createRuntimeKernel<T>({
           schema: resolved.schema,
@@ -78,11 +57,7 @@ export function createManifesto<T extends ManifestoDomainShape>(
   };
 
   return attachRuntimeKernelFactory(manifesto, () => {
-    const internalHost = createInternalHost(
-      resolved.schema,
-      resolved.projectionPlan,
-      effects,
-    );
+    const internalHost = createInternalHost(resolved.schema, resolved.projectionPlan, effects);
     return createRuntimeKernel<T>({
       schema: resolved.schema,
       projectionPlan: resolved.projectionPlan,

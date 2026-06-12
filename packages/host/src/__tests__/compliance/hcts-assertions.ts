@@ -32,12 +32,9 @@ export function traceEvidence(events: readonly TraceEvent[]): HostEvidence[] {
  * Assert that no two runners are active simultaneously for the same key
  * @see SPEC RUN-1, RUN-2, INV-EX-4
  */
-export function assertSingleRunner(
-  trace: TraceEvent[],
-  key: ExecutionKey
-): ComplianceResult {
+export function assertSingleRunner(trace: TraceEvent[], key: ExecutionKey): ComplianceResult {
   const keyEvents = trace.filter(
-    (e) => e.key === key && (e.t === "runner:start" || e.t === "runner:end")
+    (e) => e.key === key && (e.t === "runner:start" || e.t === "runner:end"),
   );
 
   let activeCount = 0;
@@ -81,7 +78,7 @@ export function assertSingleRunner(
  */
 export function assertEmptyToNonEmptyKick(
   trace: TraceEvent[],
-  key: ExecutionKey
+  key: ExecutionKey,
 ): ComplianceResult {
   // If there's a job:start, there must have been a runner:start before it
   const keyEvents = trace.filter((e) => e.key === key);
@@ -114,11 +111,9 @@ export function assertEmptyToNonEmptyKick(
  */
 export function assertLostWakeupPrevention(
   trace: TraceEvent[],
-  key: ExecutionKey
+  key: ExecutionKey,
 ): ComplianceResult {
-  const recheckEvents = trace.filter(
-    (e) => e.key === key && e.t === "runner:recheck"
-  );
+  const recheckEvents = trace.filter((e) => e.key === key && e.t === "runner:recheck");
 
   // This is a SHOULD assertion - presence of recheck events is good
   // Absence doesn't necessarily mean failure (may not be observable)
@@ -149,12 +144,9 @@ export function assertLostWakeupPrevention(
  * Assert that jobs run to completion without interleaving
  * @see SPEC JOB-1, JOB-2, INV-EX-3
  */
-export function assertRunToCompletion(
-  trace: TraceEvent[],
-  key: ExecutionKey
-): ComplianceResult {
+export function assertRunToCompletion(trace: TraceEvent[], key: ExecutionKey): ComplianceResult {
   const keyEvents = trace.filter(
-    (e) => e.key === key && (e.t === "job:start" || e.t === "job:end")
+    (e) => e.key === key && (e.t === "job:start" || e.t === "job:end"),
   );
 
   const activeJobs: string[] = [];
@@ -204,7 +196,7 @@ export function assertRunToCompletion(
  */
 export function assertApplyBeforeDispatch(
   trace: TraceEvent[],
-  key: ExecutionKey
+  key: ExecutionKey,
 ): ComplianceResult {
   const keyEvents = trace.filter((e) => e.key === key);
   const violations: TraceEvent[] = [];
@@ -259,11 +251,9 @@ export function assertApplyBeforeDispatch(
  */
 export function assertRequirementCleared(
   snapshot: Snapshot,
-  requirementId: string
+  requirementId: string,
 ): ComplianceResult {
-  const isPending = snapshot.system.pendingRequirements.some(
-    (r) => r.id === requirementId
-  );
+  const isPending = snapshot.system.pendingRequirements.some((r) => r.id === requirementId);
 
   if (isPending) {
     return {
@@ -290,10 +280,10 @@ export function assertRequirementCleared(
 export function assertNoInfiniteLoop(
   trace: TraceEvent[],
   requirementId: string,
-  maxExecutions: number = 1
+  maxExecutions: number = 1,
 ): ComplianceResult {
   const dispatchEvents = trace.filter(
-    (e) => e.t === "effect:dispatch" && e.requirementId === requirementId
+    (e) => e.t === "effect:dispatch" && e.requirementId === requirementId,
   );
 
   if (dispatchEvents.length > maxExecutions) {
@@ -325,13 +315,11 @@ export function assertNoInfiniteLoop(
  */
 export function assertStaleFulfillmentDropped(
   trace: TraceEvent[],
-  requirementId: string
+  requirementId: string,
 ): ComplianceResult {
   const dropEvents = trace.filter(
     (e) =>
-      e.t === "effect:fulfill:drop" &&
-      e.requirementId === requirementId &&
-      e.reason === "stale"
+      e.t === "effect:fulfill:drop" && e.requirementId === requirementId && e.reason === "stale",
   );
 
   if (dropEvents.length > 0) {
@@ -346,7 +334,7 @@ export function assertStaleFulfillmentDropped(
 
   // Check if there was an apply event (which would be wrong)
   const applyEvents = trace.filter(
-    (e) => e.t === "effect:fulfill:apply" && e.requirementId === requirementId
+    (e) => e.t === "effect:fulfill:apply" && e.requirementId === requirementId,
   );
 
   if (applyEvents.length > 0) {
@@ -376,10 +364,10 @@ export function assertStaleFulfillmentDropped(
 export function assertClearOnApplyFailure(
   trace: TraceEvent[],
   snapshot: Snapshot,
-  requirementId: string
+  requirementId: string,
 ): ComplianceResult {
   const errorEvents = trace.filter(
-    (e) => e.t === "effect:fulfill:error" && e.requirementId === requirementId
+    (e) => e.t === "effect:fulfill:error" && e.requirementId === requirementId,
   );
 
   if (errorEvents.length === 0) {
@@ -394,7 +382,7 @@ export function assertClearOnApplyFailure(
 
   // Even after error, requirement should be cleared
   const clearEvents = trace.filter(
-    (e) => e.t === "requirement:clear" && e.requirementId === requirementId
+    (e) => e.t === "requirement:clear" && e.requirementId === requirementId,
   );
 
   if (clearEvents.length === 0) {
@@ -409,9 +397,7 @@ export function assertClearOnApplyFailure(
   }
 
   // Also verify it's not in snapshot
-  const isPending = snapshot.system.pendingRequirements.some(
-    (r) => r.id === requirementId
-  );
+  const isPending = snapshot.system.pendingRequirements.some((r) => r.id === requirementId);
 
   if (isPending) {
     return {
@@ -435,10 +421,7 @@ export function assertClearOnApplyFailure(
  * Assert that continue is enqueued even on error
  * @see SPEC ERR-FE-5, INV-EX-17
  */
-export function assertContinueAfterError(
-  trace: TraceEvent[],
-  intentId: string
-): ComplianceResult {
+export function assertContinueAfterError(trace: TraceEvent[], intentId: string): ComplianceResult {
   const errorEvents = trace.filter((e) => e.t === "effect:fulfill:error");
 
   if (errorEvents.length === 0) {
@@ -452,9 +435,7 @@ export function assertContinueAfterError(
   }
 
   // Check for continue:enqueue after the error
-  const continueEvents = trace.filter(
-    (e) => e.t === "continue:enqueue" && e.intentId === intentId
-  );
+  const continueEvents = trace.filter((e) => e.t === "continue:enqueue" && e.intentId === intentId);
 
   if (continueEvents.length === 0) {
     return {
@@ -481,9 +462,7 @@ export function assertContinueAfterError(
 /**
  * Type guard for context:frozen events
  */
-function isContextFrozenEvent(
-  event: TraceEvent
-): event is TraceEvent & {
+function isContextFrozenEvent(event: TraceEvent): event is TraceEvent & {
   t: "context:frozen";
   jobId: string;
   now: number;
@@ -498,15 +477,17 @@ function isContextFrozenEvent(
  */
 export function assertContextFrozenPerJob(
   trace: TraceEvent[],
-  key: ExecutionKey
+  key: ExecutionKey,
 ): ComplianceResult {
   const contextEvents = trace.filter(
-    (e): e is TraceEvent & {
+    (
+      e,
+    ): e is TraceEvent & {
       t: "context:frozen";
       jobId: string;
       now: number;
       randomSeed: string;
-    } => e.key === key && isContextFrozenEvent(e)
+    } => e.key === key && isContextFrozenEvent(e),
   );
 
   // Group context events by jobId and verify same values
@@ -524,10 +505,7 @@ export function assertContextFrozenPerJob(
       const first = events[0];
       for (let i = 1; i < events.length; i++) {
         const current = events[i];
-        if (
-          current.now !== first.now ||
-          current.randomSeed !== first.randomSeed
-        ) {
+        if (current.now !== first.now || current.randomSeed !== first.randomSeed) {
           return {
             ruleId: "CTX-1",
             specSection: "CTX-1, CTX-2, INV-CTX-1, INV-CTX-2",
@@ -556,10 +534,7 @@ export function assertContextFrozenPerJob(
 /**
  * Filter trace events by execution key
  */
-export function filterByKey(
-  trace: TraceEvent[],
-  key: ExecutionKey
-): TraceEvent[] {
+export function filterByKey(trace: TraceEvent[], key: ExecutionKey): TraceEvent[] {
   return trace.filter((e) => e.key === key);
 }
 

@@ -81,9 +81,17 @@ export function collectTargetReferences(
   const visitExpr = (expr: ExprNode, ctx: ExprVisitContext = {}): void => {
     switch (expr.kind) {
       case "identifier":
-        if (target.kind === "state_field" && expr.name === target.name && !isLocalParamPreferred(expr.name, ctx)) {
+        if (
+          target.kind === "state_field" &&
+          expr.name === target.name &&
+          !isLocalParamPreferred(expr.name, ctx)
+        ) {
           push(expr.location, true);
-        } else if (target.kind === "computed" && expr.name === target.name && !isLocalParamPreferred(expr.name, ctx)) {
+        } else if (
+          target.kind === "computed" &&
+          expr.name === target.name &&
+          !isLocalParamPreferred(expr.name, ctx)
+        ) {
           push(expr.location, true);
         }
         return;
@@ -98,7 +106,9 @@ export function collectTargetReferences(
         visitExpr(expr.index, ctx);
         return;
       case "functionCall":
-        expr.args.forEach((arg) => visitExpr(arg, ctx));
+        expr.args.forEach((arg) => {
+          visitExpr(arg, ctx);
+        });
         return;
       case "unary":
         visitExpr(expr.operand, ctx);
@@ -125,7 +135,9 @@ export function collectTargetReferences(
         }
         return;
       case "arrayLiteral":
-        expr.elements.forEach((element) => visitExpr(element, ctx));
+        expr.elements.forEach((element) => {
+          visitExpr(element, ctx);
+        });
         return;
       case "literal":
       case "systemIdent":
@@ -136,7 +148,11 @@ export function collectTargetReferences(
 
   const visitPath = (path: PathNode, rewriteRoot: boolean, ctx: ExprVisitContext = {}): void => {
     const [first, ...rest] = path.segments;
-    if (first?.kind === "propertySegment" && target.kind === "state_field" && first.name === target.name) {
+    if (
+      first?.kind === "propertySegment" &&
+      target.kind === "state_field" &&
+      first.name === target.name
+    ) {
       push(first.location, rewriteRoot);
     }
     for (const segment of rest) {
@@ -162,26 +178,36 @@ export function collectTargetReferences(
     switch (stmt.kind) {
       case "when":
         visitExpr(stmt.condition, ctx);
-        stmt.body.forEach((inner) => visitInnerStmt(inner, ctx));
+        stmt.body.forEach((inner) => {
+          visitInnerStmt(inner, ctx);
+        });
         return;
       case "once":
         visitPath(stmt.marker, true, ctx);
         if (stmt.condition) visitExpr(stmt.condition, ctx);
-        stmt.body.forEach((inner) => visitInnerStmt(inner, ctx));
+        stmt.body.forEach((inner) => {
+          visitInnerStmt(inner, ctx);
+        });
         return;
       case "onceIntent":
         if (stmt.condition) visitExpr(stmt.condition, ctx);
-        stmt.body.forEach((inner) => visitInnerStmt(inner, ctx));
+        stmt.body.forEach((inner) => {
+          visitInnerStmt(inner, ctx);
+        });
         return;
       case "include":
-        stmt.args.forEach((arg) => visitExpr(arg, ctx));
+        stmt.args.forEach((arg) => {
+          visitExpr(arg, ctx);
+        });
         return;
       case "patch":
         visitPath(stmt.path, true, ctx);
         if (stmt.value) visitExpr(stmt.value, ctx);
         return;
       case "effect":
-        stmt.args.forEach((arg) => visitEffectArg(arg, ctx));
+        stmt.args.forEach((arg) => {
+          visitEffectArg(arg, ctx);
+        });
         return;
       case "fail":
         if (stmt.message) visitExpr(stmt.message, ctx);
@@ -201,10 +227,15 @@ export function collectTargetReferences(
 
   const visitAction = (action: ActionNode): void => {
     const localParams = new Set(action.params.map((param) => param.name));
-    action.params.forEach((param) => visitParam(param));
+    action.params.forEach((param) => {
+      visitParam(param);
+    });
     if (action.available) visitExpr(action.available, { localParams });
-    if (action.dispatchable) visitExpr(action.dispatchable, { localParams, preferLocalParams: true });
-    action.body.forEach((stmt) => visitGuardedStmt(stmt, { localParams, preferLocalParams: true }));
+    if (action.dispatchable)
+      visitExpr(action.dispatchable, { localParams, preferLocalParams: true });
+    action.body.forEach((stmt) => {
+      visitGuardedStmt(stmt, { localParams, preferLocalParams: true });
+    });
   };
 
   const visitParam = (param: ParamNode): void => {
@@ -213,8 +244,12 @@ export function collectTargetReferences(
 
   const visitFlow = (flow: FlowDeclNode): void => {
     const localParams = new Set(flow.params.map((param) => param.name));
-    flow.params.forEach((param) => visitType(param.typeExpr));
-    flow.body.forEach((stmt) => visitFlowStmt(stmt, { localParams, preferLocalParams: true }));
+    flow.params.forEach((param) => {
+      visitType(param.typeExpr);
+    });
+    flow.body.forEach((stmt) => {
+      visitFlowStmt(stmt, { localParams, preferLocalParams: true });
+    });
   };
 
   for (const importNode of program.imports) {
@@ -265,19 +300,22 @@ function visitMember(
   }
 }
 
-function isLocalParamPreferred(
-  name: string,
-  ctx: ExprVisitContext,
-): boolean {
+function isLocalParamPreferred(name: string, ctx: ExprVisitContext): boolean {
   return ctx.preferLocalParams === true && ctx.localParams?.has(name) === true;
 }
 
-function findTokenRange(tokens: readonly Token[], location: SourceLocation, name: string): OffsetRange | null {
+function findTokenRange(
+  tokens: readonly Token[],
+  location: SourceLocation,
+  name: string,
+): OffsetRange | null {
   const range = locationRange(location);
-  const matches = tokens.filter((token) =>
-    token.location.start.offset >= range.start
-    && token.location.end.offset <= range.end
-    && token.lexeme === name);
+  const matches = tokens.filter(
+    (token) =>
+      token.location.start.offset >= range.start &&
+      token.location.end.offset <= range.end &&
+      token.lexeme === name,
+  );
   const token = matches[matches.length - 1];
   return token ? locationRange(token.location) : null;
 }
@@ -302,5 +340,7 @@ function dedupeReferences(refs: readonly ReferenceSpan[]): ReferenceSpan[] {
       deduped.set(key, ref);
     }
   }
-  return [...deduped.values()].sort((left, right) => left.range.start - right.range.start || left.range.end - right.range.end);
+  return [...deduped.values()].sort(
+    (left, right) => left.range.start - right.range.start || left.range.end - right.range.end,
+  );
 }

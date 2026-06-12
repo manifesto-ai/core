@@ -48,7 +48,7 @@ export class PatchStatementCollector {
     stmts: GuardedStmtNode[] | InnerStmtNode[],
     errors: Diagnostic[],
     context: PatchCollectContext,
-    parentCondition: MelExprNode | undefined
+    parentCondition: MelExprNode | undefined,
   ): ConditionedPatchStatement[] {
     return this.collectPatchStatements(stmts, errors, context, parentCondition);
   }
@@ -57,7 +57,7 @@ export class PatchStatementCollector {
     stmts: GuardedStmtNode[] | InnerStmtNode[],
     errors: Diagnostic[],
     context: PatchCollectContext,
-    parentCondition: MelExprNode | undefined
+    parentCondition: MelExprNode | undefined,
   ): ConditionedPatchStatement[] {
     void context;
     const patchStatements: ConditionedPatchStatement[] = [];
@@ -104,28 +104,28 @@ export class PatchStatementCollector {
   private pushUnsupportedControlError(
     kind: "when" | "once" | "onceIntent",
     location: Diagnostic["location"],
-    errors: Diagnostic[]
+    errors: Diagnostic[],
   ): void {
     errors.push({
       severity: "error",
       code: "E_UNSUPPORTED_CONTROL",
-      message:
-        `compileMelPatch() does not support '${kind}' in v5. Compile a full MEL domain so Core can lower guarded control through the current runtime channels.`,
+      message: `compileMelPatch() does not support '${kind}' in v5. Compile a full MEL domain so Core can lower guarded control through the current runtime channels.`,
       location: this.deps.mapLocation(location),
     });
   }
 }
 
-export function compilePatchStmtToMelRuntime(
-  patchStatement: ConditionedPatchStatement
-): { op: "set" | "unset" | "merge"; path: MelIRPatchPath; value?: MelExprNode; condition?: MelExprNode } {
+export function compilePatchStmtToMelRuntime(patchStatement: ConditionedPatchStatement): {
+  op: "set" | "unset" | "merge";
+  path: MelIRPatchPath;
+  value?: MelExprNode;
+  condition?: MelExprNode;
+} {
   return {
     op: patchStatement.patch.op,
     path: toRuntimePatchPath(patchStatement.patch.path),
     ...(patchStatement.condition ? { condition: patchStatement.condition } : undefined),
-    ...(patchStatement.patch.value
-      ? { value: toMelExpr(patchStatement.patch.value) }
-      : undefined),
+    ...(patchStatement.patch.value ? { value: toMelExpr(patchStatement.patch.value) } : undefined),
   };
 }
 
@@ -243,7 +243,10 @@ class PatchExprValidator {
     }
   }
 
-  private validateSystemIdent(expr: Extract<ExprNode, { kind: "systemIdent" }>, errors: Diagnostic[]): void {
+  private validateSystemIdent(
+    expr: Extract<ExprNode, { kind: "systemIdent" }>,
+    errors: Diagnostic[],
+  ): void {
     const [namespace, ...rest] = expr.path;
 
     if (namespace === "system" || namespace === "meta") {
@@ -311,7 +314,7 @@ class PatchExprValidator {
     left: ExprNode,
     right: ExprNode,
     location: Diagnostic["location"],
-    errors: Diagnostic[]
+    errors: Diagnostic[],
   ): void {
     const leftClass = classifyComparableExpr(left, new Map(), this.symbols);
     const rightClass = classifyComparableExpr(right, new Map(), this.symbols);
@@ -324,13 +327,13 @@ class PatchExprValidator {
       code: "E_TYPE_MISMATCH",
       message: "eq/neq operands must be primitive types (null, boolean, number, string)",
       location: this.mapLocation(location),
-      });
+    });
   }
 
   private validateSpreadOperand(
     expr: ExprNode,
     location: Diagnostic["location"],
-    errors: Diagnostic[]
+    errors: Diagnostic[],
   ): void {
     const inferred = inferExprType(expr, new Map(), this.symbols);
     const mayYieldInvalidSpread = mayYieldArrayExpr(expr, {
@@ -349,8 +352,8 @@ class PatchExprValidator {
     const classification = mayYieldInvalidSpread
       ? "invalid"
       : inferred
-      ? classifySpreadOperandType(inferred, this.symbols)
-      : "unknown";
+        ? classifySpreadOperandType(inferred, this.symbols)
+        : "unknown";
 
     if (classification !== "invalid") {
       return;

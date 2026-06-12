@@ -188,6 +188,7 @@ function assertTypechecks(files: Readonly<Record<string, string>>): void {
       lib: ["lib.es2022.d.ts", "lib.dom.d.ts"],
       types: [],
       baseUrl: REPO_ROOT,
+      ignoreDeprecations: "6.0",
       paths: {
         "@manifesto-ai/compiler": ["packages/compiler/src/index.ts"],
         "@manifesto-ai/core": ["packages/core/src/index.ts"],
@@ -289,7 +290,7 @@ describe("createDomainPlugin", () => {
             },
           },
         },
-      })
+      }),
     );
 
     expect(out.patches).toHaveLength(1);
@@ -300,11 +301,13 @@ describe("createDomainPlugin", () => {
     expect(out.patches[0].content).toContain("ActionInput,");
     expect(out.patches[0].content).toContain("ManifestoApp,");
     expect(out.patches[0].content).toContain("RuntimeMode,");
-    expect(out.patches[0].content).toContain("} from \"@manifesto-ai/sdk\";");
+    expect(out.patches[0].content).toContain('} from "@manifesto-ai/sdk";');
     expect(out.patches[0].content).toContain("export interface HelloDomain {");
     expect(out.patches[0].content).toContain("readonly state: {");
     expect(out.patches[0].content).toContain("counter: number");
-    expect(out.patches[0].content).toContain("profile: { nickname: string; tagline?: string | null }");
+    expect(out.patches[0].content).toContain(
+      "profile: { nickname: string; tagline?: string | null }",
+    );
     expect(out.patches[0].content).not.toContain("$mel.hidden");
     expect(out.patches[0].content).toContain("readonly computed: {");
     expect(out.patches[0].content).toContain("doubled: number");
@@ -312,16 +315,28 @@ describe("createDomainPlugin", () => {
     expect(out.patches[0].content).toContain("firstTag: string | null");
     expect(out.patches[0].content).toContain("readonly actions: {");
     expect(out.patches[0].content).toContain("decrement: () => void");
-    expect(out.patches[0].content).toContain("rename: (name: string, force?: boolean | null) => void");
-    expect(out.patches[0].content).toContain("configure: (input: { label?: string | null; retries: number }) => void");
-    expect(out.patches[0].content).toContain("export type HelloActionInput<Name extends keyof HelloDomain[\"actions\"] & string> =");
+    expect(out.patches[0].content).toContain(
+      "rename: (name: string, force?: boolean | null) => void",
+    );
+    expect(out.patches[0].content).toContain(
+      "configure: (input: { label?: string | null; retries: number }) => void",
+    );
+    expect(out.patches[0].content).toContain(
+      'export type HelloActionInput<Name extends keyof HelloDomain["actions"] & string> =',
+    );
     expect(out.patches[0].content).toContain("ActionInput<HelloDomain, Name>;");
-    expect(out.patches[0].content).toContain("export type HelloActionArgs<Name extends keyof HelloDomain[\"actions\"] & string> =");
+    expect(out.patches[0].content).toContain(
+      'export type HelloActionArgs<Name extends keyof HelloDomain["actions"] & string> =',
+    );
     expect(out.patches[0].content).toContain("ActionArgs<HelloDomain, Name>;");
-    expect(out.patches[0].content).toContain("export type HelloActionSurface<TMode extends RuntimeMode> = {");
+    expect(out.patches[0].content).toContain(
+      "export type HelloActionSurface<TMode extends RuntimeMode> = {",
+    );
     expect(out.patches[0].content).toContain("ActionHandle<HelloDomain, Name, TMode>;");
-    expect(out.patches[0].content).toContain("export type HelloActionSurfaceFromApp<TMode extends RuntimeMode> =");
-    expect(out.patches[0].content).toContain("ManifestoApp<HelloDomain, TMode>[\"action\"];");
+    expect(out.patches[0].content).toContain(
+      "export type HelloActionSurfaceFromApp<TMode extends RuntimeMode> =",
+    );
+    expect(out.patches[0].content).toContain('ManifestoApp<HelloDomain, TMode>["action"];');
     expect(out.patches[0].content).toContain("export type HelloApp<TMode extends RuntimeMode> =");
     expect(out.patches[0].content).toContain("ManifestoApp<HelloDomain, TMode>;");
     expect(out.patches[0].content).not.toContain("dispatchAsync");
@@ -392,28 +407,30 @@ describe("createDomainPlugin", () => {
             },
           },
         },
-      })
+      }),
     );
 
     expect(out.patches[0].content).toContain("entries: Record<string, number>");
     expect(out.patches[0].content).toContain("payload: Record<string, unknown>");
     expect(out.patches[0].content).toContain("items: unknown[]");
     expect(out.patches[0].content).toContain(
-      "submitPayload: (payload: Record<string, unknown>, items: unknown[]) => void"
+      "submitPayload: (payload: Record<string, unknown>, items: unknown[]) => void",
     );
     expect(out.patches[0].content).toContain("unsupportedState: unknown");
     expect(out.patches[0].content).toContain("directFuture: (input: unknown) => void");
     expect(out.patches[0].content).toContain("nestedFuture: (amount: unknown) => void");
-    expect(out.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        level: "warn",
-        message: expect.stringContaining("integer"),
-      }),
-      expect.objectContaining({
-        level: "warn",
-        message: expect.stringContaining("Unknown TypeDefinition kind"),
-      }),
-    ]));
+    expect(out.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          level: "warn",
+          message: expect.stringContaining("integer"),
+        }),
+        expect.objectContaining({
+          level: "warn",
+          message: expect.stringContaining("Unknown TypeDefinition kind"),
+        }),
+      ]),
+    );
   });
 
   it("derives action signatures from params and inputType without inventing positional fields", () => {
@@ -463,16 +480,22 @@ describe("createDomainPlugin", () => {
             },
           },
         },
-      })
+      }),
     );
 
-    expect(out.patches[0].content).toContain("ordered: (second: number | undefined, first: string) => void");
-    expect(out.patches[0].content).toContain("objectOnly: (input: { done?: boolean; title: string }) => void");
+    expect(out.patches[0].content).toContain(
+      "ordered: (second: number | undefined, first: string) => void",
+    );
+    expect(out.patches[0].content).toContain(
+      "objectOnly: (input: { done?: boolean; title: string }) => void",
+    );
     expect(out.patches[0].content).toContain("unresolved: (missing: unknown) => void");
-    expect(out.diagnostics).toContainEqual(expect.objectContaining({
-      level: "warn",
-      message: expect.stringContaining("missing"),
-    }));
+    expect(out.diagnostics).toContainEqual(
+      expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining("missing"),
+      }),
+    );
   });
 
   it("keeps root-like valid action names reachable through typed static action facade aliases", () => {
@@ -487,7 +510,7 @@ describe("createDomainPlugin", () => {
           dispose: { flow: { kind: "seq", steps: [] } },
           action: { flow: { kind: "seq", steps: [] } },
         },
-      })
+      }),
     );
 
     expect(out.patches[0].content).toContain("bind: () => void");
@@ -495,8 +518,10 @@ describe("createDomainPlugin", () => {
     expect(out.patches[0].content).toContain("snapshot: () => void");
     expect(out.patches[0].content).toContain("dispose: () => void");
     expect(out.patches[0].content).toContain("action: () => void");
-    expect(out.patches[0].content).toContain("export type CollisionActionSurfaceFromApp<TMode extends RuntimeMode> =");
-    expect(out.patches[0].content).toContain("ManifestoApp<CollisionDomain, TMode>[\"action\"];");
+    expect(out.patches[0].content).toContain(
+      "export type CollisionActionSurfaceFromApp<TMode extends RuntimeMode> =",
+    );
+    expect(out.patches[0].content).toContain('ManifestoApp<CollisionDomain, TMode>["action"];');
   });
 
   it("rejects reserved public action names before emitting facade output", () => {
@@ -514,10 +539,12 @@ describe("createDomainPlugin", () => {
     );
 
     expect(out.patches).toHaveLength(0);
-    expect(out.diagnostics).toContainEqual(expect.objectContaining({
-      level: "error",
-      message: expect.stringContaining("Reserved public action names"),
-    }));
+    expect(out.diagnostics).toContainEqual(
+      expect.objectContaining({
+        level: "error",
+        message: expect.stringContaining("Reserved public action names"),
+      }),
+    );
   });
 
   it("emits SDK v5 facade aliases that typecheck against the public SDK surface", () => {
@@ -557,7 +584,7 @@ describe("createDomainPlugin", () => {
           bind: { flow: { kind: "seq", steps: [] } },
           action: { flow: { kind: "seq", steps: [] } },
         },
-      })
+      }),
     );
 
     assertTypechecks({
@@ -633,7 +660,7 @@ describe("createDomainPlugin", () => {
         actions: {
           refresh: { flow: { kind: "seq", steps: [] } },
         },
-      })
+      }),
     );
 
     const content = out.patches[0].content;
@@ -702,17 +729,19 @@ describe("createDomainPlugin", () => {
             count: { kind: "primitive", type: "number" },
           },
         },
-      })
+      }),
     );
 
     const content = out.patches[0].content;
     expect(content).toContain("  JsonValue,");
     expect(content).toContain("    payload: JsonValue");
     expect(content).toContain("    count: number");
-    expect(out.diagnostics).toContainEqual(expect.objectContaining({
-      level: "warn",
-      message: expect.stringContaining('Context field "payload"'),
-    }));
+    expect(out.diagnostics).toContainEqual(
+      expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining('Context field "payload"'),
+      }),
+    );
   });
 
   it("does not emit a context block or context alias without a schema context contract", () => {
@@ -766,7 +795,7 @@ describe("createDomainPlugin", () => {
             },
           },
         },
-      })
+      }),
     );
 
     const content = out.patches[0].content;
@@ -807,15 +836,17 @@ describe("createDomainPlugin", () => {
             current: { kind: "ref", name: "MissingType" },
           },
         },
-      })
+      }),
     );
 
     expect(out.patches[0].content).toContain("current: unknown");
     expect(out.patches[0].content).not.toContain("MissingType");
-    expect(out.diagnostics).toContainEqual(expect.objectContaining({
-      level: "warn",
-      message: expect.stringContaining("MissingType"),
-    }));
+    expect(out.diagnostics).toContainEqual(
+      expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining("MissingType"),
+      }),
+    );
   });
 
   it("infers computed references and collection operators", () => {
@@ -870,7 +901,7 @@ describe("createDomainPlugin", () => {
             },
           },
         },
-      })
+      }),
     );
 
     expect(out.patches[0].content).toContain("firstItem: { count: number; id: string } | null");
@@ -935,7 +966,7 @@ describe("createDomainPlugin", () => {
             },
           },
         },
-      })
+      }),
     );
 
     const content = out.patches[0].content;
@@ -950,16 +981,18 @@ describe("createDomainPlugin", () => {
     expect(content).toContain("export type My_Type = number;");
     expect(content).toContain("linked: My_Type_2");
     expect(content).not.toContain("My-Type");
-    expect(out.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        level: "warn",
-        message: expect.stringContaining('"My-Type"'),
-      }),
-      expect.objectContaining({
-        level: "warn",
-        message: expect.stringContaining('parameter "new-value"'),
-      }),
-    ]));
+    expect(out.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          level: "warn",
+          message: expect.stringContaining('"My-Type"'),
+        }),
+        expect.objectContaining({
+          level: "warn",
+          message: expect.stringContaining('parameter "new-value"'),
+        }),
+      ]),
+    );
 
     assertTypechecks({
       "keys.domain.ts": content,
@@ -995,10 +1028,12 @@ describe("createDomainPlugin", () => {
     const out = plugin.generate(makeCtx({ meta: { name: "Hello Domain" } }));
 
     expect(out.patches[0].content).toContain("export interface Hello_Domain {");
-    expect(out.diagnostics).toContainEqual(expect.objectContaining({
-      level: "warn",
-      message: expect.stringContaining('"Hello Domain"'),
-    }));
+    expect(out.diagnostics).toContainEqual(
+      expect.objectContaining({
+        level: "warn",
+        message: expect.stringContaining('"Hello Domain"'),
+      }),
+    );
   });
 
   it("falls back to unknown with a warning for unsupported expressions", () => {
@@ -1013,7 +1048,7 @@ describe("createDomainPlugin", () => {
             },
           },
         },
-      })
+      }),
     );
 
     expect(out.patches[0].content).toContain("futureThing: unknown");

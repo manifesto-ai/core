@@ -10,11 +10,7 @@ import { createInitialNamespaces, createInitialSystemState } from "./schema/snap
  * @param schemaHash - Hash of the schema this snapshot conforms to
  * @returns New snapshot
  */
-export function createSnapshot<T>(
-  state: T,
-  schemaHash: string,
-  context: Context
-): Snapshot {
+export function createSnapshot<T>(state: T, schemaHash: string, context: Context): Snapshot {
   return {
     state,
     computed: {},
@@ -40,11 +36,7 @@ export function createSnapshot<T>(
  */
 export function createIntent(type: string, intentId: string): Intent;
 export function createIntent(type: string, input: unknown, intentId: string): Intent;
-export function createIntent(
-  type: string,
-  inputOrIntentId: unknown,
-  intentId?: string
-): Intent {
+export function createIntent(type: string, inputOrIntentId: unknown, intentId?: string): Intent {
   if (intentId === undefined && typeof inputOrIntentId === "string") {
     return {
       type,

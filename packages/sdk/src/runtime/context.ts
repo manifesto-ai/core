@@ -1,15 +1,7 @@
-import {
-  validateExternalContext,
-  type DomainSchema,
-  type JsonValue,
-} from "@manifesto-ai/core";
+import { validateExternalContext, type DomainSchema, type JsonValue } from "@manifesto-ai/core";
 
 import { ManifestoError } from "../errors.js";
-import type {
-  DomainExternalContext,
-  ExternalContext,
-  ManifestoDomainShape,
-} from "../types.js";
+import type { DomainExternalContext, ExternalContext, ManifestoDomainShape } from "../types.js";
 
 type JsonPath = readonly (string | number)[];
 
@@ -18,22 +10,14 @@ export function materializeExternalContext<T extends ManifestoDomainShape>(
   value: unknown,
   source: string,
 ): DomainExternalContext<T> {
-  const external = materializeExternalRecord(
-    value === undefined ? {} : value,
-    source,
-  );
+  const external = materializeExternalRecord(value === undefined ? {} : value, source);
   const result = validateExternalContext(schema, external);
 
   if (!result.valid) {
     const message = result.errors
-      .map((error) =>
-        error.path ? `${error.path}: ${error.message}` : error.message,
-      )
+      .map((error) => (error.path ? `${error.path}: ${error.message}` : error.message))
       .join("; ");
-    throw new ManifestoError(
-      "INVALID_CONTEXT",
-      `Invalid context for ${source}: ${message}`,
-    );
+    throw new ManifestoError("INVALID_CONTEXT", `Invalid context for ${source}: ${message}`);
   }
 
   return external as DomainExternalContext<T>;
@@ -45,23 +29,16 @@ export function captureExternalContext<T extends ManifestoDomainShape>(
   override: unknown,
   source: string,
 ): DomainExternalContext<T> {
-  return override === undefined
-    ? current
-    : materializeExternalContext<T>(schema, override, source);
+  return override === undefined ? current : materializeExternalContext<T>(schema, override, source);
 }
 
-function materializeExternalRecord(
-  value: unknown,
-  source: string,
-): ExternalContext {
+function materializeExternalRecord(value: unknown, source: string): ExternalContext {
   if (!isPlainRecord(value)) {
     throwInvalidContext(source, [], "Context must be a plain JSON object");
   }
 
   const seen = new WeakSet<object>();
-  return Object.freeze(
-    materializeRecord(value, source, [], seen),
-  ) as ExternalContext;
+  return Object.freeze(materializeRecord(value, source, [], seen)) as ExternalContext;
 }
 
 function materializeJsonValue(
@@ -90,11 +67,7 @@ function materializeJsonValue(
     case "symbol":
       return throwInvalidContext(source, path, "Context must not contain symbols");
     case "bigint":
-      return throwInvalidContext(
-        source,
-        path,
-        "Context must not contain bigint values",
-      );
+      return throwInvalidContext(source, path, "Context must not contain bigint values");
     case "object":
       break;
   }
@@ -109,27 +82,17 @@ function materializeJsonValue(
 
     const clone: JsonValue[] = [];
     for (let index = 0; index < value.length; index += 1) {
-      if (!Object.prototype.hasOwnProperty.call(value, index)) {
-        throwInvalidContext(
-          source,
-          [...path, index],
-          "Context arrays must not contain holes",
-        );
+      if (!Object.hasOwn(value, index)) {
+        throwInvalidContext(source, [...path, index], "Context arrays must not contain holes");
       }
-      clone.push(
-        materializeJsonValue(value[index], source, [...path, index], seen),
-      );
+      clone.push(materializeJsonValue(value[index], source, [...path, index], seen));
     }
     seen.delete(value);
     return Object.freeze(clone);
   }
 
   if (!isPlainRecord(value)) {
-    throwInvalidContext(
-      source,
-      path,
-      "Context objects must be plain JSON objects",
-    );
+    throwInvalidContext(source, path, "Context objects must be plain JSON objects");
   }
 
   if (seen.has(value)) {
@@ -166,15 +129,9 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function rejectAccessors(value: object, source: string, path: JsonPath): void {
-  for (const [key, descriptor] of Object.entries(
-    Object.getOwnPropertyDescriptors(value),
-  )) {
+  for (const [key, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(value))) {
     if (descriptor.get || descriptor.set) {
-      throwInvalidContext(
-        source,
-        [...path, key],
-        "Context must not contain getters or setters",
-      );
+      throwInvalidContext(source, [...path, key], "Context must not contain getters or setters");
     }
   }
 }
@@ -185,13 +142,8 @@ function rejectSymbolKeys(value: object, source: string, path: JsonPath): void {
   }
 }
 
-function throwInvalidContext(
-  source: string,
-  path: JsonPath,
-  message: string,
-): never {
-  const renderedPath =
-    path.length === 0 ? "$context" : `$context.${path.map(String).join(".")}`;
+function throwInvalidContext(source: string, path: JsonPath, message: string): never {
+  const renderedPath = path.length === 0 ? "$context" : `$context.${path.map(String).join(".")}`;
   throw new ManifestoError(
     "INVALID_CONTEXT",
     `Invalid context for ${source} at ${renderedPath}: ${message}`,

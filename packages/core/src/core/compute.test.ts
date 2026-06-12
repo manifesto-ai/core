@@ -37,7 +37,7 @@ const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
 };
 
 const BASE_COMPUTED_FIELDS: DomainSchema["computed"]["fields"] = {
-  "dummy": {
+  dummy: {
     expr: { kind: "get", path: "count" },
     deps: ["count"],
   },
@@ -104,7 +104,7 @@ type ComputeResultWithSnapshot = ComputeResult & { snapshot: SnapshotType };
 function materializeComputeResult(
   schema: DomainSchema,
   snapshot: SnapshotType,
-  result: ComputeResult
+  result: ComputeResult,
 ): SnapshotType {
   const patched = apply(schema, snapshot, result.patches);
   const namespaced = applyNamespaceDeltas(patched, result.namespaceDelta ?? []);
@@ -115,7 +115,7 @@ const computeSync = (
   schema: DomainSchema,
   snapshot: SnapshotType,
   intent: ReturnType<typeof createIntent>,
-  context: Context = HOST_CONTEXT
+  context: Context = HOST_CONTEXT,
 ): ComputeResultWithSnapshot => {
   const result = computeSyncRaw(schema, snapshot, intent, context);
   return {
@@ -128,7 +128,7 @@ const compute = async (
   schema: DomainSchema,
   snapshot: SnapshotType,
   intent: ReturnType<typeof createIntent>,
-  context: Context = HOST_CONTEXT
+  context: Context = HOST_CONTEXT,
 ): Promise<ComputeResultWithSnapshot> => {
   const result = await computeRaw(schema, snapshot, intent, context);
   return {
@@ -140,7 +140,7 @@ const compute = async (
 const computeWithContext = (
   schema: DomainSchema,
   snapshot: ReturnType<typeof createSnapshot>,
-  intent: ReturnType<typeof createIntent>
+  intent: ReturnType<typeof createIntent>,
 ) => compute(schema, snapshot, intent, HOST_CONTEXT);
 
 describe("compute", () => {
@@ -223,10 +223,17 @@ describe("compute", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: {
                 kind: "add",
-                left: { kind: "coalesce", args: [{ kind: "get", path: "count" }, { kind: "lit", value: 0 }] },
+                left: {
+                  kind: "coalesce",
+                  args: [
+                    { kind: "get", path: "count" },
+                    { kind: "lit", value: 0 },
+                  ],
+                },
                 right: { kind: "lit", value: 1 },
               },
             },
@@ -289,7 +296,8 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("name"),
+              op: "set",
+              path: pp("name"),
               value: { kind: "get", path: "input.name" },
             },
           },
@@ -311,7 +319,8 @@ describe("compute", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: { kind: "lit", value: 1 },
             },
           },
@@ -342,7 +351,8 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("value"),
+              op: "set",
+              path: pp("value"),
               value: { kind: "get", path: "$runtime.intent.id" },
             },
           },
@@ -379,7 +389,8 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("balance"),
+              op: "set",
+              path: pp("balance"),
               value: {
                 kind: "sub",
                 left: { kind: "get", path: "balance" },
@@ -418,7 +429,8 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: { kind: "lit", value: 1 },
             },
           },
@@ -444,7 +456,8 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: { kind: "lit", value: 1 },
             },
           },
@@ -483,7 +496,8 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: { kind: "get", path: "input.value" },
             },
           },
@@ -512,7 +526,8 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: { kind: "get", path: "input.value" },
             },
           },
@@ -541,7 +556,8 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: { kind: "get", path: "input.value" },
             },
           },
@@ -672,11 +688,23 @@ describe("compute", () => {
       const schema = createTestSchema({
         computed: {
           fields: {
-            "total": {
+            total: {
               expr: {
                 kind: "add",
-                left: { kind: "coalesce", args: [{ kind: "get", path: "a" }, { kind: "lit", value: 0 }] },
-                right: { kind: "coalesce", args: [{ kind: "get", path: "b" }, { kind: "lit", value: 0 }] },
+                left: {
+                  kind: "coalesce",
+                  args: [
+                    { kind: "get", path: "a" },
+                    { kind: "lit", value: 0 },
+                  ],
+                },
+                right: {
+                  kind: "coalesce",
+                  args: [
+                    { kind: "get", path: "b" },
+                    { kind: "lit", value: 0 },
+                  ],
+                },
               },
               deps: ["a", "b"],
             },
@@ -693,7 +721,8 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("a"),
+              op: "set",
+              path: pp("a"),
               value: { kind: "get", path: "input.value" },
             },
           },
@@ -719,7 +748,12 @@ describe("compute", () => {
             flow: {
               kind: "seq",
               steps: [
-                { kind: "patch", op: "set", path: pp("loading"), value: { kind: "lit", value: true } },
+                {
+                  kind: "patch",
+                  op: "set",
+                  path: pp("loading"),
+                  value: { kind: "lit", value: true },
+                },
                 {
                   kind: "effect",
                   type: "http",
@@ -760,13 +794,23 @@ describe("compute", () => {
             flow: {
               kind: "seq",
               steps: [
-                { kind: "patch", op: "set", path: pp("started"), value: { kind: "lit", value: true } },
+                {
+                  kind: "patch",
+                  op: "set",
+                  path: pp("started"),
+                  value: { kind: "lit", value: true },
+                },
                 {
                   kind: "if",
                   cond: { kind: "get", path: "input.shouldHalt" },
                   then: { kind: "halt", reason: "User requested halt" },
                 },
-                { kind: "patch", op: "set", path: pp("completed"), value: { kind: "lit", value: true } },
+                {
+                  kind: "patch",
+                  op: "set",
+                  path: pp("completed"),
+                  value: { kind: "lit", value: true },
+                },
               ],
             },
           },
@@ -806,8 +850,17 @@ describe("compute", () => {
             flow: {
               kind: "if",
               cond: { kind: "isNull", arg: { kind: "get", path: "input.value" } },
-              then: { kind: "fail", code: "MISSING_VALUE", message: { kind: "lit", value: "Value is required" } },
-              else: { kind: "patch", op: "set", path: pp("value"), value: { kind: "get", path: "input.value" } },
+              then: {
+                kind: "fail",
+                code: "MISSING_VALUE",
+                message: { kind: "lit", value: "Value is required" },
+              },
+              else: {
+                kind: "patch",
+                op: "set",
+                path: pp("value"),
+                value: { kind: "get", path: "input.value" },
+              },
             },
           },
         },
@@ -892,12 +945,18 @@ describe("compute", () => {
       const schema = createTestSchema({
         computed: {
           fields: {
-            "activeCount": {
+            activeCount: {
               expr: {
                 kind: "len",
                 arg: {
                   kind: "filter",
-                  array: { kind: "coalesce", args: [{ kind: "get", path: "todos" }, { kind: "lit", value: [] }] },
+                  array: {
+                    kind: "coalesce",
+                    args: [
+                      { kind: "get", path: "todos" },
+                      { kind: "lit", value: [] },
+                    ],
+                  },
                   predicate: { kind: "not", arg: { kind: "get", path: "$item.completed" } },
                 },
               },
@@ -909,7 +968,8 @@ describe("compute", () => {
           addTodo: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("todos"),
+              op: "set",
+              path: pp("todos"),
               value: {
                 kind: "coalesce",
                 args: [
@@ -953,7 +1013,8 @@ describe("compute", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set", path: pp("fromBalance"),
+                  op: "set",
+                  path: pp("fromBalance"),
                   value: {
                     kind: "sub",
                     left: { kind: "get", path: "fromBalance" },
@@ -962,7 +1023,8 @@ describe("compute", () => {
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("toBalance"),
+                  op: "set",
+                  path: pp("toBalance"),
                   value: {
                     kind: "add",
                     left: { kind: "get", path: "toBalance" },
@@ -975,10 +1037,13 @@ describe("compute", () => {
         },
       });
 
-      const snapshot = createTestSnapshot({
-        fromBalance: 100,
-        toBalance: 50,
-      }, schema.hash);
+      const snapshot = createTestSnapshot(
+        {
+          fromBalance: 100,
+          toBalance: 50,
+        },
+        schema.hash,
+      );
 
       const intent = createTestIntent("transfer", { amount: 30 });
       const result = await computeWithContext(schema, snapshot, intent);
@@ -1036,7 +1101,12 @@ describe("compute", () => {
       const schema = createTestSchema({
         actions: {
           test: {
-            flow: { kind: "patch", op: "set", path: pp("done"), value: { kind: "lit", value: true } },
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: pp("done"),
+              value: { kind: "lit", value: true },
+            },
           },
         },
       });
@@ -1056,7 +1126,8 @@ describe("compute", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: {
                 kind: "add",
                 left: { kind: "get", path: "count" },
@@ -1103,7 +1174,8 @@ describe("compute", () => {
                 steps: [
                   {
                     kind: "patch",
-                    op: "set", path: pp("pending"),
+                    op: "set",
+                    path: pp("pending"),
                     value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
@@ -1173,7 +1245,8 @@ describe("compute", () => {
                 steps: [
                   {
                     kind: "patch",
-                    op: "set", path: pp("pending"),
+                    op: "set",
+                    path: pp("pending"),
                     value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
@@ -1196,9 +1269,7 @@ describe("compute", () => {
       const result1 = await compute(schema, snapshot1, intent, HOST_CONTEXT);
 
       expect(result1.status).toBe("pending");
-      expect(result1.snapshot.state).toEqual(
-        expect.objectContaining({ pending: "intent-run-1" })
-      );
+      expect(result1.snapshot.state).toEqual(expect.objectContaining({ pending: "intent-run-1" }));
       expect(result1.snapshot.system.currentAction).toBe("run");
 
       // 2nd compute: simulate re-entry after effect fulfillment
@@ -1206,7 +1277,7 @@ describe("compute", () => {
       // The snapshot has currentAction === "run" (set during 1st compute pending).
       const reEntrySnapshot = {
         ...result1.snapshot,
-        state: { ...result1.snapshot.state as Record<string, unknown>, result: "done" },
+        state: { ...(result1.snapshot.state as Record<string, unknown>), result: "done" },
         system: {
           ...result1.snapshot.system,
           // currentAction remains "run" — this signals re-entry
@@ -1251,7 +1322,8 @@ describe("compute", () => {
                 steps: [
                   {
                     kind: "patch",
-                    op: "set", path: pp("pending"),
+                    op: "set",
+                    path: pp("pending"),
                     value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
@@ -1310,7 +1382,8 @@ describe("compute", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set", path: pp("pending"),
+                  op: "set",
+                  path: pp("pending"),
                   value: { kind: "get", path: "$runtime.intent.id" },
                 },
                 {
@@ -1328,7 +1401,8 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: { kind: "lit", value: 1 },
             },
           },
@@ -1373,7 +1447,8 @@ describe("compute", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("pending"),
+              op: "set",
+              path: pp("pending"),
               value: { kind: "get", path: "$runtime.intent.id" },
             },
           },
@@ -1381,10 +1456,7 @@ describe("compute", () => {
       });
 
       // Fresh invocation where available condition is false — should still fail
-      const snapshot = createTestSnapshot(
-        { pending: "already-set", result: null },
-        schema.hash
-      );
+      const snapshot = createTestSnapshot({ pending: "already-set", result: null }, schema.hash);
       const intent = createTestIntent("run");
       const result = await computeWithContext(schema, snapshot, intent);
 
@@ -1400,7 +1472,8 @@ describe("compute", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: {
                 kind: "add",
                 left: { kind: "get", path: "count" },

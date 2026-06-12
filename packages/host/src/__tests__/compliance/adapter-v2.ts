@@ -88,7 +88,7 @@ export class V2HostAdapter implements HostTestAdapter {
     key: ExecutionKey,
     requirementId: string,
     patches: Patch[],
-    namespaceDelta: readonly NamespaceDelta[] = []
+    namespaceDelta: readonly NamespaceDelta[] = [],
   ): void {
     if (!this.host) throw new Error("Host not created");
 
@@ -99,14 +99,7 @@ export class V2HostAdapter implements HostTestAdapter {
 
     const mailbox = this.host.getMailbox(key);
     mailbox.enqueue(
-      createFulfillEffectJob(
-        intentId,
-        requirementId,
-        patches,
-        intent,
-        undefined,
-        namespaceDelta
-      )
+      createFulfillEffectJob(intentId, requirementId, patches, intent, undefined, namespaceDelta),
     );
   }
 
@@ -182,8 +175,7 @@ export class V2HostAdapter implements HostTestAdapter {
       // Check if we're done
       const mailbox = this.host.getMailbox(key);
       const hasPendingTasks =
-        this.runtime.pendingMicrotaskCount() > 0 ||
-        this.runtime.pendingMacrotaskCount() > 0;
+        this.runtime.pendingMicrotaskCount() > 0 || this.runtime.pendingMacrotaskCount() > 0;
 
       if (mailbox.isEmpty() && !hasPendingTasks) {
         break;

@@ -49,7 +49,7 @@ export function createError(
     source?: string;
     suggestion?: string;
     related?: RelatedDiagnostic[];
-  }
+  },
 ): Diagnostic {
   return {
     severity: "error",
@@ -70,7 +70,7 @@ export function createWarning(
   options?: {
     source?: string;
     suggestion?: string;
-  }
+  },
 ): Diagnostic {
   return {
     severity: "warning",
@@ -84,11 +84,7 @@ export function createWarning(
 /**
  * Create an info diagnostic
  */
-export function createInfo(
-  code: string,
-  message: string,
-  location: SourceLocation
-): Diagnostic {
+export function createInfo(code: string, message: string, location: SourceLocation): Diagnostic {
   return {
     severity: "info",
     code,
@@ -116,7 +112,7 @@ export function hasErrors(diagnostics: Diagnostic[]): boolean {
  */
 export function filterBySeverity(
   diagnostics: Diagnostic[],
-  severity: DiagnosticSeverity
+  severity: DiagnosticSeverity,
 ): Diagnostic[] {
   return diagnostics.filter((d) => d.severity === severity);
 }

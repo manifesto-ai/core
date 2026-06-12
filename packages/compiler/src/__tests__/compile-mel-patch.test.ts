@@ -6,11 +6,7 @@
 
 import { describe, it, expect } from "vitest";
 import { compileMelPatch } from "../api/compile-mel.js";
-import {
-  patchPathToDisplayString,
-  semanticPathToPatchPath,
-  type Patch,
-} from "@manifesto-ai/core";
+import { patchPathToDisplayString, semanticPathToPatchPath, type Patch } from "@manifesto-ai/core";
 import { createEvaluationContext } from "../evaluation/context.js";
 import {
   evaluateRuntimePatches,
@@ -98,7 +94,7 @@ describe("compileMelPatch", () => {
           computed: {},
         },
         input: { increment: 2 },
-      })
+      }),
     );
 
     expect(toLegacyPatches(concretePatches)).toEqual([
@@ -158,11 +154,7 @@ describe("compileMelPatch", () => {
 
     expect(result.errors.filter((error) => error.code === "E_TYPE_MISMATCH")).toHaveLength(3);
     expect(
-      result.errors.every(
-        (error) =>
-          error.code !== "E_LOWER" &&
-          error.code !== "E_PARSE"
-      )
+      result.errors.every((error) => error.code !== "E_LOWER" && error.code !== "E_PARSE"),
     ).toBe(true);
   });
 
@@ -194,9 +186,7 @@ describe("compileMelPatch", () => {
       actionName: "regression-compileMelPatch-when-block-reuse",
     });
 
-    expect(result.errors).toEqual([
-      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
-    ]);
+    expect(result.errors).toEqual([expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" })]);
     expect(result.ops).toHaveLength(0);
   });
 
@@ -213,9 +203,7 @@ describe("compileMelPatch", () => {
       actionName: "regression-compileMelPatch-when-entry-snapshot",
     });
 
-    expect(result.errors).toEqual([
-      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
-    ]);
+    expect(result.errors).toEqual([expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" })]);
     expect(result.ops).toHaveLength(0);
   });
 
@@ -297,7 +285,7 @@ describe("compileMelPatch", () => {
           computed: {},
         },
         input: {},
-      })
+      }),
     );
 
     expect(toLegacyPatches(concretePatches)).toEqual([
@@ -362,7 +350,7 @@ describe("compileMelPatch", () => {
           computed: {},
         },
         input: { customerId: "customer-2" },
-      })
+      }),
     );
 
     expect(toLegacyPatches(concretePatches)).toEqual([
@@ -548,7 +536,7 @@ describe("compileMelPatch", () => {
           computed: {},
         },
         input: { amount: 7 },
-      })
+      }),
     );
 
     expect(toLegacyPatches(concretePatches)).toEqual([
@@ -586,7 +574,7 @@ describe("compileMelPatch", () => {
           computed: {},
         },
         input: {},
-      })
+      }),
     );
 
     expect(toLegacyPatches(concretePatches)).toEqual([
@@ -610,9 +598,7 @@ describe("compileMelPatch", () => {
       op: "set",
       value: { kind: "lit", value: 1 },
     });
-    expect(renderRuntimePath(result.ops[0].path)).toBe(
-      "data.history.files.file:///proof\\.lean"
-    );
+    expect(renderRuntimePath(result.ops[0].path)).toBe("data.history.files.file:///proof\\.lean");
   });
 
   it("preserves empty-string key segments in patch target paths", () => {
@@ -672,13 +658,10 @@ describe("compileMelPatch", () => {
   });
 
   it("rejects patch text that escapes synthetic wrapper and adds extra top-level statements", () => {
-    const result = compileMelPatch(
-      `patch a = 1\n}\nwhen true { patch b = 2 }`,
-      {
-        mode: "patch",
-        actionName: "regression-compileMelPatch-wrapper-escape",
-      }
-    );
+    const result = compileMelPatch(`patch a = 1\n}\nwhen true { patch b = 2 }`, {
+      mode: "patch",
+      actionName: "regression-compileMelPatch-wrapper-escape",
+    });
 
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.errors[0].code).toBe("E_PATCH_WRAPPER");
@@ -696,9 +679,8 @@ describe("compileMelPatch", () => {
     expect(result.errors.length).toBeGreaterThan(0);
     expect(
       result.errors.every(
-        (error) =>
-          error.location.start.line >= 1 && error.location.start.line <= patchLines.length
-      )
+        (error) => error.location.start.line >= 1 && error.location.start.line <= patchLines.length,
+      ),
     ).toBe(true);
   });
 
@@ -716,7 +698,7 @@ describe("compileMelPatch", () => {
         meta: { intentId: "intent-dynamic-path-index" },
         snapshot: { state: { items: [] }, computed: {} },
         input: { i: 0 },
-      })
+      }),
     );
 
     expect(toLegacyPatches(evaluation.patches)).toEqual([
@@ -755,13 +737,16 @@ describe("compileMelPatch", () => {
   });
 
   it("derives deterministic runtime UUIDs during patch evaluation", () => {
-    const result = compileMelPatch(`
+    const result = compileMelPatch(
+      `
       patch firstId = $runtime.random.uuid
       patch secondId = $runtime.random.uuid
-    `, {
-      mode: "patch",
-      actionName: "regression-compileMelPatch-runtime-uuid",
-    });
+    `,
+      {
+        mode: "patch",
+        actionName: "regression-compileMelPatch-runtime-uuid",
+      },
+    );
     const context = {
       meta: { intentId: "intent-runtime-uuid" },
       snapshot: { state: {}, computed: {} },
@@ -774,14 +759,12 @@ describe("compileMelPatch", () => {
 
     expect(result.errors).toHaveLength(0);
 
-    const firstEvaluation = toLegacyPatches(evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext(context),
-    ));
-    const secondEvaluation = toLegacyPatches(evaluateRuntimePatches(
-      result.ops,
-      createEvaluationContext(context),
-    ));
+    const firstEvaluation = toLegacyPatches(
+      evaluateRuntimePatches(result.ops, createEvaluationContext(context)),
+    );
+    const secondEvaluation = toLegacyPatches(
+      evaluateRuntimePatches(result.ops, createEvaluationContext(context)),
+    );
 
     expect(firstEvaluation).toEqual(secondEvaluation);
     expect(firstEvaluation[0]?.value).toMatch(uuidPattern);

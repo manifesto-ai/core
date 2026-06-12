@@ -16,10 +16,7 @@ import type { ApplyPatchesJob } from "../types/job.js";
  *
  * @see SPEC Appendix C.3 When to Use Each
  */
-export function handleApplyPatches(
-  job: ApplyPatchesJob,
-  ctx: ExecutionContext
-): void {
+export function handleApplyPatches(job: ApplyPatchesJob, ctx: ExecutionContext): void {
   // Emit job:start trace
   ctx.trace({
     t: "job:start",

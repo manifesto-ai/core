@@ -110,9 +110,7 @@ describe("apply() rejects non-JSON patch values (#480)", () => {
 
   it("reports the violating path for nested values", () => {
     const snapshot = createTestSnapshot(schema);
-    const result = apply(schema, snapshot, [
-      setBag({ outer: { inner: [1, Number.NaN] } }),
-    ]);
+    const result = apply(schema, snapshot, [setBag({ outer: { inner: [1, Number.NaN] } })]);
 
     expect(result.system.lastError?.message).toMatch(/outer\.inner\[1\]/);
   });
@@ -137,9 +135,7 @@ describe("applyNamespaceDeltas() rejects non-JSON values (#480)", () => {
     const result = applyNamespaceDeltas(snapshot, [delta]);
     expect(result.system.status).toBe("error");
     expect(result.system.lastError?.code).toBe("INVALID_VALUE");
-    expect(
-      (result.namespaces as Record<string, unknown>).tooling,
-    ).toBeUndefined();
+    expect((result.namespaces as Record<string, unknown>).tooling).toBeUndefined();
   });
 
   it("accepts JSON-compatible namespace values", () => {
@@ -157,9 +153,9 @@ describe("applyNamespaceDeltas() rejects non-JSON values (#480)", () => {
 
     const result = applyNamespaceDeltas(snapshot, [delta]);
     expect(result.system.lastError).toBeNull();
-    expect(
-      (result.namespaces as Record<string, unknown>).tooling,
-    ).toEqual({ meta: { enabled: true, tags: ["a", "b"] } });
+    expect((result.namespaces as Record<string, unknown>).tooling).toEqual({
+      meta: { enabled: true, tags: ["a", "b"] },
+    });
   });
 });
 

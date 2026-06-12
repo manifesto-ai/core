@@ -26,10 +26,7 @@ import { applyComputeResult } from "./compute-interlock.js";
  * @see SPEC §10.2.2 Job Handler Await Ban
  * @see SPEC §10.2.4 Compute Result and Effect Request Ordering
  */
-export function handleStartIntent(
-  job: StartIntentJob,
-  ctx: ExecutionContext
-): void {
+export function handleStartIntent(job: StartIntentJob, ctx: ExecutionContext): void {
   // Emit job:start trace
   ctx.trace({
     t: "job:start",
@@ -66,25 +63,24 @@ export function handleStartIntent(
     [job.intentId]: intentSlot,
   };
   ctx.applyNamespaceDeltas(
-    [{
-      namespace: "host",
-      patches: [{
-        op: "set",
-        path: [{ kind: "prop", name: "intentSlots" }],
-        value: nextSlots,
-      }],
-    }],
-    "host-intent-slot"
+    [
+      {
+        namespace: "host",
+        patches: [
+          {
+            op: "set",
+            path: [{ kind: "prop", name: "intentSlots" }],
+            value: nextSlots,
+          },
+        ],
+      },
+    ],
+    "host-intent-slot",
   );
   snapshot = ctx.getSnapshot();
 
   // Call core.computeSync() - synchronous internal computation
-  const result = ctx.core.computeSync(
-    ctx.schema,
-    snapshot,
-    job.intent,
-    frozenContext
-  );
+  const result = ctx.core.computeSync(ctx.schema, snapshot, job.intent, frozenContext);
   ctx.recordCoreTrace?.(result.trace);
 
   // Emit core:compute trace
@@ -100,11 +96,11 @@ export function handleStartIntent(
 
   // Check terminal states
   if (
-    applied.interlockError
-    || applied.snapshot.system.status === "error"
-    || result.status === "complete"
-    || result.status === "error"
-    || result.status === "halted"
+    applied.interlockError ||
+    applied.snapshot.system.status === "error" ||
+    result.status === "complete" ||
+    result.status === "error" ||
+    result.status === "halted"
   ) {
     // Emit job:end trace
     ctx.trace({
@@ -136,7 +132,7 @@ export function handleStartIntent(
         requirement.id,
         requirement.type,
         requirement.params,
-        job.intent
+        job.intent,
       );
       // Job terminates here - no continuation state
     } else {

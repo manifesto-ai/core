@@ -12,7 +12,7 @@ describe("LCTS Restore Suite", () => {
   it(
     caseTitle(
       LCTS_CASES.RESTORE_NORMALIZATION,
-      "restore() resets non-hash runtime fields while preserving semantic snapshot content."
+      "restore() resets non-hash runtime fields while preserving semantic snapshot content.",
     ),
     async () => {
       const { service, genesis } = await createBootstrappedLineage();
@@ -48,7 +48,7 @@ describe("LCTS Restore Suite", () => {
               mel: { guards: { intent: { stale: "true" } } },
               custom: { opaque: true },
             },
-          }
+          },
         ),
         createdAt: 2,
       });
@@ -57,34 +57,52 @@ describe("LCTS Restore Suite", () => {
       const restored = await service.restore(failed.worldId);
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("MRKL-RESTORE-1"), JSON.stringify(restored.namespaces.host) === "{}"
-          && JSON.stringify(restored.namespaces.mel) === "{}"
-          && JSON.stringify(restored.namespaces.custom) === "{}", {
-          passMessage: "restore() resets stored platform namespaces without interpreting owner-specific shapes.",
-          failMessage: "restore() did not reset one or more platform namespaces.",
-        }),
+        evaluateRule(
+          getRuleOrThrow("MRKL-RESTORE-1"),
+          JSON.stringify(restored.namespaces.host) === "{}" &&
+            JSON.stringify(restored.namespaces.mel) === "{}" &&
+            JSON.stringify(restored.namespaces.custom) === "{}",
+          {
+            passMessage:
+              "restore() resets stored platform namespaces without interpreting owner-specific shapes.",
+            failMessage: "restore() did not reset one or more platform namespaces.",
+          },
+        ),
         evaluateRule(getRuleOrThrow("MRKL-RESTORE-2"), restored.input === null, {
           passMessage: "restore() clears transient input.",
           failMessage: "restore() preserved input instead of resetting it to null.",
         }),
-        evaluateRule(getRuleOrThrow("MRKL-RESTORE-3"), restored.meta.timestamp === 0 && restored.meta.randomSeed === "", {
-          passMessage: "restore() resets timestamp and randomSeed.",
-          failMessage: "restore() preserved timestamp or randomSeed.",
-        }),
+        evaluateRule(
+          getRuleOrThrow("MRKL-RESTORE-3"),
+          restored.meta.timestamp === 0 && restored.meta.randomSeed === "",
+          {
+            passMessage: "restore() resets timestamp and randomSeed.",
+            failMessage: "restore() preserved timestamp or randomSeed.",
+          },
+        ),
         evaluateRule(getRuleOrThrow("MRKL-RESTORE-3a"), restored.system.currentAction === null, {
           passMessage: "restore() clears system.currentAction.",
           failMessage: "restore() preserved system.currentAction.",
         }),
-        evaluateRule(getRuleOrThrow("MRKL-RESTORE-4"), restored.state.count === 2
-          && restored.computed.derived === 2
-          && restored.system.status === "error"
-          && restored.system.lastError?.code === "ERR"
-          && restored.meta.version === 9
-          && restored.meta.schemaHash === "schema-hash", {
-          passMessage: "restore() preserves semantic snapshot fields while normalizing runtime-only fields.",
-          failMessage: "restore() lost semantic snapshot fields during normalization.",
-          evidence: [noteEvidence("Restored a failed world containing platform namespaces, transient input, currentAction, and custom meta values.")],
-        }),
+        evaluateRule(
+          getRuleOrThrow("MRKL-RESTORE-4"),
+          restored.state.count === 2 &&
+            restored.computed.derived === 2 &&
+            restored.system.status === "error" &&
+            restored.system.lastError?.code === "ERR" &&
+            restored.meta.version === 9 &&
+            restored.meta.schemaHash === "schema-hash",
+          {
+            passMessage:
+              "restore() preserves semantic snapshot fields while normalizing runtime-only fields.",
+            failMessage: "restore() lost semantic snapshot fields during normalization.",
+            evidence: [
+              noteEvidence(
+                "Restored a failed world containing platform namespaces, transient input, currentAction, and custom meta values.",
+              ),
+            ],
+          },
+        ),
       ]);
 
       expect(restored.state).toMatchObject({
@@ -95,6 +113,6 @@ describe("LCTS Restore Suite", () => {
         mel: {},
         custom: {},
       });
-    }
+    },
   );
 });

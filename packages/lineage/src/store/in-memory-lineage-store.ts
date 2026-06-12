@@ -84,7 +84,7 @@ export class InMemoryLineageStore implements LineageStore {
     return sortAttempts(
       attemptIds
         .map((attemptId) => this.attempts.get(attemptId))
-        .filter((attempt): attempt is SealAttempt => attempt != null)
+        .filter((attempt): attempt is SealAttempt => attempt != null),
     );
   }
 
@@ -93,7 +93,7 @@ export class InMemoryLineageStore implements LineageStore {
     return sortAttempts(
       attemptIds
         .map((attemptId) => this.attempts.get(attemptId))
-        .filter((attempt): attempt is SealAttempt => attempt != null)
+        .filter((attempt): attempt is SealAttempt => attempt != null),
     );
   }
 
@@ -137,10 +137,10 @@ export class InMemoryLineageStore implements LineageStore {
     const branch = this.branches.get(mutation.branchId);
     assertLineage(branch != null, `LIN-STORE-4 violation: unknown branch ${mutation.branchId}`);
     assertLineage(
-      branch.head === mutation.expectedHead
-        && branch.tip === mutation.expectedTip
-        && branch.epoch === mutation.expectedEpoch,
-      `LIN-STORE-4 violation: branch ${mutation.branchId} CAS mismatch`
+      branch.head === mutation.expectedHead &&
+        branch.tip === mutation.expectedTip &&
+        branch.epoch === mutation.expectedEpoch,
+      `LIN-STORE-4 violation: branch ${mutation.branchId} CAS mismatch`,
     );
 
     this.branches.set(mutation.branchId, {
@@ -174,17 +174,26 @@ export class InMemoryLineageStore implements LineageStore {
     return this.activeBranchId;
   }
 
-  async switchActiveBranch(
-    sourceBranchId: BranchId,
-    targetBranchId: BranchId
-  ): Promise<void> {
-    assertLineage(sourceBranchId !== targetBranchId, "LIN-SWITCH-5 violation: self-switch is not allowed");
-    assertLineage(this.activeBranchId === sourceBranchId, "LIN-SWITCH-1 violation: source branch is not active");
+  async switchActiveBranch(sourceBranchId: BranchId, targetBranchId: BranchId): Promise<void> {
+    assertLineage(
+      sourceBranchId !== targetBranchId,
+      "LIN-SWITCH-5 violation: self-switch is not allowed",
+    );
+    assertLineage(
+      this.activeBranchId === sourceBranchId,
+      "LIN-SWITCH-1 violation: source branch is not active",
+    );
 
     const sourceBranch = this.branches.get(sourceBranchId);
     const targetBranch = this.branches.get(targetBranchId);
-    assertLineage(sourceBranch != null, `LIN-SWITCH-3 violation: missing source branch ${sourceBranchId}`);
-    assertLineage(targetBranch != null, `LIN-SWITCH-3 violation: missing target branch ${targetBranchId}`);
+    assertLineage(
+      sourceBranch != null,
+      `LIN-SWITCH-3 violation: missing source branch ${sourceBranchId}`,
+    );
+    assertLineage(
+      targetBranch != null,
+      `LIN-SWITCH-3 violation: missing target branch ${targetBranchId}`,
+    );
 
     this.branches.set(sourceBranchId, {
       ...sourceBranch,
@@ -198,14 +207,17 @@ export class InMemoryLineageStore implements LineageStore {
     let nextActiveBranchId = this.activeBranchId;
 
     if (prepared.branchChange.kind === "bootstrap") {
-      assertLineage(nextBranches.size === 0, "LIN-GENESIS-3 violation: genesis requires an empty branch store");
+      assertLineage(
+        nextBranches.size === 0,
+        "LIN-GENESIS-3 violation: genesis requires an empty branch store",
+      );
       assertLineage(
         nextActiveBranchId == null,
-        "LIN-GENESIS-3 violation: active branch must be empty before genesis bootstrap"
+        "LIN-GENESIS-3 violation: active branch must be empty before genesis bootstrap",
       );
       assertLineage(
         !nextBranches.has(prepared.branchChange.branch.id),
-        `LIN-GENESIS-3 violation: branch ${prepared.branchChange.branch.id} already exists`
+        `LIN-GENESIS-3 violation: branch ${prepared.branchChange.branch.id} already exists`,
       );
       nextBranches.set(prepared.branchChange.branch.id, cloneBranch(prepared.branchChange.branch));
       nextActiveBranchId = prepared.branchChange.activeBranchId;
@@ -213,13 +225,13 @@ export class InMemoryLineageStore implements LineageStore {
       const branch = nextBranches.get(prepared.branchChange.branchId);
       assertLineage(
         branch != null,
-        `LIN-STORE-7 violation: missing branch ${prepared.branchChange.branchId} for prepared commit`
+        `LIN-STORE-7 violation: missing branch ${prepared.branchChange.branchId} for prepared commit`,
       );
       assertLineage(
-        branch.head === prepared.branchChange.expectedHead
-          && branch.tip === prepared.branchChange.expectedTip
-          && branch.epoch === prepared.branchChange.expectedEpoch,
-        `LIN-STORE-4 violation: branch ${prepared.branchChange.branchId} CAS mismatch`
+        branch.head === prepared.branchChange.expectedHead &&
+          branch.tip === prepared.branchChange.expectedTip &&
+          branch.epoch === prepared.branchChange.expectedEpoch,
+        `LIN-STORE-4 violation: branch ${prepared.branchChange.branchId} CAS mismatch`,
       );
       nextBranches.set(prepared.branchChange.branchId, {
         ...branch,
@@ -236,12 +248,12 @@ export class InMemoryLineageStore implements LineageStore {
     if (reused) {
       assertLineage(
         existingWorld.parentWorldId === prepared.world.parentWorldId,
-        `LIN-STORE-9 violation: world ${prepared.worldId} exists with a different parent`
+        `LIN-STORE-9 violation: world ${prepared.worldId} exists with a different parent`,
       );
       if (prepared.kind === "next") {
         assertLineage(
           this.edges.has(prepared.edge.edgeId),
-          `LIN-STORE-9 violation: reuse world ${prepared.worldId} is missing edge ${prepared.edge.edgeId}`
+          `LIN-STORE-9 violation: reuse world ${prepared.worldId} is missing edge ${prepared.edge.edgeId}`,
         );
       }
     } else {

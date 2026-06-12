@@ -12,7 +12,13 @@ import type { DomainSchema } from "./schema/domain.js";
 import type { Snapshot } from "./schema/snapshot.js";
 import type { Intent, Patch } from "./schema/patch.js";
 import type { SemanticPath } from "./schema/common.js";
-import type { ComputeResult, ValidationResult, ExplainResult, NamespaceDelta, SystemDelta } from "./schema/result.js";
+import type {
+  ComputeResult,
+  ValidationResult,
+  ExplainResult,
+  NamespaceDelta,
+  SystemDelta,
+} from "./schema/result.js";
 import type { Context, JsonValue } from "./schema/context.js";
 
 import { compute, computeSync, validateIntentInput } from "./core/compute.js";
@@ -58,7 +64,7 @@ export interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot,
     intent: Intent,
-    context: Context
+    context: Context,
   ): Promise<ComputeResult>;
 
   /**
@@ -68,26 +74,19 @@ export interface ManifestoCore {
     schema: DomainSchema,
     snapshot: Snapshot,
     intent: Intent,
-    context: Context
+    context: Context,
   ): ComputeResult;
 
   /**
    * Apply patches to a snapshot.
    * Returns new snapshot with recomputed values.
    */
-  apply(
-    schema: DomainSchema,
-    snapshot: Snapshot,
-    patches: readonly Patch[]
-  ): Snapshot;
+  apply(schema: DomainSchema, snapshot: Snapshot, patches: readonly Patch[]): Snapshot;
 
   /**
    * Apply namespace transitions to a snapshot.
    */
-  applyNamespaceDeltas(
-    snapshot: Snapshot,
-    deltas: readonly NamespaceDelta[]
-  ): Snapshot;
+  applyNamespaceDeltas(snapshot: Snapshot, deltas: readonly NamespaceDelta[]): Snapshot;
 
   /**
    * Apply a system transition emitted by compute().
@@ -102,44 +101,29 @@ export interface ManifestoCore {
   /**
    * Explain why a value is what it is.
    */
-  explain(
-    schema: DomainSchema,
-    snapshot: Snapshot,
-    path: SemanticPath
-  ): ExplainResult;
+  explain(schema: DomainSchema, snapshot: Snapshot, path: SemanticPath): ExplainResult;
 
   /**
    * Check whether an action is currently available for a new invocation.
    */
-  isActionAvailable(
-    schema: DomainSchema,
-    snapshot: Snapshot,
-    actionName: string
-  ): boolean;
+  isActionAvailable(schema: DomainSchema, snapshot: Snapshot, actionName: string): boolean;
 
   /**
    * Return all currently available action names.
    */
-  getAvailableActions(
-    schema: DomainSchema,
-    snapshot: Snapshot
-  ): readonly string[];
+  getAvailableActions(schema: DomainSchema, snapshot: Snapshot): readonly string[];
 
   /**
    * Check whether a specific bound intent is dispatchable against the current snapshot.
    */
-  isIntentDispatchable(
-    schema: DomainSchema,
-    snapshot: Snapshot,
-    intent: Intent
-  ): boolean;
+  isIntentDispatchable(schema: DomainSchema, snapshot: Snapshot, intent: Intent): boolean;
 
   /**
    * Validate a materialized ADR-027 external context value against the schema.
    */
   validateExternalContext(
     schema: DomainSchema,
-    external: Record<string, JsonValue>
+    external: Record<string, JsonValue>,
   ): ValidationResult;
 }
 

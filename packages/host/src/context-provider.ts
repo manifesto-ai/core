@@ -46,20 +46,14 @@ export interface HostContextProvider {
    * @param intentId - The intent ID for deterministic randomSeed derivation
    * @returns Frozen Context
    */
-  createFrozenContext(
-    intentId: string,
-    external?: Record<string, JsonValue>
-  ): Context;
+  createFrozenContext(intentId: string, external?: Record<string, JsonValue>): Context;
 
   /**
    * Create an initial context for snapshot creation (before intents)
    *
    * @param randomSeed - Optional seed (defaults to "initial")
    */
-  createInitialContext(
-    randomSeed?: string,
-    external?: Record<string, JsonValue>
-  ): Context;
+  createInitialContext(randomSeed?: string, external?: Record<string, JsonValue>): Context;
 
   /**
    * Get environment variables
@@ -86,10 +80,7 @@ export class DefaultHostContextProvider implements HostContextProvider {
    *
    * @see SPEC §11.3 Frozen Context Pattern
    */
-  createFrozenContext(
-    intentId: string,
-    external?: Record<string, JsonValue>
-  ): Context {
+  createFrozenContext(intentId: string, external?: Record<string, JsonValue>): Context {
     // CTX-3: Call now() exactly once and freeze the value
     const now = this.nowProvider();
 
@@ -110,7 +101,7 @@ export class DefaultHostContextProvider implements HostContextProvider {
    */
   createInitialContext(
     randomSeed: string = "initial",
-    external?: Record<string, JsonValue>
+    external?: Record<string, JsonValue>,
   ): Context {
     return Object.freeze({
       runtime: Object.freeze({
@@ -130,9 +121,7 @@ export class DefaultHostContextProvider implements HostContextProvider {
   }
 }
 
-function cloneExternalContext(
-  external: Record<string, JsonValue>
-): Record<string, JsonValue> {
+function cloneExternalContext(external: Record<string, JsonValue>): Record<string, JsonValue> {
   return cloneJsonObject(external, new WeakSet());
 }
 
@@ -167,7 +156,7 @@ function cloneJsonValue(value: JsonValue, seen: WeakSet<object>): JsonValue {
     seen.add(value);
     const cloned: JsonValue[] = [];
     for (let index = 0; index < value.length; index += 1) {
-      if (!Object.prototype.hasOwnProperty.call(value, index)) {
+      if (!Object.hasOwn(value, index)) {
         throw new TypeError("Context external arrays must not contain holes");
       }
       cloned.push(cloneJsonValue(value[index] as JsonValue, seen));
@@ -229,7 +218,7 @@ function rejectSymbolKeys(value: object): void {
  */
 export function createHostContextProvider(
   runtime: Runtime,
-  options: Omit<HostContextProviderOptions, "now"> = {}
+  options: Omit<HostContextProviderOptions, "now"> = {},
 ): HostContextProvider {
   return new DefaultHostContextProvider({
     now: () => runtime.now(),
@@ -247,7 +236,7 @@ export function createHostContextProvider(
  */
 export function createTestHostContextProvider(
   fixedTimestamp: number,
-  env?: Record<string, JsonValue>
+  env?: Record<string, JsonValue>,
 ): HostContextProvider {
   return new DefaultHostContextProvider({
     now: () => fixedTimestamp,

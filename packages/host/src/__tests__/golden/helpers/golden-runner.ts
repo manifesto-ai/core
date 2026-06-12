@@ -18,7 +18,7 @@ import type { DeterministicRuntime } from "../../compliance/hcts-runtime.js";
 import { createTestRuntime } from "../../compliance/hcts-runtime.js";
 import { V2HostAdapter } from "../../compliance/adapter-v2.js";
 import { SimpleTestEffectRunner } from "../../compliance/hcts-adapter.js";
-import type { EffectHandler, } from "../../../effects/types.js";
+import type { EffectHandler } from "../../../effects/types.js";
 import { stripHostState } from "../../helpers/host-state.js";
 
 /**
@@ -177,7 +177,10 @@ export class GoldenRunner {
   /**
    * Execute the same scenario multiple times and verify determinism
    */
-  async verifyDeterminism(scenario: GoldenScenario, runs: number = 3): Promise<{
+  async verifyDeterminism(
+    scenario: GoldenScenario,
+    runs: number = 3,
+  ): Promise<{
     deterministic: boolean;
     results: GoldenResult[];
     differences?: string[];
@@ -216,7 +219,9 @@ export class GoldenRunner {
 
       // Compare trace event count
       if (baseline.trace.length !== current.trace.length) {
-        differences.push(`Run ${i + 1}: Trace event count differs (${baseline.trace.length} vs ${current.trace.length})`);
+        differences.push(
+          `Run ${i + 1}: Trace event count differs (${baseline.trace.length} vs ${current.trace.length})`,
+        );
       }
     }
 
@@ -238,10 +243,7 @@ export class GoldenRunner {
 /**
  * Create a golden test snapshot with deterministic metadata
  */
-export function createGoldenSnapshot(
-  data: Record<string, unknown>,
-  schemaHash: string
-): Snapshot {
+export function createGoldenSnapshot(data: Record<string, unknown>, schemaHash: string): Snapshot {
   return createSnapshot(data, schemaHash, {
     runtime: {
       time: { timestamp: 0 },
@@ -258,9 +260,7 @@ export function createGoldenSnapshot(
 function normalizeId(id: string): string {
   // Replace numbers with N
   // Replace random alphanumeric suffixes (after dashes) with X
-  return id
-    .replace(/\d+/g, "N")
-    .replace(/-[a-zA-Z]+$/g, "-X"); // Replace random suffix like "-hNawqku" with "-X"
+  return id.replace(/\d+/g, "N").replace(/-[a-zA-Z]+$/g, "-X"); // Replace random suffix like "-hNawqku" with "-X"
 }
 
 /**
@@ -356,7 +356,7 @@ export function normalizeTrace(trace: TraceEvent[]): NormalizedTraceEvent[] {
  */
 export function compareGoldenResults(
   expected: GoldenResult,
-  actual: GoldenResult
+  actual: GoldenResult,
 ): { equal: boolean; differences: string[] } {
   const differences: string[] = [];
 
@@ -375,12 +375,16 @@ export function compareGoldenResults(
 
   // Compare state history length
   if (expected.stateHistory.length !== actual.stateHistory.length) {
-    differences.push(`State history length differs: ${expected.stateHistory.length} vs ${actual.stateHistory.length}`);
+    differences.push(
+      `State history length differs: ${expected.stateHistory.length} vs ${actual.stateHistory.length}`,
+    );
   }
 
   // Compare metadata
   if (expected.metadata.intentCount !== actual.metadata.intentCount) {
-    differences.push(`Intent count differs: ${expected.metadata.intentCount} vs ${actual.metadata.intentCount}`);
+    differences.push(
+      `Intent count differs: ${expected.metadata.intentCount} vs ${actual.metadata.intentCount}`,
+    );
   }
 
   return {
@@ -415,7 +419,7 @@ export function createGoldenSchema(config: {
           Object.entries(config.fields).map(([name, spec]) => [
             name,
             { type: spec.type, required: spec.required ?? true },
-          ])
+          ]),
         ),
       },
     },

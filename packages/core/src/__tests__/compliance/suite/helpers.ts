@@ -151,7 +151,11 @@ export function createComplianceSnapshot(
   return createSnapshot(state, schemaHash, HOST_CONTEXT);
 }
 
-export function createComplianceIntent(type: string, input?: unknown, intentId = "intent-1"): Intent {
+export function createComplianceIntent(
+  type: string,
+  input?: unknown,
+  intentId = "intent-1",
+): Intent {
   return input === undefined ? createIntent(type, intentId) : createIntent(type, input, intentId);
 }
 
@@ -173,13 +177,20 @@ export function expectValidationCode(
   code: string,
   path?: string,
 ): void {
-  expect(errors).toEqual(expect.arrayContaining([
-    expect.objectContaining(path ? { code, path } : { code }),
-  ]));
+  expect(errors).toEqual(
+    expect.arrayContaining([expect.objectContaining(path ? { code, path } : { code })]),
+  );
 }
 
 export function evaluate(expr: ExprNode, snapshot: Snapshot, schema: DomainSchema): unknown {
-  const ctx = createContext(snapshot, schema, "cts", "core-cts", "intent-1", snapshot.meta.timestamp);
+  const ctx = createContext(
+    snapshot,
+    schema,
+    "cts",
+    "core-cts",
+    "intent-1",
+    snapshot.meta.timestamp,
+  );
   const result = evaluateExpr(expr, ctx);
   if (!isOk(result)) {
     throw new Error(result.error.message);

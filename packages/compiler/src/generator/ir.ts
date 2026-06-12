@@ -8,7 +8,7 @@ import type { SourceLocation } from "../lexer/source-location.js";
 import type {
   ProgramNode,
   DomainNode,
-  TypeDeclNode,   // v0.3.3
+  TypeDeclNode, // v0.3.3
   StateFieldNode,
   ContextFieldNode,
   ComputedNode,
@@ -20,17 +20,13 @@ import type {
   OnceIntentStmtNode,
   PatchStmtNode,
   EffectStmtNode,
-  FailStmtNode,   // v0.3.2
-  StopStmtNode,   // v0.3.2
+  FailStmtNode, // v0.3.2
+  StopStmtNode, // v0.3.2
   PathNode,
   TypeExprNode,
 } from "../parser/ast.js";
 import type { MelExprNode } from "../lowering/lower-expr.js";
-import {
-  getPathExpr,
-  sysPathExpr,
-  toMelExpr,
-} from "../lowering/to-mel-expr.js";
+import { getPathExpr, sysPathExpr, toMelExpr } from "../lowering/to-mel-expr.js";
 import {
   hashSchemaSync,
   sha256Sync,
@@ -63,7 +59,12 @@ type CompilerFlowPatchPath = CompilerFlowPatchSegment[];
 export type CompilerFlowNode =
   | { kind: "seq"; steps: CompilerFlowNode[] }
   | { kind: "if"; cond: CompilerExprNode; then: CompilerFlowNode; else?: CompilerFlowNode }
-  | { kind: "patch"; op: "set" | "unset" | "merge"; path: CompilerFlowPatchPath; value?: CompilerExprNode }
+  | {
+      kind: "patch";
+      op: "set" | "unset" | "merge";
+      path: CompilerFlowPatchPath;
+      value?: CompilerExprNode;
+    }
   | { kind: "causalGuard"; guardId: string; body: CompilerFlowNode }
   | { kind: "effect"; type: string; params: Record<string, CompilerExprNode> }
   | { kind: "call"; flow: string }
@@ -74,7 +75,12 @@ export type CompilerFlowNode =
  * Field type definition
  */
 export type FieldType =
-  | "string" | "number" | "boolean" | "null" | "object" | "array"
+  | "string"
+  | "number"
+  | "boolean"
+  | "null"
+  | "object"
+  | "array"
   | { enum: readonly unknown[] };
 
 /**
@@ -277,7 +283,7 @@ export function generateCanonical(program: ProgramNode): GenerateCanonicalResult
   const computed = generateComputed(program.domain, ctx);
   const actions = generateActions(program.domain, ctx);
 
-  if (ctx.diagnostics.some(d => d.severity === "error")) {
+  if (ctx.diagnostics.some((d) => d.severity === "error")) {
     return {
       schema: null,
       diagnostics: ctx.diagnostics,
@@ -472,7 +478,10 @@ function generateContext(domain: DomainNode, ctx: GeneratorContext): ContextSpec
   return sawContext ? { fields, fieldTypes } : undefined;
 }
 
-function generateContextFieldSpec(field: ContextFieldNode, ctx: GeneratorContext): FieldSpec | null {
+function generateContextFieldSpec(
+  field: ContextFieldNode,
+  ctx: GeneratorContext,
+): FieldSpec | null {
   const spec = typeExprToFieldSpec(field.typeExpr, ctx);
   if (!spec) {
     return null;
@@ -488,9 +497,7 @@ function generateFieldSpec(field: StateFieldNode, ctx: GeneratorContext): FieldS
   if (!spec) {
     return null;
   }
-  const defaultValue = field.initializer
-    ? evaluateInitializer(field.initializer, ctx)
-    : undefined;
+  const defaultValue = field.initializer ? evaluateInitializer(field.initializer, ctx) : undefined;
 
   // Track 2: validate literal default against the type-level spec
   // (before `required: true` override, which means "field must exist in state",
@@ -519,15 +526,19 @@ function generateFieldSpec(field: StateFieldNode, ctx: GeneratorContext): FieldS
 function typeExprToFieldSpec(
   typeExpr: TypeExprNode,
   ctx: GeneratorContext,
-  seenTypeRefs: readonly string[] = []
+  seenTypeRefs: readonly string[] = [],
 ): FieldSpec | null {
   switch (typeExpr.kind) {
     case "simpleType":
       switch (typeExpr.name) {
-        case "string": return { type: "string", required: true };
-        case "number": return { type: "number", required: true };
-        case "boolean": return { type: "boolean", required: true };
-        case "null": return { type: "null", required: true };
+        case "string":
+          return { type: "string", required: true };
+        case "number":
+          return { type: "number", required: true };
+        case "boolean":
+          return { type: "boolean", required: true };
+        case "null":
+          return { type: "null", required: true };
         default: {
           // User-defined type - look up and expand
           const typeDef = ctx.typeDefs.get(typeExpr.name);
@@ -537,7 +548,7 @@ function typeExprToFieldSpec(
                 ctx,
                 "E044",
                 `Recursive type '${typeExpr.name}' cannot be lowered to FieldSpec in a schema position`,
-                typeExpr.location
+                typeExpr.location,
               );
               return null;
             }
@@ -550,7 +561,7 @@ function typeExprToFieldSpec(
 
     case "unionType": {
       const nonNullTypes = typeExpr.types.filter(
-        (candidate) => !isNullTypeExpr(candidate, ctx, seenTypeRefs)
+        (candidate) => !isNullTypeExpr(candidate, ctx, seenTypeRefs),
       );
       const hasNull = nonNullTypes.length !== typeExpr.types.length;
       const enumValues: unknown[] = [];
@@ -576,7 +587,7 @@ function typeExprToFieldSpec(
         ctx,
         "E043",
         `Union type '${describeTypeExpr(typeExpr)}' cannot be soundly lowered to FieldSpec`,
-        typeExpr.location
+        typeExpr.location,
       );
       return null;
     }
@@ -631,7 +642,7 @@ function typeExprToFieldSpec(
 function resolveTypeExprForFieldSpec(
   typeExpr: TypeExprNode,
   ctx: GeneratorContext,
-  seenTypeRefs: readonly string[] = []
+  seenTypeRefs: readonly string[] = [],
 ): TypeExprNode | null {
   if (typeExpr.kind !== "simpleType") {
     return typeExpr;
@@ -652,7 +663,7 @@ function resolveTypeExprForFieldSpec(
 function isNullTypeExpr(
   typeExpr: TypeExprNode,
   ctx: GeneratorContext,
-  seenTypeRefs: readonly string[] = []
+  seenTypeRefs: readonly string[] = [],
 ): boolean {
   const resolved = resolveTypeExprForFieldSpec(typeExpr, ctx, seenTypeRefs);
   return (
@@ -673,7 +684,7 @@ function pushSchemaTypeError(
   ctx: GeneratorContext,
   code: string,
   message: string,
-  location: TypeExprNode["location"]
+  location: TypeExprNode["location"],
 ): void {
   ctx.diagnostics.push({
     severity: "error",
@@ -724,8 +735,10 @@ function resolveTypeDefinitionWithCtx(
 }
 
 function isNullTypeDefinition(definition: TypeDefinition | null): boolean {
-  return (definition?.kind === "primitive" && definition.type === "null")
-    || (definition?.kind === "literal" && definition.value === null);
+  return (
+    (definition?.kind === "primitive" && definition.type === "null") ||
+    (definition?.kind === "literal" && definition.value === null)
+  );
 }
 
 function getSingleNonNullUnionBranch(
@@ -760,9 +773,7 @@ function getPatchLiteralValidationTargetType(
   }
 
   const resolvedNonNullBranch = resolveTypeDefinitionWithCtx(nonNullBranch, ctx);
-  return resolvedNonNullBranch?.kind === "object"
-    ? nonNullBranch
-    : targetType;
+  return resolvedNonNullBranch?.kind === "object" ? nonNullBranch : targetType;
 }
 
 function describeTypeDefinition(definition: TypeDefinition): string {
@@ -775,7 +786,10 @@ function describeTypeDefinition(definition: TypeDefinition): string {
       return `Record<${describeTypeDefinition(definition.key)}, ${describeTypeDefinition(definition.value)}>`;
     case "object":
       return `{ ${Object.entries(definition.fields)
-        .map(([name, field]) => `${name}${field.optional ? "?" : ""}: ${describeTypeDefinition(field.type)}`)
+        .map(
+          ([name, field]) =>
+            `${name}${field.optional ? "?" : ""}: ${describeTypeDefinition(field.type)}`,
+        )
         .join("; ")} }`;
     case "union":
       return definition.types.map((candidate) => describeTypeDefinition(candidate)).join(" | ");
@@ -819,15 +833,20 @@ function literalMatchesTypeDefinition(
       return Object.is(value, resolved.value);
 
     case "array":
-      return Array.isArray(value)
-        && value.every((item) => literalMatchesTypeDefinition(item, resolved.element, ctx));
+      return (
+        Array.isArray(value) &&
+        value.every((item) => literalMatchesTypeDefinition(item, resolved.element, ctx))
+      );
 
     case "record":
-      return value !== null
-        && !Array.isArray(value)
-        && typeof value === "object"
-        && Object.values(value as Record<string, unknown>)
-          .every((item) => literalMatchesTypeDefinition(item, resolved.value, ctx));
+      return (
+        value !== null &&
+        !Array.isArray(value) &&
+        typeof value === "object" &&
+        Object.values(value as Record<string, unknown>).every((item) =>
+          literalMatchesTypeDefinition(item, resolved.value, ctx),
+        )
+      );
 
     case "object":
       if (value === null || Array.isArray(value) || typeof value !== "object") {
@@ -845,14 +864,18 @@ function literalMatchesTypeDefinition(
           }
           continue;
         }
-        if (!literalMatchesTypeDefinition((value as Record<string, unknown>)[name], field.type, ctx)) {
+        if (
+          !literalMatchesTypeDefinition((value as Record<string, unknown>)[name], field.type, ctx)
+        ) {
           return false;
         }
       }
       return true;
 
     case "union":
-      return resolved.types.some((candidate) => literalMatchesTypeDefinition(value, candidate, ctx));
+      return resolved.types.some((candidate) =>
+        literalMatchesTypeDefinition(value, candidate, ctx),
+      );
 
     case "ref":
       return false;
@@ -893,9 +916,7 @@ function validateLiteralAgainstTypeDefinition(
 
   switch (resolved.kind) {
     case "primitive": {
-      const actualType = Array.isArray(value)
-        ? "array"
-        : (value === null ? "null" : typeof value);
+      const actualType = Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
       switch (resolved.type) {
         case "null":
           if (value !== null) {
@@ -936,29 +957,42 @@ function validateLiteralAgainstTypeDefinition(
 
     case "array":
       if (!Array.isArray(value)) {
-        const actualType = value === null ? "null" : (typeof value === "object" ? "object" : typeof value);
+        const actualType =
+          value === null ? "null" : typeof value === "object" ? "object" : typeof value;
         emitTypeMismatch(ctx, fieldName, "array", actualType, location);
         return;
       }
       for (let i = 0; i < value.length; i += 1) {
-        validateLiteralAgainstTypeDefinition(value[i], resolved.element, `${fieldName}[${i}]`, location, ctx);
+        validateLiteralAgainstTypeDefinition(
+          value[i],
+          resolved.element,
+          `${fieldName}[${i}]`,
+          location,
+          ctx,
+        );
       }
       return;
 
     case "record":
       if (value === null || Array.isArray(value) || typeof value !== "object") {
-        const actualType = Array.isArray(value) ? "array" : (value === null ? "null" : typeof value);
+        const actualType = Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
         emitTypeMismatch(ctx, fieldName, "object", actualType, location);
         return;
       }
       for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-        validateLiteralAgainstTypeDefinition(entry, resolved.value, `${fieldName}.${key}`, location, ctx);
+        validateLiteralAgainstTypeDefinition(
+          entry,
+          resolved.value,
+          `${fieldName}.${key}`,
+          location,
+          ctx,
+        );
       }
       return;
 
     case "object":
       if (value === null || Array.isArray(value) || typeof value !== "object") {
-        const actualType = Array.isArray(value) ? "array" : (value === null ? "null" : typeof value);
+        const actualType = Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
         emitTypeMismatch(ctx, fieldName, "object", actualType, location);
         return;
       }
@@ -1020,7 +1054,14 @@ function _validateLiteralAgainstSpec(
 
   // Null on required (non-nullable) field
   if (value === null) {
-    if (spec.required !== false && !(typeof spec.type === "object" && "enum" in spec.type && (spec.type as {enum: unknown[]}).enum.includes(null))) {
+    if (
+      spec.required !== false &&
+      !(
+        typeof spec.type === "object" &&
+        "enum" in spec.type &&
+        (spec.type as { enum: unknown[] }).enum.includes(null)
+      )
+    ) {
       ctx.diagnostics.push({
         severity: "error",
         code: "E_TYPE_MISMATCH",
@@ -1047,7 +1088,11 @@ function _validateLiteralAgainstSpec(
   }
 
   // Primitive type check
-  const actualType = Array.isArray(value) ? "array" : (typeof value === "object" ? "object" : typeof value);
+  const actualType = Array.isArray(value)
+    ? "array"
+    : typeof value === "object"
+      ? "object"
+      : typeof value;
 
   if (specType === "string" && typeof value !== "string") {
     emitTypeMismatch(ctx, fieldName, "string", actualType, location);
@@ -1101,7 +1146,7 @@ function evaluateInitializer(expr: ExprNode, ctx: GeneratorContext): unknown {
       return expr.value;
 
     case "arrayLiteral":
-      return expr.elements.map(e => evaluateInitializer(e, ctx));
+      return expr.elements.map((e) => evaluateInitializer(e, ctx));
 
     case "objectLiteral": {
       const obj: Record<string, unknown> = {};
@@ -1112,7 +1157,11 @@ function evaluateInitializer(expr: ExprNode, ctx: GeneratorContext): unknown {
         }
 
         const spreadValue = evaluateInitializer(prop.expr, ctx);
-        if (spreadValue !== null && !Array.isArray(spreadValue) && typeof spreadValue === "object") {
+        if (
+          spreadValue !== null &&
+          !Array.isArray(spreadValue) &&
+          typeof spreadValue === "object"
+        ) {
           Object.assign(obj, spreadValue);
         }
       }
@@ -1129,7 +1178,7 @@ function evaluateInitializer(expr: ExprNode, ctx: GeneratorContext): unknown {
 
 function generateComputed(
   domain: DomainNode,
-  ctx: GeneratorContext
+  ctx: GeneratorContext,
 ): { fields: Record<string, CompilerComputedFieldSpec> } {
   const entries: ComputedEntry[] = [];
   let order = 0;
@@ -1161,7 +1210,10 @@ function generateComputed(
   return { fields };
 }
 
-function topologicallyOrderComputedEntries(entries: readonly ComputedEntry[], ctx: GeneratorContext): ComputedEntry[] {
+function topologicallyOrderComputedEntries(
+  entries: readonly ComputedEntry[],
+  ctx: GeneratorContext,
+): ComputedEntry[] {
   if (entries.length <= 1) {
     return [...entries];
   }
@@ -1208,13 +1260,15 @@ function topologicallyOrderComputedEntries(entries: readonly ComputedEntry[], ct
     const sortedNames = new Set(sorted.map((entry) => entry.name));
     const remaining = entries.filter((entry) => !sortedNames.has(entry.name));
     const cyclePath = findComputedCyclePath(remaining[0]!.name, computedDeps);
-    const renderedCycle = cyclePath ? cyclePath.join(" -> ") : remaining.map((entry) => entry.name).join(", ");
+    const renderedCycle = cyclePath
+      ? cyclePath.join(" -> ")
+      : remaining.map((entry) => entry.name).join(", ");
 
     pushSchemaTypeError(
       ctx,
       "E040",
       `Circular computed dependency: ${renderedCycle}`,
-      (cyclePath ? entryByName.get(cyclePath[0]) : remaining[0])!.location
+      (cyclePath ? entryByName.get(cyclePath[0]) : remaining[0])!.location,
     );
 
     return [...entries];
@@ -1226,7 +1280,7 @@ function topologicallyOrderComputedEntries(entries: readonly ComputedEntry[], ct
 function insertComputedQueue(
   queue: string[],
   candidate: string,
-  entryByName: Map<string, ComputedEntry>
+  entryByName: Map<string, ComputedEntry>,
 ): void {
   const candidateOrder = entryByName.get(candidate)?.order ?? Number.MAX_SAFE_INTEGER;
   let insertAt = queue.length;
@@ -1320,7 +1374,10 @@ function extractDeps(expr: CompilerExprNode): string[] {
 
 // ============ Action Generation ============
 
-function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<string, CompilerActionSpec> {
+function generateActions(
+  domain: DomainNode,
+  ctx: GeneratorContext,
+): Record<string, CompilerActionSpec> {
   const actions: Record<string, CompilerActionSpec> = {};
 
   for (const member of domain.members) {
@@ -1396,7 +1453,7 @@ function generateActions(domain: DomainNode, ctx: GeneratorContext): Record<stri
 
 function generateFlow(
   stmts: (GuardedStmtNode | InnerStmtNode)[],
-  ctx: GeneratorContext
+  ctx: GeneratorContext,
 ): CompilerFlowNode {
   if (stmts.length === 0) {
     return { kind: "seq", steps: [] };
@@ -1408,13 +1465,13 @@ function generateFlow(
 
   return {
     kind: "seq",
-    steps: stmts.map(s => generateStmt(s, ctx)),
+    steps: stmts.map((s) => generateStmt(s, ctx)),
   };
 }
 
 function generateStmt(
   stmt: GuardedStmtNode | InnerStmtNode,
-  ctx: GeneratorContext
+  ctx: GeneratorContext,
 ): CompilerFlowNode {
   switch (stmt.kind) {
     case "when":
@@ -1459,7 +1516,10 @@ function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CompilerFlowNo
   const intentIdExpr: CompilerExprNode = getPathExpr("$runtime", "intent", "id");
 
   // Condition: marker != $runtime.intent.id
-  let cond: CompilerExprNode = callExpr("neq", [generatePathReadExpr(stmt.marker, ctx), intentIdExpr]);
+  let cond: CompilerExprNode = callExpr("neq", [
+    generatePathReadExpr(stmt.marker, ctx),
+    intentIdExpr,
+  ]);
 
   // Add extra condition if present
   if (stmt.condition) {
@@ -1475,7 +1535,7 @@ function generateOnce(stmt: OnceStmtNode, ctx: GeneratorContext): CompilerFlowNo
     value: intentIdExpr,
   };
 
-  const bodySteps = stmt.body.map(s => generateStmt(s, ctx));
+  const bodySteps = stmt.body.map((s) => generateStmt(s, ctx));
 
   return {
     kind: "if",
@@ -1493,7 +1553,7 @@ function generateOnceIntent(stmt: OnceIntentStmtNode, ctx: GeneratorContext): Co
   ctx.onceIntentCounters.set(actionName, nextIndex + 1);
 
   const guardId = sha256Sync(`${actionName}:${nextIndex}:intent`);
-  const bodySteps = stmt.body.map(s => generateStmt(s, ctx));
+  const bodySteps = stmt.body.map((s) => generateStmt(s, ctx));
   const guarded: CompilerFlowNode = {
     kind: "causalGuard",
     guardId,
@@ -1523,7 +1583,14 @@ function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CompilerFlow
 
   if (stmt.value) {
     const valueExpr = generateExpr(stmt.value, ctx);
-    (result as { kind: "patch"; op: "set" | "unset" | "merge"; path: CompilerFlowPatchPath; value?: CompilerExprNode }).value = valueExpr;
+    (
+      result as {
+        kind: "patch";
+        op: "set" | "unset" | "merge";
+        path: CompilerFlowPatchPath;
+        value?: CompilerExprNode;
+      }
+    ).value = valueExpr;
 
     // Track 2: validate literal patch values against the target field's declared type
     if (stmt.op === "set") {
@@ -1554,7 +1621,11 @@ function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CompilerFlow
               continue;
             }
 
-            if (seg.kind === "propertySegment" && resolved.kind === "object" && resolved.fields[seg.name]) {
+            if (
+              seg.kind === "propertySegment" &&
+              resolved.kind === "object" &&
+              resolved.fields[seg.name]
+            ) {
               targetType = resolved.fields[seg.name].type;
             } else if (seg.kind === "propertySegment" && resolved.kind === "record") {
               targetType = resolved.value;
@@ -1569,9 +1640,9 @@ function generatePatch(stmt: PatchStmtNode, ctx: GeneratorContext): CompilerFlow
           if (targetType) {
             const literalValue = evaluatePatchLiteral(stmt.value, ctx);
             if (literalValue !== undefined) {
-              const fieldName = stmt.path.segments.map(s =>
-                s.kind === "propertySegment" ? s.name : "[*]"
-              ).join(".");
+              const fieldName = stmt.path.segments
+                .map((s) => (s.kind === "propertySegment" ? s.name : "[*]"))
+                .join(".");
               const validationTargetType = getPatchLiteralValidationTargetType(
                 targetType,
                 literalValue,
@@ -1632,7 +1703,10 @@ function generateFail(stmt: FailStmtNode, ctx: GeneratorContext): CompilerFlowNo
   };
 
   if (stmt.message) {
-    (result as { kind: "fail"; code: string; message?: CompilerExprNode }).message = generateExpr(stmt.message, ctx);
+    (result as { kind: "fail"; code: string; message?: CompilerExprNode }).message = generateExpr(
+      stmt.message,
+      ctx,
+    );
   }
 
   return result;
@@ -1752,10 +1826,7 @@ function generatePathReadExpr(path: PathNode, ctx: GeneratorContext): CompilerEx
   return current;
 }
 
-function appendStaticPathSegment(
-  base: CompilerExprNode,
-  segment: string
-): CompilerExprNode {
+function appendStaticPathSegment(base: CompilerExprNode, segment: string): CompilerExprNode {
   if (base.kind === "get" && !base.base) {
     return {
       kind: "get",
@@ -1779,7 +1850,7 @@ interface GenerateExprOptions {
 function generateExpr(
   expr: ExprNode,
   ctx: GeneratorContext,
-  options: GenerateExprOptions = {}
+  options: GenerateExprOptions = {},
 ): CompilerExprNode {
   return toMelExpr(expr, {
     resolveIdentifier: (name) => resolveIdentifier(name, ctx, options),
@@ -1790,12 +1861,12 @@ function generateExpr(
 function resolveIdentifier(
   name: string,
   ctx: GeneratorContext,
-  options: GenerateExprOptions = {}
+  options: GenerateExprOptions = {},
 ): CompilerExprNode {
   if (
-    options.preferActionParams
-    && ctx.currentAction
-    && ctx.actionParams.get(ctx.currentAction)?.has(name)
+    options.preferActionParams &&
+    ctx.currentAction &&
+    ctx.actionParams.get(ctx.currentAction)?.has(name)
   ) {
     return getPathExpr("input", name);
   }
@@ -1833,7 +1904,10 @@ function resolveSystemIdent(path: string[], ctx: GeneratorContext): CompilerExpr
         severity: "error",
         code: "E_INVALID_SYSTEM",
         message: `$${namespace}.* is retired in v5 MEL; use $runtime.* or declared $context.* where action-flow context is available`,
-        location: { start: { line: 0, column: 0, offset: 0 }, end: { line: 0, column: 0, offset: 0 } },
+        location: {
+          start: { line: 0, column: 0, offset: 0 },
+          end: { line: 0, column: 0, offset: 0 },
+        },
       });
       return { kind: "lit", value: null };
 
@@ -1842,7 +1916,10 @@ function resolveSystemIdent(path: string[], ctx: GeneratorContext): CompilerExpr
         severity: "error",
         code: "E_INVALID_SYSTEM",
         message: `Invalid dollar identifier namespace '$${namespace}'`,
-        location: { start: { line: 0, column: 0, offset: 0 }, end: { line: 0, column: 0, offset: 0 } },
+        location: {
+          start: { line: 0, column: 0, offset: 0 },
+          end: { line: 0, column: 0, offset: 0 },
+        },
       });
       return { kind: "lit", value: null };
   }

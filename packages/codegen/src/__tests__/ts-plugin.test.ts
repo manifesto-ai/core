@@ -72,7 +72,7 @@ describe("createTsPlugin", () => {
           objectType({
             name: { type: primitiveType("string"), optional: false },
             age: { type: primitiveType("number"), optional: true },
-          })
+          }),
         ),
       });
       const out = plugin.generate(ctx);
@@ -151,12 +151,12 @@ describe("createTsPlugin", () => {
       const ctx = makeCtx({
         "My-Type": createTypeSpec(
           "My-Type",
-          objectType({ id: { type: primitiveType("string"), optional: false } })
+          objectType({ id: { type: primitiveType("string"), optional: false } }),
         ),
         My_Type: createTypeSpec("My_Type", primitiveType("number")),
         Holder: createTypeSpec(
           "Holder",
-          objectType({ linked: { type: refType("My-Type"), optional: false } })
+          objectType({ linked: { type: refType("My-Type"), optional: false } }),
         ),
       });
       const out = plugin.generate(ctx);
@@ -168,10 +168,12 @@ describe("createTsPlugin", () => {
       expect(content).not.toContain("My-Type");
       const artifacts = out.artifacts as Record<string, unknown>;
       expect(artifacts.typeNames).toEqual(["Holder", "My_Type_2", "My_Type"]);
-      expect(out.diagnostics).toContainEqual(expect.objectContaining({
-        level: "warn",
-        message: expect.stringContaining('"My-Type"'),
-      }));
+      expect(out.diagnostics).toContainEqual(
+        expect.objectContaining({
+          level: "warn",
+          message: expect.stringContaining('"My-Type"'),
+        }),
+      );
     });
 
     it("quotes object field keys that are not valid identifier names", () => {
@@ -181,7 +183,7 @@ describe("createTsPlugin", () => {
           objectType({
             "my-key": { type: primitiveType("string"), optional: false },
             "2nd": { type: primitiveType("number"), optional: true },
-          })
+          }),
         ),
       });
       const out = plugin.generate(ctx);
@@ -216,10 +218,12 @@ describe("createTsPlugin", () => {
       const content = (actionsPatch as { content: string }).content;
       expect(content).toContain("export type _2ndStepInput = ");
       expect(content).toContain('"step name": string');
-      expect(out.diagnostics).toContainEqual(expect.objectContaining({
-        level: "warn",
-        message: expect.stringContaining('"2ndStepInput"'),
-      }));
+      expect(out.diagnostics).toContainEqual(
+        expect.objectContaining({
+          level: "warn",
+          message: expect.stringContaining('"2ndStepInput"'),
+        }),
+      );
     });
   });
 });

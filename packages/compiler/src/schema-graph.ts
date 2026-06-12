@@ -1,16 +1,9 @@
 import type { FlowPatchPath } from "@manifesto-ai/core";
-import type {
-  CoreExprNode,
-  CoreFlowNode,
-  DomainSchema,
-} from "./generator/ir.js";
+import type { CoreExprNode, CoreFlowNode, DomainSchema } from "./generator/ir.js";
 
 export type SchemaGraphNodeKind = "state" | "computed" | "action";
 
-export type SchemaGraphNodeId =
-  | `state:${string}`
-  | `computed:${string}`
-  | `action:${string}`;
+export type SchemaGraphNodeId = `state:${string}` | `computed:${string}` | `action:${string}`;
 
 export type SchemaGraphNode = {
   readonly id: SchemaGraphNodeId;
@@ -34,8 +27,7 @@ export type SchemaGraph = {
 const COLLECTION_CONTEXT_ROOTS = new Set(["$item", "$index", "$array"]);
 
 export function extractSchemaGraph(schema: DomainSchema): SchemaGraph {
-  const stateNames = Object.keys(schema.state.fields)
-    .filter((name) => !name.startsWith("$"));
+  const stateNames = Object.keys(schema.state.fields).filter((name) => !name.startsWith("$"));
   const visibleComputedNames = getVisibleComputedNames(schema);
   const visibleComputedNameSet = new Set(visibleComputedNames);
   const stateNameSet = new Set(stateNames);
@@ -152,10 +144,7 @@ function getVisibleComputedNames(schema: DomainSchema): string[] {
       }
 
       const computedDependency = resolveComputedDependency(path, computedFields);
-      if (
-        computedDependency !== null
-        && !isVisibleComputed(computedDependency, visiting)
-      ) {
+      if (computedDependency !== null && !isVisibleComputed(computedDependency, visiting)) {
         visiting.delete(name);
         memo.set(name, false);
         return false;
@@ -167,27 +156,22 @@ function getVisibleComputedNames(schema: DomainSchema): string[] {
     return true;
   };
 
-  return Object.keys(computedFields)
-    .filter((name) => isVisibleComputed(name, new Set()));
+  return Object.keys(computedFields).filter((name) => isVisibleComputed(name, new Set()));
 }
 
-function collectMutationRootsFromFlow(
-  flow: CoreFlowNode,
-  schema: DomainSchema,
-): string[] {
+function collectMutationRootsFromFlow(flow: CoreFlowNode, schema: DomainSchema): string[] {
   const roots = new Set<string>();
 
-  const visit = (
-    node: CoreFlowNode | undefined,
-    callStack: ReadonlySet<string>,
-  ): void => {
+  const visit = (node: CoreFlowNode | undefined, callStack: ReadonlySet<string>): void => {
     if (!node) {
       return;
     }
 
     switch (node.kind) {
       case "seq":
-        node.steps.forEach((step) => visit(step, callStack));
+        node.steps.forEach((step) => {
+          visit(step, callStack);
+        });
         return;
       case "if":
         visit(node.then, callStack);
@@ -246,10 +230,10 @@ function rootFromPatchPath(path: FlowPatchPath): string | null {
 
 function rootFromEffectInto(value: unknown): string | null {
   if (
-    typeof value !== "object"
-    || value === null
-    || (value as { kind?: unknown }).kind !== "lit"
-    || typeof (value as { value?: unknown }).value !== "string"
+    typeof value !== "object" ||
+    value === null ||
+    (value as { kind?: unknown }).kind !== "lit" ||
+    typeof (value as { value?: unknown }).value !== "string"
   ) {
     return null;
   }
@@ -264,10 +248,7 @@ function resolveSourceNodeId(
   stateNames: ReadonlySet<string>,
 ): SchemaGraphNodeId | null {
   const computedDependency = resolveComputedDependency(dep, schema.computed.fields);
-  if (
-    computedDependency !== null
-    && visibleComputedNames.has(computedDependency)
-  ) {
+  if (computedDependency !== null && visibleComputedNames.has(computedDependency)) {
     return computedNodeId(computedDependency);
   }
 
@@ -287,7 +268,7 @@ function resolveComputedDependency(
   dep: string,
   computedFields: DomainSchema["computed"]["fields"],
 ): string | null {
-  if (Object.prototype.hasOwnProperty.call(computedFields, dep)) {
+  if (Object.hasOwn(computedFields, dep)) {
     return dep;
   }
 
@@ -296,9 +277,7 @@ function resolveComputedDependency(
   }
 
   const candidate = dep.slice("computed.".length);
-  return Object.prototype.hasOwnProperty.call(computedFields, candidate)
-    ? candidate
-    : null;
+  return Object.hasOwn(computedFields, candidate) ? candidate : null;
 }
 
 function rootFromSemanticPath(path: string): string | null {
@@ -399,20 +378,15 @@ function freezeGraph(graph: SchemaGraph): SchemaGraph {
   return Object.freeze({
     nodes: Object.freeze(graph.nodes.map((node) => Object.freeze(node))),
     edges: Object.freeze(
-      [...graph.edges]
-        .sort(compareSchemaGraphEdges)
-        .map((edge) => Object.freeze(edge)),
+      [...graph.edges].sort(compareSchemaGraphEdges).map((edge) => Object.freeze(edge)),
     ),
   });
 }
 
-function compareSchemaGraphEdges(
-  left: SchemaGraphEdge,
-  right: SchemaGraphEdge,
-): number {
+function compareSchemaGraphEdges(left: SchemaGraphEdge, right: SchemaGraphEdge): number {
   return (
-    left.from.localeCompare(right.from)
-    || left.to.localeCompare(right.to)
-    || left.relation.localeCompare(right.relation)
+    left.from.localeCompare(right.from) ||
+    left.to.localeCompare(right.to) ||
+    left.relation.localeCompare(right.relation)
   );
 }

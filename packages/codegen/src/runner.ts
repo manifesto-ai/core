@@ -127,9 +127,7 @@ export async function generate(opts: GenerateOptions): Promise<GenerateResult> {
   return { files, artifacts: allArtifacts, diagnostics };
 }
 
-function validatePluginNames(
-  plugins: readonly CodegenPlugin[]
-): Diagnostic | undefined {
+function validatePluginNames(plugins: readonly CodegenPlugin[]): Diagnostic | undefined {
   const seen = new Set<string>();
   for (const plugin of plugins) {
     if (!plugin.name) {

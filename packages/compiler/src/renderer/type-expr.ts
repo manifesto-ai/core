@@ -107,10 +107,7 @@ function renderObjectType(fields: TypeField[]): string {
  * @param defaultValue - Optional default value
  * @returns MEL field declaration string
  */
-export function renderTypeField(
-  field: TypeField,
-  defaultValue?: unknown
-): string {
+export function renderTypeField(field: TypeField, defaultValue?: unknown): string {
   const typeStr = renderTypeExpr(field.type);
 
   if (defaultValue !== undefined) {

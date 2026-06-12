@@ -17,9 +17,7 @@ type RuntimeReportHelperOptions<T extends ManifestoDomainShape> = {
   readonly getAvailableActionsFor: (
     snapshot: CanonicalSnapshot<T["state"]>,
   ) => readonly (keyof T["actions"])[];
-  readonly projectSnapshotFromCanonical: (
-    snapshot: CoreSnapshot,
-  ) => ProjectedSnapshot<T>;
+  readonly projectSnapshotFromCanonical: (snapshot: CoreSnapshot) => ProjectedSnapshot<T>;
 };
 
 export function createRuntimeReportHelpers<T extends ManifestoDomainShape>({
@@ -51,18 +49,10 @@ export function createRuntimeReportHelpers<T extends ManifestoDomainShape>({
     beforeSnapshot: CanonicalSnapshot<T["state"]>,
     afterSnapshot: CanonicalSnapshot<T["state"]>,
   ): DispatchExecutionOutcome<T> {
-    const stableBefore = cloneAndDeepFreeze(
-      beforeSnapshot,
-    ) as CanonicalSnapshot<T["state"]>;
-    const stableAfter = cloneAndDeepFreeze(afterSnapshot) as CanonicalSnapshot<
-      T["state"]
-    >;
-    const projectedBefore = projectSnapshotFromCanonical(
-      stableBefore as CoreSnapshot,
-    );
-    const projectedAfter = projectSnapshotFromCanonical(
-      stableAfter as CoreSnapshot,
-    );
+    const stableBefore = cloneAndDeepFreeze(beforeSnapshot) as CanonicalSnapshot<T["state"]>;
+    const stableAfter = cloneAndDeepFreeze(afterSnapshot) as CanonicalSnapshot<T["state"]>;
+    const projectedBefore = projectSnapshotFromCanonical(stableBefore as CoreSnapshot);
+    const projectedAfter = projectSnapshotFromCanonical(stableAfter as CoreSnapshot);
 
     return Object.freeze({
       projected: Object.freeze({
@@ -85,9 +75,7 @@ export function createRuntimeReportHelpers<T extends ManifestoDomainShape>({
     const failureWithCode = failure as Error & { code?: unknown };
     return Object.freeze({
       message: failure.message,
-      ...(typeof failureWithCode.code === "string"
-        ? { code: failureWithCode.code }
-        : {}),
+      ...(typeof failureWithCode.code === "string" ? { code: failureWithCode.code } : {}),
       ...(typeof failure.name === "string" ? { name: failure.name } : {}),
       stage,
     });
@@ -113,10 +101,7 @@ export function diffProjectedPaths<T>(
   const paths = new Map<string, ChangedPath>();
   const seen = new WeakMap<object, WeakSet<object>>();
 
-  const addPath = (
-    path: readonly (string | number)[],
-    kind: ChangedPath["kind"],
-  ): void => {
+  const addPath = (path: readonly (string | number)[], kind: ChangedPath["kind"]): void => {
     const rendered = renderPath(path);
     paths.set(
       rendered,
@@ -127,11 +112,7 @@ export function diffProjectedPaths<T>(
     );
   };
 
-  const visit = (
-    a: unknown,
-    b: unknown,
-    path: readonly (string | number)[],
-  ): void => {
+  const visit = (a: unknown, b: unknown, path: readonly (string | number)[]): void => {
     if (Object.is(a, b)) {
       return;
     }
@@ -166,8 +147,8 @@ export function diffProjectedPaths<T>(
 
       const limit = Math.max(a.length, b.length);
       for (let index = 0; index < limit; index += 1) {
-        const leftHas = Object.prototype.hasOwnProperty.call(a, index);
-        const rightHas = Object.prototype.hasOwnProperty.call(b, index);
+        const leftHas = Object.hasOwn(a, index);
+        const rightHas = Object.hasOwn(b, index);
         const childPath = [...path, index];
         if (leftHas !== rightHas) {
           addPath(childPath, leftHas ? "unset" : "set");
@@ -188,18 +169,14 @@ export function diffProjectedPaths<T>(
 
     const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
     for (const key of [...keys].sort()) {
-      const leftHas = Object.prototype.hasOwnProperty.call(a, key);
-      const rightHas = Object.prototype.hasOwnProperty.call(b, key);
+      const leftHas = Object.hasOwn(a, key);
+      const rightHas = Object.hasOwn(b, key);
       const childPath = [...path, key];
       if (leftHas !== rightHas) {
         addPath(childPath, leftHas ? "unset" : "set");
         continue;
       }
-      visit(
-        (a as Record<string, unknown>)[key],
-        (b as Record<string, unknown>)[key],
-        childPath,
-      );
+      visit((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key], childPath);
     }
   };
 
@@ -215,16 +192,12 @@ export function diffProjectedPaths<T>(
   );
 }
 
-function isPlainDiffableObject(
-  value: unknown,
-): value is Record<string, unknown> {
+function isPlainDiffableObject(value: unknown): value is Record<string, unknown> {
   return Object.prototype.toString.call(value) === "[object Object]";
 }
 
 function renderPath(path: readonly (string | number)[]): string {
-  return path
-    .map((segment) => (typeof segment === "number" ? `[${segment}]` : segment))
-    .join(".");
+  return path.map((segment) => (typeof segment === "number" ? `[${segment}]` : segment)).join(".");
 }
 
 function toError(error: unknown): Error {

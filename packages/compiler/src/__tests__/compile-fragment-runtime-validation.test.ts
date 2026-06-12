@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  compileFragmentInContext,
-  type MelEditResult,
-} from "../api/index.js";
+import { compileFragmentInContext, type MelEditResult } from "../api/index.js";
 
 const SOURCE = `
 domain Demo {
@@ -18,20 +15,25 @@ function expectScopeViolation(result: MelEditResult): void {
   expect(result.newSource).toBe(SOURCE);
   expect(result.edits).toEqual([]);
   expect(result.changedTargets).toEqual([]);
-  expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain("E_FRAGMENT_SCOPE_VIOLATION");
+  expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
+    "E_FRAGMENT_SCOPE_VIOLATION",
+  );
 }
 
 function changingNestedJsonValue(): { readonly value: object; readonly readCount: () => number } {
   let reads = 0;
-  const nested = new Proxy({ value: 1 }, {
-    get(target, property, receiver) {
-      if (property === "value") {
-        reads += 1;
-        return reads === 1 ? 1 : 2;
-      }
-      return Reflect.get(target, property, receiver);
+  const nested = new Proxy(
+    { value: 1 },
+    {
+      get(target, property, receiver) {
+        if (property === "value") {
+          reads += 1;
+          return reads === 1 ? 1 : 2;
+        }
+        return Reflect.get(target, property, receiver);
+      },
     },
-  });
+  );
   return { value: { nested }, readCount: () => reads };
 }
 
@@ -46,11 +48,14 @@ function jsonObjectWithProtoKey(value: unknown): object {
 
 describe("compileFragmentInContext runtime validation hardening", () => {
   it("returns diagnostics for revoked proxy edit operations instead of throwing", () => {
-    const revoked = Proxy.revocable({
-      kind: "addComputed",
-      name: "next",
-      expr: "count",
-    }, {});
+    const revoked = Proxy.revocable(
+      {
+        kind: "addComputed",
+        name: "next",
+        expr: "count",
+      },
+      {},
+    );
     revoked.revoke();
 
     const result = compileFragmentInContext(SOURCE, revoked.proxy as never);
@@ -159,16 +164,24 @@ describe("compileFragmentInContext runtime validation hardening", () => {
       },
     });
 
-    const missingSourceMap = compileFragmentInContext(SOURCE, {
-      kind: "addComputed",
-      name: "next",
-      expr: "count",
-    }, { baseModule: malformedBaseModule } as never);
-    const throwingSourceMap = compileFragmentInContext(SOURCE, {
-      kind: "addComputed",
-      name: "next",
-      expr: "count",
-    }, { baseModule: baseModuleAccessor } as never);
+    const missingSourceMap = compileFragmentInContext(
+      SOURCE,
+      {
+        kind: "addComputed",
+        name: "next",
+        expr: "count",
+      },
+      { baseModule: malformedBaseModule } as never,
+    );
+    const throwingSourceMap = compileFragmentInContext(
+      SOURCE,
+      {
+        kind: "addComputed",
+        name: "next",
+        expr: "count",
+      },
+      { baseModule: baseModuleAccessor } as never,
+    );
 
     expectScopeViolation(missingSourceMap);
     expectScopeViolation(throwingSourceMap);
@@ -199,9 +212,7 @@ describe("compileFragmentInContext runtime validation hardening", () => {
       enumerable: true,
       get() {
         bodyReads += 1;
-        return bodyReads === 1
-          ? "when true { patch count = value }"
-          : "computed escaped = count";
+        return bodyReads === 1 ? "when true { patch count = value }" : "computed escaped = count";
       },
     });
 
@@ -236,7 +247,8 @@ describe("compileFragmentInContext runtime validation hardening", () => {
       },
     });
 
-    const result = compileFragmentInContext(`
+    const result = compileFragmentInContext(
+      `
 domain Demo {
   state {
     count: number = 0
@@ -244,7 +256,9 @@ domain Demo {
 
   computed doubled = mul(count, 2)
 }
-`, op as never);
+`,
+      op as never,
+    );
 
     expect(result.ok).toBe(true);
     expect(result.newSource).toContain("computed doubled = count");
@@ -261,13 +275,12 @@ domain Demo {
       enumerable: true,
       get() {
         bodyReads += 1;
-        return bodyReads === 1
-          ? "when true { patch count = count }"
-          : "computed escaped = count";
+        return bodyReads === 1 ? "when true { patch count = count }" : "computed escaped = count";
       },
     });
 
-    const result = compileFragmentInContext(`
+    const result = compileFragmentInContext(
+      `
 domain Demo {
   state {
     count: number = 0
@@ -279,7 +292,9 @@ domain Demo {
     }
   }
 }
-`, op as never);
+`,
+      op as never,
+    );
 
     expect(result.ok).toBe(true);
     expect(result.newSource).toContain("patch count = count");
@@ -320,7 +335,9 @@ domain Demo {
     });
 
     expect(result.ok).toBe(true);
-    expect(result.newSource).toContain("payload: { nested: { value: number } } = { nested: { value: 1 } }");
+    expect(result.newSource).toContain(
+      "payload: { nested: { value: number } } = { nested: { value: 1 } }",
+    );
     expect(result.newSource).not.toContain("value: 2");
     expect(payload.readCount()).toBe(1);
   });
@@ -328,36 +345,44 @@ domain Demo {
   it("replaces state defaults from a validated deep JSON snapshot", () => {
     const payload = changingNestedJsonValue();
 
-    const result = compileFragmentInContext(`
+    const result = compileFragmentInContext(
+      `
 domain Demo {
   state {
     payload: { nested: { value: number } } = { nested: { value: 0 } }
   }
 }
-`, {
-      kind: "replaceStateDefault",
-      target: "state_field:payload",
-      value: payload.value as never,
-    });
+`,
+      {
+        kind: "replaceStateDefault",
+        target: "state_field:payload",
+        value: payload.value as never,
+      },
+    );
 
     expect(result.ok).toBe(true);
-    expect(result.newSource).toContain("payload: { nested: { value: number } } = { nested: { value: 1 } }");
+    expect(result.newSource).toContain(
+      "payload: { nested: { value: number } } = { nested: { value: 1 } }",
+    );
     expect(result.newSource).not.toContain("value: 2");
     expect(payload.readCount()).toBe(1);
   });
 
   it("preserves __proto__ keys in validated JSON snapshots", () => {
-    const result = compileFragmentInContext(`
+    const result = compileFragmentInContext(
+      `
 domain Demo {
   state {
     payload: { __proto__: number } = { __proto__: 0 }
   }
 }
-`, {
-      kind: "replaceStateDefault",
-      target: "state_field:payload",
-      value: jsonObjectWithProtoKey(1) as never,
-    });
+`,
+      {
+        kind: "replaceStateDefault",
+        target: "state_field:payload",
+        value: jsonObjectWithProtoKey(1) as never,
+      },
+    );
 
     expect(result.ok).toBe(true);
     expect(result.newSource).toContain("payload: { __proto__: number } = { __proto__: 1 }");

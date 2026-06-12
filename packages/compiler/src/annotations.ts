@@ -57,8 +57,7 @@ const INVALID_PAYLOAD_MESSAGE =
   "Annotation payloads must be JSON-like literals. MEL expressions are not allowed in @meta payloads.";
 const PAYLOAD_DEPTH_MESSAGE =
   "Annotation payload nesting exceeds the current MEL limit of 2 levels.";
-const DANGLING_TARGET_MESSAGE =
-  "Annotation target does not map to the emitted DomainSchema.";
+const DANGLING_TARGET_MESSAGE = "Annotation target does not map to the emitted DomainSchema.";
 const MAX_PAYLOAD_DEPTH = 2;
 
 type EntryMap = Map<LocalTargetKey, Annotation[]>;
@@ -74,7 +73,12 @@ export function buildAnnotationIndex(
   collectAnnotationsForTarget(domain.annotations, `domain:${domain.name}`, diagnostics, entries);
 
   for (const typeDecl of domain.types) {
-    collectAnnotationsForTarget(typeDecl.annotations, `type:${typeDecl.name}`, diagnostics, entries);
+    collectAnnotationsForTarget(
+      typeDecl.annotations,
+      `type:${typeDecl.name}`,
+      diagnostics,
+      entries,
+    );
     collectTypeFieldAnnotations(typeDecl.typeExpr, typeDecl.name, 0, diagnostics, entries);
   }
 
@@ -82,7 +86,12 @@ export function buildAnnotationIndex(
     switch (member.kind) {
       case "state":
         for (const field of member.fields) {
-          collectAnnotationsForTarget(field.annotations, `state_field:${field.name}`, diagnostics, entries);
+          collectAnnotationsForTarget(
+            field.annotations,
+            `state_field:${field.name}`,
+            diagnostics,
+            entries,
+          );
           collectUnsupportedTypeFieldAnnotations(field.typeExpr, diagnostics);
         }
         break;
@@ -94,11 +103,21 @@ export function buildAnnotationIndex(
         break;
 
       case "computed":
-        collectAnnotationsForTarget(member.annotations, `computed:${member.name}`, diagnostics, entries);
+        collectAnnotationsForTarget(
+          member.annotations,
+          `computed:${member.name}`,
+          diagnostics,
+          entries,
+        );
         break;
 
       case "action":
-        collectAnnotationsForTarget(member.annotations, `action:${member.name}`, diagnostics, entries);
+        collectAnnotationsForTarget(
+          member.annotations,
+          `action:${member.name}`,
+          diagnostics,
+          entries,
+        );
         collectActionParamAnnotationDiagnostics(member, diagnostics);
         for (const param of member.params) {
           collectUnsupportedTypeFieldAnnotations(param.typeExpr, diagnostics);
@@ -113,7 +132,13 @@ export function buildAnnotationIndex(
   const sortedEntries = {} as Record<LocalTargetKey, readonly Annotation[]>;
   for (const key of [...entries.keys()].sort()) {
     if (!hasSchemaTarget(schema, key)) {
-      diagnostics.push(createError("E057", DANGLING_TARGET_MESSAGE, inferTargetLocation(program, key) ?? domain.location));
+      diagnostics.push(
+        createError(
+          "E057",
+          DANGLING_TARGET_MESSAGE,
+          inferTargetLocation(program, key) ?? domain.location,
+        ),
+      );
       continue;
     }
     const targetAnnotations = entries.get(key);
@@ -145,9 +170,10 @@ function collectAnnotationsForTarget(
 
   const emitted: Annotation[] = [];
   for (const annotation of annotations) {
-    const payloadResult = annotation.payload === undefined
-      ? { ok: true as const, value: undefined }
-      : exprToJsonLiteral(annotation.payload, 0, diagnostics);
+    const payloadResult =
+      annotation.payload === undefined
+        ? { ok: true as const, value: undefined }
+        : exprToJsonLiteral(annotation.payload, 0, diagnostics);
 
     if (!payloadResult.ok) {
       continue;
@@ -261,10 +287,7 @@ function collectActionParamAnnotationDiagnostics(
   }
 }
 
-function pushActionParamDiagnostics(
-  param: ParamNode,
-  diagnostics: Diagnostic[],
-): void {
+function pushActionParamDiagnostics(param: ParamNode, diagnostics: Diagnostic[]): void {
   if (!param.annotations) {
     return;
   }
@@ -295,10 +318,10 @@ function exprToJsonLiteral(
   switch (expr.kind) {
     case "literal":
       if (
-        expr.literalType === "string"
-        || expr.literalType === "number"
-        || expr.literalType === "boolean"
-        || expr.literalType === "null"
+        expr.literalType === "string" ||
+        expr.literalType === "number" ||
+        expr.literalType === "boolean" ||
+        expr.literalType === "null"
       ) {
         return { ok: true, value: expr.value as JsonLiteral };
       }
@@ -456,7 +479,10 @@ function inferTargetLocation(
     if (!typeDecl || typeDecl.typeExpr.kind !== "objectType") {
       return typeDecl?.location ?? null;
     }
-    return typeDecl.typeExpr.fields.find((field) => field.name === fieldName)?.location ?? typeDecl.location;
+    return (
+      typeDecl.typeExpr.fields.find((field) => field.name === fieldName)?.location ??
+      typeDecl.location
+    );
   }
 
   if (kind === "state_field") {
@@ -469,11 +495,17 @@ function inferTargetLocation(
   }
 
   if (kind === "computed") {
-    return domain.members.find((member) => member.kind === "computed" && member.name === name)?.location ?? null;
+    return (
+      domain.members.find((member) => member.kind === "computed" && member.name === name)
+        ?.location ?? null
+    );
   }
 
   if (kind === "action") {
-    return domain.members.find((member) => member.kind === "action" && member.name === name)?.location ?? null;
+    return (
+      domain.members.find((member) => member.kind === "action" && member.name === name)?.location ??
+      null
+    );
   }
 
   return null;

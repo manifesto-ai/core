@@ -17,7 +17,7 @@
  * - LIVE-4: Kick blocked by runnerActive MUST be remembered and retried after runner exits
  */
 
-import type { ExecutionKey, ExecutionContext, } from "./types/execution.js";
+import type { ExecutionKey, ExecutionContext } from "./types/execution.js";
 import type { Job } from "./types/job.js";
 import { runJob } from "./job-handlers/index.js";
 
@@ -61,10 +61,7 @@ export function createRunnerState(): RunnerState {
  * @param ctx - Execution context (includes mailbox, runtime, etc.)
  * @param state - Runner state for coordination
  */
-export async function processMailbox(
-  ctx: ExecutionContext,
-  state: RunnerState
-): Promise<void> {
+export async function processMailbox(ctx: ExecutionContext, state: RunnerState): Promise<void> {
   const { key, mailbox, runtime } = ctx;
 
   // RUN-2: Re-entrant attempts return immediately, but remember the kick
@@ -136,10 +133,7 @@ export async function processMailbox(
  * @see SPEC §10.5.3 Implementation Pattern
  * @see LIVE-2: Kick runner on empty→non-empty transition
  */
-export function kickRunner(
-  ctx: ExecutionContext,
-  state: RunnerState
-): void {
+export function kickRunner(ctx: ExecutionContext, state: RunnerState): void {
   const { runtime } = ctx;
 
   // LIVE-2: Schedule runner processing
@@ -157,11 +151,7 @@ export function kickRunner(
  * @param ctx - Execution context
  * @param state - Runner state
  */
-export function enqueueAndKick(
-  job: Job,
-  ctx: ExecutionContext,
-  state: RunnerState
-): void {
+export function enqueueAndKick(job: Job, ctx: ExecutionContext, state: RunnerState): void {
   const wasEmpty = ctx.mailbox.isEmpty();
 
   ctx.mailbox.enqueue(job);
@@ -175,19 +165,13 @@ export function enqueueAndKick(
 /**
  * Check if a runner is active for an execution key
  */
-export function isRunnerActive(
-  key: ExecutionKey,
-  state: RunnerState
-): boolean {
+export function isRunnerActive(key: ExecutionKey, state: RunnerState): boolean {
   return state.runnerActive.has(key);
 }
 
 /**
  * Check if a kick is pending for an execution key
  */
-export function isKickPending(
-  key: ExecutionKey,
-  state: RunnerState
-): boolean {
+export function isKickPending(key: ExecutionKey, state: RunnerState): boolean {
   return state.kickRequested.has(key);
 }

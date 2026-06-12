@@ -35,7 +35,7 @@ const META_TYPE = objectType({
 export function createInferenceContext(
   schema: DomainSchema,
   diagnostics: Diagnostic[],
-  pluginName: string
+  pluginName: string,
 ): InferenceContext {
   return {
     schema,
@@ -47,10 +47,7 @@ export function createInferenceContext(
   };
 }
 
-export function inferComputedType(
-  name: string,
-  ctx: InferenceContext
-): DomainType {
+export function inferComputedType(name: string, ctx: InferenceContext): DomainType {
   if (ctx.computedCache.has(name)) {
     return ctx.computedCache.get(name) ?? unknownType();
   }
@@ -76,7 +73,7 @@ export function inferComputedType(
 export function inferExprType(
   expr: ExprNode,
   ctx: InferenceContext,
-  env: InferenceEnv = new Map()
+  env: InferenceEnv = new Map(),
 ): DomainType {
   switch (expr.kind) {
     case "lit":
@@ -137,10 +134,7 @@ export function inferExprType(
       return primitiveType("string");
 
     case "if":
-      return unionOf([
-        inferExprType(expr.then, ctx, env),
-        inferExprType(expr.else, ctx, env),
-      ]);
+      return unionOf([inferExprType(expr.then, ctx, env), inferExprType(expr.else, ctx, env)]);
 
     case "split":
       return arrayType(primitiveType("string"));
@@ -214,13 +208,11 @@ export function inferExprType(
         tupleType([
           primitiveType("string"),
           inferObjectValueType(inferExprType(expr.obj, ctx, env)),
-        ])
+        ]),
       );
 
     case "merge":
-      return inferMergeType(
-        expr.objects.map((objectExpr) => inferExprType(objectExpr, ctx, env))
-      );
+      return inferMergeType(expr.objects.map((objectExpr) => inferExprType(objectExpr, ctx, env)));
 
     case "pick":
       return inferPickLikeType(expr.obj, expr.keys, false, ctx, env);
@@ -232,23 +224,20 @@ export function inferExprType(
       return inferFromEntriesType(expr.entries, ctx, env);
 
     case "coalesce": {
-      const members = expr.args.flatMap((arg) =>
-        removeNullType(inferExprType(arg, ctx, env))
-      );
+      const members = expr.args.flatMap((arg) => removeNullType(inferExprType(arg, ctx, env)));
       return members.length === 0 ? primitiveType("null") : unionOf(members);
     }
 
     default:
-      warn(ctx, `Unsupported expression kind "${(expr as { kind: string }).kind}". Emitting "unknown".`);
+      warn(
+        ctx,
+        `Unsupported expression kind "${(expr as { kind: string }).kind}". Emitting "unknown".`,
+      );
       return unknownType();
   }
 }
 
-function inferPathType(
-  path: string,
-  ctx: InferenceContext,
-  env: InferenceEnv
-): DomainType {
+function inferPathType(path: string, ctx: InferenceContext, env: InferenceEnv): DomainType {
   const [head, ...tail] = path.split(".");
   if (!head) {
     warn(ctx, `Empty get() path encountered. Emitting "unknown".`);
@@ -283,15 +272,10 @@ function walkPathType(base: DomainType, segments: readonly string[]): DomainType
   return current;
 }
 
-function accessSegmentType(
-  base: DomainType,
-  segment: string
-): DomainType {
+function accessSegmentType(base: DomainType, segment: string): DomainType {
   switch (base.kind) {
     case "object":
-      return Object.hasOwn(base.fields, segment)
-        ? base.fields[segment].type
-        : unknownType();
+      return Object.hasOwn(base.fields, segment) ? base.fields[segment].type : unknownType();
     case "record":
       return unionOf([base.value, primitiveType("null")]);
     case "array":
@@ -300,12 +284,10 @@ function accessSegmentType(
         : unknownType();
     case "tuple":
       return isNumericSegment(segment)
-        ? base.elements[Number(segment)] ?? unknownType()
+        ? (base.elements[Number(segment)] ?? unknownType())
         : unknownType();
     case "union":
-      return unionIgnoringUnknown(
-        base.types.map((member) => accessSegmentType(member, segment))
-      );
+      return unionIgnoringUnknown(base.types.map((member) => accessSegmentType(member, segment)));
     default:
       return unknownType();
   }
@@ -314,7 +296,7 @@ function accessSegmentType(
 function inferIndexedAccessType(
   expr: ExprNode,
   ctx: InferenceContext,
-  env: InferenceEnv
+  env: InferenceEnv,
 ): DomainType {
   const base = inferExprType(expr, ctx, env);
   switch (base.kind) {
@@ -347,7 +329,7 @@ function inferIndexedAccessFromType(type: DomainType): DomainType {
 function inferCollectionElementType(
   expr: ExprNode,
   ctx: InferenceContext,
-  env: InferenceEnv
+  env: InferenceEnv,
 ): DomainType {
   return getArrayElementType(inferExprType(expr, ctx, env));
 }
@@ -365,11 +347,7 @@ function getArrayElementType(type: DomainType): DomainType {
   }
 }
 
-function inferArrayLikeType(
-  expr: ExprNode,
-  ctx: InferenceContext,
-  env: InferenceEnv
-): DomainType {
+function inferArrayLikeType(expr: ExprNode, ctx: InferenceContext, env: InferenceEnv): DomainType {
   const inferred = inferExprType(expr, ctx, env);
   switch (inferred.kind) {
     case "array":
@@ -398,11 +376,7 @@ function inferArrayLikeFromType(type: DomainType): DomainType {
   }
 }
 
-function inferFlatType(
-  expr: ExprNode,
-  ctx: InferenceContext,
-  env: InferenceEnv
-): DomainType {
+function inferFlatType(expr: ExprNode, ctx: InferenceContext, env: InferenceEnv): DomainType {
   const outer = inferArrayLikeType(expr, ctx, env);
   const outerElement = getArrayElementType(outer);
 
@@ -483,7 +457,7 @@ function inferPickLikeType(
   keysExpr: ExprNode,
   omit: boolean,
   ctx: InferenceContext,
-  env: InferenceEnv
+  env: InferenceEnv,
 ): DomainType {
   const base = inferExprType(objectExpr, ctx, env);
   if (base.kind !== "object") {
@@ -511,7 +485,7 @@ function inferPickLikeType(
 function inferFromEntriesType(
   entriesExpr: ExprNode,
   ctx: InferenceContext,
-  env: InferenceEnv
+  env: InferenceEnv,
 ): DomainType {
   const literalEntries = readLiteralEntries(entriesExpr);
   if (literalEntries) {
@@ -529,10 +503,7 @@ function inferFromEntriesType(
   return recordType(primitiveType("string"), unknownType());
 }
 
-function withCollectionEnv(
-  env: InferenceEnv,
-  itemType: DomainType
-): Map<string, DomainType> {
+function withCollectionEnv(env: InferenceEnv, itemType: DomainType): Map<string, DomainType> {
   const next = new Map(env);
   next.set("$index", primitiveType("number"));
   next.set("$item", itemType);
@@ -554,9 +525,7 @@ function readStringArrayLiteral(expr: ExprNode): string[] | null {
   return values;
 }
 
-function readLiteralEntries(
-  expr: ExprNode
-): Array<[string, unknown]> | null {
+function readLiteralEntries(expr: ExprNode): Array<[string, unknown]> | null {
   if (expr.kind !== "lit" || !Array.isArray(expr.value)) {
     return null;
   }

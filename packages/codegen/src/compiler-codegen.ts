@@ -20,7 +20,7 @@ export interface CompilerCodegenEmitter {
 }
 
 export function createCompilerCodegen(
-  options: CompilerCodegenOptions = {}
+  options: CompilerCodegenOptions = {},
 ): CompilerCodegenEmitter {
   const outDir = options.outDir ?? ".";
   const plugins = options.plugins ?? [createDomainPlugin()];

@@ -45,11 +45,11 @@ describe("apply", () => {
       },
       computed: {
         fields: {
-          "a": {
+          a: {
             expr: { kind: "get", path: "b" },
             deps: ["b"],
           },
-          "b": {
+          b: {
             expr: { kind: "get", path: "a" },
             deps: ["a"],
           },
@@ -61,11 +61,7 @@ describe("apply", () => {
     };
 
     const snapshot = createSnapshot({ dummy: "initial" }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "set", path: pp("dummy"), value: "updated" }]
-    );
+    const result = apply(schema, snapshot, [{ op: "set", path: pp("dummy"), value: "updated" }]);
 
     expect(result.state).toEqual({ dummy: "updated" });
     expect(result.system.status).toBe("error");
@@ -91,11 +87,7 @@ describe("apply", () => {
     };
 
     const snapshot = createSnapshot({ dummy: "initial" }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "set", path: pp("missing"), value: "value" }]
-    );
+    const result = apply(schema, snapshot, [{ op: "set", path: pp("missing"), value: "value" }]);
 
     expect(result.state).toEqual({ dummy: "initial" });
     expect(result.system.status).toBe("error");
@@ -123,11 +115,7 @@ describe("apply", () => {
     };
 
     const snapshot = createSnapshot({ dummy: "initial" }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "set", path: pp("ghost"), value: "value" }],
-    );
+    const result = apply(schema, snapshot, [{ op: "set", path: pp("ghost"), value: "value" }]);
 
     expect(result.state).toEqual({ dummy: "initial" });
     expect(result.system.status).toBe("error");
@@ -165,11 +153,9 @@ describe("apply", () => {
     };
 
     const snapshot = createSnapshot({ history: { files: {} } }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "set", path: pp("history.files.file:///proof\\.lean"), value: "recorded" }]
-    );
+    const result = apply(schema, snapshot, [
+      { op: "set", path: pp("history.files.file:///proof\\.lean"), value: "recorded" },
+    ]);
 
     expect(result.state).toEqual({
       history: {
@@ -200,11 +186,7 @@ describe("apply", () => {
     };
 
     const snapshot = createSnapshot({ dummy: "initial" }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "set", path: pp("dummy"), value: 42 }]
-    );
+    const result = apply(schema, snapshot, [{ op: "set", path: pp("dummy"), value: 42 }]);
 
     expect(result.state).toEqual({ dummy: "initial" });
     expect(result.system.status).toBe("error");
@@ -224,7 +206,7 @@ describe("apply", () => {
       },
       computed: {
         fields: {
-          "double": {
+          double: {
             expr: {
               kind: "mul",
               left: { kind: "get", path: "count" },
@@ -240,15 +222,11 @@ describe("apply", () => {
     };
 
     const snapshot = createSnapshot({ count: 2 }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [
-        { op: "set", path: pp("double"), value: 999 },
-        { op: "set", path: pp("meta.version"), value: 999 },
-        { op: "set", path: pp("count"), value: 3 },
-      ]
-    );
+    const result = apply(schema, snapshot, [
+      { op: "set", path: pp("double"), value: 999 },
+      { op: "set", path: pp("meta.version"), value: 999 },
+      { op: "set", path: pp("count"), value: 3 },
+    ]);
 
     expect(result.state).toEqual({ count: 3 });
     expect(result.computed["double"]).toBe(6);
@@ -273,11 +251,9 @@ describe("apply", () => {
     };
 
     const snapshot = createSnapshot({ name: "initial" }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "merge", path: pp("name"), value: { extra: "value" } }]
-    );
+    const result = apply(schema, snapshot, [
+      { op: "merge", path: pp("name"), value: { extra: "value" } },
+    ]);
 
     expect(result.state).toEqual({ name: "initial" });
     expect(result.system.status).toBe("error");
@@ -287,11 +263,9 @@ describe("apply", () => {
   it("should reject namespace-looking paths through domain apply", () => {
     const schema = createCountSchema();
     const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "merge", path: pp("$runtime.guards.intent"), value: { addTodo: "intent-1" } }]
-    );
+    const result = apply(schema, snapshot, [
+      { op: "merge", path: pp("$runtime.guards.intent"), value: { addTodo: "intent-1" } },
+    ]);
 
     expect(result.state).toEqual({ count: 1 });
     expect(result.system.status).toBe("error");
@@ -301,10 +275,12 @@ describe("apply", () => {
   it("should apply namespace deltas at namespace root", () => {
     const schema = createCountSchema();
     const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
-    const result = applyNamespaceDeltas(
-      snapshot,
-      [{ namespace: "runtime", patches: [{ op: "merge", path: pp("guards.intent"), value: { addTodo: "intent-1" } }] }]
-    );
+    const result = applyNamespaceDeltas(snapshot, [
+      {
+        namespace: "runtime",
+        patches: [{ op: "merge", path: pp("guards.intent"), value: { addTodo: "intent-1" } }],
+      },
+    ]);
 
     expect(result.state).toEqual({
       count: 1,
@@ -323,10 +299,12 @@ describe("apply", () => {
   it("should apply arbitrary namespace deltas", () => {
     const schema = createCountSchema();
     const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
-    const result = applyNamespaceDeltas(
-      snapshot,
-      [{ namespace: "runtime", patches: [{ op: "merge", path: pp("cache"), value: { warmed: true } }] }]
-    );
+    const result = applyNamespaceDeltas(snapshot, [
+      {
+        namespace: "runtime",
+        patches: [{ op: "merge", path: pp("cache"), value: { warmed: true } }],
+      },
+    ]);
 
     expect(result.state).toEqual({ count: 1 });
     expect(result.namespaces.runtime).toEqual({
@@ -349,7 +327,7 @@ describe("apply", () => {
           runtime: "invalid",
         },
       },
-      [{ namespace: "runtime", patches: [{ op: "set", path: pp("cache"), value: "value" }] }]
+      [{ namespace: "runtime", patches: [{ op: "set", path: pp("cache"), value: "value" }] }],
     );
 
     expect(result.state).toEqual({ count: 1 });
@@ -387,11 +365,9 @@ describe("apply", () => {
     };
 
     const snapshot = createSnapshot({}, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "merge", path: pp("profile.meta"), value: { source: "import" } }]
-    );
+    const result = apply(schema, snapshot, [
+      { op: "merge", path: pp("profile.meta"), value: { source: "import" } },
+    ]);
 
     expect(result.state).toEqual({
       profile: {
@@ -440,13 +416,11 @@ describe("apply", () => {
         },
       } as unknown,
       schema.hash,
-      HOST_CONTEXT
+      HOST_CONTEXT,
     );
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "merge", path: pp("profile.meta"), value: { source: "import" } }]
-    );
+    const result = apply(schema, snapshot, [
+      { op: "merge", path: pp("profile.meta"), value: { source: "import" } },
+    ]);
 
     expect(result.state).toEqual({
       profile: {

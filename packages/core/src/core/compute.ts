@@ -2,7 +2,12 @@ import type { DomainSchema } from "../schema/domain.js";
 import type { Snapshot } from "../schema/snapshot.js";
 import type { ErrorValue, Requirement } from "../schema/snapshot.js";
 import type { Intent, Patch } from "../schema/patch.js";
-import type { ComputeResult, ComputeStatus, NamespaceDelta, SystemDelta } from "../schema/result.js";
+import type {
+  ComputeResult,
+  ComputeStatus,
+  NamespaceDelta,
+  SystemDelta,
+} from "../schema/result.js";
 import type { TraceGraph } from "../schema/trace.js";
 import type { FieldSpec } from "../schema/field.js";
 import { createError } from "../errors.js";
@@ -26,7 +31,7 @@ export function computeSync(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
-  context: CoreContext
+  context: CoreContext,
 ): ComputeResult {
   const parsedContext = parseCoreContext(context);
   if (!parsedContext.ok) {
@@ -35,7 +40,7 @@ export function computeSync(
       intent,
       "INVALID_INPUT",
       parsedContext.message,
-      snapshot.meta.timestamp
+      snapshot.meta.timestamp,
     );
   }
   const coreContext = parsedContext.value;
@@ -46,10 +51,8 @@ export function computeSync(
       snapshot,
       intent,
       "INVALID_CONTEXT",
-      `Invalid context: ${externalContextValidation.errors.map((issue) => (
-        issue.path ? `${issue.path}: ${issue.message}` : issue.message
-      )).join("; ")}`,
-      timestamp
+      `Invalid context: ${externalContextValidation.errors.map((issue) => (issue.path ? `${issue.path}: ${issue.message}` : issue.message)).join("; ")}`,
+      timestamp,
     );
   }
 
@@ -66,7 +69,7 @@ export function computeSync(
       intent,
       initialComputedResult.error.code,
       initialComputedResult.error.message,
-      timestamp
+      timestamp,
     );
   }
 
@@ -77,32 +80,31 @@ export function computeSync(
       intent,
       "UNKNOWN_ACTION",
       `Unknown action: ${intent.type}`,
-      timestamp
+      timestamp,
     );
   }
 
   const inputError = validateIntentInput(schema, intent);
   if (inputError) {
-    return createErrorResult(
-      currentSnapshot,
-      intent,
-      "INVALID_INPUT",
-      inputError,
-      timestamp
-    );
+    return createErrorResult(currentSnapshot, intent, "INVALID_INPUT", inputError, timestamp);
   }
 
   const isReEntry = currentSnapshot.system.currentAction === intent.type;
 
   if (action.available && !isReEntry) {
-    const availability = evaluateActionAvailability(schema, currentSnapshot, intent.type, timestamp);
+    const availability = evaluateActionAvailability(
+      schema,
+      currentSnapshot,
+      intent.type,
+      timestamp,
+    );
     if (availability.kind === "error") {
       return createErrorResult(
         currentSnapshot,
         intent,
         availability.code,
         availability.message,
-        timestamp
+        timestamp,
       );
     }
 
@@ -112,7 +114,7 @@ export function computeSync(
         intent,
         "ACTION_UNAVAILABLE",
         `Action "${intent.type}" is not available`,
-        timestamp
+        timestamp,
       );
     }
   }
@@ -134,19 +136,20 @@ export function computeSync(
     `actions.${intent.type}.flow`,
     intent.intentId,
     timestamp,
-    { context: coreContext, phase: "flow" }
+    { context: coreContext, phase: "flow" },
   );
   const flowState = createFlowState(preparedSnapshot);
 
-  const flowResult = evaluateFlowSync(
-    action.flow,
-    ctx,
-    flowState,
-    `actions.${intent.type}.flow`
-  );
+  const flowResult = evaluateFlowSync(action.flow, ctx, flowState, `actions.${intent.type}.flow`);
 
   const status = mapFlowStatus(flowResult.state.status);
-  const systemDelta = createSystemDeltaForFlow(currentSnapshot, intent, status, flowResult.state.error, flowResult.state.requirements);
+  const systemDelta = createSystemDeltaForFlow(
+    currentSnapshot,
+    intent,
+    status,
+    flowResult.state.error,
+    flowResult.state.requirements,
+  );
   const patches = [...flowResult.state.patches];
   const namespaceDelta: NamespaceDelta[] = [...flowResult.state.namespaceDelta];
 
@@ -176,13 +179,13 @@ export async function compute(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
-  context: CoreContext
+  context: CoreContext,
 ): Promise<ComputeResult> {
   return computeSync(schema, snapshot, intent, context);
 }
 
 function parseCoreContext(
-  context: CoreContext
+  context: CoreContext,
 ): { ok: true; value: CoreContext } | { ok: false; message: string } {
   try {
     const parsedContext = Context.safeParse(context);
@@ -214,10 +217,7 @@ function describeContextParseFailure(error: unknown): string {
  * Validate only the caller-provided input portion of an intent.
  * Returns an error message when the intent is malformed, or null when valid.
  */
-export function validateIntentInput(
-  schema: DomainSchema,
-  intent: Intent,
-): string | null {
+export function validateIntentInput(schema: DomainSchema, intent: Intent): string | null {
   if (!intent.intentId || intent.intentId === "") {
     return "Intent must have a non-empty intentId";
   }
@@ -228,9 +228,7 @@ export function validateIntentInput(
   }
 
   if (!action.input && !action.inputType) {
-    return intent.input === undefined
-      ? null
-      : `Action "${intent.type}" does not accept input`;
+    return intent.input === undefined ? null : `Action "${intent.type}" does not accept input`;
   }
 
   return validateInput(schema, action.inputType, action.input, intent.input);
@@ -273,7 +271,9 @@ function mapFlowStatusToTermination(status: FlowStatus): TraceGraph["terminatedB
 /**
  * Collect all trace nodes into a flat map
  */
-function collectTraceNodes(root: import("../schema/trace.js").TraceNode): Record<string, import("../schema/trace.js").TraceNode> {
+function collectTraceNodes(
+  root: import("../schema/trace.js").TraceNode,
+): Record<string, import("../schema/trace.js").TraceNode> {
   const nodes: Record<string, import("../schema/trace.js").TraceNode> = {};
 
   function collect(node: import("../schema/trace.js").TraceNode) {
@@ -295,14 +295,14 @@ function createErrorResult(
   intent: Intent,
   code: string,
   message: string,
-  timestamp: number
+  timestamp: number,
 ): ComputeResult {
   const error = createError(
     code as import("../errors.js").CoreErrorCode,
     message,
     intent.type,
     "",
-    timestamp
+    timestamp,
   );
 
   const systemDelta: SystemDelta = {
@@ -345,14 +345,10 @@ function createSystemDeltaForFlow(
   intent: Intent,
   status: ComputeStatus,
   flowError: ErrorValue | null,
-  requirements: readonly Requirement[]
+  requirements: readonly Requirement[],
 ): SystemDelta {
   const _isError = status === "error";
-  const systemStatus = status === "pending"
-    ? "pending"
-    : status === "error"
-      ? "error"
-      : "idle";
+  const systemStatus = status === "pending" ? "pending" : status === "error" ? "error" : "idle";
 
   return {
     status: systemStatus,
@@ -367,7 +363,7 @@ function estimateResultVersion(
   snapshot: Snapshot,
   _patches: readonly Patch[],
   namespaceDelta: readonly NamespaceDelta[],
-  delta: SystemDelta
+  delta: SystemDelta,
 ): number {
   let version = snapshot.meta.version;
 
@@ -399,7 +395,7 @@ function validateInput(
 ): string | null {
   if (inputType) {
     const result = validateValueAgainstTypeDefinition(input, inputType, schema.types);
-    return result.ok ? null : result.message ?? "Invalid input";
+    return result.ok ? null : (result.message ?? "Invalid input");
   }
 
   if (!inputSpec) {

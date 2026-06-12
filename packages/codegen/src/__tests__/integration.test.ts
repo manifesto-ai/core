@@ -26,16 +26,19 @@ describe("integration: TS → Zod pipeline", () => {
         "ProofNode",
         objectType({
           id: { type: primitiveType("string"), optional: false },
-          status: { type: unionType([primitiveType("string"), primitiveType("null")]), optional: false },
+          status: {
+            type: unionType([primitiveType("string"), primitiveType("null")]),
+            optional: false,
+          },
           children: { type: arrayType(refType("ProofNode")), optional: false },
-        })
+        }),
       ),
       FileState: createTypeSpec(
         "FileState",
         objectType({
           path: { type: primitiveType("string"), optional: false },
           size: { type: primitiveType("number"), optional: true },
-        })
+        }),
       ),
     },
   });

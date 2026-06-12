@@ -21,10 +21,7 @@ type PreparedQuerySnapshot =
   | { kind: "ok"; snapshot: Snapshot }
   | { kind: "error"; code: "INTERNAL_ERROR"; message: string };
 
-function prepareQuerySnapshot(
-  schema: DomainSchema,
-  snapshot: Snapshot
-): PreparedQuerySnapshot {
+function prepareQuerySnapshot(schema: DomainSchema, snapshot: Snapshot): PreparedQuerySnapshot {
   const computed = evaluateComputed(schema, snapshot);
   if (isErr(computed)) {
     return {
@@ -47,7 +44,7 @@ function evaluateAvailabilityAgainstPreparedSnapshot(
   schema: DomainSchema,
   preparedSnapshot: Snapshot,
   actionName: string,
-  timestamp: number
+  timestamp: number,
 ): ActionAvailabilityEvaluation {
   const action = schema.actions[actionName];
   if (!action) {
@@ -69,7 +66,7 @@ function evaluateAvailabilityAgainstPreparedSnapshot(
     `actions.${actionName}.available`,
     undefined,
     timestamp,
-    { phase: "availability" }
+    { phase: "availability" },
   );
   const result = evaluateExpr(action.available, ctx);
 
@@ -102,7 +99,7 @@ export function evaluateActionAvailability(
   schema: DomainSchema,
   snapshot: Snapshot,
   actionName: string,
-  timestamp: number = snapshot.meta.timestamp
+  timestamp: number = snapshot.meta.timestamp,
 ): ActionAvailabilityEvaluation {
   const prepared = prepareQuerySnapshot(schema, snapshot);
   if (prepared.kind === "error") {
@@ -113,7 +110,7 @@ export function evaluateActionAvailability(
     schema,
     prepared.snapshot,
     actionName,
-    timestamp
+    timestamp,
   );
 }
 
@@ -127,7 +124,7 @@ export function evaluateActionAvailability(
 export function isActionAvailable(
   schema: DomainSchema,
   snapshot: Snapshot,
-  actionName: string
+  actionName: string,
 ): boolean {
   const result = evaluateActionAvailability(schema, snapshot, actionName);
   if (result.kind === "error") {
@@ -143,7 +140,7 @@ export function evaluateIntentDispatchability(
   schema: DomainSchema,
   snapshot: Snapshot,
   intent: Intent,
-  timestamp: number = snapshot.meta.timestamp
+  timestamp: number = snapshot.meta.timestamp,
 ): ActionDispatchabilityEvaluation {
   const action = schema.actions[intent.type];
   if (!action) {
@@ -163,7 +160,7 @@ export function evaluateIntentDispatchability(
     schema,
     prepared.snapshot,
     intent.type,
-    timestamp
+    timestamp,
   );
   if (availability.kind === "error") {
     return availability;
@@ -187,7 +184,7 @@ export function evaluateIntentDispatchability(
     `actions.${intent.type}.dispatchable`,
     intent.intentId,
     timestamp,
-    { phase: "dispatchability" }
+    { phase: "dispatchability" },
   );
   const result = evaluateExpr(action.dispatchable, ctx);
 
@@ -220,7 +217,7 @@ export function evaluateIntentDispatchability(
 export function isIntentDispatchable(
   schema: DomainSchema,
   snapshot: Snapshot,
-  intent: Intent
+  intent: Intent,
 ): boolean {
   const result = evaluateIntentDispatchability(schema, snapshot, intent);
   if (result.kind === "error") {
@@ -237,17 +234,17 @@ export type AvailableActionError = {
 
 export type AvailableActionsEvaluation =
   | {
-    kind: "ok";
-    /** Action names whose availability evaluated to true, in schema key order. */
-    actions: readonly string[];
-    /**
-     * Actions whose availability expression failed to evaluate. They are
-     * excluded from `actions` (an action whose legality cannot be evaluated
-     * is not available), but the failure stays observable as a value so one
-     * broken expression cannot poison the whole legality query.
-     */
-    errors: readonly AvailableActionError[];
-  }
+      kind: "ok";
+      /** Action names whose availability evaluated to true, in schema key order. */
+      actions: readonly string[];
+      /**
+       * Actions whose availability expression failed to evaluate. They are
+       * excluded from `actions` (an action whose legality cannot be evaluated
+       * is not available), but the failure stays observable as a value so one
+       * broken expression cannot poison the whole legality query.
+       */
+      errors: readonly AvailableActionError[];
+    }
   | { kind: "error"; code: "INTERNAL_ERROR"; message: string };
 
 /**
@@ -259,7 +256,7 @@ export type AvailableActionsEvaluation =
  */
 export function evaluateAvailableActions(
   schema: DomainSchema,
-  snapshot: Snapshot
+  snapshot: Snapshot,
 ): AvailableActionsEvaluation {
   const prepared = prepareQuerySnapshot(schema, snapshot);
   if (prepared.kind === "error") {
@@ -274,7 +271,7 @@ export function evaluateAvailableActions(
       schema,
       prepared.snapshot,
       actionName,
-      snapshot.meta.timestamp
+      snapshot.meta.timestamp,
     );
     if (result.kind === "error") {
       errors.push({ actionName, code: result.code, message: result.message });
@@ -295,10 +292,7 @@ export function evaluateAvailableActions(
  * evaluation errors, violating the errors-are-values contract. It will be
  * removed in the next major release.
  */
-export function getAvailableActions(
-  schema: DomainSchema,
-  snapshot: Snapshot
-): readonly string[] {
+export function getAvailableActions(schema: DomainSchema, snapshot: Snapshot): readonly string[] {
   const prepared = prepareQuerySnapshot(schema, snapshot);
   if (prepared.kind === "error") {
     throw new Error(prepared.message);
@@ -309,7 +303,7 @@ export function getAvailableActions(
       schema,
       prepared.snapshot,
       actionName,
-      snapshot.meta.timestamp
+      snapshot.meta.timestamp,
     );
     if (result.kind === "error") {
       throw new Error(result.message);

@@ -18,11 +18,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
-import {
-  createTestSchema,
-  createTestIntent,
-  createTestSnapshot,
-} from "../../helpers/index.js";
+import { createTestSchema, createTestIntent, createTestSnapshot } from "../../helpers/index.js";
 import { createTestEffectRunner } from "../hcts-adapter.js";
 import { getHostState } from "../../../types/host-state.js";
 
@@ -72,7 +68,10 @@ describe("HCTS Effect Handler Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<
+        string,
+        unknown
+      >;
 
       expect(response.success).toBe(true);
       expect(response.timestamp).toBe(123);
@@ -155,7 +154,10 @@ describe("HCTS Effect Handler Tests", () => {
       await adapter.drain(executionKey);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<
+        string,
+        unknown
+      >;
 
       // Error expressed as data patches
       expect(response.error).toBe(true);
@@ -188,9 +190,7 @@ describe("HCTS Effect Handler Tests", () => {
 
       effectRunner.register("pureHandler", async (_type, params) => {
         receivedParams = params;
-        return [
-          { op: "set", path: pp("response"), value: { echoed: params.input } },
-        ];
+        return [{ op: "set", path: pp("response"), value: { echoed: params.input } }];
       });
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -206,7 +206,10 @@ describe("HCTS Effect Handler Tests", () => {
 
       // Handler output applied correctly
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<
+        string,
+        unknown
+      >;
       expect(response.echoed).toBe("test-input");
     });
   });

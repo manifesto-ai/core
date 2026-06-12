@@ -1,11 +1,5 @@
-import type {
-  ComposableManifesto,
-  LineageLaws,
-  ManifestoDomainShape,
-} from "@manifesto-ai/sdk";
-import {
-  ManifestoError,
-} from "@manifesto-ai/sdk";
+import type { ComposableManifesto, LineageLaws, ManifestoDomainShape } from "@manifesto-ai/sdk";
+import { ManifestoError } from "@manifesto-ai/sdk";
 import {
   activateComposable,
   assertComposableNotActivated,
@@ -22,17 +16,12 @@ import type {
   LineageComposableLaws,
   LineageConfig,
 } from "./runtime-types.js";
-import {
-  attachLineageDecoration,
-  type ResolvedLineageConfig,
-} from "./internal.js";
+import { attachLineageDecoration, type ResolvedLineageConfig } from "./internal.js";
 import { createLineageRuntimeInstance } from "./lineage-runtime.js";
 
 const LINEAGE_LAWS: LineageLaws = Object.freeze({ __lineageLaws: true });
 
-export function withLineage<
-  T extends ManifestoDomainShape,
->(
+export function withLineage<T extends ManifestoDomainShape>(
   manifesto: BaseComposableManifesto<T>,
   config: LineageConfig,
 ): LineageComposableManifesto<T> {
@@ -51,9 +40,7 @@ export function withLineage<
     }) as LineageComposableLaws,
     schema: manifesto.schema,
     activate() {
-      activateComposable(
-        decorated as unknown as ComposableManifesto<T, LineageComposableLaws>,
-      );
+      activateComposable(decorated as unknown as ComposableManifesto<T, LineageComposableLaws>);
       return createLineageRuntimeInstance<T>(createLineageKernel(), service, resolvedConfig);
     },
   };

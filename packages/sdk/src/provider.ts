@@ -21,9 +21,7 @@ export type {
 // decorator authors who touch both entrypoints (#493).
 export type { SimulateResult as KernelSimulateResult } from "./compat/internal.js";
 
-import type {
-  SimulateResult as InternalKernelSimulateResult,
-} from "./compat/internal.js";
+import type { SimulateResult as InternalKernelSimulateResult } from "./compat/internal.js";
 import type { ManifestoDomainShape } from "./types.js";
 
 /**
@@ -32,9 +30,8 @@ import type { ManifestoDomainShape } from "./types.js";
  * entry while having a different (canonical) shape. The alias will be
  * removed in the next major release.
  */
-export type SimulateResult<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = InternalKernelSimulateResult<T>;
+export type SimulateResult<T extends ManifestoDomainShape = ManifestoDomainShape> =
+  InternalKernelSimulateResult<T>;
 export {
   activateComposable,
   assertComposableNotActivated,

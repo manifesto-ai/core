@@ -10,15 +10,9 @@ import {
   createCounterSchema,
   type CounterDomain,
 } from "../../../../sdk/src/__tests__/helpers/schema.ts";
-import {
-  createInMemoryLineageStore,
-  withLineage,
-} from "../../index.ts";
+import { createInMemoryLineageStore, withLineage } from "../../index.ts";
 
-function submitBound<
-  T extends ManifestoDomainShape,
-  K extends ActionName<T>,
->(
+function submitBound<T extends ManifestoDomainShape, K extends ActionName<T>>(
   app: ManifestoApp<T, "lineage">,
   action: K,
   ...intentArgs: ActionArgs<T, K>
@@ -39,8 +33,11 @@ const lineage = withLineage<CounterDomain>(
 const appRuntime: ManifestoApp<CounterDomain, "lineage"> = lineage;
 const committedIncrement: Promise<LineageSubmissionResult<CounterDomain, "increment">> =
   submitBound(lineage, "increment");
-const committedAdd: Promise<LineageSubmissionResult<CounterDomain, "add">> =
-  submitBound(lineage, "add", 1);
+const committedAdd: Promise<LineageSubmissionResult<CounterDomain, "add">> = submitBound(
+  lineage,
+  "add",
+  1,
+);
 
 void appRuntime;
 void committedIncrement;

@@ -11,16 +11,25 @@ import type {
 } from "../parser/index.js";
 import { stableHashString, type SourcePoint, type SourceSpan } from "../source-map.js";
 import { compareUnicodeCodePoints } from "../utils/unicode-order.js";
-import type { MelEditAddActionOp, MelTextEdit, SchemaDiff, SchemaModifiedTarget } from "./compile-fragment-types.js";
+import type {
+  MelEditAddActionOp,
+  MelTextEdit,
+  SchemaDiff,
+  SchemaModifiedTarget,
+} from "./compile-fragment-types.js";
 import { targetKind } from "./compile-fragment-validation.js";
 
 export function findAction(program: ProgramNode, name: string): ActionNode | null {
-  const member = program.domain.members.find((candidate) => candidate.kind === "action" && candidate.name === name);
+  const member = program.domain.members.find(
+    (candidate) => candidate.kind === "action" && candidate.name === name,
+  );
   return member?.kind === "action" ? member : null;
 }
 
 export function findComputed(program: ProgramNode, name: string): ComputedNode | null {
-  const member = program.domain.members.find((candidate) => candidate.kind === "computed" && candidate.name === name);
+  const member = program.domain.members.find(
+    (candidate) => candidate.kind === "computed" && candidate.name === name,
+  );
   return member?.kind === "computed" ? member : null;
 }
 
@@ -38,7 +47,11 @@ export function findTypeDecl(program: ProgramNode, name: string): TypeDeclNode |
   return program.domain.types.find((candidate) => candidate.name === name) ?? null;
 }
 
-export function findTypeField(program: ProgramNode, typeName: string, fieldName: string): TypeFieldNode | null {
+export function findTypeField(
+  program: ProgramNode,
+  typeName: string,
+  fieldName: string,
+): TypeFieldNode | null {
   const typeDecl = findTypeDecl(program, typeName);
   if (!typeDecl || typeDecl.typeExpr.kind !== "objectType") {
     return null;
@@ -46,7 +59,9 @@ export function findTypeField(program: ProgramNode, typeName: string, fieldName:
   return typeDecl.typeExpr.fields.find((field) => field.name === fieldName) ?? null;
 }
 
-export function parseTypeFieldTarget(target: `type_field:${string}.${string}`): { typeName: string; fieldName: string } | null {
+export function parseTypeFieldTarget(
+  target: `type_field:${string}.${string}`,
+): { typeName: string; fieldName: string } | null {
   const value = target.slice("type_field:".length);
   const dot = value.indexOf(".");
   if (dot <= 0 || dot !== value.lastIndexOf(".")) {
@@ -55,25 +70,37 @@ export function parseTypeFieldTarget(target: `type_field:${string}.${string}`): 
   return { typeName: value.slice(0, dot), fieldName: value.slice(dot + 1) };
 }
 
-export function targetLocation(program: ProgramNode, target: LocalTargetKey): ProgramNode["location"] {
+export function targetLocation(
+  program: ProgramNode,
+  target: LocalTargetKey,
+): ProgramNode["location"] {
   const kind = targetKind(target);
   const name = target.slice(target.indexOf(":") + 1);
   if (kind === "type") return findTypeDecl(program, name)?.location ?? program.domain.location;
-  if (kind === "state_field") return findStateField(program, name)?.location ?? program.domain.location;
+  if (kind === "state_field")
+    return findStateField(program, name)?.location ?? program.domain.location;
   if (kind === "computed") return findComputed(program, name)?.location ?? program.domain.location;
   if (kind === "action") return findAction(program, name)?.location ?? program.domain.location;
   if (kind === "type_field") {
     const parsed = parseTypeFieldTarget(target as `type_field:${string}.${string}`);
-    return parsed ? findTypeField(program, parsed.typeName, parsed.fieldName)?.location ?? program.domain.location : program.domain.location;
+    return parsed
+      ? (findTypeField(program, parsed.typeName, parsed.fieldName)?.location ??
+          program.domain.location)
+      : program.domain.location;
   }
   return program.domain.location;
 }
 
-export function findActionBodyBraces(source: string, action: ActionNode): { open: Token; close: Token } | null {
-  const tokens = tokenize(source).tokens.filter((token) =>
-    token.location.start.offset >= action.location.start.offset
-    && token.location.end.offset <= action.location.end.offset
-    && token.kind !== "EOF");
+export function findActionBodyBraces(
+  source: string,
+  action: ActionNode,
+): { open: Token; close: Token } | null {
+  const tokens = tokenize(source).tokens.filter(
+    (token) =>
+      token.location.start.offset >= action.location.start.offset &&
+      token.location.end.offset <= action.location.end.offset &&
+      token.kind !== "EOF",
+  );
   const stack: Token[] = [];
   for (const token of tokens) {
     if (token.kind === "LBRACE") {
@@ -88,14 +115,26 @@ export function findActionBodyBraces(source: string, action: ActionNode): { open
   return null;
 }
 
-export function findActionToken(source: string, action: ActionNode, kind: Token["kind"]): Token | null {
-  return tokenize(source).tokens.find((token) =>
-    token.kind === kind
-    && token.location.start.offset >= action.location.start.offset
-    && token.location.end.offset <= action.location.end.offset) ?? null;
+export function findActionToken(
+  source: string,
+  action: ActionNode,
+  kind: Token["kind"],
+): Token | null {
+  return (
+    tokenize(source).tokens.find(
+      (token) =>
+        token.kind === kind &&
+        token.location.start.offset >= action.location.start.offset &&
+        token.location.end.offset <= action.location.end.offset,
+    ) ?? null
+  );
 }
 
-export function insertBeforeClosingLine(source: string, closeOffset: number, text: string): MelTextEdit {
+export function insertBeforeClosingLine(
+  source: string,
+  closeOffset: number,
+  text: string,
+): MelTextEdit {
   const lineStart = lineStartAt(source, closeOffset);
   const beforeCloseOnLine = source.slice(lineStart, closeOffset);
   if (/^[ \t]*$/.test(beforeCloseOnLine) && lineStart > 0) {
@@ -106,7 +145,12 @@ export function insertBeforeClosingLine(source: string, closeOffset: number, tex
   return textEdit(source, closeOffset, closeOffset, `\n${text}\n${closeIndent}`);
 }
 
-export function textEdit(source: string, start: number, end: number, replacement: string): MelTextEdit {
+export function textEdit(
+  source: string,
+  start: number,
+  end: number,
+  replacement: string,
+): MelTextEdit {
   return Object.freeze({
     range: spanFromOffsets(source, start, end),
     replacement,
@@ -114,7 +158,9 @@ export function textEdit(source: string, start: number, end: number, replacement
 }
 
 export function applyTextEdits(source: string, edits: readonly MelTextEdit[]): string {
-  const sorted = [...edits].sort((a, b) => requiredOffset(a.range.start) - requiredOffset(b.range.start));
+  const sorted = [...edits].sort(
+    (a, b) => requiredOffset(a.range.start) - requiredOffset(b.range.start),
+  );
   let result = source;
   for (const edit of sorted.reverse()) {
     result = `${result.slice(0, requiredOffset(edit.range.start))}${edit.replacement}${result.slice(requiredOffset(edit.range.end))}`;
@@ -137,7 +183,7 @@ export function lineIndentAt(source: string, offset: number): string {
 export function indentLines(source: string, indent: string): string {
   return source
     .split(/\r?\n/)
-    .map((line) => line.length > 0 ? `${indent}${line}` : line)
+    .map((line) => (line.length > 0 ? `${indent}${line}` : line))
     .join("\n");
 }
 
@@ -150,7 +196,11 @@ export function renderAction(op: MelEditAddActionOp): string {
   return `action ${op.name}(${params}) {\n${body}\n}`;
 }
 
-export function renderBodyReplacement(body: string, bodyIndent: string, actionIndent: string): string {
+export function renderBodyReplacement(
+  body: string,
+  bodyIndent: string,
+  actionIndent: string,
+): string {
   const trimmed = body.trim();
   if (trimmed.length === 0) {
     return "";
@@ -164,13 +214,18 @@ export function renderJsonLiteral(value: JsonLiteral): string {
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) return `[${value.map((item) => renderJsonLiteral(item)).join(", ")}]`;
   const objectValue = value as { readonly [key: string]: JsonLiteral };
-  return `{ ${Object.keys(objectValue).sort(compareUnicodeCodePoints).map((key) => `${key}: ${renderJsonLiteral(objectValue[key]!)}`).join(", ")} }`;
+  return `{ ${Object.keys(objectValue)
+    .sort(compareUnicodeCodePoints)
+    .map((key) => `${key}: ${renderJsonLiteral(objectValue[key]!)}`)
+    .join(", ")} }`;
 }
 
 export function diffSchemas(before: DomainSchema, after: DomainSchema): SchemaDiff {
   const beforeTargets = schemaTargetSummaries(before);
   const afterTargets = schemaTargetSummaries(after);
-  const keys = sortTargets([...new Set([...Object.keys(beforeTargets), ...Object.keys(afterTargets)])] as LocalTargetKey[]);
+  const keys = sortTargets([
+    ...new Set([...Object.keys(beforeTargets), ...Object.keys(afterTargets)]),
+  ] as LocalTargetKey[]);
   const addedTargets: LocalTargetKey[] = [];
   const removedTargets: LocalTargetKey[] = [];
   const modifiedTargets: SchemaModifiedTarget[] = [];
@@ -186,7 +241,13 @@ export function diffSchemas(before: DomainSchema, after: DomainSchema): SchemaDi
       const beforeHash = hashSummary(beforeValue);
       const afterHash = hashSummary(afterValue);
       if (beforeHash !== afterHash) {
-        modifiedTargets.push({ target: key, beforeHash, afterHash, before: beforeValue, after: afterValue });
+        modifiedTargets.push({
+          target: key,
+          beforeHash,
+          afterHash,
+          before: beforeValue,
+          after: afterValue,
+        });
       }
     }
   }
@@ -243,8 +304,10 @@ function schemaTargetSummaries(schema: DomainSchema): Partial<Record<LocalTarget
       }
     }
   }
-  for (const [name, value] of Object.entries(schema.state.fields)) targets[`state_field:${name}`] = value;
-  for (const [name, value] of Object.entries(schema.computed.fields)) targets[`computed:${name}`] = value;
+  for (const [name, value] of Object.entries(schema.state.fields))
+    targets[`state_field:${name}`] = value;
+  for (const [name, value] of Object.entries(schema.computed.fields))
+    targets[`computed:${name}`] = value;
   for (const [name, value] of Object.entries(schema.actions)) targets[`action:${name}`] = value;
   return targets;
 }
@@ -257,6 +320,8 @@ function stableStringify(value: unknown): string {
   if (value === undefined) return "undefined";
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(",")}]`;
-  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => compareUnicodeCodePoints(a, b));
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+    compareUnicodeCodePoints(a, b),
+  );
   return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`).join(",")}}`;
 }

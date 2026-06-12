@@ -28,19 +28,15 @@ type MergeableObject<TValue> = TValue extends readonly unknown[]
     ? TValue
     : never;
 
-type RefValue<TRef extends FieldRef<unknown>> = TRef extends FieldRef<infer TValue>
-  ? TValue
-  : never;
+type RefValue<TRef extends FieldRef<unknown>> =
+  TRef extends FieldRef<infer TValue> ? TValue : never;
 
 type MergeValue<TRef extends FieldRef<unknown>> = Partial<MergeableObject<RefValue<TRef>>>;
 
 export type PatchBuilder = {
   set<TRef extends FieldRef<unknown>>(ref: TRef, value: RefValue<TRef>): Patch;
   unset<TRef extends FieldRef<unknown>>(ref: TRef): Patch;
-  merge<TRef extends FieldRef<unknown>>(
-    ref: TRef,
-    value: MergeValue<TRef>,
-  ): Patch;
+  merge<TRef extends FieldRef<unknown>>(ref: TRef, value: MergeValue<TRef>): Patch;
 };
 
 type DefineEffectsFactory<T extends ManifestoDomainShape> = (
@@ -61,7 +57,11 @@ function assertFieldRef(op: keyof PatchBuilder, ref: unknown): asserts ref is Fi
   }
 
   const candidate = ref as Partial<FieldRef<unknown>>;
-  if (candidate.__kind !== "FieldRef" || typeof candidate.name !== "string" || candidate.name.length === 0) {
+  if (
+    candidate.__kind !== "FieldRef" ||
+    typeof candidate.name !== "string" ||
+    candidate.name.length === 0
+  ) {
     throw new ManifestoError(
       "SCHEMA_ERROR",
       `PatchBuilder.${op}() expects a FieldRef from defineEffects(..., refs.state.*)`,
@@ -78,16 +78,11 @@ function assertFieldRef(op: keyof PatchBuilder, ref: unknown): asserts ref is Fi
 
 function assertMergeValue(value: unknown): asserts value is Record<string, unknown> {
   if (!isPlainObjectRecord(value)) {
-    throw new ManifestoError(
-      "SCHEMA_ERROR",
-      "PatchBuilder.merge() expects a plain object value",
-    );
+    throw new ManifestoError("SCHEMA_ERROR", "PatchBuilder.merge() expects a plain object value");
   }
 }
 
-function createRefNamespace<TRef extends RefLike>(
-  kind: TRef["__kind"],
-): Record<string, TRef> {
+function createRefNamespace<TRef extends RefLike>(kind: TRef["__kind"]): Record<string, TRef> {
   const cache = new Map<string, TRef>();
   const target = Object.freeze(Object.create(null)) as Record<string, TRef>;
 
@@ -126,16 +121,10 @@ const PATCH_BUILDER: PatchBuilder = Object.freeze({
     assertFieldRef("unset", ref);
     return unsetPatch(toPatchPath(ref));
   },
-  merge<TRef extends FieldRef<unknown>>(
-    ref: TRef,
-    value: MergeValue<TRef>,
-  ): Patch {
+  merge<TRef extends FieldRef<unknown>>(ref: TRef, value: MergeValue<TRef>): Patch {
     assertFieldRef("merge", ref);
     assertMergeValue(value);
-    return mergePatch(
-      toPatchPath(ref),
-      value,
-    );
+    return mergePatch(toPatchPath(ref), value);
   },
 });
 

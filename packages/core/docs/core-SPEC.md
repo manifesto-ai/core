@@ -757,6 +757,29 @@ type NamespaceDelta = {
 };
 ```
 
+Patch and namespace-delta `set`/`merge` values MUST stay in the accepted JSON
+value domain before they are materialized into Snapshot channels.
+
+Accepted values:
+
+- `null`, strings, booleans, and finite numbers
+- arrays whose entries are accepted JSON values
+- plain objects, including `Object.prototype` and null-prototype objects, whose
+  entries are accepted JSON values
+- shared acyclic object references, because JSON materialization duplicates the
+  referenced value
+- `-0`, because arithmetic can produce it and canonicalization may normalize it
+  to `0`
+
+Rejected values:
+
+- `undefined`
+- non-finite numbers such as `NaN`, `Infinity`, and `-Infinity`
+- `bigint`, `symbol`, and `function`
+- non-plain objects such as `Date`, `Map`, class instances, or typed arrays
+- circular references
+- array holes, which read as `undefined`
+
 ```json
 { "kind": "patch", "op": "set", "path": [{ "kind": "prop", "name": "user" }, { "kind": "prop", "name": "name" }], "value": { "kind": "get", "path": "input.name" } }
 { "kind": "patch", "op": "unset", "path": [{ "kind": "prop", "name": "user" }, { "kind": "prop", "name": "tempData" }] }

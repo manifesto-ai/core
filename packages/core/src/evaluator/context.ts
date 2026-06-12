@@ -92,7 +92,7 @@ export function createContext(
   options: {
     readonly context?: Context;
     readonly phase?: EvalPhase;
-  } = {}
+  } = {},
 ): EvalContext {
   return {
     snapshot,
@@ -104,9 +104,10 @@ export function createContext(
     phase: options.phase ?? (options.context ? "flow" : "snapshot"),
     runtimeOrdinal: 0,
     runtimeAllocator: { ordinal: 0 },
-    trace: typeof timestampOrTrace === "object"
-      ? timestampOrTrace
-      : createTraceContext(timestampOrTrace),
+    trace:
+      typeof timestampOrTrace === "object"
+        ? timestampOrTrace
+        : createTraceContext(timestampOrTrace),
     collectionStack: [],
   };
 }
@@ -118,7 +119,7 @@ export function withCollectionContext(
   ctx: EvalContext,
   item: unknown,
   index: number,
-  array: unknown[]
+  array: unknown[],
 ): EvalContext {
   return {
     ...ctx,

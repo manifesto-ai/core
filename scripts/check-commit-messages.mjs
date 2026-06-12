@@ -1,28 +1,22 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process';
+import { execFileSync } from "node:child_process";
 
 const ALLOWED_TYPES = new Set([
-  'build',
-  'chore',
-  'ci',
-  'deps',
-  'docs',
-  'feat',
-  'fix',
-  'perf',
-  'refactor',
-  'revert',
-  'style',
-  'test',
+  "build",
+  "chore",
+  "ci",
+  "deps",
+  "docs",
+  "feat",
+  "fix",
+  "perf",
+  "refactor",
+  "revert",
+  "style",
+  "test",
 ]);
 
-const RELEASABLE_TYPES = new Set([
-  'deps',
-  'feat',
-  'fix',
-  'perf',
-  'revert',
-]);
+const RELEASABLE_TYPES = new Set(["deps", "feat", "fix", "perf", "revert"]);
 
 const HEADER_PATTERN =
   /^(?<type>[a-z]+)(?:\((?<scope>[^()\r\n]+)\))?(?<breaking>!)?: (?<description>\S.*)$/u;
@@ -42,23 +36,23 @@ function resolveRange() {
     return `${process.env.GITHUB_BASE_SHA}..${process.env.GITHUB_HEAD_SHA}`;
   }
 
-  return 'HEAD~1..HEAD';
+  return "HEAD~1..HEAD";
 }
 
 function git(args) {
-  return execFileSync('git', args, { encoding: 'utf8' }).trim();
+  return execFileSync("git", args, { encoding: "utf8" }).trim();
 }
 
 function listCommitShas(range) {
-  const output = git(['rev-list', '--reverse', '--no-merges', range]);
-  if (output === '') {
+  const output = git(["rev-list", "--reverse", "--no-merges", range]);
+  if (output === "") {
     return [];
   }
-  return output.split('\n');
+  return output.split("\n");
 }
 
 function readCommitSubject(sha) {
-  return git(['show', '-s', '--format=%s', sha]);
+  return git(["show", "-s", "--format=%s", sha]);
 }
 
 function validateSubject(subject) {
@@ -66,7 +60,7 @@ function validateSubject(subject) {
   if (!match?.groups) {
     return {
       valid: false,
-      reason: 'expected Conventional Commit format `type(scope): summary` or `type: summary`',
+      reason: "expected Conventional Commit format `type(scope): summary` or `type: summary`",
     };
   }
 
@@ -105,7 +99,7 @@ for (const sha of shas) {
 if (failures.length > 0) {
   console.error(`Commit message check failed for range ${range}.`);
   console.error(
-    'Use Conventional Commits such as `feat(sdk): add provider seam` or `fix(core): preserve deterministic apply order`.',
+    "Use Conventional Commits such as `feat(sdk): add provider seam` or `fix(core): preserve deterministic apply order`.",
   );
 
   for (const failure of failures) {
@@ -120,7 +114,7 @@ console.log(`Commit message check passed for ${shas.length} commit(s) in ${range
 
 if (releasableCount === 0) {
   console.log(
-    'No releasable commits found. Release Please will not open a release PR for docs/chore/refactor/test/build/ci-only changes.',
+    "No releasable commits found. Release Please will not open a release PR for docs/chore/refactor/test/build/ci-only changes.",
   );
 } else {
   console.log(`Found ${releasableCount} releasable commit(s) for Release Please.`);

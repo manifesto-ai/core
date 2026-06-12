@@ -88,7 +88,7 @@ function simpleTypeNode(name: PrimitiveKind, location: SourceLocation): TypeExpr
 function isAssignableType(
   sourceType: TypeExprNode,
   targetType: TypeExprNode,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): boolean | null {
   const resolvedSource = resolveType(sourceType, symbols);
   const resolvedTarget = resolveType(targetType, symbols);
@@ -97,14 +97,13 @@ function isAssignableType(
   }
 
   if (resolvedTarget.kind === "unionType") {
-    const sourceMembers = resolvedSource.kind === "unionType"
-      ? resolvedSource.types
-      : [resolvedSource];
+    const sourceMembers =
+      resolvedSource.kind === "unionType" ? resolvedSource.types : [resolvedSource];
     let sawUnknown = false;
 
     for (const member of sourceMembers) {
       const outcomes = resolvedTarget.types.map((candidate) =>
-        isAssignableType(member, candidate, symbols)
+        isAssignableType(member, candidate, symbols),
       );
       if (outcomes.includes(true)) {
         continue;
@@ -164,7 +163,9 @@ function isAssignableType(
     }
 
     for (const targetField of resolvedTarget.fields) {
-      const sourceField = resolvedSource.fields.find((candidate) => candidate.name === targetField.name);
+      const sourceField = resolvedSource.fields.find(
+        (candidate) => candidate.name === targetField.name,
+      );
       if (!sourceField) {
         if (targetField.optional) {
           continue;
@@ -217,7 +218,7 @@ function describeTypeExpr(typeExpr: TypeExprNode | null, symbols: DomainTypeSymb
 
 function collectPrimitiveKinds(
   typeExpr: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): Set<PrimitiveKind> | "nonprimitive" | null {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
@@ -238,7 +239,9 @@ function collectPrimitiveKinds(
 
     case "literalType":
       return new Set([
-        resolved.value === null ? "null" : (typeof resolved.value as Exclude<PrimitiveKind, "null">),
+        resolved.value === null
+          ? "null"
+          : (typeof resolved.value as Exclude<PrimitiveKind, "null">),
       ]);
 
     case "arrayType":
@@ -267,7 +270,7 @@ function collectPrimitiveKinds(
 
 function getSingleNonNullPrimitiveKind(
   typeExpr: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): Exclude<PrimitiveKind, "null"> | "invalid" | null {
   const kinds = collectPrimitiveKinds(typeExpr, symbols);
   if (kinds === null) {
@@ -277,7 +280,9 @@ function getSingleNonNullPrimitiveKind(
     return "invalid";
   }
 
-  const nonNullKinds = [...kinds].filter((kind): kind is Exclude<PrimitiveKind, "null"> => kind !== "null");
+  const nonNullKinds = [...kinds].filter(
+    (kind): kind is Exclude<PrimitiveKind, "null"> => kind !== "null",
+  );
   if (nonNullKinds.length !== 1 || kinds.has("null")) {
     return "invalid";
   }
@@ -287,7 +292,7 @@ function getSingleNonNullPrimitiveKind(
 function areComparableTypesCompatible(
   leftType: TypeExprNode | null,
   rightType: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): boolean | null {
   const leftKinds = collectPrimitiveKinds(leftType, symbols);
   const rightKinds = collectPrimitiveKinds(rightType, symbols);
@@ -311,7 +316,10 @@ function areComparableTypesCompatible(
   return leftNonNull.some((kind) => rightNonNull.includes(kind));
 }
 
-function stripNullType(typeExpr: TypeExprNode | null, symbols: DomainTypeSymbols): TypeExprNode | null {
+function stripNullType(
+  typeExpr: TypeExprNode | null,
+  symbols: DomainTypeSymbols,
+): TypeExprNode | null {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved || isNullType(resolved)) {
     return null;
@@ -351,7 +359,7 @@ function stripNullType(typeExpr: TypeExprNode | null, symbols: DomainTypeSymbols
 function areTypesCompatible(
   leftType: TypeExprNode | null,
   rightType: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): boolean | null {
   if (!leftType || !rightType) {
     return null;
@@ -382,7 +390,7 @@ function areTypesCompatible(
 function isMergeAssignableType(
   sourceType: TypeExprNode,
   targetType: TypeExprNode,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): boolean | null {
   const resolvedSource = resolveType(sourceType, symbols);
   const resolvedTarget = resolveType(targetType, symbols);
@@ -430,7 +438,9 @@ function isMergeAssignableType(
   }
 
   for (const sourceField of resolvedSource.fields) {
-    const targetField = resolvedTarget.fields.find((candidate) => candidate.name === sourceField.name);
+    const targetField = resolvedTarget.fields.find(
+      (candidate) => candidate.name === sourceField.name,
+    );
     if (!targetField) {
       return false;
     }
@@ -446,7 +456,7 @@ function isMergeAssignableType(
 
 function classifyArrayOperand(
   typeExpr: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): boolean | null {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
@@ -466,7 +476,7 @@ function classifyArrayOperand(
 
 function classifyLenOperand(
   typeExpr: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): boolean | null {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
@@ -481,7 +491,11 @@ function classifyLenOperand(
     return outcomes.some((outcome) => outcome === false) ? false : null;
   }
 
-  if (resolved.kind === "arrayType" || resolved.kind === "recordType" || resolved.kind === "objectType") {
+  if (
+    resolved.kind === "arrayType" ||
+    resolved.kind === "recordType" ||
+    resolved.kind === "objectType"
+  ) {
     return true;
   }
 
@@ -512,9 +526,11 @@ function getLiteralPrimitiveValue(expr: ExprNode): string | number | boolean | n
   }
   return expr.literalType === "null"
     ? null
-    : typeof expr.value === "string" || typeof expr.value === "number" || typeof expr.value === "boolean"
-    ? expr.value
-    : undefined;
+    : typeof expr.value === "string" ||
+        typeof expr.value === "number" ||
+        typeof expr.value === "boolean"
+      ? expr.value
+      : undefined;
 }
 
 function getStaticNumericLiteralValue(expr: ExprNode): number | undefined {
@@ -539,9 +555,10 @@ function resolvePathType(path: PathNode, symbols: DomainTypeSymbols): TypeExprNo
     if (!current) {
       return null;
     }
-    current = segment.kind === "propertySegment"
-      ? getPropertyType(current, segment.name, symbols)
-      : getIndexType(current, symbols);
+    current =
+      segment.kind === "propertySegment"
+        ? getPropertyType(current, segment.name, symbols)
+        : getIndexType(current, symbols);
   }
 
   return current;
@@ -593,7 +610,7 @@ export class SemanticValidator {
     this.symbols = null;
 
     return {
-      valid: !this.ctx.diagnostics.some(d => d.severity === "error"),
+      valid: !this.ctx.diagnostics.some((d) => d.severity === "error"),
       diagnostics: this.ctx.diagnostics,
     };
   }
@@ -604,16 +621,18 @@ export class SemanticValidator {
       this.error(
         "Domain name cannot start with '__' (reserved prefix)",
         domain.location,
-        "E_RESERVED_NAME"
+        "E_RESERVED_NAME",
       );
     }
 
-    const contextBlocks = domain.members.filter((member): member is ContextNode => member.kind === "context");
+    const contextBlocks = domain.members.filter(
+      (member): member is ContextNode => member.kind === "context",
+    );
     for (const contextBlock of contextBlocks.slice(1)) {
       this.error(
         "Domain can declare context at most once",
         contextBlock.location,
-        "E_DUPLICATE_FIELD"
+        "E_DUPLICATE_FIELD",
       );
     }
 
@@ -649,7 +668,7 @@ export class SemanticValidator {
         this.error(
           `Duplicate state field '${field.name}'. First declared at line ${prev.start.line}`,
           field.location,
-          "E_DUPLICATE_FIELD"
+          "E_DUPLICATE_FIELD",
         );
       } else {
         seen.set(field.name, field.location);
@@ -676,7 +695,7 @@ export class SemanticValidator {
         this.error(
           `Duplicate context field '${field.name}'. First declared at line ${prev.start.line}`,
           field.location,
-          "E_DUPLICATE_FIELD"
+          "E_DUPLICATE_FIELD",
         );
       } else {
         seen.set(field.name, field.location);
@@ -691,18 +710,14 @@ export class SemanticValidator {
 
       case "identifier":
       case "iterationVar":
-        this.error(
-          "State initializers must be compile-time constants",
-          expr.location,
-          "E042"
-        );
+        this.error("State initializers must be compile-time constants", expr.location, "E042");
         return;
 
       case "systemIdent":
         this.error(
           `$${expr.path[0]}.* cannot be used in state initializers`,
           expr.location,
-          "E002"
+          "E002",
         );
         return;
 
@@ -716,7 +731,12 @@ export class SemanticValidator {
           const before = this.ctx.diagnostics.length;
           this.validateStateInitializer(prop.expr);
           if (before === this.ctx.diagnostics.length) {
-            this.requireSpreadOperand(this.inferType(prop.expr, new Map()), prop.location, prop.expr, new Map());
+            this.requireSpreadOperand(
+              this.inferType(prop.expr, new Map()),
+              prop.location,
+              prop.expr,
+              new Map(),
+            );
           }
         }
         return;
@@ -733,11 +753,7 @@ export class SemanticValidator {
           this.validateStateInitializer(arg);
         }
         if (this.ctx.diagnostics.length === before) {
-          this.error(
-            "State initializers must be compile-time constants",
-            expr.location,
-            "E042"
-          );
+          this.error("State initializers must be compile-time constants", expr.location, "E042");
         }
         return;
       }
@@ -747,11 +763,7 @@ export class SemanticValidator {
         this.validateStateInitializer(expr.left);
         this.validateStateInitializer(expr.right);
         if (this.ctx.diagnostics.length === before) {
-          this.error(
-            "State initializers must be compile-time constants",
-            expr.location,
-            "E042"
-          );
+          this.error("State initializers must be compile-time constants", expr.location, "E042");
         }
         return;
       }
@@ -760,11 +772,7 @@ export class SemanticValidator {
         const before = this.ctx.diagnostics.length;
         this.validateStateInitializer(expr.operand);
         if (this.ctx.diagnostics.length === before) {
-          this.error(
-            "State initializers must be compile-time constants",
-            expr.location,
-            "E042"
-          );
+          this.error("State initializers must be compile-time constants", expr.location, "E042");
         }
         return;
       }
@@ -775,11 +783,7 @@ export class SemanticValidator {
         this.validateStateInitializer(expr.consequent);
         this.validateStateInitializer(expr.alternate);
         if (this.ctx.diagnostics.length === before) {
-          this.error(
-            "State initializers must be compile-time constants",
-            expr.location,
-            "E042"
-          );
+          this.error("State initializers must be compile-time constants", expr.location, "E042");
         }
         return;
       }
@@ -788,11 +792,7 @@ export class SemanticValidator {
         const before = this.ctx.diagnostics.length;
         this.validateStateInitializer(expr.object);
         if (this.ctx.diagnostics.length === before) {
-          this.error(
-            "State initializers must be compile-time constants",
-            expr.location,
-            "E042"
-          );
+          this.error("State initializers must be compile-time constants", expr.location, "E042");
         }
         return;
       }
@@ -802,11 +802,7 @@ export class SemanticValidator {
         this.validateStateInitializer(expr.object);
         this.validateStateInitializer(expr.index);
         if (this.ctx.diagnostics.length === before) {
-          this.error(
-            "State initializers must be compile-time constants",
-            expr.location,
-            "E042"
-          );
+          this.error("State initializers must be compile-time constants", expr.location, "E042");
         }
         return;
       }
@@ -827,9 +823,10 @@ export class SemanticValidator {
             "Anonymous object type in state field. Use a named type declaration instead: type MyType = { ... }",
             typeExpr.location,
             {
-              suggestion: "Define this type using 'type TypeName = { ... }' and reference it by name",
-            }
-          )
+              suggestion:
+                "Define this type using 'type TypeName = { ... }' and reference it by name",
+            },
+          ),
         );
         // Also check nested types
         for (const f of typeExpr.fields) {
@@ -889,7 +886,7 @@ export class SemanticValidator {
           this.error(
             "Action parameters cannot be used in available condition",
             expr.location,
-            "E005"
+            "E005",
           );
         }
         break;
@@ -898,7 +895,7 @@ export class SemanticValidator {
         this.error(
           `$${expr.path[0]}.* cannot be used in available condition`,
           expr.location,
-          "E005"
+          "E005",
         );
         break;
 
@@ -963,7 +960,7 @@ export class SemanticValidator {
             ? "$input.* cannot be used in dispatchable condition (use bare action parameter names)"
             : `$${expr.path[0]}.* cannot be used in dispatchable condition`,
           expr.location,
-          "E047"
+          "E047",
         );
         break;
 
@@ -1104,7 +1101,7 @@ export class SemanticValidator {
       this.error(
         "Patch must be inside a guard (when, once, or onceIntent)",
         stmt.location,
-        "E_UNGUARDED_PATCH"
+        "E_UNGUARDED_PATCH",
       );
     }
 
@@ -1121,14 +1118,15 @@ export class SemanticValidator {
         return;
       }
 
-      const assignable = stmt.op === "merge"
-        ? isMergeAssignableType(valueType, targetType, this.symbols)
-        : isAssignableType(valueType, targetType, this.symbols);
+      const assignable =
+        stmt.op === "merge"
+          ? isMergeAssignableType(valueType, targetType, this.symbols)
+          : isAssignableType(valueType, targetType, this.symbols);
       if (assignable === false) {
         this.error(
           `Patch value for '${renderPath(stmt.path)}' must be assignable to ${describeTypeExpr(targetType, this.symbols)}, got ${describeTypeExpr(valueType, this.symbols)}`,
           stmt.value.location,
-          "E_TYPE_MISMATCH"
+          "E_TYPE_MISMATCH",
         );
       }
     }
@@ -1140,7 +1138,7 @@ export class SemanticValidator {
       this.error(
         "Effect must be inside a guard (when, once, or onceIntent)",
         stmt.location,
-        "E_UNGUARDED_EFFECT"
+        "E_UNGUARDED_EFFECT",
       );
     }
 
@@ -1157,11 +1155,7 @@ export class SemanticValidator {
 
   private validateFail(stmt: FailStmtNode): void {
     if (!this.ctx.inGuard) {
-      this.error(
-        "fail must be inside a guard (when, once, or onceIntent)",
-        stmt.location,
-        "E006"
-      );
+      this.error("fail must be inside a guard (when, once, or onceIntent)", stmt.location, "E006");
     }
 
     if (stmt.message) {
@@ -1171,18 +1165,14 @@ export class SemanticValidator {
 
   private validateStop(stmt: StopStmtNode): void {
     if (!this.ctx.inGuard) {
-      this.error(
-        "stop must be inside a guard (when, once, or onceIntent)",
-        stmt.location,
-        "E007"
-      );
+      this.error("stop must be inside a guard (when, once, or onceIntent)", stmt.location, "E007");
     }
 
     if (STOP_WAITING_REASON_PATTERN.test(stmt.reason)) {
       this.error(
         "stop message suggests waiting/pending - use 'Already processed' style instead",
         stmt.location,
-        "E008"
+        "E008",
       );
     }
   }
@@ -1195,7 +1185,7 @@ export class SemanticValidator {
         conditionType,
         simpleTypeNode("boolean", expr.location),
         expr.location,
-        `Condition in ${guardType} must evaluate to boolean`
+        `Condition in ${guardType} must evaluate to boolean`,
       );
     }
   }
@@ -1203,118 +1193,121 @@ export class SemanticValidator {
   private validateExpr(
     expr: ExprNode,
     context: "computed" | "action",
-    env: TypeEnv = this.ctx.currentActionParamTypes
+    env: TypeEnv = this.ctx.currentActionParamTypes,
   ): TypeExprNode | null {
     switch (expr.kind) {
       case "functionCall":
         this.validateFunctionCall(expr, context, env);
         return this.inferType(expr, env);
 
-      case "binary":
-        {
-          const before = this.ctx.diagnostics.length;
-          const leftType = this.validateExpr(expr.left, context, env);
-          const rightType = this.validateExpr(expr.right, context, env);
-          const hadInnerErrors = before !== this.ctx.diagnostics.length;
+      case "binary": {
+        const before = this.ctx.diagnostics.length;
+        const leftType = this.validateExpr(expr.left, context, env);
+        const rightType = this.validateExpr(expr.right, context, env);
+        const hadInnerErrors = before !== this.ctx.diagnostics.length;
 
-          if (!hadInnerErrors) {
-            switch (expr.operator) {
-              case "==":
-              case "!=":
-                this.validatePrimitiveEquality(expr.left, expr.right, leftType, rightType, expr.location);
-                break;
-              case "<":
-              case "<=":
-              case ">":
-              case ">=":
-                this.requireAssignable(
-                  leftType,
-                  simpleTypeNode("number", expr.left.location),
-                  expr.left.location,
-                  `Operator '${expr.operator}' requires a numeric left operand`
-                );
-                this.requireAssignable(
-                  rightType,
-                  simpleTypeNode("number", expr.right.location),
-                  expr.right.location,
-                  `Operator '${expr.operator}' requires a numeric right operand`
-                );
-                break;
-              case "&&":
-              case "||":
-                this.requireAssignable(
-                  leftType,
-                  simpleTypeNode("boolean", expr.left.location),
-                  expr.left.location,
-                  `Operator '${expr.operator}' requires a boolean left operand`
-                );
-                this.requireAssignable(
-                  rightType,
-                  simpleTypeNode("boolean", expr.right.location),
-                  expr.right.location,
-                  `Operator '${expr.operator}' requires a boolean right operand`
-                );
-                break;
-              case "+":
-              case "-":
-              case "*":
-              case "/":
-              case "%":
-                this.requireAssignable(
-                  leftType,
-                  simpleTypeNode("number", expr.left.location),
-                  expr.left.location,
-                  `Operator '${expr.operator}' requires a numeric left operand`
-                );
-                this.requireAssignable(
-                  rightType,
-                  simpleTypeNode("number", expr.right.location),
-                  expr.right.location,
-                  `Operator '${expr.operator}' requires a numeric right operand`
-                );
-                break;
-              case "??":
-                this.validateCoalesceTypes([leftType, rightType], expr.location);
-                break;
-            }
+        if (!hadInnerErrors) {
+          switch (expr.operator) {
+            case "==":
+            case "!=":
+              this.validatePrimitiveEquality(
+                expr.left,
+                expr.right,
+                leftType,
+                rightType,
+                expr.location,
+              );
+              break;
+            case "<":
+            case "<=":
+            case ">":
+            case ">=":
+              this.requireAssignable(
+                leftType,
+                simpleTypeNode("number", expr.left.location),
+                expr.left.location,
+                `Operator '${expr.operator}' requires a numeric left operand`,
+              );
+              this.requireAssignable(
+                rightType,
+                simpleTypeNode("number", expr.right.location),
+                expr.right.location,
+                `Operator '${expr.operator}' requires a numeric right operand`,
+              );
+              break;
+            case "&&":
+            case "||":
+              this.requireAssignable(
+                leftType,
+                simpleTypeNode("boolean", expr.left.location),
+                expr.left.location,
+                `Operator '${expr.operator}' requires a boolean left operand`,
+              );
+              this.requireAssignable(
+                rightType,
+                simpleTypeNode("boolean", expr.right.location),
+                expr.right.location,
+                `Operator '${expr.operator}' requires a boolean right operand`,
+              );
+              break;
+            case "+":
+            case "-":
+            case "*":
+            case "/":
+            case "%":
+              this.requireAssignable(
+                leftType,
+                simpleTypeNode("number", expr.left.location),
+                expr.left.location,
+                `Operator '${expr.operator}' requires a numeric left operand`,
+              );
+              this.requireAssignable(
+                rightType,
+                simpleTypeNode("number", expr.right.location),
+                expr.right.location,
+                `Operator '${expr.operator}' requires a numeric right operand`,
+              );
+              break;
+            case "??":
+              this.validateCoalesceTypes([leftType, rightType], expr.location);
+              break;
           }
-
-          return this.inferType(expr, env);
         }
 
-      case "unary":
-        {
-          const before = this.ctx.diagnostics.length;
-          const operandType = this.validateExpr(expr.operand, context, env);
-          if (before === this.ctx.diagnostics.length) {
-            this.requireAssignable(
-              operandType,
-              simpleTypeNode(expr.operator === "!" ? "boolean" : "number", expr.operand.location),
-              expr.operand.location,
-              expr.operator === "!"
-                ? "Unary '!' requires a boolean operand"
-                : "Unary '-' requires a numeric operand"
-            );
-          }
-          return this.inferType(expr, env);
-        }
+        return this.inferType(expr, env);
+      }
 
-      case "ternary":
-        {
-          const before = this.ctx.diagnostics.length;
-          const conditionType = this.validateExpr(expr.condition, context, env);
-          this.validateExpr(expr.consequent, context, env);
-          this.validateExpr(expr.alternate, context, env);
-          if (before === this.ctx.diagnostics.length) {
-            this.requireAssignable(
-              conditionType,
-              simpleTypeNode("boolean", expr.condition.location),
-              expr.condition.location,
-              "Ternary condition must evaluate to boolean"
-            );
-          }
-          return this.inferType(expr, env);
+      case "unary": {
+        const before = this.ctx.diagnostics.length;
+        const operandType = this.validateExpr(expr.operand, context, env);
+        if (before === this.ctx.diagnostics.length) {
+          this.requireAssignable(
+            operandType,
+            simpleTypeNode(expr.operator === "!" ? "boolean" : "number", expr.operand.location),
+            expr.operand.location,
+            expr.operator === "!"
+              ? "Unary '!' requires a boolean operand"
+              : "Unary '-' requires a numeric operand",
+          );
         }
+        return this.inferType(expr, env);
+      }
+
+      case "ternary": {
+        const before = this.ctx.diagnostics.length;
+        const conditionType = this.validateExpr(expr.condition, context, env);
+        this.validateExpr(expr.consequent, context, env);
+        this.validateExpr(expr.alternate, context, env);
+        if (before === this.ctx.diagnostics.length) {
+          this.requireAssignable(
+            conditionType,
+            simpleTypeNode("boolean", expr.condition.location),
+            expr.condition.location,
+            "Ternary condition must evaluate to boolean",
+          );
+        }
+        return this.inferType(expr, env);
+      }
 
       case "propertyAccess":
         this.validateExpr(expr.object, context, env);
@@ -1359,7 +1352,7 @@ export class SemanticValidator {
   private validateDollarIdent(
     path: readonly string[],
     context: "computed" | "action",
-    location: SourceLocation
+    location: SourceLocation,
   ): void {
     const [namespace, ...rest] = path;
 
@@ -1367,18 +1360,14 @@ export class SemanticValidator {
       this.error(
         `$${namespace}.* is retired in v5 MEL; use $runtime.* or declared $context.* where action-flow context is available`,
         location,
-        context === "computed" ? "E001" : "E003"
+        context === "computed" ? "E001" : "E003",
       );
       return;
     }
 
     if (namespace === "input") {
       if (context === "computed") {
-        this.error(
-          "$input.* cannot be used in computed expressions",
-          location,
-          "E001"
-        );
+        this.error("$input.* cannot be used in computed expressions", location, "E001");
       }
       return;
     }
@@ -1388,7 +1377,7 @@ export class SemanticValidator {
         this.error(
           "$runtime.* can be used only in bound action flow expressions",
           location,
-          "E001"
+          "E001",
         );
         return;
       }
@@ -1397,7 +1386,7 @@ export class SemanticValidator {
         this.error(
           `Invalid runtime value '$runtime.${key}'. Valid values: ${[...VALID_RUNTIME_PATHS].join(", ")}`,
           location,
-          "E003"
+          "E003",
         );
       }
       return;
@@ -1408,7 +1397,7 @@ export class SemanticValidator {
         this.error(
           "$context.* can be used only in bound action flow expressions",
           location,
-          "E001"
+          "E001",
         );
         return;
       }
@@ -1419,7 +1408,7 @@ export class SemanticValidator {
     this.error(
       `Invalid dollar identifier namespace '$${namespace}'. Valid namespaces: $runtime, $context, $input, $item`,
       location,
-      "E003"
+      "E003",
     );
   }
 
@@ -1428,11 +1417,7 @@ export class SemanticValidator {
       return;
     }
     if (this.symbols.contextTypes.size === 0) {
-      this.error(
-        "Cannot use $context.* without a domain context declaration",
-        location,
-        "E003"
-      );
+      this.error("Cannot use $context.* without a domain context declaration", location, "E003");
       return;
     }
     if (path.length === 0) {
@@ -1442,22 +1427,14 @@ export class SemanticValidator {
     const [head, ...rest] = path;
     let current = this.symbols.contextTypes.get(head) ?? null;
     if (!current) {
-      this.error(
-        `Unknown context field '$context.${head}'`,
-        location,
-        "E_UNDEFINED"
-      );
+      this.error(`Unknown context field '$context.${head}'`, location, "E_UNDEFINED");
       return;
     }
 
     for (const segment of rest) {
       current = getPropertyType(current, segment, this.symbols);
       if (!current) {
-        this.error(
-          `Unknown context path '$context.${path.join(".")}'`,
-          location,
-          "E_UNDEFINED"
-        );
+        this.error(`Unknown context path '$context.${path.join(".")}'`, location, "E_UNDEFINED");
         return;
       }
     }
@@ -1466,7 +1443,7 @@ export class SemanticValidator {
   private validateFunctionCall(
     expr: { kind: "functionCall"; name: string; args: ExprNode[]; location: SourceLocation },
     context: "computed" | "action",
-    env: TypeEnv
+    env: TypeEnv,
   ): void {
     const { name, args, location } = expr;
 
@@ -1475,7 +1452,7 @@ export class SemanticValidator {
       this.error(
         `Function '${name}' is forbidden. Use sum(), min(), max() for aggregation instead`,
         location,
-        "E011"
+        "E011",
       );
     }
 
@@ -1487,7 +1464,7 @@ export class SemanticValidator {
         this.error(
           `Primitive aggregation '${name}()' can only be used in computed expressions, not in actions`,
           location,
-          "E009"
+          "E009",
         );
       }
 
@@ -1497,7 +1474,7 @@ export class SemanticValidator {
         this.error(
           `Primitive aggregation '${name}()' does not allow composition. Use a direct reference, not '${arg.name}()'`,
           location,
-          "E010"
+          "E010",
         );
       }
     }
@@ -1517,7 +1494,7 @@ export class SemanticValidator {
           this.error(
             `Function '${name}' expects 1 argument, got ${args.length}`,
             location,
-            "E_ARG_COUNT"
+            "E_ARG_COUNT",
           );
         }
         break;
@@ -1538,7 +1515,7 @@ export class SemanticValidator {
           this.error(
             `Function '${name}' expects 2 arguments, got ${args.length}`,
             location,
-            "E_ARG_COUNT"
+            "E_ARG_COUNT",
           );
         }
         break;
@@ -1574,7 +1551,7 @@ export class SemanticValidator {
           this.error(
             `Function '${name}' expects 1 argument, got ${args.length}`,
             location,
-            "E_ARG_COUNT"
+            "E_ARG_COUNT",
           );
         }
         break;
@@ -1602,7 +1579,7 @@ export class SemanticValidator {
           this.error(
             `Function '${name}' expects 2 arguments, got ${args.length}`,
             location,
-            "E_ARG_COUNT"
+            "E_ARG_COUNT",
           );
         }
         break;
@@ -1613,7 +1590,7 @@ export class SemanticValidator {
           this.error(
             `Function '${name}' expects 3 arguments, got ${args.length}`,
             location,
-            "E_ARG_COUNT"
+            "E_ARG_COUNT",
           );
         }
         break;
@@ -1624,7 +1601,7 @@ export class SemanticValidator {
           this.error(
             `Function '${name}' expects 2 arguments, got ${args.length}`,
             location,
-            "E_ARG_COUNT"
+            "E_ARG_COUNT",
           );
         }
         break;
@@ -1638,7 +1615,7 @@ export class SemanticValidator {
           this.error(
             `Function '${name}' expects 2-3 arguments, got ${args.length}`,
             location,
-            "E_ARG_COUNT"
+            "E_ARG_COUNT",
           );
         }
         break;
@@ -1649,7 +1626,7 @@ export class SemanticValidator {
           this.error(
             `Function '${name}' expects 2 arguments, got ${args.length}`,
             location,
-            "E_ARG_COUNT"
+            "E_ARG_COUNT",
           );
         }
         break;
@@ -1664,11 +1641,7 @@ export class SemanticValidator {
       case "coalesce":
       case "append":
         if (args.length < 1) {
-          this.error(
-            `Function '${name}' expects at least 1 argument`,
-            location,
-            "E_ARG_COUNT"
-          );
+          this.error(`Function '${name}' expects at least 1 argument`, location, "E_ARG_COUNT");
         }
         break;
 
@@ -1677,7 +1650,7 @@ export class SemanticValidator {
           this.error(
             "Function 'match' expects a selector, at least one [key, value] arm, and a default value",
             location,
-            "E050"
+            "E050",
           );
         }
         break;
@@ -1688,7 +1661,7 @@ export class SemanticValidator {
           this.error(
             `Function '${name}' expects at least one [label, eligible, score] candidate and a tie-break literal`,
             location,
-            "E052"
+            "E052",
           );
         }
         break;
@@ -1700,7 +1673,7 @@ export class SemanticValidator {
           this.error(
             `Function '${name}' expects 3 arguments, got ${args.length}`,
             location,
-            "E_ARG_COUNT"
+            "E_ARG_COUNT",
           );
         }
         break;
@@ -1709,7 +1682,7 @@ export class SemanticValidator {
         this.error(
           `Unknown function '${name}'. Check spelling or see MEL builtin function reference`,
           location,
-          "E_UNKNOWN_FN"
+          "E_UNKNOWN_FN",
         );
         break;
     }
@@ -1761,13 +1734,13 @@ export class SemanticValidator {
             argTypes[0],
             simpleTypeNode("number", args[0].location),
             args[0].location,
-            `Function '${name}' expects a numeric first argument`
+            `Function '${name}' expects a numeric first argument`,
           );
           this.requireAssignable(
             argTypes[1],
             simpleTypeNode("number", args[1].location),
             args[1].location,
-            `Function '${name}' expects a numeric second argument`
+            `Function '${name}' expects a numeric second argument`,
           );
         }
         break;
@@ -1781,13 +1754,13 @@ export class SemanticValidator {
             argTypes[0],
             simpleTypeNode("number", args[0].location),
             args[0].location,
-            `Function '${name}' expects a numeric first argument`
+            `Function '${name}' expects a numeric first argument`,
           );
           this.requireAssignable(
             argTypes[1],
             simpleTypeNode("number", args[1].location),
             args[1].location,
-            `Function '${name}' expects a numeric second argument`
+            `Function '${name}' expects a numeric second argument`,
           );
         }
         break;
@@ -1799,7 +1772,7 @@ export class SemanticValidator {
             argTypes[index],
             simpleTypeNode("boolean", arg.location),
             arg.location,
-            `Function '${name}' expects boolean arguments`
+            `Function '${name}' expects boolean arguments`,
           );
         }
         break;
@@ -1810,7 +1783,7 @@ export class SemanticValidator {
             argTypes[0],
             simpleTypeNode("boolean", args[0].location),
             args[0].location,
-            "Function 'not' expects a boolean argument"
+            "Function 'not' expects a boolean argument",
           );
         }
         break;
@@ -1826,7 +1799,7 @@ export class SemanticValidator {
             argTypes[0],
             simpleTypeNode("number", args[0].location),
             args[0].location,
-            `Function '${name}' expects a numeric argument`
+            `Function '${name}' expects a numeric argument`,
           );
         }
         break;
@@ -1837,19 +1810,19 @@ export class SemanticValidator {
             argTypes[0],
             simpleTypeNode("number", args[0].location),
             args[0].location,
-            "Function 'clamp' expects a numeric first argument"
+            "Function 'clamp' expects a numeric first argument",
           );
           this.requireAssignable(
             argTypes[1],
             simpleTypeNode("number", args[1].location),
             args[1].location,
-            "Function 'clamp' expects a numeric second argument"
+            "Function 'clamp' expects a numeric second argument",
           );
           this.requireAssignable(
             argTypes[2],
             simpleTypeNode("number", args[2].location),
             args[2].location,
-            "Function 'clamp' expects a numeric third argument"
+            "Function 'clamp' expects a numeric third argument",
           );
           const clampLoLiteral = getStaticNumericLiteralValue(args[1]);
           const clampHiLiteral = getStaticNumericLiteralValue(args[2]);
@@ -1861,7 +1834,7 @@ export class SemanticValidator {
             this.error(
               "Function 'clamp' requires literal bounds in lo, hi order",
               location,
-              "E049"
+              "E049",
             );
           }
         }
@@ -1873,13 +1846,13 @@ export class SemanticValidator {
             argTypes[0],
             simpleTypeNode("number", args[0].location),
             args[0].location,
-            "Function 'streak' expects a numeric first argument"
+            "Function 'streak' expects a numeric first argument",
           );
           this.requireAssignable(
             argTypes[1],
             simpleTypeNode("boolean", args[1].location),
             args[1].location,
-            "Function 'streak' expects a boolean second argument"
+            "Function 'streak' expects a boolean second argument",
           );
         }
         break;
@@ -1893,7 +1866,7 @@ export class SemanticValidator {
             argTypes[0],
             simpleTypeNode("string", args[0].location),
             args[0].location,
-            `Function '${name}' expects a string argument`
+            `Function '${name}' expects a string argument`,
           );
         }
         break;
@@ -1908,13 +1881,13 @@ export class SemanticValidator {
             argTypes[0],
             simpleTypeNode("string", args[0].location),
             args[0].location,
-            `Function '${name}' expects a string first argument`
+            `Function '${name}' expects a string first argument`,
           );
           this.requireAssignable(
             argTypes[1],
             simpleTypeNode("string", args[1].location),
             args[1].location,
-            `Function '${name}' expects a string second argument`
+            `Function '${name}' expects a string second argument`,
           );
         }
         break;
@@ -1925,13 +1898,13 @@ export class SemanticValidator {
             argTypes[0],
             simpleTypeNode("string", args[0].location),
             args[0].location,
-            "Function 'replace' expects a string first argument"
+            "Function 'replace' expects a string first argument",
           );
           this.requireAssignable(
             argTypes[1],
             simpleTypeNode("string", args[1].location),
             args[1].location,
-            "Function 'replace' expects a string second argument"
+            "Function 'replace' expects a string second argument",
           );
         }
         if (args.length === 3) {
@@ -1939,7 +1912,7 @@ export class SemanticValidator {
             argTypes[2],
             simpleTypeNode("string", args[2].location),
             args[2].location,
-            "Function 'replace' expects a string replacement argument"
+            "Function 'replace' expects a string replacement argument",
           );
         }
         break;
@@ -1951,13 +1924,13 @@ export class SemanticValidator {
             argTypes[0],
             simpleTypeNode("string", args[0].location),
             args[0].location,
-            `Function '${name}' expects a string first argument`
+            `Function '${name}' expects a string first argument`,
           );
           this.requireAssignable(
             argTypes[1],
             simpleTypeNode("number", args[1].location),
             args[1].location,
-            `Function '${name}' expects a numeric second argument`
+            `Function '${name}' expects a numeric second argument`,
           );
         }
         if (args.length === 3) {
@@ -1965,7 +1938,7 @@ export class SemanticValidator {
             argTypes[2],
             simpleTypeNode("number", args[2].location),
             args[2].location,
-            `Function '${name}' expects a numeric third argument`
+            `Function '${name}' expects a numeric third argument`,
           );
         }
         break;
@@ -1986,7 +1959,7 @@ export class SemanticValidator {
             argTypes[1],
             simpleTypeNode("boolean", args[1].location),
             args[1].location,
-            `Function '${name}' requires a boolean-valued callback`
+            `Function '${name}' requires a boolean-valued callback`,
           );
         }
         break;
@@ -2023,7 +1996,7 @@ export class SemanticValidator {
             argTypes[0],
             simpleTypeNode("boolean", args[0].location),
             args[0].location,
-            `Function '${name}' expects a boolean condition`
+            `Function '${name}' expects a boolean condition`,
           );
         }
         break;
@@ -2035,7 +2008,7 @@ export class SemanticValidator {
     rightExpr: ExprNode,
     leftType: TypeExprNode | null,
     rightType: TypeExprNode | null,
-    location: SourceLocation
+    location: SourceLocation,
   ): void {
     if (!this.symbols) {
       return;
@@ -2050,7 +2023,7 @@ export class SemanticValidator {
       this.error(
         "eq/neq operands must be compatible primitive types, not object or array literals",
         location,
-        "E_TYPE_MISMATCH"
+        "E_TYPE_MISMATCH",
       );
       return;
     }
@@ -2060,7 +2033,7 @@ export class SemanticValidator {
       this.error(
         `eq/neq operands must be compatible primitive types, got ${describeTypeExpr(leftType, this.symbols)} and ${describeTypeExpr(rightType, this.symbols)}`,
         location,
-        "E_TYPE_MISMATCH"
+        "E_TYPE_MISMATCH",
       );
     }
   }
@@ -2077,7 +2050,7 @@ export class SemanticValidator {
     actualType: TypeExprNode | null,
     expectedType: TypeExprNode,
     location: SourceLocation,
-    message: string
+    message: string,
   ): void {
     if (!this.symbols || !actualType) {
       return;
@@ -2088,7 +2061,7 @@ export class SemanticValidator {
       this.error(
         `${message}, got ${describeTypeExpr(actualType, this.symbols)}`,
         location,
-        "E_TYPE_MISMATCH"
+        "E_TYPE_MISMATCH",
       );
     }
   }
@@ -2096,7 +2069,7 @@ export class SemanticValidator {
   private requireArrayCompatible(
     actualType: TypeExprNode | null,
     location: SourceLocation,
-    fnName: string
+    fnName: string,
   ): void {
     if (!this.symbols || !actualType) {
       return;
@@ -2107,7 +2080,7 @@ export class SemanticValidator {
       this.error(
         `Function '${fnName}' expects an array first argument, got ${describeTypeExpr(actualType, this.symbols)}`,
         location,
-        "E_TYPE_MISMATCH"
+        "E_TYPE_MISMATCH",
       );
     }
   }
@@ -2122,7 +2095,7 @@ export class SemanticValidator {
       this.error(
         `Function 'len' expects a string, array, object, or record argument, got ${describeTypeExpr(actualType, this.symbols)}`,
         location,
-        "E_TYPE_MISMATCH"
+        "E_TYPE_MISMATCH",
       );
     }
   }
@@ -2131,30 +2104,27 @@ export class SemanticValidator {
     actualType: TypeExprNode | null,
     location: SourceLocation,
     expr?: ExprNode,
-    env: TypeEnv = new Map()
+    env: TypeEnv = new Map(),
   ): void {
     if (!this.symbols) {
       return;
     }
 
-    const typeOutcome = actualType === null
-      ? "unknown"
-      : classifySpreadOperandType(actualType, this.symbols);
+    const typeOutcome =
+      actualType === null ? "unknown" : classifySpreadOperandType(actualType, this.symbols);
     const arrayBranchReachable = mayYieldArrayExpr(expr, {
       env,
       symbols: this.symbols,
       inferExprType,
       resolveType,
     });
-    const outcome = arrayBranchReachable
-      ? "invalid"
-      : typeOutcome;
+    const outcome = arrayBranchReachable ? "invalid" : typeOutcome;
 
     if (outcome === "invalid") {
       this.error(
         `Object spread operands must be object-shaped or T | null where T is object-shaped, got ${describeTypeExpr(actualType, this.symbols)}`,
         location,
-        "E_TYPE_MISMATCH"
+        "E_TYPE_MISMATCH",
       );
     }
   }
@@ -2175,7 +2145,7 @@ export class SemanticValidator {
           this.error(
             `coalesce arguments must have compatible non-null types, got ${describeTypeExpr(concreteTypes[i], this.symbols)} and ${describeTypeExpr(concreteTypes[j], this.symbols)}`,
             location,
-            "E_TYPE_MISMATCH"
+            "E_TYPE_MISMATCH",
           );
           return;
         }
@@ -2187,7 +2157,7 @@ export class SemanticValidator {
     args: ExprNode[],
     argTypes: Array<TypeExprNode | null>,
     location: SourceLocation,
-    env: TypeEnv
+    env: TypeEnv,
   ): void {
     if (!this.symbols || args.length < 3) {
       return;
@@ -2199,7 +2169,7 @@ export class SemanticValidator {
       this.error(
         `Function 'match' requires a selector of type string, number, or boolean, got ${describeTypeExpr(selectorType, this.symbols)}`,
         args[0]!.location,
-        "E_TYPE_MISMATCH"
+        "E_TYPE_MISMATCH",
       );
     }
     const seenKeys = new Set<string>();
@@ -2211,7 +2181,7 @@ export class SemanticValidator {
         this.error(
           "Function 'match' requires each arm to be an inline [key, value] array literal",
           arm.location,
-          "E050"
+          "E050",
         );
         continue;
       }
@@ -2222,7 +2192,7 @@ export class SemanticValidator {
         this.error(
           "Function 'match' requires literal string, number, or boolean arm keys",
           keyExpr.location,
-          "E050"
+          "E050",
         );
       } else {
         const dedupeKey = `${typeof literalKey}:${String(literalKey)}`;
@@ -2230,7 +2200,7 @@ export class SemanticValidator {
           this.error(
             `Function 'match' has duplicate arm key ${JSON.stringify(literalKey)}`,
             keyExpr.location,
-            "E051"
+            "E051",
           );
         } else {
           seenKeys.add(dedupeKey);
@@ -2239,11 +2209,14 @@ export class SemanticValidator {
 
       const keyType = this.inferType(keyExpr, env);
       const keyKind = getSingleNonNullPrimitiveKind(keyType, this.symbols);
-      if (keyKind === "invalid" || (selectorKind !== null && keyKind !== null && selectorKind !== keyKind)) {
+      if (
+        keyKind === "invalid" ||
+        (selectorKind !== null && keyKind !== null && selectorKind !== keyKind)
+      ) {
         this.error(
           `Function 'match' selector and arm keys must use the same primitive type, got ${describeTypeExpr(selectorType, this.symbols)} and ${describeTypeExpr(keyType, this.symbols)}`,
           keyExpr.location,
-          "E_TYPE_MISMATCH"
+          "E_TYPE_MISMATCH",
         );
       }
 
@@ -2258,7 +2231,7 @@ export class SemanticValidator {
           this.error(
             `Function 'match' arm values and default must have compatible types, got ${describeTypeExpr(valueTypes[i], this.symbols)} and ${describeTypeExpr(valueTypes[j], this.symbols)}`,
             location,
-            "E_TYPE_MISMATCH"
+            "E_TYPE_MISMATCH",
           );
           return;
         }
@@ -2270,7 +2243,7 @@ export class SemanticValidator {
     fnName: "argmax" | "argmin",
     args: ExprNode[],
     location: SourceLocation,
-    env: TypeEnv
+    env: TypeEnv,
   ): void {
     if (!this.symbols || args.length < 2) {
       return;
@@ -2282,7 +2255,7 @@ export class SemanticValidator {
       this.error(
         `Function '${fnName}' requires a final tie-break literal of "first" or "last"`,
         tieBreakExpr.location,
-        "E052"
+        "E052",
       );
     }
 
@@ -2294,7 +2267,7 @@ export class SemanticValidator {
         this.error(
           `Function '${fnName}' requires inline [label, eligible, score] array literal candidates`,
           candidate.location,
-          "E052"
+          "E052",
         );
         continue;
       }
@@ -2306,7 +2279,7 @@ export class SemanticValidator {
         this.error(
           `Function '${fnName}' requires labels with exactly one primitive scalar type, got ${describeTypeExpr(labelType, this.symbols)}`,
           labelExpr.location,
-          "E_TYPE_MISMATCH"
+          "E_TYPE_MISMATCH",
         );
       } else if (labelKind === null) {
         labelKind = candidateLabelKind;
@@ -2314,7 +2287,7 @@ export class SemanticValidator {
         this.error(
           `Function '${fnName}' candidate labels must share one primitive scalar type, got ${labelKind} and ${candidateLabelKind}`,
           labelExpr.location,
-          "E_TYPE_MISMATCH"
+          "E_TYPE_MISMATCH",
         );
       }
 
@@ -2322,13 +2295,13 @@ export class SemanticValidator {
         this.inferType(eligibleExpr, env),
         simpleTypeNode("boolean", eligibleExpr.location),
         eligibleExpr.location,
-        `Function '${fnName}' expects a boolean eligible value`
+        `Function '${fnName}' expects a boolean eligible value`,
       );
       this.requireAssignable(
         this.inferType(scoreExpr, env),
         simpleTypeNode("number", scoreExpr.location),
         scoreExpr.location,
-        `Function '${fnName}' expects a numeric score value`
+        `Function '${fnName}' expects a numeric score value`,
       );
 
       labelTypes.push(labelType);
@@ -2341,7 +2314,7 @@ export class SemanticValidator {
           this.error(
             `Function '${fnName}' candidate labels must have compatible scalar types, got ${describeTypeExpr(labelTypes[i], this.symbols)} and ${describeTypeExpr(labelTypes[j], this.symbols)}`,
             location,
-            "E_TYPE_MISMATCH"
+            "E_TYPE_MISMATCH",
           );
           return;
         }

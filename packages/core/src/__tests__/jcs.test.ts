@@ -28,7 +28,7 @@ describe("toJcs", () => {
   it("should escape control characters in strings", () => {
     const value = { text: "line\nbreak\tend" };
 
-    expect(toJcs(value)).toBe("{\"text\":\"line\\nbreak\\tend\"}");
+    expect(toJcs(value)).toBe('{"text":"line\\nbreak\\tend"}');
   });
 
   it("should order keys by code point, including surrogate pairs", () => {
@@ -46,14 +46,14 @@ describe("toJcs", () => {
   });
 
   it("should escape quotes and backslashes", () => {
-    const value = { text: "quote\"slash\\end" };
+    const value = { text: 'quote"slash\\end' };
 
-    expect(toJcs(value)).toBe("{\"text\":\"quote\\\"slash\\\\end\"}");
+    expect(toJcs(value)).toBe('{"text":"quote\\"slash\\\\end"}');
   });
 
   it("should escape null character", () => {
     const value = { text: "nul\u0000end" };
 
-    expect(toJcs(value)).toBe("{\"text\":\"nul\\u0000end\"}");
+    expect(toJcs(value)).toBe('{"text":"nul\\u0000end"}');
   });
 });

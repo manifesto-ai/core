@@ -13,10 +13,6 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const tsc = path.join(root, "node_modules", "typescript", "bin", "tsc");
 
-const result = spawnSync(
-  process.execPath,
-  [tsc, ...process.argv.slice(2)],
-  { stdio: "inherit" },
-);
+const result = spawnSync(process.execPath, [tsc, ...process.argv.slice(2)], { stdio: "inherit" });
 
 process.exit(result.status ?? 1);

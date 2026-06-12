@@ -19,10 +19,7 @@ import type { HostTestAdapter } from "../hcts-adapter.js";
 import type { ExecutionContext } from "../../../types/execution.js";
 import { handleStartIntent } from "../../../job-handlers/start-intent.js";
 import { createStartIntentJob } from "../../../types/job.js";
-import {
-  assertApplyBeforeDispatch,
-  expectCompliance,
-} from "../hcts-assertions.js";
+import { assertApplyBeforeDispatch, expectCompliance } from "../hcts-assertions.js";
 import {
   createTestSchema,
   createTestIntent,
@@ -59,7 +56,8 @@ describe("HCTS Interlock Tests", () => {
                 // First, set a flag
                 {
                   kind: "patch",
-                  op: "set", path: pp("patchApplied"),
+                  op: "set",
+                  path: pp("patchApplied"),
                   value: { kind: "lit", value: true },
                 },
                 // Then, if response is null, trigger effect (guarded)
@@ -116,7 +114,8 @@ describe("HCTS Interlock Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set", path: pp("counter"),
+                  op: "set",
+                  path: pp("counter"),
                   value: { kind: "lit", value: 42 },
                 },
                 {
@@ -175,10 +174,14 @@ describe("HCTS Interlock Tests", () => {
         },
       });
       const intent = createTestIntent("omittedNamespace");
-      const requirement = createTestRequirement("manual", {}, {
-        id: "req-omitted-namespace",
-        actionId: "omittedNamespace",
-      });
+      const requirement = createTestRequirement(
+        "manual",
+        {},
+        {
+          id: "req-omitted-namespace",
+          actionId: "omittedNamespace",
+        },
+      );
 
       let snapshot = createTestSnapshot({}, schema.hash);
       const order: string[] = [];
@@ -264,7 +267,8 @@ describe("HCTS Interlock Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("done"),
+              op: "set",
+              path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -318,9 +322,9 @@ describe("HCTS Interlock Tests", () => {
       await adapter.drain(executionKey);
 
       const trace = adapter.getTrace(executionKey);
-      const dispatchEvents = trace.filter(
-        (e) => e.t === "effect:dispatch"
-      ) as Array<Extract<TraceEvent, { t: "effect:dispatch" }>>;
+      const dispatchEvents = trace.filter((e) => e.t === "effect:dispatch") as Array<
+        Extract<TraceEvent, { t: "effect:dispatch" }>
+      >;
 
       expect(dispatchEvents.length).toBeGreaterThan(0);
       expect(dispatchEvents[0].effectType).toBe("test");

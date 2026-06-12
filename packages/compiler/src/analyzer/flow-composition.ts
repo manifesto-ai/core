@@ -51,7 +51,7 @@ function addDiagnostic(
   dedupe: Set<string>,
   code: string,
   message: string,
-  location: Diagnostic["location"]
+  location: Diagnostic["location"],
 ): void {
   const key = `${code}:${location.start.offset}:${location.end.offset}:${message}`;
   if (dedupe.has(key)) {
@@ -124,7 +124,7 @@ function collectFlowValidationDiagnostics(
   domain: DomainNode,
   symbols: FlowSymbols,
   diagnostics: Diagnostic[],
-  dedupe: Set<string>
+  dedupe: Set<string>,
 ): Map<string, FlowEdge[]> {
   const graph = new Map<string, FlowEdge[]>();
 
@@ -137,7 +137,7 @@ function collectFlowValidationDiagnostics(
         dedupe,
         "E022",
         `Flow '${flow.name}' conflicts with action '${flow.name}'.`,
-        flow.location
+        flow.location,
       );
     }
 
@@ -152,14 +152,22 @@ function collectFlowValidationDiagnostics(
           dedupe,
           "E021",
           `Flow parameter '${param.name}' conflicts with a top-level identifier.`,
-          param.location
+          param.location,
         );
       }
     }
 
     const paramEnv = createFlowParamEnv(flow);
     for (const stmt of flow.body) {
-      validateFlowStmt(stmt, flow.name, paramEnv, symbols, diagnostics, dedupe, graph.get(flow.name)!);
+      validateFlowStmt(
+        stmt,
+        flow.name,
+        paramEnv,
+        symbols,
+        diagnostics,
+        dedupe,
+        graph.get(flow.name)!,
+      );
     }
   }
 
@@ -180,7 +188,7 @@ function validateActionStmt(
   typeEnv: TypeEnv,
   symbols: FlowSymbols,
   diagnostics: Diagnostic[],
-  dedupe: Set<string>
+  dedupe: Set<string>,
 ): void {
   switch (stmt.kind) {
     case "include":
@@ -216,7 +224,7 @@ function validateActionInnerStmt(
   typeEnv: TypeEnv,
   symbols: FlowSymbols,
   diagnostics: Diagnostic[],
-  dedupe: Set<string>
+  dedupe: Set<string>,
 ): void {
   switch (stmt.kind) {
     case "include":
@@ -225,7 +233,7 @@ function validateActionInnerStmt(
         dedupe,
         "E016",
         "include is only allowed at action or flow body top-level.",
-        stmt.location
+        stmt.location,
       );
       validateInclude(stmt, typeEnv, symbols, diagnostics, dedupe);
       break;
@@ -263,7 +271,7 @@ function validateFlowStmt(
   symbols: FlowSymbols,
   diagnostics: Diagnostic[],
   dedupe: Set<string>,
-  edges: FlowEdge[]
+  edges: FlowEdge[],
 ): void {
   switch (stmt.kind) {
     case "include":
@@ -279,19 +287,43 @@ function validateFlowStmt(
       break;
 
     case "once":
-      addDiagnostic(diagnostics, dedupe, "E017", "once() is not allowed in flow bodies.", stmt.location);
+      addDiagnostic(
+        diagnostics,
+        dedupe,
+        "E017",
+        "once() is not allowed in flow bodies.",
+        stmt.location,
+      );
       break;
 
     case "onceIntent":
-      addDiagnostic(diagnostics, dedupe, "E018", "onceIntent is not allowed in flow bodies.", stmt.location);
+      addDiagnostic(
+        diagnostics,
+        dedupe,
+        "E018",
+        "onceIntent is not allowed in flow bodies.",
+        stmt.location,
+      );
       break;
 
     case "patch":
-      addDiagnostic(diagnostics, dedupe, "E019", "patch is not allowed in flow bodies.", stmt.location);
+      addDiagnostic(
+        diagnostics,
+        dedupe,
+        "E019",
+        "patch is not allowed in flow bodies.",
+        stmt.location,
+      );
       break;
 
     case "effect":
-      addDiagnostic(diagnostics, dedupe, "E020", "effect is not allowed in flow bodies.", stmt.location);
+      addDiagnostic(
+        diagnostics,
+        dedupe,
+        "E020",
+        "effect is not allowed in flow bodies.",
+        stmt.location,
+      );
       break;
   }
 }
@@ -302,7 +334,7 @@ function validateFlowInnerStmt(
   typeEnv: TypeEnv,
   symbols: FlowSymbols,
   diagnostics: Diagnostic[],
-  dedupe: Set<string>
+  dedupe: Set<string>,
 ): void {
   switch (stmt.kind) {
     case "include":
@@ -311,7 +343,7 @@ function validateFlowInnerStmt(
         dedupe,
         "E016",
         "include is only allowed at action or flow body top-level.",
-        stmt.location
+        stmt.location,
       );
       validateInclude(stmt, typeEnv, symbols, diagnostics, dedupe);
       break;
@@ -323,25 +355,49 @@ function validateFlowInnerStmt(
       break;
 
     case "once":
-      addDiagnostic(diagnostics, dedupe, "E017", "once() is not allowed in flow bodies.", stmt.location);
+      addDiagnostic(
+        diagnostics,
+        dedupe,
+        "E017",
+        "once() is not allowed in flow bodies.",
+        stmt.location,
+      );
       for (const inner of stmt.body) {
         validateFlowInnerStmt(inner, flowName, typeEnv, symbols, diagnostics, dedupe);
       }
       break;
 
     case "onceIntent":
-      addDiagnostic(diagnostics, dedupe, "E018", "onceIntent is not allowed in flow bodies.", stmt.location);
+      addDiagnostic(
+        diagnostics,
+        dedupe,
+        "E018",
+        "onceIntent is not allowed in flow bodies.",
+        stmt.location,
+      );
       for (const inner of stmt.body) {
         validateFlowInnerStmt(inner, flowName, typeEnv, symbols, diagnostics, dedupe);
       }
       break;
 
     case "patch":
-      addDiagnostic(diagnostics, dedupe, "E019", "patch is not allowed in flow bodies.", stmt.location);
+      addDiagnostic(
+        diagnostics,
+        dedupe,
+        "E019",
+        "patch is not allowed in flow bodies.",
+        stmt.location,
+      );
       break;
 
     case "effect":
-      addDiagnostic(diagnostics, dedupe, "E020", "effect is not allowed in flow bodies.", stmt.location);
+      addDiagnostic(
+        diagnostics,
+        dedupe,
+        "E020",
+        "effect is not allowed in flow bodies.",
+        stmt.location,
+      );
       break;
 
     case "fail":
@@ -355,7 +411,7 @@ function validateInclude(
   typeEnv: TypeEnv,
   symbols: FlowSymbols,
   diagnostics: Diagnostic[],
-  dedupe: Set<string>
+  dedupe: Set<string>,
 ): boolean {
   const targetFlow = symbols.flows.get(stmt.flowName);
   if (!targetFlow) {
@@ -364,7 +420,7 @@ function validateInclude(
       dedupe,
       "E015",
       `'${stmt.flowName}' is not a declared flow.`,
-      stmt.location
+      stmt.location,
     );
     return false;
   }
@@ -375,7 +431,7 @@ function validateInclude(
       dedupe,
       "E023",
       `include '${stmt.flowName}' expected ${targetFlow.params.length} argument(s), got ${stmt.args.length}.`,
-      stmt.location
+      stmt.location,
     );
     return true;
   }
@@ -395,7 +451,7 @@ function validateInclude(
         dedupe,
         "E024",
         `include '${stmt.flowName}' argument ${index + 1} is not assignable to parameter '${param.name}'.`,
-        arg.location
+        arg.location,
       );
     }
   }
@@ -407,7 +463,7 @@ function detectFlowGraphIssues(
   graph: Map<string, FlowEdge[]>,
   symbols: FlowSymbols,
   diagnostics: Diagnostic[],
-  dedupe: Set<string>
+  dedupe: Set<string>,
 ): void {
   function walk(flowName: string, depth: number, stack: Set<string>): void {
     stack.add(flowName);
@@ -419,19 +475,13 @@ function detectFlowGraphIssues(
           dedupe,
           "E014",
           `Include expansion depth exceeds limit (${MAX_INCLUDE_DEPTH}).`,
-          edge.location
+          edge.location,
         );
         continue;
       }
 
       if (stack.has(edge.target)) {
-        addDiagnostic(
-          diagnostics,
-          dedupe,
-          "E013",
-          "Circular include detected.",
-          edge.location
-        );
+        addDiagnostic(diagnostics, dedupe, "E013", "Circular include detected.", edge.location);
         continue;
       }
 
@@ -519,10 +569,12 @@ function cloneInnerStmtWithBindings(stmt: InnerStmtNode, bindings: ValueBindings
       return [cloneWhenWithBindings(stmt, bindings)];
 
     case "fail":
-      return [{
-        ...cloneNode(stmt),
-        message: stmt.message ? cloneExprWithBindings(stmt.message, bindings) : undefined,
-      }];
+      return [
+        {
+          ...cloneNode(stmt),
+          message: stmt.message ? cloneExprWithBindings(stmt.message, bindings) : undefined,
+        },
+      ];
 
     case "stop":
       return [cloneNode(stmt)];
@@ -547,11 +599,14 @@ function cloneWhenWithBindings(stmt: WhenStmtNode, bindings: ValueBindings): Whe
 function buildIncludeBindings(
   targetFlow: FlowDeclNode,
   includeStmt: IncludeStmtNode,
-  bindings: ValueBindings
+  bindings: ValueBindings,
 ): ValueBindings {
   const nextBindings = new Map<string, ExprNode>();
   for (let index = 0; index < targetFlow.params.length; index += 1) {
-    nextBindings.set(targetFlow.params[index].name, cloneExprWithBindings(includeStmt.args[index], bindings));
+    nextBindings.set(
+      targetFlow.params[index].name,
+      cloneExprWithBindings(includeStmt.args[index], bindings),
+    );
   }
   return nextBindings;
 }
@@ -561,7 +616,7 @@ function expandFlowStmt(
   symbols: FlowSymbols,
   bindings: ValueBindings,
   depth: number,
-  stack: string[]
+  stack: string[],
 ): GuardedStmtNode[] {
   switch (stmt.kind) {
     case "when":
@@ -583,7 +638,7 @@ function expandInclude(
   symbols: FlowSymbols,
   bindings: ValueBindings,
   depth: number,
-  stack: string[]
+  stack: string[],
 ): GuardedStmtNode[] {
   const targetFlow = symbols.flows.get(stmt.flowName);
   if (
@@ -599,29 +654,35 @@ function expandInclude(
   const nextStack = [...stack, stmt.flowName];
 
   return targetFlow.body.flatMap((flowStmt) =>
-    expandFlowStmt(flowStmt, symbols, nextBindings, depth + 1, nextStack)
+    expandFlowStmt(flowStmt, symbols, nextBindings, depth + 1, nextStack),
   );
 }
 
 function cloneActionInnerStmt(stmt: InnerStmtNode): InnerStmtNode[] {
   switch (stmt.kind) {
     case "when":
-      return [{
-        ...cloneNode(stmt),
-        body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
-      }];
+      return [
+        {
+          ...cloneNode(stmt),
+          body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
+        },
+      ];
 
     case "once":
-      return [{
-        ...cloneNode(stmt),
-        body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
-      }];
+      return [
+        {
+          ...cloneNode(stmt),
+          body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
+        },
+      ];
 
     case "onceIntent":
-      return [{
-        ...cloneNode(stmt),
-        body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
-      }];
+      return [
+        {
+          ...cloneNode(stmt),
+          body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
+        },
+      ];
 
     case "include":
       return [];
@@ -637,29 +698,35 @@ function cloneActionInnerStmt(stmt: InnerStmtNode): InnerStmtNode[] {
 function expandActionStmt(
   stmt: GuardedStmtNode,
   symbols: FlowSymbols,
-  depth: number
+  depth: number,
 ): GuardedStmtNode[] {
   switch (stmt.kind) {
     case "include":
       return expandInclude(stmt, symbols, new Map(), depth, []);
 
     case "when":
-      return [{
-        ...cloneNode(stmt),
-        body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
-      }];
+      return [
+        {
+          ...cloneNode(stmt),
+          body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
+        },
+      ];
 
     case "once":
-      return [{
-        ...cloneNode(stmt),
-        body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
-      }];
+      return [
+        {
+          ...cloneNode(stmt),
+          body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
+        },
+      ];
 
     case "onceIntent":
-      return [{
-        ...cloneNode(stmt),
-        body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
-      }];
+      return [
+        {
+          ...cloneNode(stmt),
+          body: stmt.body.flatMap((inner) => cloneActionInnerStmt(inner)),
+        },
+      ];
 
     case "fail":
     case "stop":
@@ -700,7 +767,11 @@ function expandProgram(program: ProgramNode, symbols: FlowSymbols): ProgramNode 
   };
 }
 
-function inferExprType(expr: ExprNode, typeEnv: TypeEnv, symbols: FlowSymbols): TypeExprNode | null {
+function inferExprType(
+  expr: ExprNode,
+  typeEnv: TypeEnv,
+  symbols: FlowSymbols,
+): TypeExprNode | null {
   switch (expr.kind) {
     case "literal":
       return {
@@ -755,7 +826,11 @@ function inferExprType(expr: ExprNode, typeEnv: TypeEnv, symbols: FlowSymbols): 
   }
 }
 
-function resolveType(typeExpr: TypeExprNode | null, symbols: FlowSymbols, seen = new Set<string>()): TypeExprNode | null {
+function resolveType(
+  typeExpr: TypeExprNode | null,
+  symbols: FlowSymbols,
+  seen = new Set<string>(),
+): TypeExprNode | null {
   if (!typeExpr) {
     return null;
   }
@@ -771,7 +846,11 @@ function resolveType(typeExpr: TypeExprNode | null, symbols: FlowSymbols, seen =
   return typeExpr;
 }
 
-function getPropertyType(typeExpr: TypeExprNode | null, property: string, symbols: FlowSymbols): TypeExprNode | null {
+function getPropertyType(
+  typeExpr: TypeExprNode | null,
+  property: string,
+  symbols: FlowSymbols,
+): TypeExprNode | null {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
     return null;
@@ -794,7 +873,7 @@ function getPropertyType(typeExpr: TypeExprNode | null, property: string, symbol
           location: field.location,
         },
       ],
-      field.location
+      field.location,
     );
   }
 
@@ -836,7 +915,11 @@ function getIndexType(typeExpr: TypeExprNode | null, symbols: FlowSymbols): Type
   return null;
 }
 
-function isAssignable(sourceType: TypeExprNode, targetType: TypeExprNode, symbols: FlowSymbols): boolean | null {
+function isAssignable(
+  sourceType: TypeExprNode,
+  targetType: TypeExprNode,
+  symbols: FlowSymbols,
+): boolean | null {
   const resolvedSource = resolveType(sourceType, symbols);
   const resolvedTarget = resolveType(targetType, symbols);
   if (!resolvedSource || !resolvedTarget) {
@@ -844,7 +927,9 @@ function isAssignable(sourceType: TypeExprNode, targetType: TypeExprNode, symbol
   }
 
   if (resolvedTarget.kind === "unionType") {
-    const outcomes = resolvedTarget.types.map((candidate) => isAssignable(resolvedSource, candidate, symbols));
+    const outcomes = resolvedTarget.types.map((candidate) =>
+      isAssignable(resolvedSource, candidate, symbols),
+    );
     if (outcomes.includes(true)) {
       return true;
     }
@@ -852,7 +937,9 @@ function isAssignable(sourceType: TypeExprNode, targetType: TypeExprNode, symbol
   }
 
   if (resolvedSource.kind === "unionType") {
-    const outcomes = resolvedSource.types.map((candidate) => isAssignable(candidate, resolvedTarget, symbols));
+    const outcomes = resolvedSource.types.map((candidate) =>
+      isAssignable(candidate, resolvedTarget, symbols),
+    );
     if (outcomes.every((outcome) => outcome === true)) {
       return true;
     }
@@ -891,7 +978,9 @@ function isAssignable(sourceType: TypeExprNode, targetType: TypeExprNode, symbol
     }
 
     for (const targetField of resolvedTarget.fields) {
-      const sourceField = resolvedSource.fields.find((candidate) => candidate.name === targetField.name);
+      const sourceField = resolvedSource.fields.find(
+        (candidate) => candidate.name === targetField.name,
+      );
       if (!sourceField) {
         if (targetField.optional) {
           continue;
@@ -929,11 +1018,11 @@ function isNullType(typeExpr: TypeExprNode): boolean {
 
 function joinTypeCandidates(
   candidates: Array<TypeExprNode | null>,
-  location: TypeExprNode["location"]
+  location: TypeExprNode["location"],
 ): TypeExprNode | null {
   const present = candidates
     .filter((candidate): candidate is TypeExprNode => candidate !== null)
-    .flatMap((candidate) => candidate.kind === "unionType" ? candidate.types : [candidate]);
+    .flatMap((candidate) => (candidate.kind === "unionType" ? candidate.types : [candidate]));
   if (present.length === 0) {
     return null;
   }

@@ -211,7 +211,7 @@ function validateReservedStateIdentifiers(
  */
 function validateCallReferences(
   schema: import("../schema/domain.js").DomainSchema,
-  actionNames: Set<string>
+  actionNames: Set<string>,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -263,9 +263,7 @@ function collectCalls(flow: import("../schema/flow.js").FlowNode): string[] {
 /**
  * Validate call graph for cycles
  */
-function validateCallGraph(
-  schema: import("../schema/domain.js").DomainSchema
-): ValidationError[] {
+function validateCallGraph(schema: import("../schema/domain.js").DomainSchema): ValidationError[] {
   const errors: ValidationError[] = [];
 
   // Build call graph
@@ -416,24 +414,28 @@ function validateActionParams(
     return [
       ...duplicateErrors,
       {
-      code: "V-010",
-      message: `actions.${actionName}.params requires an object-shaped input carrier`,
-      path: `actions.${actionName}.params`,
-    }];
+        code: "V-010",
+        message: `actions.${actionName}.params requires an object-shaped input carrier`,
+        path: `actions.${actionName}.params`,
+      },
+    ];
   }
 
   const inputFieldSet = new Set(inputFields);
   return [
     ...duplicateErrors,
-    ...params.flatMap((paramName, index) => (
-    inputFieldSet.has(paramName)
-      ? []
-      : [{
-        code: "V-010",
-        message: `Parameter "${paramName}" has no matching input field`,
-        path: `actions.${actionName}.params.${index}`,
-      }]
-  ))];
+    ...params.flatMap((paramName, index) =>
+      inputFieldSet.has(paramName)
+        ? []
+        : [
+            {
+              code: "V-010",
+              message: `Parameter "${paramName}" has no matching input field`,
+              path: `actions.${actionName}.params.${index}`,
+            },
+          ],
+    ),
+  ];
 }
 
 function getInputTypeFieldNames(
@@ -452,15 +454,15 @@ function getInputTypeFieldNames(
   }
 
   if (definition.kind === "union") {
-    const nonNullTypes = definition.types.filter((candidate) => !isNullLikeResolved(candidate, types, seenRefs));
+    const nonNullTypes = definition.types.filter(
+      (candidate) => !isNullLikeResolved(candidate, types, seenRefs),
+    );
     return nonNullTypes.length === 1
       ? getInputTypeFieldNames(nonNullTypes[0], types, seenRefs)
       : null;
   }
 
-  return definition.kind === "object"
-    ? Object.keys(definition.fields)
-    : null;
+  return definition.kind === "object" ? Object.keys(definition.fields) : null;
 }
 
 function isNullLikeResolved(
@@ -474,8 +476,8 @@ function isNullLikeResolved(
   }
 
   return (
-    (resolved.kind === "primitive" && resolved.type === "null")
-    || (resolved.kind === "literal" && resolved.value === null)
+    (resolved.kind === "primitive" && resolved.type === "null") ||
+    (resolved.kind === "literal" && resolved.value === null)
   );
 }
 
@@ -508,12 +510,7 @@ function validateTypeDefinitionRefs(
     }
 
     errors.push(
-      ...validateTypeDefinitionRefs(
-        next.definition,
-        types,
-        path,
-        [...seenRefs, definition.name],
-      ),
+      ...validateTypeDefinitionRefs(next.definition, types, path, [...seenRefs, definition.name]),
     );
     return errors;
   }
@@ -539,7 +536,12 @@ function validateTypeDefinitionRefs(
     case "object":
       for (const [fieldName, field] of Object.entries(definition.fields)) {
         errors.push(
-          ...validateTypeDefinitionRefs(field.type, types, `${path}.fields.${fieldName}.type`, seenRefs),
+          ...validateTypeDefinitionRefs(
+            field.type,
+            types,
+            `${path}.fields.${fieldName}.type`,
+            seenRefs,
+          ),
         );
       }
       return errors;
@@ -557,7 +559,7 @@ function validateTypeDefinitionRefs(
 
 function validateStateDefaults(
   schema: import("../schema/domain.js").DomainSchema,
-  basePath: string
+  basePath: string,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
   const state = schema.state;
@@ -577,7 +579,11 @@ function validateStateDefaults(
 
     if (spec.default !== undefined) {
       if (typeDefinition) {
-        const typeCheck = validateValueAgainstTypeDefinition(spec.default, typeDefinition, schema.types);
+        const typeCheck = validateValueAgainstTypeDefinition(
+          spec.default,
+          typeDefinition,
+          schema.types,
+        );
         if (!typeCheck.ok) {
           errors.push({
             code: "V-009",
@@ -628,7 +634,7 @@ function validateStateDefaults(
 }
 
 function validateComputedDeps(
-  schema: import("../schema/domain.js").DomainSchema
+  schema: import("../schema/domain.js").DomainSchema,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -651,7 +657,7 @@ function validateComputedDeps(
 }
 
 function validateComputedExprPaths(
-  schema: import("../schema/domain.js").DomainSchema
+  schema: import("../schema/domain.js").DomainSchema,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -684,7 +690,7 @@ function validateComputedExprPaths(
 }
 
 function validateComputedRuntimeIsolation(
-  schema: import("../schema/domain.js").DomainSchema
+  schema: import("../schema/domain.js").DomainSchema,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -724,7 +730,7 @@ function isForbiddenComputedRuntimePath(path: string): boolean {
 }
 
 function validateComputedDepsCoverage(
-  schema: import("../schema/domain.js").DomainSchema
+  schema: import("../schema/domain.js").DomainSchema,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -749,7 +755,7 @@ function validateComputedDepsCoverage(
           return true;
         }
         return pathExistsInStateSpec(schema.state, exprPath, schema.types);
-      })
+      }),
     );
 
     for (const exprPath of relevantPaths) {
@@ -767,7 +773,7 @@ function validateComputedDepsCoverage(
 }
 
 function validateActionExprPaths(
-  schema: import("../schema/domain.js").DomainSchema
+  schema: import("../schema/domain.js").DomainSchema,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 

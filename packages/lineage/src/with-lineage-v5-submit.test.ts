@@ -9,15 +9,9 @@ import {
   type DomainSchema,
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
-import {
-  DisposedError,
-  SubmissionFailedError,
-  createManifesto,
-} from "@manifesto-ai/sdk";
+import { DisposedError, SubmissionFailedError, createManifesto } from "@manifesto-ai/sdk";
 
-import {
-  type LineageService,
-} from "./types.js";
+import { type LineageService } from "./types.js";
 import { createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
 import { createLineageService } from "./service/lineage-service.js";
 import { withLineage } from "./with-lineage.js";
@@ -206,7 +200,9 @@ type V5LineageRuntime<TActions extends Record<string, V5ActionHandle>> = {
     readonly head: string;
     readonly tip: string;
   }>;
-  readonly with: (view: { readonly report?: "none" | "summary" | "full" }) => V5LineageRuntime<TActions>;
+  readonly with: (view: {
+    readonly report?: "none" | "summary" | "full";
+  }) => V5LineageRuntime<TActions>;
   readonly restore: (worldId: string) => Promise<void>;
   readonly commitAsync?: unknown;
   readonly commitAsyncWithReport?: unknown;
@@ -637,33 +633,32 @@ function proxyLineageService(
   };
 }
 
-function activateCounterLineage(
-  service = createLineageService(createInMemoryLineageStore()),
-): { readonly app: V5CounterLineageRuntime; readonly service: LineageService } {
+function activateCounterLineage(service = createLineageService(createInMemoryLineageStore())): {
+  readonly app: V5CounterLineageRuntime;
+  readonly service: LineageService;
+} {
   return {
-    app: withLineage(
-      createManifesto<CounterDomain>(createCounterSchema(), {}),
-      { service },
-    ).activate() as unknown as V5CounterLineageRuntime,
+    app: withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+      service,
+    }).activate() as unknown as V5CounterLineageRuntime,
     service,
   };
 }
 
 function activateDispatchabilityLineage(): V5DispatchabilityLineageRuntime {
-  return withLineage(
-    createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
-    { store: createInMemoryLineageStore() },
-  ).activate() as unknown as V5DispatchabilityLineageRuntime;
+  return withLineage(createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}), {
+    store: createInMemoryLineageStore(),
+  }).activate() as unknown as V5DispatchabilityLineageRuntime;
 }
 
-function activateComputedLineage(
-  service = createLineageService(createInMemoryLineageStore()),
-): { readonly app: V5ComputedLineageRuntime; readonly service: LineageService } {
+function activateComputedLineage(service = createLineageService(createInMemoryLineageStore())): {
+  readonly app: V5ComputedLineageRuntime;
+  readonly service: LineageService;
+} {
   return {
-    app: withLineage(
-      createManifesto<ComputedDomain>(createComputedSchema(), {}),
-      { service },
-    ).activate() as unknown as V5ComputedLineageRuntime,
+    app: withLineage(createManifesto<ComputedDomain>(createComputedSchema(), {}), {
+      service,
+    }).activate() as unknown as V5ComputedLineageRuntime,
     service,
   };
 }
@@ -672,33 +667,29 @@ function activateCyclicComputedLineage(
   service = createLineageService(createInMemoryLineageStore()),
 ): { readonly app: V5CyclicComputedLineageRuntime; readonly service: LineageService } {
   return {
-    app: withLineage(
-      createManifesto<CyclicComputedDomain>(createCyclicComputedSchema(), {}),
-      { service },
-    ).activate() as unknown as V5CyclicComputedLineageRuntime,
+    app: withLineage(createManifesto<CyclicComputedDomain>(createCyclicComputedSchema(), {}), {
+      service,
+    }).activate() as unknown as V5CyclicComputedLineageRuntime,
     service,
   };
 }
 
 function activateObjectInputLineage(): V5ObjectInputLineageRuntime {
-  return withLineage(
-    createManifesto<ObjectInputDomain>(createObjectInputSchema(), {}),
-    { store: createInMemoryLineageStore() },
-  ).activate() as unknown as V5ObjectInputLineageRuntime;
+  return withLineage(createManifesto<ObjectInputDomain>(createObjectInputSchema(), {}), {
+    store: createInMemoryLineageStore(),
+  }).activate() as unknown as V5ObjectInputLineageRuntime;
 }
 
 function activateMultiArgLineage(): V5MultiArgLineageRuntime {
-  return withLineage(
-    createManifesto<MultiArgDomain>(createMultiArgSchema(), {}),
-    { store: createInMemoryLineageStore() },
-  ).activate() as unknown as V5MultiArgLineageRuntime;
+  return withLineage(createManifesto<MultiArgDomain>(createMultiArgSchema(), {}), {
+    store: createInMemoryLineageStore(),
+  }).activate() as unknown as V5MultiArgLineageRuntime;
 }
 
 function activateGuardedBoundLineage(): V5GuardedBoundLineageRuntime {
-  return withLineage(
-    createManifesto<GuardedBoundDomain>(createGuardedBoundSchema(), {}),
-    { store: createInMemoryLineageStore() },
-  ).activate() as unknown as V5GuardedBoundLineageRuntime;
+  return withLineage(createManifesto<GuardedBoundDomain>(createGuardedBoundSchema(), {}), {
+    store: createInMemoryLineageStore(),
+  }).activate() as unknown as V5GuardedBoundLineageRuntime;
 }
 
 function activateEffectFailureLineage(): V5EffectFailureLineageRuntime {
@@ -717,29 +708,34 @@ function withHostIntentSlot(
   intent: { readonly type: string; readonly intentId: string; readonly input?: unknown },
 ): CoreSnapshot {
   const host = snapshot.namespaces.host;
-  const hostRecord = typeof host === "object" && host !== null && !Array.isArray(host)
-    ? host as Record<string, unknown>
-    : {};
-  const intentSlots = typeof hostRecord.intentSlots === "object"
-    && hostRecord.intentSlots !== null
-    && !Array.isArray(hostRecord.intentSlots)
-    ? hostRecord.intentSlots as Record<string, unknown>
-    : {};
-  const intentSlot = intent.input === undefined
-    ? { type: intent.type }
-    : { type: intent.type, input: intent.input };
+  const hostRecord =
+    typeof host === "object" && host !== null && !Array.isArray(host)
+      ? (host as Record<string, unknown>)
+      : {};
+  const intentSlots =
+    typeof hostRecord.intentSlots === "object" &&
+    hostRecord.intentSlots !== null &&
+    !Array.isArray(hostRecord.intentSlots)
+      ? (hostRecord.intentSlots as Record<string, unknown>)
+      : {};
+  const intentSlot =
+    intent.input === undefined ? { type: intent.type } : { type: intent.type, input: intent.input };
 
-  return applyNamespaceDeltas(snapshot, [{
-    namespace: "host",
-    patches: [{
-      op: "set",
-      path: [{ kind: "prop", name: "intentSlots" }],
-      value: {
-        ...intentSlots,
-        [intent.intentId]: intentSlot,
-      },
-    }],
-  }]);
+  return applyNamespaceDeltas(snapshot, [
+    {
+      namespace: "host",
+      patches: [
+        {
+          op: "set",
+          path: [{ kind: "prop", name: "intentSlots" }],
+          value: {
+            ...intentSlots,
+            [intent.intentId]: intentSlot,
+          },
+        },
+      ],
+    },
+  ]);
 }
 
 describe("@manifesto-ai/lineage v5 submit CTS", () => {
@@ -884,18 +880,22 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
     fullApp.dispose();
     expect(app.snapshot().state.count).toBe(1);
     expect((await app.getLatestHead())?.worldId).toBe(result.world?.worldId);
-    expect(await app.getWorld(result.world!.worldId!)).toEqual(expect.objectContaining({
-      worldId: result.world?.worldId,
-      terminalStatus: "completed",
-    }));
+    expect(await app.getWorld(result.world!.worldId!)).toEqual(
+      expect.objectContaining({
+        worldId: result.world?.worldId,
+        terminalStatus: "completed",
+      }),
+    );
     expect(await app.getWorldSnapshot(result.world!.worldId!)).not.toBeNull();
     expect(observedState).toHaveBeenCalledTimes(1);
-    expect(settled).toHaveBeenCalledWith(expect.objectContaining({
-      action: "increment",
-      mode: "lineage",
-      worldId: result.world?.worldId,
-      outcome: { kind: "ok" },
-    }));
+    expect(settled).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "increment",
+        mode: "lineage",
+        worldId: result.world?.worldId,
+        outcome: { kind: "ok" },
+      }),
+    );
 
     app.dispose();
   });
@@ -903,10 +903,9 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
   it("stores a replayable intent and full context envelope on the sealed attempt", async () => {
     const schema = createCounterSchema();
     const service = createLineageService(createInMemoryLineageStore());
-    const app = withLineage(
-      createManifesto<CounterDomain>(schema, {}),
-      { service },
-    ).activate() as unknown as V5CounterLineageRuntime;
+    const app = withLineage(createManifesto<CounterDomain>(schema, {}), {
+      service,
+    }).activate() as unknown as V5CounterLineageRuntime;
     const result = await app.action.add.submit(2);
     const worldId = result.world?.worldId;
     if (!worldId) {
@@ -938,10 +937,7 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
       external: {},
     });
 
-    const baseline = withHostIntentSlot(
-      baseSnapshot,
-      attempt.computeEnvelope.intent,
-    );
+    const baseline = withHostIntentSlot(baseSnapshot, attempt.computeEnvelope.intent);
     const replay = computeSync(
       schema,
       baseline,
@@ -949,10 +945,7 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
       attempt.computeEnvelope.context,
     );
     const replayed = applySystemDelta(
-      applyNamespaceDeltas(
-        apply(schema, baseline, replay.patches),
-        replay.namespaceDelta ?? [],
-      ),
+      applyNamespaceDeltas(apply(schema, baseline, replay.patches), replay.namespaceDelta ?? []),
       replay.systemDelta,
     );
 
@@ -1038,13 +1031,15 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
       },
     });
     expect(app.snapshot().state.balance).toBe(10);
-    expect(rejected).toHaveBeenCalledWith(expect.objectContaining({
-      action: "frozenSpend",
-      mode: "lineage",
-      admission: expect.objectContaining({
-        code: "ACTION_UNAVAILABLE",
+    expect(rejected).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "frozenSpend",
+        mode: "lineage",
+        admission: expect.objectContaining({
+          code: "ACTION_UNAVAILABLE",
+        }),
       }),
-    }));
+    );
 
     app.dispose();
   });
@@ -1110,9 +1105,11 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
     expect(app.snapshot().state.status).toBe("idle");
 
     const stored = await app.getWorldSnapshot(result.world.worldId);
-    const hostNamespace = stored?.namespaces.host as {
-      readonly lastError?: { readonly code?: string };
-    } | undefined;
+    const hostNamespace = stored?.namespaces.host as
+      | {
+          readonly lastError?: { readonly code?: string };
+        }
+      | undefined;
 
     expect(stored?.system.lastError).toBeNull();
     expect(hostNamespace?.lastError?.code).toBe("EFFECT_EXECUTION_FAILED");
@@ -1185,14 +1182,16 @@ describe("@manifesto-ai/lineage v5 submit CTS", () => {
 
     await expect(app.action.increment.submit()).rejects.toBeInstanceOf(SubmissionFailedError);
     expect(app.snapshot().state.count).toBe(0);
-    expect(failed).toHaveBeenCalledWith(expect.objectContaining({
-      action: "increment",
-      mode: "lineage",
-      stage: "settlement",
-      error: expect.objectContaining({
-        message: "seal commit failed",
+    expect(failed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "increment",
+        mode: "lineage",
+        stage: "settlement",
+        error: expect.objectContaining({
+          message: "seal commit failed",
+        }),
       }),
-    }));
+    );
 
     app.dispose();
   });

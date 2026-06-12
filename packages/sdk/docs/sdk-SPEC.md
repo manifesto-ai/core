@@ -1315,6 +1315,7 @@ app.inspect.canonicalSnapshot();
 | SDK-SNAPSHOT-5 | MUST | `inspect.canonicalSnapshot()` MUST return the full canonical substrate. |
 | SDK-SNAPSHOT-6 | MUST NOT | SDK MUST NOT introduce a root `getCanonicalSnapshot()` compatibility alias in the canonical v5 surface. |
 | SDK-SNAPSHOT-7 | MUST | `snapshot()` MUST remain the only root-level method that returns the whole projected snapshot; `state.*.value()` and `computed.*.value()` are field-level projected reads. |
+| SDK-SNAPSHOT-8 | MUST | SDK restore and rehydrate seams MUST reject non-JSON values in canonical `state`, `computed`, `system`, `meta`, and `namespaces`, and MUST reject non-JSON `input` when a restored payload carries an input value. |
 
 ## 13. Observe Surface
 

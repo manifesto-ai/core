@@ -53,19 +53,24 @@ describe("Golden: Trace Snapshots", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set", path: pp("count"),
+                op: "set",
+                path: pp("count"),
                 value: {
                   kind: "add",
                   left: {
                     kind: "coalesce",
-                    args: [{ kind: "get", path: "count" }, { kind: "lit", value: 0 }],
+                    args: [
+                      { kind: "get", path: "count" },
+                      { kind: "lit", value: 0 },
+                    ],
                   },
                   right: { kind: "lit", value: 1 },
                 },
               },
               {
                 kind: "patch",
-                op: "set", path: pp("lastAction"),
+                op: "set",
+                path: pp("lastAction"),
                 value: { kind: "lit", value: "increment" },
               },
             ],
@@ -77,7 +82,8 @@ describe("Golden: Trace Snapshots", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set", path: pp("count"),
+                op: "set",
+                path: pp("count"),
                 value: {
                   kind: "sub",
                   left: { kind: "get", path: "count" },
@@ -86,7 +92,8 @@ describe("Golden: Trace Snapshots", () => {
               },
               {
                 kind: "patch",
-                op: "set", path: pp("lastAction"),
+                op: "set",
+                path: pp("lastAction"),
                 value: { kind: "lit", value: "decrement" },
               },
             ],
@@ -98,12 +105,14 @@ describe("Golden: Trace Snapshots", () => {
             steps: [
               {
                 kind: "patch",
-                op: "set", path: pp("count"),
+                op: "set",
+                path: pp("count"),
                 value: { kind: "lit", value: 0 },
               },
               {
                 kind: "patch",
-                op: "set", path: pp("lastAction"),
+                op: "set",
+                path: pp("lastAction"),
                 value: { kind: "lit", value: "reset" },
               },
             ],
@@ -296,9 +305,7 @@ describe("Golden: Trace Snapshots", () => {
     const _eventTypes = result.normalizedTrace.map((e) => e.t);
 
     // Should have runner:kick as first runner event
-    const runnerEvents = result.normalizedTrace.filter((e) =>
-      e.t.startsWith("runner:")
-    );
+    const runnerEvents = result.normalizedTrace.filter((e) => e.t.startsWith("runner:"));
 
     if (runnerEvents.length > 0) {
       expect(runnerEvents[0].t).toBe("runner:kick");

@@ -17,7 +17,7 @@ import { stableHash } from "../stable-hash.js";
 
 function makeCtx(
   types: Record<string, ReturnType<typeof createTypeSpec>>,
-  tsArtifacts?: TsPluginArtifacts
+  tsArtifacts?: TsPluginArtifacts,
 ): CodegenContext {
   const artifacts: Record<string, unknown> = {};
   if (tsArtifacts) {
@@ -68,7 +68,7 @@ describe("createZodPlugin", () => {
           objectType({
             name: { type: primitiveType("string"), optional: false },
             age: { type: primitiveType("number"), optional: true },
-          })
+          }),
         ),
       });
       const out = plugin.generate(ctx);
@@ -83,7 +83,7 @@ describe("createZodPlugin", () => {
           "Node",
           objectType({
             children: { type: arrayType(refType("Node")), optional: false },
-          })
+          }),
         ),
       });
       const out = plugin.generate(ctx);
@@ -132,10 +132,7 @@ describe("createZodPlugin", () => {
         typeNames: ["Foo"],
         typeImportPath: "./types",
       };
-      const ctx = makeCtx(
-        { Foo: createTypeSpec("Foo", primitiveType("string")) },
-        tsArtifacts
-      );
+      const ctx = makeCtx({ Foo: createTypeSpec("Foo", primitiveType("string")) }, tsArtifacts);
       const out = plugin.generate(ctx);
       const content = getContent(out);
       expect(content).toContain("z.ZodType<Foo>");
@@ -169,15 +166,15 @@ describe("createZodPlugin", () => {
         {
           "My-Type": createTypeSpec(
             "My-Type",
-            objectType({ id: { type: primitiveType("string"), optional: false } })
+            objectType({ id: { type: primitiveType("string"), optional: false } }),
           ),
           My_Type: createTypeSpec("My_Type", primitiveType("number")),
           Holder: createTypeSpec(
             "Holder",
-            objectType({ linked: { type: refType("My-Type"), optional: false } })
+            objectType({ linked: { type: refType("My-Type"), optional: false } }),
           ),
         },
-        tsArtifacts
+        tsArtifacts,
       );
       const out = plugin.generate(ctx);
       const content = getContent(out);
@@ -187,10 +184,12 @@ describe("createZodPlugin", () => {
       expect(content).toContain("z.lazy(() => My_Type_2Schema)");
       expect(content).toContain('import type { Holder, My_Type_2, My_Type } from "./types"');
       expect(content).not.toContain("My-Type");
-      expect(out.diagnostics).toContainEqual(expect.objectContaining({
-        level: "warn",
-        message: expect.stringContaining('"My-Type"'),
-      }));
+      expect(out.diagnostics).toContainEqual(
+        expect.objectContaining({
+          level: "warn",
+          message: expect.stringContaining('"My-Type"'),
+        }),
+      );
     });
 
     it("quotes z.object keys that are not valid identifier names", () => {
@@ -200,7 +199,7 @@ describe("createZodPlugin", () => {
           objectType({
             "my-key": { type: primitiveType("string"), optional: false },
             valid: { type: primitiveType("number"), optional: false },
-          })
+          }),
         ),
       });
       const out = plugin.generate(ctx);
@@ -211,7 +210,9 @@ describe("createZodPlugin", () => {
   });
 });
 
-function getContent(out: { patches: readonly { op: string; path: string; content?: string }[] }): string {
+function getContent(out: {
+  patches: readonly { op: string; path: string; content?: string }[];
+}): string {
   const setPatch = out.patches.find((p) => p.op === "set");
   return (setPatch as any)?.content ?? "";
 }

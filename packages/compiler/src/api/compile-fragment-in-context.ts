@@ -93,19 +93,18 @@ export function compileFragmentInContext(
 ): MelEditResult {
   const optionsSnapshot = snapshotCompileFragmentOptions(options);
   if (!optionsSnapshot.ok) {
-    return preMaterializationFailure(baseSource, [
-      optionsSnapshot.diagnostic,
-    ]);
+    return preMaterializationFailure(baseSource, [optionsSnapshot.diagnostic]);
   }
 
   const opKind = readEditOperationKind(op);
   if (!opKind.ok) {
-    return preMaterializationFailure(baseSource, [
-      opKind.diagnostic,
-    ]);
+    return preMaterializationFailure(baseSource, [opKind.diagnostic]);
   }
 
-  if (optionsSnapshot.value.baseModuleSourceHash !== null && optionsSnapshot.value.baseModuleSourceHash !== stableHashString(baseSource)) {
+  if (
+    optionsSnapshot.value.baseModuleSourceHash !== null &&
+    optionsSnapshot.value.baseModuleSourceHash !== stableHashString(baseSource)
+  ) {
     return preMaterializationFailure(baseSource, [
       editError("E_STALE_MODULE", "baseModule.sourceMap.sourceHash does not match baseSource."),
     ]);
@@ -124,7 +123,13 @@ export function compileFragmentInContext(
 
   let materialized: MaterializedEdit;
   try {
-    materialized = materializeEdit(baseSource, parsed.program, baseCompile.module, op, opKind.value);
+    materialized = materializeEdit(
+      baseSource,
+      parsed.program,
+      baseCompile.module,
+      op,
+      opKind.value,
+    );
   } catch {
     return preMaterializationFailure(baseSource, [
       editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation must be inspectable."),
@@ -176,8 +181,10 @@ function materializeEdit(
     case "addType": {
       const typed = op as Extract<MelEditOp, { readonly kind: "addType" }>;
       const { name, expr } = typed;
-      return validateThenEdit([...validateIdentifierFragment(name, "type name"), ...validateTypeFragment(expr)], () =>
-        insertTopLevel(source, program, `type ${name} = ${expr}`, [`type:${name}`]));
+      return validateThenEdit(
+        [...validateIdentifierFragment(name, "type name"), ...validateTypeFragment(expr)],
+        () => insertTopLevel(source, program, `type ${name} = ${expr}`, [`type:${name}`]),
+      );
     }
 
     case "addStateField": {
@@ -194,14 +201,22 @@ function materializeEdit(
 
       const defaultSource = renderJsonLiteral(defaultSnapshot.value);
       return validateThenEdit(validateStateFieldFragment(type, defaultSource), () =>
-        addStateField(source, program, `${name}: ${type} = ${defaultSource}`, `state_field:${name}`));
+        addStateField(
+          source,
+          program,
+          `${name}: ${type} = ${defaultSource}`,
+          `state_field:${name}`,
+        ),
+      );
     }
 
     case "addComputed": {
       const typed = op as Extract<MelEditOp, { readonly kind: "addComputed" }>;
       const { name, expr } = typed;
-      return validateThenEdit([...validateIdentifierFragment(name, "computed name"), ...validateExpressionFragment(expr)], () =>
-        insertTopLevel(source, program, `computed ${name} = ${expr}`, [`computed:${name}`]));
+      return validateThenEdit(
+        [...validateIdentifierFragment(name, "computed name"), ...validateExpressionFragment(expr)],
+        () => insertTopLevel(source, program, `computed ${name} = ${expr}`, [`computed:${name}`]),
+      );
     }
 
     case "addAction": {
@@ -216,7 +231,9 @@ function materializeEdit(
         ],
         () => {
           if (typeof name !== "string" || typeof body !== "string" || !paramsSnapshot.ok) {
-            return materializationFailure(editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation must be inspectable."));
+            return materializationFailure(
+              editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation must be inspectable."),
+            );
           }
           return insertTopLevel(
             source,
@@ -239,10 +256,20 @@ function materializeEdit(
     }
 
     case "replaceActionBody":
-      return replaceActionBody(source, program, baseModule, op as Extract<MelEditOp, { readonly kind: "replaceActionBody" }>);
+      return replaceActionBody(
+        source,
+        program,
+        baseModule,
+        op as Extract<MelEditOp, { readonly kind: "replaceActionBody" }>,
+      );
 
     case "replaceComputedExpr":
-      return replaceComputedExpr(source, program, baseModule, op as Extract<MelEditOp, { readonly kind: "replaceComputedExpr" }>);
+      return replaceComputedExpr(
+        source,
+        program,
+        baseModule,
+        op as Extract<MelEditOp, { readonly kind: "replaceComputedExpr" }>,
+      );
 
     case "replaceAvailable": {
       const typed = op as Extract<MelEditOp, { readonly kind: "replaceAvailable" }>;
@@ -255,24 +282,43 @@ function materializeEdit(
     }
 
     case "replaceStateDefault":
-      return replaceStateDefault(source, program, baseModule, op as Extract<MelEditOp, { readonly kind: "replaceStateDefault" }>);
+      return replaceStateDefault(
+        source,
+        program,
+        baseModule,
+        op as Extract<MelEditOp, { readonly kind: "replaceStateDefault" }>,
+      );
 
     case "replaceTypeField":
-      return replaceTypeField(source, program, baseModule, op as Extract<MelEditOp, { readonly kind: "replaceTypeField" }>);
+      return replaceTypeField(
+        source,
+        program,
+        baseModule,
+        op as Extract<MelEditOp, { readonly kind: "replaceTypeField" }>,
+      );
 
     case "removeDeclaration":
-      return removeDeclaration(source, program, baseModule, (op as Extract<MelEditOp, { readonly kind: "removeDeclaration" }>).target);
+      return removeDeclaration(
+        source,
+        program,
+        baseModule,
+        (op as Extract<MelEditOp, { readonly kind: "removeDeclaration" }>).target,
+      );
 
     case "renameDeclaration": {
       const typed = op as Extract<MelEditOp, { readonly kind: "renameDeclaration" }>;
       const { target, newName } = typed;
       return validateThenEdit(validateIdentifierFragment(newName, "rename target name"), () =>
-        renameDeclaration(source, program, baseModule, target, newName));
+        renameDeclaration(source, program, baseModule, target, newName),
+      );
     }
 
     default:
       return materializationFailure(
-        editError("E_FRAGMENT_SCOPE_VIOLATION", `Unknown source edit operation: ${describeUnknown(op)}`),
+        editError(
+          "E_FRAGMENT_SCOPE_VIOLATION",
+          `Unknown source edit operation: ${describeUnknown(op)}`,
+        ),
       );
   }
 }
@@ -289,16 +335,30 @@ function addGuard(
   if (targetDiagnostic) return materializationFailure(targetDiagnostic);
   const action = findAction(program, target.slice("action:".length));
   if (!action) return materializationFailure(targetNotFound(target));
-  if ((guard === "available" && action.available) || (guard === "dispatchable" && action.dispatchable)) {
-    return materializationFailure(editError("E_FRAGMENT_SCOPE_VIOLATION", `Action already has ${guard} guard.`, action.location));
+  if (
+    (guard === "available" && action.available) ||
+    (guard === "dispatchable" && action.dispatchable)
+  ) {
+    return materializationFailure(
+      editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        `Action already has ${guard} guard.`,
+        action.location,
+      ),
+    );
   }
 
   return validateThenEdit(validateExpressionFragment(expr), () => {
     const braces = findActionBodyBraces(source, action);
-    if (!braces) return materializationFailure(editError("E_TARGET_NOT_FOUND", "Action body range was not found.", action.location));
-    const insertOffset = guard === "available" && action.dispatchable
-      ? findActionToken(source, action, "DISPATCHABLE")?.location.start.offset ?? braces.open.location.start.offset
-      : braces.open.location.start.offset;
+    if (!braces)
+      return materializationFailure(
+        editError("E_TARGET_NOT_FOUND", "Action body range was not found.", action.location),
+      );
+    const insertOffset =
+      guard === "available" && action.dispatchable
+        ? (findActionToken(source, action, "DISPATCHABLE")?.location.start.offset ??
+          braces.open.location.start.offset)
+        : braces.open.location.start.offset;
     const edit = textEdit(source, insertOffset, insertOffset, ` ${guard} when ${expr} `);
     return materializationSuccess([edit], [target]);
   });
@@ -320,13 +380,19 @@ function replaceGuard(
 
   if (!existing) {
     if (expr === null) {
-      return materializationFailure(editError("E_TARGET_NOT_FOUND", `Action does not have ${guard} guard.`, action.location));
+      return materializationFailure(
+        editError("E_TARGET_NOT_FOUND", `Action does not have ${guard} guard.`, action.location),
+      );
     }
     return addGuard(source, program, baseModule, target, guard, expr);
   }
 
   if (expr === null) {
-    const token = findActionToken(source, action, guard === "available" ? "AVAILABLE" : "DISPATCHABLE");
+    const token = findActionToken(
+      source,
+      action,
+      guard === "available" ? "AVAILABLE" : "DISPATCHABLE",
+    );
     if (!token) return materializationFailure(targetNotFound(target));
     return materializationSuccess(
       [textEdit(source, token.location.start.offset, existing.location.end.offset, "")],
@@ -338,7 +404,8 @@ function replaceGuard(
     materializationSuccess(
       [textEdit(source, existing.location.start.offset, existing.location.end.offset, expr)],
       [target],
-    ));
+    ),
+  );
 }
 
 function replaceActionBody(
@@ -359,7 +426,14 @@ function replaceActionBody(
     const actionIndent = lineIndentAt(source, action.location.start.offset);
     const replacement = renderBodyReplacement(body, `${actionIndent}  `, actionIndent);
     return materializationSuccess(
-      [textEdit(source, braces.open.location.end.offset, braces.close.location.start.offset, replacement)],
+      [
+        textEdit(
+          source,
+          braces.open.location.end.offset,
+          braces.close.location.start.offset,
+          replacement,
+        ),
+      ],
       [target],
     );
   });
@@ -379,9 +453,17 @@ function replaceComputedExpr(
 
   return validateThenEdit(validateExpressionFragment(expr), () =>
     materializationSuccess(
-      [textEdit(source, computed.expression.location.start.offset, computed.expression.location.end.offset, expr)],
+      [
+        textEdit(
+          source,
+          computed.expression.location.start.offset,
+          computed.expression.location.end.offset,
+          expr,
+        ),
+      ],
       [target],
-    ));
+    ),
+  );
 }
 
 function replaceStateDefault(
@@ -425,9 +507,17 @@ function replaceTypeField(
 
   return validateThenEdit(validateTypeFragment(type), () =>
     materializationSuccess(
-      [textEdit(source, field.typeExpr.location.start.offset, field.typeExpr.location.end.offset, type)],
+      [
+        textEdit(
+          source,
+          field.typeExpr.location.start.offset,
+          field.typeExpr.location.end.offset,
+          type,
+        ),
+      ],
       [`type:${parsed.typeName}`, target],
-    ));
+    ),
+  );
 }
 
 function removeDeclaration(
@@ -436,7 +526,13 @@ function removeDeclaration(
   baseModule: DomainModule,
   target: LocalTargetKey,
 ): MaterializedEdit {
-  const targetDiagnostic = validateTarget(baseModule, target, ["type", "type_field", "state_field", "computed", "action"]);
+  const targetDiagnostic = validateTarget(baseModule, target, [
+    "type",
+    "type_field",
+    "state_field",
+    "computed",
+    "action",
+  ]);
   if (targetDiagnostic) return materializationFailure(targetDiagnostic);
   const plan = planRemoveDeclaration(source, program, target);
   if (!plan.ok) {
@@ -452,7 +548,13 @@ function renameDeclaration(
   target: LocalTargetKey,
   newName: string,
 ): MaterializedEdit {
-  const targetDiagnostic = validateTarget(baseModule, target, ["type", "type_field", "state_field", "computed", "action"]);
+  const targetDiagnostic = validateTarget(baseModule, target, [
+    "type",
+    "type_field",
+    "state_field",
+    "computed",
+    "action",
+  ]);
   if (targetDiagnostic) return materializationFailure(targetDiagnostic);
   const plan = planRenameDeclaration(source, program, target, newName);
   if (!plan.ok) {
@@ -471,7 +573,10 @@ function insertTopLevel(
   const closeIndent = lineIndentAt(source, closeOffset);
   const memberIndent = `${closeIndent}  `;
   const replacement = indentLines(fragment, memberIndent);
-  return materializationSuccess([insertBeforeClosingLine(source, closeOffset, replacement)], changedTargets);
+  return materializationSuccess(
+    [insertBeforeClosingLine(source, closeOffset, replacement)],
+    changedTargets,
+  );
 }
 
 function addStateField(

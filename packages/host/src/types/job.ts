@@ -11,11 +11,7 @@ import type { Intent, NamespaceDelta, Patch } from "@manifesto-ai/core";
 /**
  * Job types as defined in SPEC Appendix C
  */
-export type JobType =
-  | "StartIntent"
-  | "ContinueCompute"
-  | "FulfillEffect"
-  | "ApplyPatches";
+export type JobType = "StartIntent" | "ContinueCompute" | "FulfillEffect" | "ApplyPatches";
 
 /**
  * Base interface for all jobs
@@ -143,11 +139,7 @@ export interface ApplyPatchesJob extends JobBase {
  *
  * @see SPEC Appendix C.1 Reference Job Union
  */
-export type Job =
-  | StartIntentJob
-  | ContinueComputeJob
-  | FulfillEffectJob
-  | ApplyPatchesJob;
+export type Job = StartIntentJob | ContinueComputeJob | FulfillEffectJob | ApplyPatchesJob;
 
 /**
  * Generate a unique job ID
@@ -174,7 +166,7 @@ export function createStartIntentJob(intent: Intent): StartIntentJob {
 export function createContinueComputeJob(
   intentId: string,
   iteration?: number,
-  intent?: Intent
+  intent?: Intent,
 ): ContinueComputeJob {
   return {
     type: "ContinueCompute",
@@ -194,7 +186,7 @@ export function createFulfillEffectJob(
   resultPatches: Patch[],
   intent?: Intent,
   effectError?: EffectErrorInfo,
-  namespaceDelta?: readonly NamespaceDelta[]
+  namespaceDelta?: readonly NamespaceDelta[],
 ): FulfillEffectJob {
   return {
     type: "FulfillEffect",
@@ -211,10 +203,7 @@ export function createFulfillEffectJob(
 /**
  * Create an ApplyPatches job
  */
-export function createApplyPatchesJob(
-  patches: Patch[],
-  source: string
-): ApplyPatchesJob {
+export function createApplyPatchesJob(patches: Patch[], source: string): ApplyPatchesJob {
   return {
     type: "ApplyPatches",
     id: generateJobId("ApplyPatches"),

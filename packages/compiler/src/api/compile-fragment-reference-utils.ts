@@ -48,7 +48,11 @@ export function planRemoveDeclaration(
     return targetFailure(program, "E_TARGET_NOT_FOUND", `Target ${target} does not exist.`);
   }
 
-  const removalRange = expandRemovalRange(source, declaration.range, declaration.info.kind === "type_field");
+  const removalRange = expandRemovalRange(
+    source,
+    declaration.range,
+    declaration.info.kind === "type_field",
+  );
   const references = collectTargetReferences(source, program, declaration.info, removalRange);
   if (references.length > 0) {
     return targetFailureAt(
@@ -95,7 +99,10 @@ export function planRenameDeclaration(
     );
   }
 
-  const ranges = dedupeRanges([declaration.nameRange, ...references.map((reference) => reference.range)]);
+  const ranges = dedupeRanges([
+    declaration.nameRange,
+    ...references.map((reference) => reference.range),
+  ]);
   return {
     ok: true,
     edits: ranges.map((range) => textEdit(source, range.start, range.end, newName)),
@@ -113,25 +120,53 @@ function findDeclarationTarget(
     const name = target.slice("type:".length);
     const node = findTypeDecl(program, name);
     if (!node) return null;
-    return declarationTarget(source, program, { kind, name }, node, node.annotations, findKeywordNameRange(source, node.location, "TYPE", name));
+    return declarationTarget(
+      source,
+      program,
+      { kind, name },
+      node,
+      node.annotations,
+      findKeywordNameRange(source, node.location, "TYPE", name),
+    );
   }
   if (kind === "state_field") {
     const name = target.slice("state_field:".length);
     const node = findStateField(program, name);
     if (!node) return null;
-    return declarationTarget(source, program, { kind, name }, node, node.annotations, rangeAtStart(node.location, name));
+    return declarationTarget(
+      source,
+      program,
+      { kind, name },
+      node,
+      node.annotations,
+      rangeAtStart(node.location, name),
+    );
   }
   if (kind === "computed") {
     const name = target.slice("computed:".length);
     const node = findComputed(program, name);
     if (!node) return null;
-    return declarationTarget(source, program, { kind, name }, node, node.annotations, findKeywordNameRange(source, node.location, "COMPUTED", name));
+    return declarationTarget(
+      source,
+      program,
+      { kind, name },
+      node,
+      node.annotations,
+      findKeywordNameRange(source, node.location, "COMPUTED", name),
+    );
   }
   if (kind === "action") {
     const name = target.slice("action:".length);
     const node = findAction(program, name);
     if (!node) return null;
-    return declarationTarget(source, program, { kind, name }, node, node.annotations, findKeywordNameRange(source, node.location, "ACTION", name));
+    return declarationTarget(
+      source,
+      program,
+      { kind, name },
+      node,
+      node.annotations,
+      findKeywordNameRange(source, node.location, "ACTION", name),
+    );
   }
   if (kind === "type_field") {
     const parsed = parseTypeFieldTarget(target as `type_field:${string}.${string}`);
@@ -188,7 +223,11 @@ function affectedTargets(program: ProgramNode, target: TargetInfo): readonly Loc
   return sortTargets(targets);
 }
 
-function renamedTargets(program: ProgramNode, declaration: DeclarationTarget, newName: string): readonly LocalTargetKey[] {
+function renamedTargets(
+  program: ProgramNode,
+  declaration: DeclarationTarget,
+  newName: string,
+): readonly LocalTargetKey[] {
   if (declaration.info.kind === "type") {
     const targets: LocalTargetKey[] = [`type:${declaration.info.name}`, `type:${newName}`];
     const typeDecl = findTypeDecl(program, declaration.info.name);
@@ -225,7 +264,10 @@ function targetKey(target: TargetInfo): LocalTargetKey {
   }
 }
 
-function renamedTargetKey(target: Exclude<TargetInfo, { readonly kind: "type_field" }>, newName: string): LocalTargetKey {
+function renamedTargetKey(
+  target: Exclude<TargetInfo, { readonly kind: "type_field" }>,
+  newName: string,
+): LocalTargetKey {
   switch (target.kind) {
     case "type":
       return `type:${newName}`;
@@ -249,15 +291,19 @@ function findKeywordNameRange(
   name: string,
 ): OffsetRange | null {
   const range = locationRange(location);
-  const tokens = tokenize(source).tokens.filter((token) =>
-    token.location.start.offset >= range.start
-    && token.location.end.offset <= range.end
-    && token.kind !== "EOF");
+  const tokens = tokenize(source).tokens.filter(
+    (token) =>
+      token.location.start.offset >= range.start &&
+      token.location.end.offset <= range.end &&
+      token.kind !== "EOF",
+  );
   const keywordIndex = tokens.findIndex((token) => token.kind === keyword);
   if (keywordIndex < 0) {
     return null;
   }
-  const nameToken = tokens.slice(keywordIndex + 1).find((token) => token.kind === "IDENTIFIER" && token.lexeme === name);
+  const nameToken = tokens
+    .slice(keywordIndex + 1)
+    .find((token) => token.kind === "IDENTIFIER" && token.lexeme === name);
   return nameToken ? locationRange(nameToken.location) : null;
 }
 
@@ -273,11 +319,17 @@ function includeAttachedAnnotations(
   if (!annotations || annotations.length === 0) {
     return range;
   }
-  const annotationStart = Math.min(...annotations.map((annotation) => requiredOffset(annotation.location.start)));
+  const annotationStart = Math.min(
+    ...annotations.map((annotation) => requiredOffset(annotation.location.start)),
+  );
   return { start: Math.min(range.start, annotationStart), end: range.end };
 }
 
-function expandRemovalRange(source: string, range: OffsetRange, commaSeparated: boolean): OffsetRange {
+function expandRemovalRange(
+  source: string,
+  range: OffsetRange,
+  commaSeparated: boolean,
+): OffsetRange {
   let start = range.start;
   let end = range.end;
 

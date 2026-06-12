@@ -53,7 +53,8 @@ const governanceKernel: GovernanceRuntimeKernel<DemoDomain> = resolvedFactory();
 const waitForProposalKernel: WaitForProposalRuntimeKernel<DemoDomain> = resolvedFactory();
 const metadata = kernel.getActionMetadata();
 const canonical = kernel.getCanonicalSnapshot();
-const availableFor: readonly (keyof DemoDomain["actions"])[] = kernel.getAvailableActionsFor(canonical);
+const availableFor: readonly (keyof DemoDomain["actions"])[] =
+  kernel.getAvailableActionsFor(canonical);
 const isAvailableFor: boolean = kernel.isActionAvailableFor(canonical, "ping");
 const intent = kernel.createIntent(kernel.refs.actions.ping);
 const isDispatchableFor: boolean = kernel.isIntentDispatchableFor(canonical, intent);

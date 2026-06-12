@@ -1,9 +1,4 @@
-import type {
-  ComputeStatus,
-  DomainSchema,
-  Patch,
-  Requirement,
-} from "@manifesto-ai/core";
+import type { ComputeStatus, DomainSchema, Patch, Requirement } from "@manifesto-ai/core";
 
 import type {
   CanonicalSnapshot,
@@ -19,9 +14,7 @@ import type {
   TypedMEL,
 } from "./types.js";
 
-export type ExtensionSimulateResult<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
+export type ExtensionSimulateResult<T extends ManifestoDomainShape = ManifestoDomainShape> = {
   readonly snapshot: CanonicalSnapshot<T["state"]>;
   readonly patches: readonly Patch[];
   readonly requirements: readonly Requirement[];
@@ -38,9 +31,7 @@ export interface ExtensionKernel<T extends ManifestoDomainShape> {
   readonly createIntent: TypedCreateIntent<T>;
   readonly getCanonicalSnapshot: () => CanonicalSnapshot<T["state"]>;
 
-  readonly projectSnapshot: (
-    snapshot: CanonicalSnapshot<T["state"]>,
-  ) => ProjectedSnapshot<T>;
+  readonly projectSnapshot: (snapshot: CanonicalSnapshot<T["state"]>) => ProjectedSnapshot<T>;
 
   readonly simulateSync: (
     snapshot: CanonicalSnapshot<T["state"]>,
@@ -69,13 +60,10 @@ export interface ExtensionKernel<T extends ManifestoDomainShape> {
 
 export type SimulationSessionStatus = ComputeStatus | "idle" | "computing";
 
-export type SimulationActionRef<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = TypedActionRef<T, keyof T["actions"]>;
+export type SimulationActionRef<T extends ManifestoDomainShape = ManifestoDomainShape> =
+  TypedActionRef<T, keyof T["actions"]>;
 
-export type SimulationSessionStep<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
+export type SimulationSessionStep<T extends ManifestoDomainShape = ManifestoDomainShape> = {
   readonly intent: TypedIntent<T>;
   readonly snapshot: ProjectedSnapshot<T>;
   readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
@@ -85,9 +73,7 @@ export type SimulationSessionStep<
   readonly isTerminal: boolean;
 };
 
-export type SimulationSessionResult<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
+export type SimulationSessionResult<T extends ManifestoDomainShape = ManifestoDomainShape> = {
   readonly snapshot: ProjectedSnapshot<T>;
   readonly canonicalSnapshot: CanonicalSnapshot<T["state"]>;
   readonly depth: number;

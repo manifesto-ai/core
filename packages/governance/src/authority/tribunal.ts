@@ -10,7 +10,7 @@ import type { AuthorityHandler } from "./types.js";
 export type TribunalNotificationCallback = (
   proposalId: string,
   proposal: Proposal,
-  members: readonly ActorRef[]
+  members: readonly ActorRef[],
 ) => void;
 
 interface TribunalPendingState {
@@ -31,14 +31,9 @@ export class TribunalHandler implements AuthorityHandler {
     this.notificationCallback = callback;
   }
 
-  async evaluate(
-    proposal: Proposal,
-    binding: ActorAuthorityBinding
-  ): Promise<AuthorityResponse> {
+  async evaluate(proposal: Proposal, binding: ActorAuthorityBinding): Promise<AuthorityResponse> {
     if (binding.policy.mode !== "tribunal") {
-      throw new Error(
-        `TribunalHandler received non-tribunal policy: ${binding.policy.mode}`
-      );
+      throw new Error(`TribunalHandler received non-tribunal policy: ${binding.policy.mode}`);
     }
     const policy = binding.policy;
 
@@ -69,18 +64,14 @@ export class TribunalHandler implements AuthorityHandler {
           }
           reject(
             new Error(
-              `Tribunal decision timed out after ${policy.timeout}ms for proposal '${proposalId}'`
-            )
+              `Tribunal decision timed out after ${policy.timeout}ms for proposal '${proposalId}'`,
+            ),
           );
         }, policy.timeout);
       }
 
       this.pendingTribunals.set(proposalId, state);
-      this.notificationCallback?.(
-        proposalId,
-        proposal,
-        policy.members
-      );
+      this.notificationCallback?.(proposalId, proposal, policy.members);
     });
   }
 
@@ -88,7 +79,7 @@ export class TribunalHandler implements AuthorityHandler {
     proposalId: string,
     voter: ActorRef,
     decision: "approve" | "reject" | "abstain",
-    reasoning?: string
+    reasoning?: string,
   ): void {
     const state = this.pendingTribunals.get(proposalId);
     if (!state) {
@@ -99,9 +90,10 @@ export class TribunalHandler implements AuthorityHandler {
       throw new Error(`Actor ${voter.actorId} already voted on proposal ${proposalId}`);
     }
 
-    const member = state.binding.policy.mode === "tribunal"
-      ? state.binding.policy.members.some(({ actorId }) => actorId === voter.actorId)
-      : false;
+    const member =
+      state.binding.policy.mode === "tribunal"
+        ? state.binding.policy.members.some(({ actorId }) => actorId === voter.actorId)
+        : false;
     if (!member) {
       throw new Error(`Actor ${voter.actorId} is not a tribunal member for proposal ${proposalId}`);
     }

@@ -74,7 +74,7 @@ describe("createCompilerCodegen", () => {
         emit({
           schema: createTestSchema(),
           sourceId: "src/domain/counter.mel",
-        })
+        }),
       ).rejects.toThrow("Codegen failed for src/domain/counter.mel");
     } finally {
       await rm(outDir, { recursive: true, force: true });

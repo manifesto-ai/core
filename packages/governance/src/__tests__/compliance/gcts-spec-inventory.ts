@@ -13,7 +13,7 @@ function inventory(
   options?: {
     lifecycle?: RuleLifecycle;
     notes?: string;
-  }
+  },
 ): GovernanceComplianceInventoryItem {
   return {
     ruleId,
@@ -33,27 +33,49 @@ function inventoryMany(
   options?: {
     lifecycle?: RuleLifecycle;
     notes?: string;
-  }
+  },
 ): GovernanceComplianceInventoryItem[] {
   return ruleIds.map((ruleId) => inventory(ruleId, specSection, level, suite, options));
 }
 
 export const GOVERNANCE_SPEC_INVENTORY: readonly GovernanceComplianceInventoryItem[] = [
   inventory("GOV-TRANS-1", "§6.6", "MUST", "lifecycle"),
-  ...inventoryMany(["GOV-STAGE-7", "GOV-TRANS-3", "GOV-TRANS-4"], "§6.4 / §6.6", "MUST", "lifecycle"),
   ...inventoryMany(
-    ["GOV-BRANCH-1", "GOV-BRANCH-GATE-1", "GOV-BRANCH-GATE-5", "GOV-BRANCH-GATE-6", "GOV-BRANCH-GATE-7"],
+    ["GOV-STAGE-7", "GOV-TRANS-3", "GOV-TRANS-4"],
+    "§6.4 / §6.6",
+    "MUST",
+    "lifecycle",
+  ),
+  ...inventoryMany(
+    [
+      "GOV-BRANCH-1",
+      "GOV-BRANCH-GATE-1",
+      "GOV-BRANCH-GATE-5",
+      "GOV-BRANCH-GATE-6",
+      "GOV-BRANCH-GATE-7",
+    ],
     "§7.1-§7.4",
     "MUST",
-    "lifecycle"
+    "lifecycle",
   ),
   inventory("GOV-SEAL-1", "§9.2", "MUST", "lifecycle"),
   inventory("GOV-SEAL-2", "§9.2", "MUST", "lifecycle"),
   inventory("INV-G12", "§12.3", "MUST", "lifecycle", {
-    notes: "Conditional when governance is active; provenance is attempt-scoped through SealAttempt.proposalRef.",
+    notes:
+      "Conditional when governance is active; provenance is attempt-scoped through SealAttempt.proposalRef.",
   }),
-  ...inventoryMany(["GOV-EVT-DISP-1", "GOV-EVT-DISP-2", "GOV-EVT-DISP-3"], "§10.4", "MUST", "events"),
-  ...inventoryMany(["GOV-EXEC-EVT-1", "GOV-EXEC-EVT-2", "GOV-EXEC-EVT-3", "GOV-EXEC-EVT-5"], "§10.9.3", "MUST", "events"),
+  ...inventoryMany(
+    ["GOV-EVT-DISP-1", "GOV-EVT-DISP-2", "GOV-EVT-DISP-3"],
+    "§10.4",
+    "MUST",
+    "events",
+  ),
+  ...inventoryMany(
+    ["GOV-EXEC-EVT-1", "GOV-EXEC-EVT-2", "GOV-EXEC-EVT-3", "GOV-EXEC-EVT-5"],
+    "§10.9.3",
+    "MUST",
+    "events",
+  ),
   inventory("GOV-EXEC-EVT-6", "§10.9.4", "MUST", "events"),
   inventory("GOV-EXEC-EVT-4", "§10.9.3", "MUST_NOT", "events"),
   inventory("GOV-BOUNDARY-5", "§4.1", "MUST_NOT", "seams", {

@@ -5,12 +5,12 @@ export type SpreadOperandClassification = "object" | "nullable-object" | "invali
 type InferExprType<Env, Symbols> = (
   expr: ExprNode,
   env: Env,
-  symbols: Symbols
+  symbols: Symbols,
 ) => TypeExprNode | null;
 
 type ResolveType<Symbols> = (
   typeExpr: TypeExprNode | null,
-  symbols: Symbols
+  symbols: Symbols,
 ) => TypeExprNode | null;
 
 type ExprTypeContext<Env, Symbols> = {
@@ -25,7 +25,7 @@ export function inferObjectLiteralContributionType<Env, Symbols>(
   env: Env,
   symbols: Symbols,
   inferExprType: InferExprType<Env, Symbols>,
-  resolveType: ResolveType<Symbols>
+  resolveType: ResolveType<Symbols>,
 ): TypeExprNode | null {
   const contributors: TypeExprNode[] = [];
   let bufferedFields: Extract<TypeExprNode, { kind: "objectType" }>["fields"] = [];
@@ -86,20 +86,25 @@ export function inferMergeContributionType<Env, Symbols>(
   env: Env,
   symbols: Symbols,
   inferExprType: InferExprType<Env, Symbols>,
-  resolveType: ResolveType<Symbols>
+  resolveType: ResolveType<Symbols>,
 ): TypeExprNode | null {
   const contributors = expr.args.map((arg) => inferExprType(arg, env, symbols));
   if (contributors.some((typeExpr) => typeExpr === null)) {
     return null;
   }
 
-  return mergeObjectContributionTypes(contributors as TypeExprNode[], expr.location, symbols, resolveType);
+  return mergeObjectContributionTypes(
+    contributors as TypeExprNode[],
+    expr.location,
+    symbols,
+    resolveType,
+  );
 }
 
 export function classifySpreadOperandType<Symbols>(
   typeExpr: TypeExprNode | null,
   symbols: Symbols,
-  resolveType: ResolveType<Symbols>
+  resolveType: ResolveType<Symbols>,
 ): SpreadOperandClassification {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
@@ -128,7 +133,7 @@ export function classifySpreadOperandType<Symbols>(
 
 export function mayYieldArrayExpr<Env, Symbols>(
   expr: ExprNode | undefined,
-  context?: ExprTypeContext<Env, Symbols>
+  context?: ExprTypeContext<Env, Symbols>,
 ): boolean {
   if (!expr) {
     return false;
@@ -143,7 +148,9 @@ export function mayYieldArrayExpr<Env, Symbols>(
   }
 
   if (expr.kind === "ternary") {
-    return mayYieldArrayExpr(expr.consequent, context) || mayYieldArrayExpr(expr.alternate, context);
+    return (
+      mayYieldArrayExpr(expr.consequent, context) || mayYieldArrayExpr(expr.alternate, context)
+    );
   }
 
   if (expr.kind !== "functionCall") {
@@ -177,7 +184,7 @@ export function mayYieldArrayExpr<Env, Symbols>(
 
 function isDefinitelyNullExpr<Env, Symbols>(
   expr: ExprNode,
-  context?: ExprTypeContext<Env, Symbols>
+  context?: ExprTypeContext<Env, Symbols>,
 ): boolean {
   const inferred = inferResolvedExprType(expr, context);
   if (inferred && isDefinitelyNullType(inferred, context)) {
@@ -189,7 +196,10 @@ function isDefinitelyNullExpr<Env, Symbols>(
   }
 
   if (expr.kind === "ternary") {
-    return isDefinitelyNullExpr(expr.consequent, context) && isDefinitelyNullExpr(expr.alternate, context);
+    return (
+      isDefinitelyNullExpr(expr.consequent, context) &&
+      isDefinitelyNullExpr(expr.alternate, context)
+    );
   }
 
   if (expr.kind !== "functionCall") {
@@ -201,7 +211,9 @@ function isDefinitelyNullExpr<Env, Symbols>(
   }
 
   if ((expr.name === "cond" || expr.name === "if") && expr.args.length >= 3) {
-    return isDefinitelyNullExpr(expr.args[1], context) && isDefinitelyNullExpr(expr.args[2], context);
+    return (
+      isDefinitelyNullExpr(expr.args[1], context) && isDefinitelyNullExpr(expr.args[2], context)
+    );
   }
 
   return false;
@@ -209,7 +221,7 @@ function isDefinitelyNullExpr<Env, Symbols>(
 
 function isDefinitelyNonNullExpr<Env, Symbols>(
   expr: ExprNode,
-  context?: ExprTypeContext<Env, Symbols>
+  context?: ExprTypeContext<Env, Symbols>,
 ): boolean {
   const inferred = inferResolvedExprType(expr, context);
   if (inferred && isDefinitelyNonNullType(inferred, context)) {
@@ -225,7 +237,10 @@ function isDefinitelyNonNullExpr<Env, Symbols>(
   }
 
   if (expr.kind === "ternary") {
-    return isDefinitelyNonNullExpr(expr.consequent, context) && isDefinitelyNonNullExpr(expr.alternate, context);
+    return (
+      isDefinitelyNonNullExpr(expr.consequent, context) &&
+      isDefinitelyNonNullExpr(expr.alternate, context)
+    );
   }
 
   if (expr.kind !== "functionCall") {
@@ -241,7 +256,10 @@ function isDefinitelyNonNullExpr<Env, Symbols>(
   }
 
   if ((expr.name === "cond" || expr.name === "if") && expr.args.length >= 3) {
-    return isDefinitelyNonNullExpr(expr.args[1], context) && isDefinitelyNonNullExpr(expr.args[2], context);
+    return (
+      isDefinitelyNonNullExpr(expr.args[1], context) &&
+      isDefinitelyNonNullExpr(expr.args[2], context)
+    );
   }
 
   return false;
@@ -249,7 +267,7 @@ function isDefinitelyNonNullExpr<Env, Symbols>(
 
 function inferResolvedExprType<Env, Symbols>(
   expr: ExprNode,
-  context?: ExprTypeContext<Env, Symbols>
+  context?: ExprTypeContext<Env, Symbols>,
 ): TypeExprNode | null {
   if (!context) {
     return null;
@@ -257,13 +275,13 @@ function inferResolvedExprType<Env, Symbols>(
 
   return context.resolveType(
     context.inferExprType(expr, context.env, context.symbols),
-    context.symbols
+    context.symbols,
   );
 }
 
 function mayBeArrayType<Env, Symbols>(
   typeExpr: TypeExprNode | null,
-  context?: ExprTypeContext<Env, Symbols>
+  context?: ExprTypeContext<Env, Symbols>,
 ): boolean {
   if (!typeExpr || !context) {
     return false;
@@ -287,7 +305,7 @@ function mayBeArrayType<Env, Symbols>(
 
 function isDefinitelyNullType<Env, Symbols>(
   typeExpr: TypeExprNode,
-  context?: ExprTypeContext<Env, Symbols>
+  context?: ExprTypeContext<Env, Symbols>,
 ): boolean {
   if (!context) {
     return isNullType(typeExpr);
@@ -299,7 +317,10 @@ function isDefinitelyNullType<Env, Symbols>(
   }
 
   if (resolved.kind === "unionType") {
-    return resolved.types.length > 0 && resolved.types.every((member) => isDefinitelyNullType(member, context));
+    return (
+      resolved.types.length > 0 &&
+      resolved.types.every((member) => isDefinitelyNullType(member, context))
+    );
   }
 
   return isNullType(resolved);
@@ -307,7 +328,7 @@ function isDefinitelyNullType<Env, Symbols>(
 
 function isDefinitelyNonNullType<Env, Symbols>(
   typeExpr: TypeExprNode,
-  context?: ExprTypeContext<Env, Symbols>
+  context?: ExprTypeContext<Env, Symbols>,
 ): boolean {
   if (!context) {
     return !isNullType(typeExpr);
@@ -319,7 +340,10 @@ function isDefinitelyNonNullType<Env, Symbols>(
   }
 
   if (resolved.kind === "unionType") {
-    return resolved.types.length > 0 && resolved.types.every((member) => isDefinitelyNonNullType(member, context));
+    return (
+      resolved.types.length > 0 &&
+      resolved.types.every((member) => isDefinitelyNonNullType(member, context))
+    );
   }
 
   return !isNullType(resolved);
@@ -329,9 +353,12 @@ function mergeObjectContributionTypes<Symbols>(
   contributors: TypeExprNode[],
   location: TypeExprNode["location"],
   symbols: Symbols,
-  resolveType: ResolveType<Symbols>
+  resolveType: ResolveType<Symbols>,
 ): TypeExprNode | null {
-  const mergedFields = new Map<string, Extract<TypeExprNode, { kind: "objectType" }>["fields"][number]>();
+  const mergedFields = new Map<
+    string,
+    Extract<TypeExprNode, { kind: "objectType" }>["fields"][number]
+  >();
 
   for (const contributor of contributors) {
     const contributionFields = getContributionFields(contributor, symbols, resolveType);
@@ -376,7 +403,7 @@ function mergeObjectContributionTypes<Symbols>(
 function getContributionFields<Symbols>(
   typeExpr: TypeExprNode,
   symbols: Symbols,
-  resolveType: ResolveType<Symbols>
+  resolveType: ResolveType<Symbols>,
 ): Extract<TypeExprNode, { kind: "objectType" }>["fields"] | null {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
@@ -423,11 +450,11 @@ function isNullType(typeExpr: TypeExprNode): boolean {
 
 function joinTypeCandidates(
   candidates: Array<TypeExprNode | null>,
-  location: TypeExprNode["location"]
+  location: TypeExprNode["location"],
 ): TypeExprNode | null {
   const present = candidates
     .filter((candidate): candidate is TypeExprNode => candidate !== null)
-    .flatMap((candidate) => candidate.kind === "unionType" ? candidate.types : [candidate]);
+    .flatMap((candidate) => (candidate.kind === "unionType" ? candidate.types : [candidate]));
   if (present.length === 0) {
     return null;
   }

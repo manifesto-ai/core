@@ -47,6 +47,12 @@ import { createManifesto } from "@manifesto-ai/sdk";
 import CounterMel from "./counter.mel";
 
 const app = createManifesto(CounterMel, {}).activate();
+
+await app.action.increment.submit();
+
+const snapshot = app.snapshot();
+console.log(snapshot.state.count);      // 1
+console.log(snapshot.computed.doubled); // 2
 ```
 
 ## Common Mistake

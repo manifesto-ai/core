@@ -20,7 +20,7 @@ export const DEFAULT_HOST_CONTEXT: Context = {
 export function createTestSnapshot(
   state: unknown,
   schemaHash: string,
-  context: Context = DEFAULT_HOST_CONTEXT
+  context: Context = DEFAULT_HOST_CONTEXT,
 ): Snapshot {
   return createSnapshot(state, schemaHash, context);
 }
@@ -58,17 +58,16 @@ export function createMinimalSnapshot(state: unknown = {}): Snapshot {
 export function createRestoreNormalizedSnapshot(
   state: unknown,
   schemaHash: string,
-  context: Context = DEFAULT_HOST_CONTEXT
+  context: Context = DEFAULT_HOST_CONTEXT,
 ): Snapshot {
   const snapshot = createSnapshot(state, schemaHash, context);
-  const normalizedState = typeof snapshot.state === "object"
-    && snapshot.state !== null
-    && !Array.isArray(snapshot.state)
-    ? (() => {
-        const { $host: _host, ...rest } = snapshot.state as Record<string, unknown>;
-        return rest;
-      })()
-    : snapshot.state;
+  const normalizedState =
+    typeof snapshot.state === "object" && snapshot.state !== null && !Array.isArray(snapshot.state)
+      ? (() => {
+          const { $host: _host, ...rest } = snapshot.state as Record<string, unknown>;
+          return rest;
+        })()
+      : snapshot.state;
 
   return {
     ...snapshot,
@@ -92,7 +91,7 @@ export function createSnapshotWithRequirements(
   state: unknown,
   schemaHash: string,
   requirements: Requirement[],
-  context: Context = DEFAULT_HOST_CONTEXT
+  context: Context = DEFAULT_HOST_CONTEXT,
 ): Snapshot {
   const snapshot = createSnapshot(state, schemaHash, context);
   return {
@@ -111,7 +110,7 @@ export function createSnapshotWithRequirements(
 export function createTestRequirement(
   type: string,
   params: Record<string, unknown> = {},
-  overrides: Partial<Requirement> = {}
+  overrides: Partial<Requirement> = {},
 ): Requirement {
   return {
     id: overrides.id ?? `req-${type}-${Date.now()}-${Math.random().toString(36).slice(2)}`,

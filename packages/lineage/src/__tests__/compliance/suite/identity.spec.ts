@@ -15,7 +15,7 @@ describe("LCTS Identity Suite", () => {
   it(
     caseTitle(
       LCTS_CASES.HASH_DETERMINISM,
-      "Snapshot hash stays stable across platform/meta-only changes and tracks hash-visible fields only."
+      "Snapshot hash stays stable across platform/meta-only changes and tracks hash-visible fields only.",
     ),
     async () => {
       const base = createTestSnapshot(
@@ -25,7 +25,7 @@ describe("LCTS Identity Suite", () => {
             host: { internal: true },
             mel: { guards: { intent: { guard: "true" } } },
           },
-        }
+        },
       );
       const onlyPlatformAndMetaChanged = createTestSnapshot(
         { count: 1 },
@@ -42,7 +42,7 @@ describe("LCTS Identity Suite", () => {
             host: { internal: false, changed: true },
             mel: { guards: { intent: { another: "value" } } },
           },
-        }
+        },
       );
       const domainChanged = createTestSnapshot(
         { count: 2 },
@@ -51,7 +51,7 @@ describe("LCTS Identity Suite", () => {
             host: { internal: true },
             mel: { guards: { intent: { guard: "true" } } },
           },
-        }
+        },
       );
 
       const baseHash = await adapter.computeSnapshotHash(base);
@@ -65,7 +65,9 @@ describe("LCTS Identity Suite", () => {
         evaluateRule(getRuleOrThrow("LIN-HASH-1"), semanticDataIncluded, {
           passMessage: "Semantic data participates in snapshot hash identity.",
           failMessage: "Domain data changes did not affect snapshotHash.",
-          evidence: [noteEvidence("Changed only domain data (`count`) to verify semantic identity.")],
+          evidence: [
+            noteEvidence("Changed only domain data (`count`) to verify semantic identity."),
+          ],
         }),
         evaluateRule(getRuleOrThrow("LIN-HASH-4a"), exclusionOk, {
           passMessage: "$host namespace is excluded from snapshotHash.",
@@ -99,13 +101,13 @@ describe("LCTS Identity Suite", () => {
 
       expect(exclusionOk).toBe(true);
       expect(semanticDataIncluded).toBe(true);
-    }
+    },
   );
 
   it(
     caseTitle(
       LCTS_CASES.CURRENT_ERROR_IDENTITY,
-      "Current error identity uses only lastError.code and source, not error history or non-hash fields."
+      "Current error identity uses only lastError.code and source, not error history or non-hash fields.",
     ),
     async () => {
       const currentError = {
@@ -125,7 +127,7 @@ describe("LCTS Identity Suite", () => {
             pendingRequirements: [],
             currentAction: "running",
           },
-        }
+        },
       );
       const sameCurrentDifferentHistory = createTestSnapshot(
         { count: 1 },
@@ -141,7 +143,7 @@ describe("LCTS Identity Suite", () => {
             pendingRequirements: [],
             currentAction: null,
           },
-        }
+        },
       );
       const differentCurrent = createTestSnapshot(
         { count: 1 },
@@ -157,7 +159,7 @@ describe("LCTS Identity Suite", () => {
             pendingRequirements: [],
             currentAction: null,
           },
-        }
+        },
       );
 
       const baseHash = await adapter.computeSnapshotHash(base);
@@ -165,31 +167,44 @@ describe("LCTS Identity Suite", () => {
       const differentCurrentHash = await adapter.computeSnapshotHash(differentCurrent);
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("LIN-HASH-3a"), baseHash !== await adapter.computeSnapshotHash(createTestSnapshot({ count: 1 })), {
-          passMessage: "lastError participates in snapshotHash identity.",
-          failMessage: "lastError did not affect snapshotHash identity.",
-        }),
+        evaluateRule(
+          getRuleOrThrow("LIN-HASH-3a"),
+          baseHash !== (await adapter.computeSnapshotHash(createTestSnapshot({ count: 1 }))),
+          {
+            passMessage: "lastError participates in snapshotHash identity.",
+            failMessage: "lastError did not affect snapshotHash identity.",
+          },
+        ),
         evaluateRule(getRuleOrThrow("LIN-HASH-3c"), baseHash !== differentCurrentHash, {
           passMessage: "Current error code/source changes affect snapshotHash.",
           failMessage: "Current error code/source changes did not affect snapshotHash.",
-          evidence: [noteEvidence("Changed only lastError.code while keeping the same data and source envelope.")],
+          evidence: [
+            noteEvidence(
+              "Changed only lastError.code while keeping the same data and source envelope.",
+            ),
+          ],
         }),
         evaluateRule(getRuleOrThrow("LIN-HASH-3d"), baseHash === sameCurrentHash, {
           passMessage: "Non-hash error fields and history do not affect snapshotHash.",
-          failMessage: "Error message/timestamp/context or history leaked into snapshotHash identity.",
-          evidence: [noteEvidence("Changed only lastError message/timestamp/context while keeping lastError.code/source fixed.")],
+          failMessage:
+            "Error message/timestamp/context or history leaked into snapshotHash identity.",
+          evidence: [
+            noteEvidence(
+              "Changed only lastError message/timestamp/context while keeping lastError.code/source fixed.",
+            ),
+          ],
         }),
       ]);
 
       expect(baseHash).toBe(sameCurrentHash);
       expect(baseHash).not.toBe(differentCurrentHash);
-    }
+    },
   );
 
   it(
     caseTitle(
       LCTS_CASES.POSITIONAL_WORLD_ID,
-      "WorldId is positional and changes when parentWorldId changes."
+      "WorldId is positional and changes when parentWorldId changes.",
     ),
     async () => {
       const snapshot = createTestSnapshot({ count: 1 });
@@ -205,13 +220,18 @@ describe("LCTS Identity Suite", () => {
           failMessage: "WorldId derivation is unstable for identical positional inputs.",
         }),
         evaluateRule(getRuleOrThrow("LIN-ID-2"), genesisA !== childA, {
-          passMessage: "Genesis uses parentWorldId=null and therefore differs from next-seal identities.",
+          passMessage:
+            "Genesis uses parentWorldId=null and therefore differs from next-seal identities.",
           failMessage: "Genesis world identity did not distinguish parentWorldId=null.",
         }),
         evaluateRule(getRuleOrThrow("LIN-ID-3"), childA !== childB, {
           passMessage: "Different parentWorldId values produce different WorldIds.",
           failMessage: "parentWorldId did not participate in WorldId identity.",
-          evidence: [noteEvidence("Computed the same schemaHash+snapshotHash with two different parentWorldId values.")],
+          evidence: [
+            noteEvidence(
+              "Computed the same schemaHash+snapshotHash with two different parentWorldId values.",
+            ),
+          ],
         }),
         evaluateRule(getRuleOrThrow("LIN-ID-4"), genesisA !== childA, {
           passMessage: "WorldId is not content-only.",
@@ -221,13 +241,13 @@ describe("LCTS Identity Suite", () => {
 
       expect(genesisA).toBe(genesisB);
       expect(childA).not.toBe(childB);
-    }
+    },
   );
 
   it(
     caseTitle(
       LCTS_CASES.REPEATED_FAILURE_IDENTITY,
-      "Repeated identical failures on the same branch produce distinct Worlds because tip changes."
+      "Repeated identical failures on the same branch produce distinct Worlds because tip changes.",
     ),
     async () => {
       const { service, genesis } = await createBootstrappedLineage();
@@ -245,7 +265,7 @@ describe("LCTS Identity Suite", () => {
             pendingRequirements: [],
             currentAction: null,
           },
-        }
+        },
       );
 
       const firstFailure = await service.prepareSealNext({
@@ -270,13 +290,18 @@ describe("LCTS Identity Suite", () => {
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("LIN-ID-3"), firstFailure.worldId !== secondFailure.worldId, {
           passMessage: "Branch tip participates in next-seal positional identity.",
-          failMessage: "Repeated identical failures reused the same WorldId even though branch tip changed.",
-          evidence: [noteEvidence("Committed one failed seal, then prepared the same failed seal again against the unchanged branch head.")],
+          failMessage:
+            "Repeated identical failures reused the same WorldId even though branch tip changed.",
+          evidence: [
+            noteEvidence(
+              "Committed one failed seal, then prepared the same failed seal again against the unchanged branch head.",
+            ),
+          ],
         }),
       ]);
 
       expect(firstFailure.worldId).not.toBe(secondFailure.worldId);
       expect(secondFailure.world.parentWorldId).toBe(firstFailure.worldId);
-    }
+    },
   );
 });

@@ -11,16 +11,14 @@ export type SemanticPath = z.infer<typeof SemanticPath>;
  */
 export const Result = <T extends z.ZodTypeAny, E extends z.ZodTypeAny>(
   valueSchema: T,
-  errorSchema: E
+  errorSchema: E,
 ) =>
   z.discriminatedUnion("ok", [
     z.object({ ok: z.literal(true), value: valueSchema }),
     z.object({ ok: z.literal(false), error: errorSchema }),
   ]);
 
-export type Result<T, E> =
-  | { ok: true; value: T }
-  | { ok: false; error: E };
+export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 
 /**
  * Helper functions for Result type
@@ -28,8 +26,6 @@ export type Result<T, E> =
 export const ok = <T>(value: T): Result<T, never> => ({ ok: true, value });
 export const err = <E>(error: E): Result<never, E> => ({ ok: false, error });
 
-export const isOk = <T, E>(result: Result<T, E>): result is { ok: true; value: T } =>
-  result.ok;
+export const isOk = <T, E>(result: Result<T, E>): result is { ok: true; value: T } => result.ok;
 
-export const isErr = <T, E>(result: Result<T, E>): result is { ok: false; error: E } =>
-  !result.ok;
+export const isErr = <T, E>(result: Result<T, E>): result is { ok: false; error: E } => !result.ok;

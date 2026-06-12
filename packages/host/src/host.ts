@@ -35,10 +35,7 @@ import { createHostError, HostError } from "./errors.js";
 import { MailboxManager, type ExecutionMailbox } from "./mailbox.js";
 import { processMailbox, createRunnerState, type RunnerState } from "./runner.js";
 import { createExecutionContext, ExecutionContextImpl } from "./execution-context.js";
-import {
-  createHostContextProvider,
-  type HostContextProvider,
-} from "./context-provider.js";
+import { createHostContextProvider, type HostContextProvider } from "./context-provider.js";
 import type { ExecutionKey, Runtime } from "./types/execution.js";
 import type { TraceEvent } from "./types/trace.js";
 import { createStartIntentJob, createFulfillEffectJob } from "./types/job.js";
@@ -151,8 +148,7 @@ function getReservedStateKeys(state: unknown): string[] {
     return [];
   }
 
-  return Object.keys(state as Record<string, unknown>)
-    .filter((key) => key.startsWith("$"));
+  return Object.keys(state as Record<string, unknown>).filter((key) => key.startsWith("$"));
 }
 
 /**
@@ -202,14 +198,18 @@ export class ManifestoHost {
   }
 
   private recordHostLastError(snapshot: Snapshot, errorValue: ErrorValue): Snapshot {
-    return this.core.applyNamespaceDeltas(snapshot, [{
-      namespace: "host",
-      patches: [{
-        op: "set",
-        path: [{ kind: "prop", name: "lastError" }],
-        value: errorValue,
-      }],
-    }]);
+    return this.core.applyNamespaceDeltas(snapshot, [
+      {
+        namespace: "host",
+        patches: [
+          {
+            op: "set",
+            path: [{ kind: "prop", name: "lastError" }],
+            value: errorValue,
+          },
+        ],
+      },
+    ]);
   }
 
   private clearHostLastError(snapshot: Snapshot): Snapshot {
@@ -218,13 +218,17 @@ export class ManifestoHost {
       return snapshot;
     }
 
-    return this.core.applyNamespaceDeltas(snapshot, [{
-      namespace: "host",
-      patches: [{
-        op: "unset",
-        path: [{ kind: "prop", name: "lastError" }],
-      }],
-    }]);
+    return this.core.applyNamespaceDeltas(snapshot, [
+      {
+        namespace: "host",
+        patches: [
+          {
+            op: "unset",
+            path: [{ kind: "prop", name: "lastError" }],
+          },
+        ],
+      },
+    ]);
   }
 
   private normalizeCanonicalSnapshot(candidate: unknown, operation: string): Snapshot {
@@ -259,9 +263,13 @@ export class ManifestoHost {
 
     const reservedStateKeys = getReservedStateKeys(parsed.data.state);
     if (reservedStateKeys.length > 0) {
-      throw createHostError("INVALID_STATE", `${operation} canonical Snapshot state contains reserved keys`, {
-        keys: reservedStateKeys,
-      });
+      throw createHostError(
+        "INVALID_STATE",
+        `${operation} canonical Snapshot state contains reserved keys`,
+        {
+          keys: reservedStateKeys,
+        },
+      );
     }
 
     return this.cloneSnapshot(parsed.data);
@@ -288,11 +296,17 @@ export class ManifestoHost {
     this.fatalErrors = new Map();
 
     if (options.initialSnapshot !== undefined && options.initialData !== undefined) {
-      throw createHostError("INVALID_STATE", "Host accepts either initialSnapshot or legacy initialData, not both");
+      throw createHostError(
+        "INVALID_STATE",
+        "Host accepts either initialSnapshot or legacy initialData, not both",
+      );
     }
 
     if (options.initialSnapshot !== undefined) {
-      this.currentSnapshot = this.normalizeCanonicalSnapshot(options.initialSnapshot, "Host initialSnapshot");
+      this.currentSnapshot = this.normalizeCanonicalSnapshot(
+        options.initialSnapshot,
+        "Host initialSnapshot",
+      );
     } else if (options.initialData !== undefined) {
       this.initializeSnapshot(options.initialData);
     }
@@ -322,11 +336,7 @@ export class ManifestoHost {
   /**
    * Register an effect handler
    */
-  registerEffect(
-    type: string,
-    handler: EffectHandler,
-    options?: EffectHandlerOptions
-  ): void {
+  registerEffect(type: string, handler: EffectHandler, options?: EffectHandlerOptions): void {
     this.registry.register(type, handler, options);
   }
 
@@ -364,23 +374,18 @@ export class ManifestoHost {
    * @param options - Optional dispatch options (routing key override)
    * @returns Host result with final snapshot and traces
    */
-  async dispatch(
-    intent: Intent,
-    options?: HostDispatchOptions
-  ): Promise<HostResult> {
-    const run = this.dispatchGate.then(() =>
-      this.dispatchSerialized(intent, options)
-    );
+  async dispatch(intent: Intent, options?: HostDispatchOptions): Promise<HostResult> {
+    const run = this.dispatchGate.then(() => this.dispatchSerialized(intent, options));
     this.dispatchGate = run.then(
       () => undefined,
-      () => undefined
+      () => undefined,
     );
     return run;
   }
 
   private async dispatchSerialized(
     intent: Intent,
-    options?: HostDispatchOptions
+    options?: HostDispatchOptions,
   ): Promise<HostResult> {
     if (!this.currentSnapshot) {
       const initialContext = this.contextProvider.createInitialContext();
@@ -390,7 +395,7 @@ export class ManifestoHost {
         traces: [],
         error: createHostError(
           "HOST_NOT_INITIALIZED",
-          "No snapshot available. Initialize the host with initial data."
+          "No snapshot available. Initialize the host with initial data.",
         ),
       };
     }
@@ -400,11 +405,7 @@ export class ManifestoHost {
         status: "error",
         snapshot: this.currentSnapshot,
         traces: [],
-        error: createHostError(
-          "INVALID_STATE",
-          "Intent must have intentId",
-          { intent }
-        ),
+        error: createHostError("INVALID_STATE", "Intent must have intentId", { intent }),
       };
     }
 
@@ -417,16 +418,13 @@ export class ManifestoHost {
     const key: ExecutionKey = options?.key ?? intent.intentId;
     let transitionContext: Context;
     try {
-      transitionContext = options?.context ?? this.contextProvider.createFrozenContext(
-        intent.intentId,
-        options?.externalContext,
-      );
+      transitionContext =
+        options?.context ??
+        this.contextProvider.createFrozenContext(intent.intentId, options?.externalContext);
     } catch (error) {
       const hostError = createHostError(
         "INVALID_STATE",
-        error instanceof Error
-          ? error.message
-          : "Invalid external context",
+        error instanceof Error ? error.message : "Invalid external context",
         { intentId: intent.intentId },
       );
       const errorValue = {
@@ -527,11 +525,9 @@ export class ManifestoHost {
         snapshot: finalSnapshot,
         traces,
         context: transitionContext,
-        error: createHostError(
-          "EFFECT_EXECUTION_FAILED",
-          hostOperationalError.message,
-          { lastError: hostOperationalError }
-        ),
+        error: createHostError("EFFECT_EXECUTION_FAILED", hostOperationalError.message, {
+          lastError: hostOperationalError,
+        }),
       };
     }
 
@@ -539,7 +535,7 @@ export class ManifestoHost {
       const hostError = createHostError(
         "LOOP_MAX_ITERATIONS",
         `Host loop exceeded maximum iterations (${this.maxIterations})`,
-        { maxIterations: this.maxIterations }
+        { maxIterations: this.maxIterations },
       );
       const snapshot = this.recordHostLastError(finalSnapshot, {
         code: "LOOP_MAX_ITERATIONS",
@@ -575,7 +571,7 @@ export class ManifestoHost {
         error: createHostError(
           "EFFECT_EXECUTION_FAILED",
           finalSnapshot.system.lastError?.message ?? "Unknown error",
-          { lastError: finalSnapshot.system.lastError }
+          { lastError: finalSnapshot.system.lastError },
         ),
       };
     }
@@ -587,11 +583,9 @@ export class ManifestoHost {
         snapshot: finalSnapshot,
         traces,
         context: transitionContext,
-        error: createHostError(
-          "EFFECT_EXECUTION_FAILED",
-          hostLastError.message,
-          { lastError: hostLastError }
-        ),
+        error: createHostError("EFFECT_EXECUTION_FAILED", hostLastError.message, {
+          lastError: hostLastError,
+        }),
       };
     }
 
@@ -646,7 +640,7 @@ export class ManifestoHost {
     requirementId: string,
     effectType: string,
     params: unknown,
-    intent: Intent
+    intent: Intent,
   ): void {
     // When disableAutoEffect is true, don't auto-execute
     // Effects will be fulfilled via injectEffectResult()
@@ -659,10 +653,16 @@ export class ManifestoHost {
     }
 
     // Store effect request and start execution
-    const promise = this.executeEffect(key, intentId, requirementId, effectType, params, intent)
-      .finally(() => {
-        this.pendingEffects.delete(key);
-      });
+    const promise = this.executeEffect(
+      key,
+      intentId,
+      requirementId,
+      effectType,
+      params,
+      intent,
+    ).finally(() => {
+      this.pendingEffects.delete(key);
+    });
     this.pendingEffects.set(key, { intentId, requirementId, intent, promise });
   }
 
@@ -675,22 +675,18 @@ export class ManifestoHost {
     requirementId: string,
     _effectType: string,
     _params: unknown,
-    intent: Intent
+    intent: Intent,
   ): Promise<void> {
     const ctx = this.executionContexts.get(key);
     if (!ctx) return;
 
     const snapshot = ctx.getSnapshot();
-    const requirement = snapshot.system.pendingRequirements.find(
-      (r) => r.id === requirementId
-    );
+    const requirement = snapshot.system.pendingRequirements.find((r) => r.id === requirementId);
     if (!requirement) return;
 
     // Execute effect
     const result = await this.executor.execute(requirement, snapshot);
-    const effectError = result.ok
-      ? undefined
-      : result.failure;
+    const effectError = result.ok ? undefined : result.failure;
 
     // Inject result as FulfillEffect job (REINJ-1~4)
     const mailbox = this.mailboxManager.get(key);
@@ -701,7 +697,7 @@ export class ManifestoHost {
         result.patches,
         intent,
         effectError,
-        result.namespaceDelta
+        result.namespaceDelta,
       );
       mailbox.enqueue(fulfillJob);
     }
@@ -778,19 +774,11 @@ export class ManifestoHost {
   /**
    * Handle fatal error
    */
-  private handleFatalError(
-    key: ExecutionKey,
-    intentId: string,
-    error: Error
-  ): void {
+  private handleFatalError(key: ExecutionKey, intentId: string, error: Error): void {
     // Clear pending effect tracking
     this.pendingEffects.delete(key);
 
-    const hostError = createHostError(
-      "INVALID_STATE",
-      error.message,
-      { intentId }
-    );
+    const hostError = createHostError("INVALID_STATE", error.message, { intentId });
     this.fatalErrors.set(key, hostError);
 
     // Mark execution as failed (best-effort) in namespaces.host
@@ -804,14 +792,18 @@ export class ManifestoHost {
           source: { actionId: intentId, nodePath: "host.fatal" },
           timestamp: frozenContext.runtime.time.timestamp,
         };
-        const deltas: NamespaceDelta[] = [{
-          namespace: "host",
-          patches: [{
-            op: "set",
-            path: [{ kind: "prop", name: "lastError" }],
-            value: errorValue,
-          }],
-        }];
+        const deltas: NamespaceDelta[] = [
+          {
+            namespace: "host",
+            patches: [
+              {
+                op: "set",
+                path: [{ kind: "prop", name: "lastError" }],
+                value: errorValue,
+              },
+            ],
+          },
+        ];
         ctx.applyNamespaceDeltas(deltas, "fatal-error");
       } catch {
         // Best-effort only
@@ -926,7 +918,7 @@ export class ManifestoHost {
     intentId: string,
     patches: Patch[],
     intent?: Intent,
-    namespaceDelta?: readonly NamespaceDelta[]
+    namespaceDelta?: readonly NamespaceDelta[],
   ): void {
     const mailbox = this.mailboxManager.get(key);
     if (mailbox) {
@@ -950,7 +942,7 @@ export class ManifestoHost {
         patches,
         effectIntent,
         undefined,
-        namespaceDelta
+        namespaceDelta,
       );
       mailbox.enqueue(job);
     }
@@ -990,7 +982,10 @@ export class ManifestoHost {
   }
 }
 
-function isSameErrorValue(left: Snapshot["system"]["lastError"], right: Snapshot["system"]["lastError"]): boolean {
+function isSameErrorValue(
+  left: Snapshot["system"]["lastError"],
+  right: Snapshot["system"]["lastError"],
+): boolean {
   if (left === right) {
     return true;
   }

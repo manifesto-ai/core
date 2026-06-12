@@ -9,10 +9,7 @@ import {
 import { CORE_CTS_SUITES } from "./core-cts-types.js";
 import { CORE_COMPLIANCE_RULES, getRulesBySuite } from "./core-cts-rules.js";
 import { CORE_SPEC_INVENTORY } from "./core-cts-spec-inventory.js";
-import {
-  CORE_COMPLIANCE_CASES,
-  CORE_RULE_COVERAGE,
-} from "./core-cts-coverage.js";
+import { CORE_COMPLIANCE_CASES, CORE_RULE_COVERAGE } from "./core-cts-coverage.js";
 
 describe("Core CTS Rule Matrix", () => {
   it("CORE-CTS-MATRIX-001: rule ids are unique", () => {

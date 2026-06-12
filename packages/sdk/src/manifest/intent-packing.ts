@@ -1,13 +1,7 @@
-import {
-  createIntent as createCoreIntent,
-} from "@manifesto-ai/core";
+import { createIntent as createCoreIntent } from "@manifesto-ai/core";
 
-import {
-  ManifestoError,
-} from "../errors.js";
-import {
-  generateUUID,
-} from "../runtime/uuid.js";
+import { ManifestoError } from "../errors.js";
+import { generateUUID } from "../runtime/uuid.js";
 import type {
   CreateIntentArgs,
   ManifestoDomainShape,
@@ -15,13 +9,8 @@ import type {
   TypedCreateIntent,
   TypedIntent,
 } from "../types.js";
-import {
-  ACTION_PARAM_NAMES,
-  ACTION_SINGLE_PARAM_OBJECT_VALUE,
-} from "../compat/runtime-symbols.js";
-import type {
-  RuntimeActionRef,
-} from "./shared.js";
+import { ACTION_PARAM_NAMES, ACTION_SINGLE_PARAM_OBJECT_VALUE } from "../compat/runtime-symbols.js";
+import type { RuntimeActionRef } from "./shared.js";
 
 export function buildCreateIntent<T extends ManifestoDomainShape>(): TypedCreateIntent<T> {
   return <K extends keyof T["actions"]>(
@@ -31,18 +20,12 @@ export function buildCreateIntent<T extends ManifestoDomainShape>(): TypedCreate
     const actionRef = action as unknown as RuntimeActionRef;
     const intentId = generateUUID();
     const input = packIntentInput(actionRef, args);
-    return createCoreIntent(
-      String(action.name),
-      input,
-      intentId,
-    ) as TypedIntent<T, K>;
+    return createCoreIntent(String(action.name), input, intentId) as TypedIntent<T, K>;
   };
 }
 
 function packIntentInput(action: RuntimeActionRef, args: readonly unknown[]): unknown {
-  const paramNames = Object.hasOwn(action, ACTION_PARAM_NAMES)
-    ? action[ACTION_PARAM_NAMES]
-    : [];
+  const paramNames = Object.hasOwn(action, ACTION_PARAM_NAMES) ? action[ACTION_PARAM_NAMES] : [];
   if (args.length === 0) {
     return undefined;
   }
@@ -86,10 +69,9 @@ function packIntentInput(action: RuntimeActionRef, args: readonly unknown[]): un
     return args[0];
   }
 
-  return Object.fromEntries(args.map((value, index) => [
-    paramNames[index] ?? `arg${index}`,
-    value,
-  ]));
+  return Object.fromEntries(
+    args.map((value, index) => [paramNames[index] ?? `arg${index}`, value]),
+  );
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
