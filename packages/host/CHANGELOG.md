@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.0.1](https://github.com/manifesto-ai/core/compare/host-v5.0.0...host-v5.0.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* **host:** serialize the stateful dispatch critical section ([#500](https://github.com/manifesto-ai/core/issues/500)) ([f213ad7](https://github.com/manifesto-ai/core/commit/f213ad7c0ce810df64cc4167e138cfdc60113e6a)), closes [#476](https://github.com/manifesto-ai/core/issues/476)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 5.1.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^5.0.0 to ^5.1.0
+
 ## [5.0.0](https://github.com/manifesto-ai/core/compare/host-v2.9.1...host-v5.0.0) (2026-05-07)
 
 

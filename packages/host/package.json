@@ -1,6 +1,6 @@
 {
   "name": "@manifesto-ai/host",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "Manifesto Host - Effect execution runtime for @manifesto-ai/core",
   "author": "eggplantiny <eggplantiny@gmail.com>",
   "license": "MIT",
@@ -43,11 +43,10 @@
     "test:watch": "node ../../node_modules/vitest/vitest.mjs"
   },
   "peerDependencies": {
-    "@manifesto-ai/core": "^5.0.0"
+    "@manifesto-ai/core": "^5.1.0"
   },
   "devDependencies": {
     "@manifesto-ai/core": "workspace:*",
-    "@manifesto-ai/cts-kit": "workspace:*",
     "typescript": "^5.9.3",
     "vite": "^8.0.8",
     "vitest": "^4.1.4"

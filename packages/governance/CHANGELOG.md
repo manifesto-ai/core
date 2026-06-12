@@ -1,5 +1,29 @@
 # Changelog
 
+## [5.1.0](https://github.com/manifesto-ai/core/compare/governance-v5.0.0...governance-v5.1.0) (2026-06-12)
+
+
+### Features
+
+* **sdk:** add dynamic action lookup ([#484](https://github.com/manifesto-ai/core/issues/484)) ([7b9e254](https://github.com/manifesto-ai/core/commit/7b9e254affc4fa267a359dffb0f7025cd2b78e5c))
+
+
+### Bug Fixes
+
+* **governance,lineage:** enforce scope, pending, and recovery safety at governed settlement ([#501](https://github.com/manifesto-ai/core/issues/501)) ([d1e2004](https://github.com/manifesto-ai/core/commit/d1e2004195e09c3b4b50f4a9cc54a6b1dddbbf78)), closes [#477](https://github.com/manifesto-ai/core/issues/477) [#478](https://github.com/manifesto-ai/core/issues/478) [#479](https://github.com/manifesto-ai/core/issues/479)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/lineage bumped to 5.1.0
+    * @manifesto-ai/sdk bumped to 5.1.0
+  * devDependencies
+    * @manifesto-ai/core bumped to 5.1.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^5.0.0 to ^5.1.0
+
 ## [5.0.0](https://github.com/manifesto-ai/core/compare/governance-v3.13.1...governance-v5.0.0) (2026-05-07)
 
 

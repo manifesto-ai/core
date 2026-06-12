@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.1.0](https://github.com/manifesto-ai/core/compare/core-v5.0.0...core-v5.1.0) (2026-06-12)
+
+
+### Features
+
+* **core,sdk:** route legality evaluation errors through the admission value channel ([#516](https://github.com/manifesto-ai/core/issues/516)) ([6f23e77](https://github.com/manifesto-ai/core/commit/6f23e7767745c197bd373b7789a20d71ba3918e3))
+
+
+### Bug Fixes
+
+* **core:** reject non-JSON values at patch and namespace write boundaries ([#498](https://github.com/manifesto-ai/core/issues/498)) ([684a141](https://github.com/manifesto-ai/core/commit/684a1418ff6587612c76d27d5ab9bb160e4b361b))
+
 ## [5.0.0](https://github.com/manifesto-ai/core/compare/core-v2.13.0...core-v5.0.0) (2026-05-07)
 
 

@@ -1,5 +1,30 @@
 # Changelog
 
+## [5.1.0](https://github.com/manifesto-ai/core/compare/lineage-v5.0.0...lineage-v5.1.0) (2026-06-12)
+
+
+### Features
+
+* **sdk:** add dynamic action lookup ([#484](https://github.com/manifesto-ai/core/issues/484)) ([7b9e254](https://github.com/manifesto-ai/core/commit/7b9e254affc4fa267a359dffb0f7025cd2b78e5c))
+
+
+### Bug Fixes
+
+* **governance,lineage:** enforce scope, pending, and recovery safety at governed settlement ([#501](https://github.com/manifesto-ai/core/issues/501)) ([d1e2004](https://github.com/manifesto-ai/core/commit/d1e2004195e09c3b4b50f4a9cc54a6b1dddbbf78)), closes [#477](https://github.com/manifesto-ai/core/issues/477) [#478](https://github.com/manifesto-ai/core/issues/478) [#479](https://github.com/manifesto-ai/core/issues/479)
+* **lineage:** advance head for effect-bearing dispatches ([#495](https://github.com/manifesto-ai/core/issues/495)) ([a83892a](https://github.com/manifesto-ai/core/commit/a83892a1ba0131a197e591deb4b18e5d7bf8d0b3)), closes [#490](https://github.com/manifesto-ai/core/issues/490)
+* **lineage:** export createLineageRuntimeInstance from the provider seam ([#496](https://github.com/manifesto-ai/core/issues/496)) ([ee13992](https://github.com/manifesto-ai/core/commit/ee13992acfb2074c4f70dc4f0927d770d6011ad1))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/sdk bumped to 5.1.0
+  * devDependencies
+    * @manifesto-ai/core bumped to 5.1.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^5.0.0 to ^5.1.0
+
 ## [5.0.0](https://github.com/manifesto-ai/core/compare/lineage-v3.12.1...lineage-v5.0.0) (2026-05-07)
 
 

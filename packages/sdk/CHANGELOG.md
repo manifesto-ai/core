@@ -1,5 +1,27 @@
 # Changelog
 
+## [5.1.0](https://github.com/manifesto-ai/core/compare/sdk-v5.0.0...sdk-v5.1.0) (2026-06-12)
+
+
+### Features
+
+* **core,sdk:** route legality evaluation errors through the admission value channel ([#516](https://github.com/manifesto-ai/core/issues/516)) ([6f23e77](https://github.com/manifesto-ai/core/commit/6f23e7767745c197bd373b7789a20d71ba3918e3))
+* **sdk:** add dynamic action lookup ([#484](https://github.com/manifesto-ai/core/issues/484)) ([7b9e254](https://github.com/manifesto-ai/core/commit/7b9e254affc4fa267a359dffb0f7025cd2b78e5c))
+
+
+### Bug Fixes
+
+* **sdk:** validate canonical snapshot shape at the hydration seam ([#497](https://github.com/manifesto-ai/core/issues/497)) ([9c88786](https://github.com/manifesto-ai/core/commit/9c887862676d8c02d8387fb103d2f03187687bb2)), closes [#492](https://github.com/manifesto-ai/core/issues/492)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/compiler bumped to 5.0.1
+    * @manifesto-ai/core bumped to 5.1.0
+    * @manifesto-ai/host bumped to 5.0.1
+
 ## [5.0.0](https://github.com/manifesto-ai/core/compare/sdk-v3.18.1...sdk-v5.0.0) (2026-05-07)
 
 

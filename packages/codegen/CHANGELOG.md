@@ -1,5 +1,26 @@
 # Changelog
 
+## [5.1.0](https://github.com/manifesto-ai/core/compare/codegen-v5.0.0...codegen-v5.1.0) (2026-06-12)
+
+
+### Features
+
+* **sdk:** add dynamic action lookup ([#484](https://github.com/manifesto-ai/core/issues/484)) ([7b9e254](https://github.com/manifesto-ai/core/commit/7b9e254affc4fa267a359dffb0f7025cd2b78e5c))
+
+
+### Bug Fixes
+
+* **codegen:** sanitize emitted identifiers and preserve context typing ([#510](https://github.com/manifesto-ai/core/issues/510)) ([88c6289](https://github.com/manifesto-ai/core/commit/88c6289104b0c9a2155b0c78e512e377a66edf46))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @manifesto-ai/core bumped to 5.1.0
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^5.0.0 to ^5.1.0
+
 ## [5.0.0](https://github.com/manifesto-ai/core/compare/codegen-v0.2.8...codegen-v5.0.0) (2026-05-07)
 
 
