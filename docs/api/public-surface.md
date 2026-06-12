@@ -1027,6 +1027,7 @@ _Source: `packages/lineage/src/provider.ts`_
 - `attachLineageDecoration`
 - `createInMemoryLineageStore`
 - `createLineageRuntimeController`
+- `createLineageRuntimeInstance`
 - `createLineageService`
 - `DefaultLineageService`
 - `getLineageDecoration`
