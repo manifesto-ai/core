@@ -645,11 +645,55 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
 function shouldAdvanceLineageHead(
   result: Awaited<ReturnType<LineageControllerKernel<ManifestoDomainShape>["executeHost"]>>,
 ): boolean {
-  if (result.status !== "complete" || result.snapshot.system.status !== "idle") {
+  // Terminality is judged from the terminal snapshot plus the FINAL trace.
+  // An effect-bearing dispatch legitimately records an intermediate trace
+  // with terminatedBy "pending" before the settlement pass completes, and
+  // requiring EVERY trace to be "complete" left the head permanently stale
+  // after any effect (#490). The final trace still matters: halted outcomes
+  // seal without advancing the visible head.
+  const system = result.snapshot.system;
+  if (
+    result.status !== "complete" ||
+    system.status !== "idle" ||
+    system.lastError !== null ||
+    system.pendingRequirements.length > 0
+  ) {
     return false;
   }
 
-  return result.traces.every((trace) => trace.terminatedBy === "complete");
+  const finalTrace = result.traces[result.traces.length - 1];
+  return finalTrace?.terminatedBy === "complete";
+}
+
+/**
+ * Structural check for failure evidence on a host result: a host-level
+ * error, a system lastError, or a host-owned lastError under
+ * snapshot.namespaces.host. Lineage reads the snapshot as data only; it
+ * does not import Host internals.
+ */
+function hasRecordedFailureEvidence(
+  result: Awaited<ReturnType<LineageControllerKernel<ManifestoDomainShape>["executeHost"]>>,
+): boolean {
+  if (result.error !== undefined && result.error !== null) {
+    return true;
+  }
+
+  if (result.snapshot.system.lastError !== null) {
+    return true;
+  }
+
+  const hostNamespace = (
+    result.snapshot.namespaces as Record<string, unknown> | undefined
+  )?.host;
+  if (
+    hostNamespace !== null
+    && typeof hostNamespace === "object"
+    && (hostNamespace as { readonly lastError?: unknown }).lastError
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 /**

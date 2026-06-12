@@ -188,6 +188,15 @@ export class ManifestoHost {
   // Current snapshot (managed in memory, caller is responsible for persistence)
   private currentSnapshot: Snapshot | null = null;
 
+  /**
+   * Serializes the stateful dispatch critical section (#476): from reading
+   * the baseline off currentSnapshot to writing the final snapshot back.
+   * Without it, concurrent dispatches each clone the same stale baseline at
+   * the first await point and the last writer silently discards the other's
+   * state transition.
+   */
+  private dispatchGate: Promise<unknown> = Promise.resolve();
+
   private cloneSnapshot(snapshot: Snapshot): Snapshot {
     return structuredClone(snapshot);
   }
@@ -345,11 +354,31 @@ export class ManifestoHost {
   /**
    * Dispatch an intent using v2.0.1 Mailbox + Runner + Job model
    *
+   * Dispatches against the stateful head are serialized: each dispatch
+   * reads its baseline only after the previous dispatch has written its
+   * final snapshot back (#476). Per-key mailbox serialization alone does
+   * not protect the head, because two concurrent dispatches create
+   * independent execution contexts from the same stale baseline.
+   *
    * @param intent - Intent to dispatch
    * @param options - Optional dispatch options (routing key override)
    * @returns Host result with final snapshot and traces
    */
   async dispatch(
+    intent: Intent,
+    options?: HostDispatchOptions
+  ): Promise<HostResult> {
+    const run = this.dispatchGate.then(() =>
+      this.dispatchSerialized(intent, options)
+    );
+    this.dispatchGate = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
+  }
+
+  private async dispatchSerialized(
     intent: Intent,
     options?: HostDispatchOptions
   ): Promise<HostResult> {
