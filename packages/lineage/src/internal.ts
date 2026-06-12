@@ -665,6 +665,7 @@ function shouldAdvanceLineageHead(
   return finalTrace?.terminatedBy === "complete";
 }
 
+
 /**
  * Structural check for failure evidence on a host result: a host-level
  * error, a system lastError, or a host-owned lastError under
