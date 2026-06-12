@@ -453,10 +453,13 @@ _Source: `packages/core/src/index.ts`_
 - `EqExpr`
 - `err`
 - `ErrorValue`
+- `evaluateActionAvailability`
+- `evaluateAvailableActions`
 - `evaluateComputed`
 - `evaluateExpr`
 - `evaluateFlow`
 - `evaluateFlowSync`
+- `evaluateIntentDispatchability`
 - `evaluateSingleComputed`
 - `EveryExpr`
 - `explain`
@@ -470,6 +473,7 @@ _Source: `packages/core/src/index.ts`_
 - `FieldType`
 - `FilterExpr`
 - `FindExpr`
+- `findJsonValueViolation`
 - `FirstExpr`
 - `FlatExpr`
 - `FloorExpr`
@@ -616,11 +620,17 @@ _Source: `packages/core/src/index.ts`_
 #### Types
 
 - `AbsExpr`
+- `ActionAvailabilityErrorCode`
+- `ActionAvailabilityEvaluation`
+- `ActionDispatchabilityErrorCode`
+- `ActionDispatchabilityEvaluation`
 - `ActionSpec`
 - `AddExpr`
 - `AndExpr`
 - `AppendExpr`
 - `AtExpr`
+- `AvailableActionError`
+- `AvailableActionsEvaluation`
 - `CallFlow`
 - `CausalGuardFlow`
 - `CeilExpr`
@@ -679,6 +689,7 @@ _Source: `packages/core/src/index.ts`_
 - `Intent`
 - `IsNullExpr`
 - `JsonValue`
+- `JsonValueViolation`
 - `KeysExpr`
 - `LastExpr`
 - `LenExpr`
@@ -1018,6 +1029,7 @@ _Source: `packages/lineage/src/provider.ts`_
 - `attachLineageDecoration`
 - `createInMemoryLineageStore`
 - `createLineageRuntimeController`
+- `createLineageRuntimeInstance`
 - `createLineageService`
 - `DefaultLineageService`
 - `getLineageDecoration`
@@ -1086,6 +1098,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `ActionSurface`
 - `ActivatedInstance`
 - `Admission`
+- `AdmissionBlocker`
 - `AdmissionFailure`
 - `AdmissionOk`
 - `AvailableActionDelta`
@@ -1123,6 +1136,7 @@ _Source: `packages/sdk/src/index.ts`_
 - `ExecutionFailureInfo`
 - `ExecutionOutcome`
 - `ExecutionView`
+- `ExplanationBlocker`
 - `ExternalContext`
 - `FieldRef`
 - `GetAction`
@@ -1241,6 +1255,7 @@ _Source: `packages/sdk/src/provider.ts`_
 - `GovernanceRuntimeKernel`
 - `GovernanceRuntimeKernelFactory`
 - `HostDispatchOptions`
+- `KernelSimulateResult`
 - `LineageRuntimeKernel`
 - `LineageRuntimeKernelFactory`
 - `RuntimeKernel`

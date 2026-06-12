@@ -27,6 +27,23 @@ import {
   isIntentDispatchable,
 } from "./core/action-availability.js";
 
+// Value-returning legality evaluators (errors-are-values channel). The
+// throwing is*/getAvailableActions wrappers below are deprecated in favor
+// of these.
+export {
+  evaluateActionAvailability,
+  evaluateAvailableActions,
+  evaluateIntentDispatchability,
+} from "./core/action-availability.js";
+export type {
+  ActionAvailabilityErrorCode,
+  ActionAvailabilityEvaluation,
+  ActionDispatchabilityErrorCode,
+  ActionDispatchabilityEvaluation,
+  AvailableActionError,
+  AvailableActionsEvaluation,
+} from "./core/action-availability.js";
+
 /**
  * ManifestoCore interface
  */

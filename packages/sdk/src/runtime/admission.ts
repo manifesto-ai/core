@@ -1,296 +1,314 @@
 import {
-	validateIntentInput as queryIntentInputValidation,
-	type DomainSchema,
-	type Snapshot as CoreSnapshot,
+  validateIntentInput as queryIntentInputValidation,
+  type ActionAvailabilityEvaluation,
+  type ActionDispatchabilityEvaluation,
+  type DomainSchema,
+  type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
 
-import { ManifestoError } from "../errors.js";
+import {
+  ManifestoError,
+} from "../errors.js";
 import type {
-	CanonicalSnapshot,
-	DispatchBlocker,
-	IntentExplanation,
-	ManifestoDomainShape,
-	ProjectedSnapshot,
-	TypedIntent,
+  CanonicalSnapshot,
+  DispatchBlocker,
+  IntentExplanation,
+  ManifestoDomainShape,
+  ProjectedSnapshot,
+  TypedIntent,
 } from "../types.js";
 import type {
-	IntentLegalityEvaluation,
-	RuntimeAdmission,
-	RuntimeSimulateSync,
+  IntentLegalityEvaluation,
+  RuntimeAdmission,
+  RuntimeSimulateSync,
 } from "./facets.js";
-import { diffProjectedPaths } from "./reports.js";
+import {
+  diffProjectedPaths,
+} from "./reports.js";
 
 type RuntimeAdmissionOptions<T extends ManifestoDomainShape> = {
-	readonly schema: DomainSchema;
-	readonly ensureIntentId: (intent: TypedIntent<T>) => TypedIntent<T>;
-	readonly getAvailableActionsFor: (
-		snapshot: CanonicalSnapshot<T["state"]>,
-	) => readonly (keyof T["actions"])[];
-	readonly isActionAvailableFor: (
-		snapshot: CanonicalSnapshot<T["state"]>,
-		name: keyof T["actions"],
-	) => boolean;
-	readonly isIntentDispatchableFor: (
-		snapshot: CanonicalSnapshot<T["state"]>,
-		intent: TypedIntent<T>,
-	) => boolean;
-	readonly projectSnapshotFromCanonical: (
-		snapshot: CoreSnapshot,
-	) => ProjectedSnapshot<T>;
-	readonly getSimulateSync: () => RuntimeSimulateSync<T>;
+  readonly schema: DomainSchema;
+  readonly ensureIntentId: (intent: TypedIntent<T>) => TypedIntent<T>;
+  readonly getAvailableActionsFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+  ) => readonly (keyof T["actions"])[];
+  readonly isActionAvailableFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    name: keyof T["actions"],
+  ) => boolean;
+  readonly isIntentDispatchableFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ) => boolean;
+  readonly evaluateActionAvailabilityFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    name: keyof T["actions"],
+  ) => ActionAvailabilityEvaluation;
+  readonly evaluateIntentDispatchabilityFor: (
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ) => ActionDispatchabilityEvaluation;
+  readonly projectSnapshotFromCanonical: (
+    snapshot: CoreSnapshot,
+  ) => ProjectedSnapshot<T>;
+  readonly getSimulateSync: () => RuntimeSimulateSync<T>;
 };
 
 export function createRuntimeAdmission<T extends ManifestoDomainShape>({
-	schema,
-	ensureIntentId,
-	getAvailableActionsFor,
-	isActionAvailableFor,
-	isIntentDispatchableFor,
-	projectSnapshotFromCanonical,
-	getSimulateSync,
+  schema,
+  ensureIntentId,
+  getAvailableActionsFor,
+  isActionAvailableFor,
+  isIntentDispatchableFor,
+  evaluateActionAvailabilityFor,
+  evaluateIntentDispatchabilityFor,
+  projectSnapshotFromCanonical,
+  getSimulateSync,
 }: RuntimeAdmissionOptions<T>): RuntimeAdmission<T> {
-	function buildDispatchBlocker(
-		layer: DispatchBlocker["layer"],
-		expression: DispatchBlocker["expression"],
-		description?: string,
-	): DispatchBlocker {
-		return Object.freeze({
-			layer,
-			expression,
-			evaluatedResult: false,
-			...(description !== undefined ? { description } : {}),
-		}) as DispatchBlocker;
-	}
+  function buildDispatchBlocker(
+    layer: DispatchBlocker["layer"],
+    expression: DispatchBlocker["expression"],
+    description?: string,
+  ): DispatchBlocker {
+    return Object.freeze({
+      layer,
+      expression,
+      evaluatedResult: false,
+      ...(description !== undefined ? { description } : {}),
+    }) as DispatchBlocker;
+  }
 
-	function getIntentBlockersFor(
-		snapshot: CanonicalSnapshot<T["state"]>,
-		intent: TypedIntent<T>,
-	): readonly DispatchBlocker[] {
-		const actionName = intent.type as keyof T["actions"] & string;
-		const action = schema.actions[actionName];
-		if (!action) {
-			return Object.freeze([]);
-		}
+  function getIntentBlockersFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): readonly DispatchBlocker[] {
+    const actionName = intent.type as keyof T["actions"] & string;
+    const action = schema.actions[actionName];
+    if (!action) {
+      return Object.freeze([]);
+    }
 
-		if (!isActionAvailableFor(snapshot, actionName)) {
-			return Object.freeze(
-				action.available
-					? [
-							buildDispatchBlocker(
-								"available",
-								action.available,
-								action.description,
-							),
-						]
-					: [],
-			);
-		}
+    // Legality evaluation errors are blockers, not exceptions: an action
+    // whose available/dispatchable expression cannot be evaluated is not
+    // legal, and the failure reason rides the blocker description (#493).
+    const availability = evaluateActionAvailabilityFor(snapshot, actionName);
+    if (availability.kind === "error") {
+      return Object.freeze(
+        action.available
+          ? [buildDispatchBlocker("available", action.available, availability.message)]
+          : [],
+      );
+    }
 
-		if (!isIntentDispatchableFor(snapshot, intent)) {
-			return Object.freeze(
-				action.dispatchable
-					? [
-							buildDispatchBlocker(
-								"dispatchable",
-								action.dispatchable,
-								action.description,
-							),
-						]
-					: [],
-			);
-		}
+    if (!availability.available) {
+      return Object.freeze(
+        action.available
+          ? [buildDispatchBlocker("available", action.available, action.description)]
+          : [],
+      );
+    }
 
-		return Object.freeze([]);
-	}
+    const dispatchability = evaluateIntentDispatchabilityFor(snapshot, intent);
+    if (dispatchability.kind === "error") {
+      return Object.freeze(
+        action.dispatchable
+          ? [buildDispatchBlocker("dispatchable", action.dispatchable, dispatchability.message)]
+          : [],
+      );
+    }
 
-	function createUnavailableError(intent: TypedIntent<T>): ManifestoError {
-		return new ManifestoError(
-			"ACTION_UNAVAILABLE",
-			`Action "${intent.type}" is unavailable against the current visible snapshot`,
-		);
-	}
+    if (!dispatchability.dispatchable) {
+      return Object.freeze(
+        action.dispatchable
+          ? [buildDispatchBlocker("dispatchable", action.dispatchable, action.description)]
+          : [],
+      );
+    }
 
-	function createNotDispatchableError(intent: TypedIntent<T>): ManifestoError {
-		return new ManifestoError(
-			"INTENT_NOT_DISPATCHABLE",
-			`Action "${intent.type}" is available, but the bound intent is not dispatchable against the current visible snapshot`,
-		);
-	}
+    return Object.freeze([]);
+  }
 
-	function createInvalidInputError(message: string): ManifestoError {
-		return new ManifestoError("INVALID_INPUT", message);
-	}
+  function createUnavailableError(intent: TypedIntent<T>): ManifestoError {
+    return new ManifestoError(
+      "ACTION_UNAVAILABLE",
+      `Action "${intent.type}" is unavailable against the current visible snapshot`,
+    );
+  }
 
-	function validateIntentInputFor(
-		snapshot: CanonicalSnapshot<T["state"]>,
-		intent: TypedIntent<T>,
-	): ManifestoError | null {
-		void snapshot;
-		const message = queryIntentInputValidation(schema, intent);
-		return message ? createInvalidInputError(message) : null;
-	}
+  function createNotDispatchableError(intent: TypedIntent<T>): ManifestoError {
+    return new ManifestoError(
+      "INTENT_NOT_DISPATCHABLE",
+      `Action "${intent.type}" is available, but the bound intent is not dispatchable against the current visible snapshot`,
+    );
+  }
 
-	function evaluateIntentLegalityFor(
-		snapshot: CanonicalSnapshot<T["state"]>,
-		intent: TypedIntent<T>,
-	): IntentLegalityEvaluation<T> {
-		const enrichedIntent = ensureIntentId(intent);
-		const actionName = enrichedIntent.type as keyof T["actions"] & string;
+  function createInvalidInputError(message: string): ManifestoError {
+    return new ManifestoError("INVALID_INPUT", message);
+  }
 
-		if (!isActionAvailableFor(snapshot, actionName)) {
-			return { kind: "unavailable", intent: enrichedIntent, actionName };
-		}
+  function validateIntentInputFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): ManifestoError | null {
+    void snapshot;
+    const message = queryIntentInputValidation(schema, intent);
+    return message ? createInvalidInputError(message) : null;
+  }
 
-		const invalidInput = validateIntentInputFor(snapshot, enrichedIntent);
-		if (invalidInput) {
-			return {
-				kind: "invalid-input",
-				intent: enrichedIntent,
-				actionName,
-				error: invalidInput,
-			};
-		}
+  function evaluateIntentLegalityFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): IntentLegalityEvaluation<T> {
+    const enrichedIntent = ensureIntentId(intent);
+    const actionName = enrichedIntent.type as keyof T["actions"] & string;
 
-		const blockers = getIntentBlockersFor(snapshot, enrichedIntent);
-		if (blockers.length > 0) {
-			return {
-				kind: "not-dispatchable",
-				intent: enrichedIntent,
-				actionName,
-				blockers,
-			};
-		}
+    if (!isActionAvailableFor(snapshot, actionName)) {
+      return { kind: "unavailable", intent: enrichedIntent, actionName };
+    }
 
-		return { kind: "admitted", intent: enrichedIntent, actionName };
-	}
+    const invalidInput = validateIntentInputFor(snapshot, enrichedIntent);
+    if (invalidInput) {
+      return {
+        kind: "invalid-input",
+        intent: enrichedIntent,
+        actionName,
+        error: invalidInput,
+      };
+    }
 
-	function deriveIntentAdmission(
-		snapshot: CanonicalSnapshot<T["state"]>,
-		legality: IntentLegalityEvaluation<T>,
-	) {
-		if (legality.kind === "unavailable") {
-			return Object.freeze({
-				kind: "blocked",
-				actionName: legality.actionName,
-				failure: {
-					kind: "unavailable",
-					blockers: getIntentBlockersFor(snapshot, legality.intent),
-				},
-			});
-		}
+    const blockers = getIntentBlockersFor(snapshot, enrichedIntent);
+    if (blockers.length > 0) {
+      return {
+        kind: "not-dispatchable",
+        intent: enrichedIntent,
+        actionName,
+        blockers,
+      };
+    }
 
-		if (legality.kind === "invalid-input") {
-			return Object.freeze({
-				kind: "blocked",
-				actionName: legality.actionName,
-				failure: {
-					kind: "invalid_input",
-					error: {
-						code: "INVALID_INPUT",
-						message: legality.error.message,
-					},
-				},
-			});
-		}
+    return { kind: "admitted", intent: enrichedIntent, actionName };
+  }
 
-		if (legality.kind === "not-dispatchable") {
-			return Object.freeze({
-				kind: "blocked",
-				actionName: legality.actionName,
-				failure: {
-					kind: "not_dispatchable",
-					blockers: legality.blockers,
-				},
-			});
-		}
+  function deriveIntentAdmission(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    legality: IntentLegalityEvaluation<T>,
+  ) {
+    if (legality.kind === "unavailable") {
+      return Object.freeze({
+        kind: "blocked",
+        actionName: legality.actionName,
+        failure: {
+          kind: "unavailable",
+          blockers: getIntentBlockersFor(snapshot, legality.intent),
+        },
+      });
+    }
 
-		return Object.freeze({
-			kind: "admitted",
-			actionName: legality.actionName,
-		});
-	}
+    if (legality.kind === "invalid-input") {
+      return Object.freeze({
+        kind: "blocked",
+        actionName: legality.actionName,
+        failure: {
+          kind: "invalid_input",
+          error: {
+            code: "INVALID_INPUT",
+            message: legality.error.message,
+          },
+        },
+      });
+    }
 
-	function explainIntentFor(
-		snapshot: CanonicalSnapshot<T["state"]>,
-		intent: TypedIntent<T>,
-	): IntentExplanation<T> {
-		const legality = evaluateIntentLegalityFor(snapshot, intent);
+    if (legality.kind === "not-dispatchable") {
+      return Object.freeze({
+        kind: "blocked",
+        actionName: legality.actionName,
+        failure: {
+          kind: "not_dispatchable",
+          blockers: legality.blockers,
+        },
+      });
+    }
 
-		if (legality.kind === "unavailable") {
-			return Object.freeze({
-				kind: "blocked",
-				actionName: legality.actionName,
-				available: false,
-				dispatchable: false,
-				blockers: getIntentBlockersFor(snapshot, legality.intent),
-			}) as IntentExplanation<T>;
-		}
+    return Object.freeze({
+      kind: "admitted",
+      actionName: legality.actionName,
+    });
+  }
 
-		if (legality.kind === "invalid-input") {
-			throw legality.error;
-		}
+  function explainIntentFor(
+    snapshot: CanonicalSnapshot<T["state"]>,
+    intent: TypedIntent<T>,
+  ): IntentExplanation<T> {
+    const legality = evaluateIntentLegalityFor(snapshot, intent);
 
-		if (legality.kind === "not-dispatchable") {
-			return Object.freeze({
-				kind: "blocked",
-				actionName: legality.actionName,
-				available: true,
-				dispatchable: false,
-				blockers: legality.blockers,
-			}) as IntentExplanation<T>;
-		}
+    if (legality.kind === "unavailable") {
+      return Object.freeze({
+        kind: "blocked",
+        actionName: legality.actionName,
+        available: false,
+        dispatchable: false,
+        blockers: getIntentBlockersFor(snapshot, legality.intent),
+      }) as IntentExplanation<T>;
+    }
 
-		const simulated = getSimulateSync()(snapshot, legality.intent);
-		const projectedBefore = projectSnapshotFromCanonical(
-			snapshot as CoreSnapshot,
-		);
-		const projectedAfter = projectSnapshotFromCanonical(
-			simulated.snapshot as CoreSnapshot,
-		);
+    if (legality.kind === "invalid-input") {
+      throw legality.error;
+    }
 
-		return Object.freeze({
-			kind: "admitted",
-			actionName: legality.actionName,
-			available: true,
-			dispatchable: true,
-			status: simulated.status,
-			requirements: simulated.requirements,
-			canonicalSnapshot: simulated.snapshot,
-			snapshot: projectedAfter,
-			newAvailableActions: getAvailableActionsFor(simulated.snapshot),
-			changedPaths: diffProjectedPaths(projectedBefore, projectedAfter),
-		}) as IntentExplanation<T>;
-	}
+    if (legality.kind === "not-dispatchable") {
+      return Object.freeze({
+        kind: "blocked",
+        actionName: legality.actionName,
+        available: true,
+        dispatchable: false,
+        blockers: legality.blockers,
+      }) as IntentExplanation<T>;
+    }
 
-	function rejectRejectedIntent(
-		_intent: TypedIntent<T>,
-		error: ManifestoError,
-	): never {
-		throw error;
-	}
+    const simulated = getSimulateSync()(snapshot, legality.intent);
+    const projectedBefore = projectSnapshotFromCanonical(snapshot as CoreSnapshot);
+    const projectedAfter = projectSnapshotFromCanonical(simulated.snapshot as CoreSnapshot);
 
-	function rejectUnavailable(intent: TypedIntent<T>): never {
-		return rejectRejectedIntent(intent, createUnavailableError(intent));
-	}
+    return Object.freeze({
+      kind: "admitted",
+      actionName: legality.actionName,
+      available: true,
+      dispatchable: true,
+      status: simulated.status,
+      requirements: simulated.requirements,
+      canonicalSnapshot: simulated.snapshot,
+      snapshot: projectedAfter,
+      newAvailableActions: getAvailableActionsFor(simulated.snapshot),
+      changedPaths: diffProjectedPaths(projectedBefore, projectedAfter),
+    }) as IntentExplanation<T>;
+  }
 
-	function rejectInvalidInput(intent: TypedIntent<T>, message: string): never {
-		return rejectRejectedIntent(intent, createInvalidInputError(message));
-	}
+  function rejectRejectedIntent(_intent: TypedIntent<T>, error: ManifestoError): never {
+    throw error;
+  }
 
-	function rejectNotDispatchable(intent: TypedIntent<T>): never {
-		return rejectRejectedIntent(intent, createNotDispatchableError(intent));
-	}
+  function rejectUnavailable(intent: TypedIntent<T>): never {
+    return rejectRejectedIntent(intent, createUnavailableError(intent));
+  }
 
-	return Object.freeze({
-		getIntentBlockersFor,
-		validateIntentInputFor,
-		evaluateIntentLegalityFor,
-		deriveIntentAdmission,
-		explainIntentFor,
-		createUnavailableError,
-		createNotDispatchableError,
-		rejectInvalidInput,
-		rejectUnavailable,
-		rejectNotDispatchable,
-	}) as RuntimeAdmission<T>;
+  function rejectInvalidInput(intent: TypedIntent<T>, message: string): never {
+    return rejectRejectedIntent(intent, createInvalidInputError(message));
+  }
+
+  function rejectNotDispatchable(intent: TypedIntent<T>): never {
+    return rejectRejectedIntent(intent, createNotDispatchableError(intent));
+  }
+
+  return Object.freeze({
+    getIntentBlockersFor,
+    validateIntentInputFor,
+    evaluateIntentLegalityFor,
+    deriveIntentAdmission,
+    explainIntentFor,
+    createUnavailableError,
+    createNotDispatchableError,
+    rejectInvalidInput,
+    rejectUnavailable,
+    rejectNotDispatchable,
+  }) as RuntimeAdmission<T>;
 }

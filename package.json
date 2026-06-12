@@ -31,7 +31,8 @@
     "test:coverage": "turbo run test:coverage --filter=@manifesto-ai/core --filter=@manifesto-ai/cts-kit --filter=@manifesto-ai/activation-cts --filter=@manifesto-ai/host --filter=@manifesto-ai/governance --filter=@manifesto-ai/lineage --filter=@manifesto-ai/compiler --filter=@manifesto-ai/sdk --filter=@manifesto-ai/codegen",
     "test:hardening": "pnpm build && pnpm test && pnpm docs:release:check",
     "check:commit-messages": "node scripts/check-commit-messages.mjs",
-    "check:no-app-imports": "node scripts/check-no-app-imports.mjs",
+    "check:no-app-imports": "node scripts/check-no-app-imports.mjs && node scripts/check-package-boundaries.mjs",
+    "check:boundaries": "node scripts/check-package-boundaries.mjs",
     "clean": "turbo run clean && rm -rf node_modules",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
@@ -51,10 +52,10 @@
   "devDependencies": {
     "@vercel/analytics": "^2.0.1",
     "@vitest/coverage-v8": "^4.1.4",
-    "mermaid": "^11.13.0",
+    "mermaid": "^11.15.0",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
-    "turbo": "^2.9.6",
+    "turbo": "^2.9.14",
     "typedoc": "^0.28.19",
     "typescript": "^5.9.3",
     "vite": "^8.0.8",
@@ -69,8 +70,11 @@
       "@hono/node-server": "1.19.9",
       "esbuild": "0.27.2",
       "hono": "4.11.7",
-      "lodash-es": "4.17.23",
-      "preact": "10.28.2"
+      "lodash-es": "4.18.0",
+      "preact": "10.28.2",
+      "fast-uri": "3.1.2",
+      "ws": "8.21.0",
+      "uuid": "11.1.1"
     },
     "onlyBuiltDependencies": [
       "esbuild"

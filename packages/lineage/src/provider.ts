@@ -41,4 +41,8 @@ export {
   DefaultLineageService,
   createLineageService,
 } from "./service/lineage-service.js";
+// Mirrors createBaseRuntimeInstance on the SDK provider seam: decorator and
+// provider authors can compose a lineage runtime around a pre-built kernel
+// (#491 — the declaration shipped in dist types without a JS export).
+export { createLineageRuntimeInstance } from "./lineage-runtime.js";
 export { InMemoryLineageStore, createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";

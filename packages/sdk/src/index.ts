@@ -33,14 +33,15 @@ export type {
   BaseSubmissionResult,
   DynamicActionHandle,
   DynamicBoundAction,
-  DispatchReport,
   DispatchExecutionOutcome,
   DispatchProjectedDiff,
   DispatchCanonicalOutcome,
   ActionObjectBindingArgs,
+  AdmissionBlocker,
   Blocker,
   BoundAction,
   DispatchBlocker,
+  ExplanationBlocker,
   AvailableActionDelta,
   TypedActionMetadata,
   TypedGetActionMetadata,
@@ -69,8 +70,6 @@ export type {
   GovernanceSettlementSurface,
   GovernanceSubmissionResult,
   GetAction,
-  IntentAdmission,
-  IntentAdmissionFailure,
   IntentExplanation,
   InvalidInputInfo,
   JsonValue,
@@ -120,6 +119,22 @@ export type {
   TypedSubscribe,
   Unsubscribe,
   WorldRecord,
+} from "./types.js";
+
+/**
+ * v3-era intent-centric result types. Their public producers
+ * (dispatchAsyncWithReport / the intent-centric base instance) were retired
+ * by the v5 activation-first surface; these exports remain only so existing
+ * type-level consumers keep compiling.
+ *
+ * @deprecated Scheduled for removal in the next major release. Use the
+ * action-candidate surface (Admission / AdmissionFailure / SubmissionResult)
+ * instead.
+ */
+export type {
+  DispatchReport,
+  IntentAdmission,
+  IntentAdmissionFailure,
 } from "./types.js";
 
 export {

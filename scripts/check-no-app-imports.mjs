@@ -11,6 +11,7 @@ const SKIP_DIRS = new Set([
   'coverage',
   'dist',
   'node_modules',
+  'temp',
 ]);
 
 const SCAN_EXTENSIONS = new Set([

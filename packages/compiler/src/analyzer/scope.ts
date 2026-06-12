@@ -14,6 +14,7 @@ import type {
   ExprNode,
   GuardedStmtNode,
   InnerStmtNode,
+  PathNode,
 } from "../parser/ast.js";
 import type { Diagnostic } from "../diagnostics/types.js";
 import type { SourceLocation } from "../lexer/source-location.js";
@@ -229,10 +230,12 @@ export class ScopeAnalyzer {
 
       case "effect":
         for (const arg of stmt.args) {
-          if (arg.isPath) {
-            this.validatePath(arg.value as any);
+          // kind narrows the ExprNode | PathNode union without casts;
+          // isPath only mirrors which one the parser produced.
+          if (arg.value.kind === "path") {
+            this.validatePath(arg.value);
           } else {
-            this.analyzeExpr(arg.value as ExprNode, "action");
+            this.analyzeExpr(arg.value, "action");
           }
         }
         break;
@@ -391,7 +394,7 @@ export class ScopeAnalyzer {
     );
   }
 
-  private validatePath(path: any): void {
+  private validatePath(path: PathNode | null | undefined): void {
     if (!path || !path.segments) return;
 
     // Check first segment is a valid identifier
