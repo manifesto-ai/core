@@ -15,6 +15,14 @@ export default defineConfig({
         "**/*.spec.ts",
         "**/__tests__/**",
       ],
+      // Ratchet thresholds: ~2pts below measured 2026-06-12 baseline.
+      // Raise alongside coverage improvements; never lower silently.
+      thresholds: {
+        lines: 74,
+        statements: 74,
+        branches: 64,
+        functions: 80,
+      },
     },
   },
 });
