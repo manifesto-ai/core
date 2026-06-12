@@ -22,17 +22,13 @@ type BrokenLegalityDomain = {
 };
 
 /**
- * Characterization tests for the legality-evaluation ERROR path.
+ * Legality-evaluation ERROR path contract (#493 legality-channel workstream).
  *
- * These pin the current behavior at the seam the #493 legality-channel
- * workstream will rework: when an `available` / `dispatchable` expression
- * itself fails to evaluate (here: TYPE_MISMATCH from a non-boolean result),
- * the core query wrappers throw and the exception escapes through the SDK
- * action-candidate surface instead of becoming an admission value.
- *
- * When the workstream lands (core evaluate* exports + kernel rewiring),
- * update these assertions to the new value-based contract — that diff is
- * the point of this file.
+ * When an `available` / `dispatchable` expression itself fails to evaluate
+ * (here: TYPE_MISMATCH from a non-boolean result), the failure is a VALUE on
+ * the admission channel: the action is not legal, check() reports a blocked
+ * admission whose blocker message carries the evaluation error, and no
+ * exception escapes the action-candidate surface.
  */
 function createBrokenLegalitySchema(): DomainSchema {
   const incrementFlow = {
@@ -74,67 +70,75 @@ function createBrokenLegalitySchema(): DomainSchema {
   });
 }
 
+function activate() {
+  return createManifesto<BrokenLegalityDomain>(
+    createBrokenLegalitySchema(),
+    {},
+  ).activate();
+}
+
 describe("admission error paths (legality evaluation failures)", () => {
-  it("available() currently throws when the availability expression is non-boolean", () => {
-    const app = createManifesto<BrokenLegalityDomain>(
-      createBrokenLegalitySchema(),
-      {},
-    ).activate();
+  it("available() returns false when the availability expression is non-boolean", () => {
+    const app = activate();
 
-    expect(() => app.action.badAvailability.available()).toThrow(
-      /Availability condition must return boolean/,
-    );
+    expect(app.action.badAvailability.available()).toBe(false);
   });
 
-  it("check() currently throws instead of returning a blocked admission when availability evaluation fails", () => {
-    const app = createManifesto<BrokenLegalityDomain>(
-      createBrokenLegalitySchema(),
-      {},
-    ).activate();
+  it("check() returns a blocked admission carrying the availability evaluation error", () => {
+    const app = activate();
 
-    expect(() => app.action.badAvailability.check()).toThrow(
-      /Availability condition must return boolean/,
-    );
+    const admission = app.action.badAvailability.check();
+    expect(admission).toMatchObject({
+      ok: false,
+      layer: "availability",
+      code: "ACTION_UNAVAILABLE",
+    });
+    if (!admission.ok) {
+      expect(admission.blockers.length).toBeGreaterThan(0);
+      expect(
+        admission.blockers.some((blocker) =>
+          blocker.message.includes("must return boolean"),
+        ),
+      ).toBe(true);
+    }
   });
 
-  it("check() currently throws instead of returning a blocked admission when dispatchability evaluation fails", () => {
-    const app = createManifesto<BrokenLegalityDomain>(
-      createBrokenLegalitySchema(),
-      {},
-    ).activate();
+  it("check() reports dispatchability evaluation failures as blocked admissions", () => {
+    const app = activate();
 
-    expect(() => app.action.badDispatchability.check()).toThrow(
-      /Dispatchability condition must return boolean|must return boolean/,
-    );
+    const admission = app.action.badDispatchability.check();
+    expect(admission).toMatchObject({
+      ok: false,
+      layer: "dispatchability",
+      code: "INTENT_NOT_DISPATCHABLE",
+    });
+    if (!admission.ok) {
+      expect(
+        admission.blockers.some((blocker) =>
+          blocker.message.includes("must return boolean"),
+        ),
+      ).toBe(true);
+    }
   });
 
-  it("inspect.availableActions() currently throws when any action has a broken availability expression", () => {
-    const app = createManifesto<BrokenLegalityDomain>(
-      createBrokenLegalitySchema(),
-      {},
-    ).activate();
+  it("inspect.availableActions() excludes broken actions instead of throwing", () => {
+    const app = activate();
 
-    expect(() => app.inspect.availableActions()).toThrow(
-      /must return boolean/,
-    );
+    const available = app.inspect.availableActions().map((info) => info.name);
+    expect(available).not.toContain("badAvailability");
+    expect(available).toContain("increment");
+    // badDispatchability has no available clause, so it stays available.
+    expect(available).toContain("badDispatchability");
   });
 
-  it("a healthy action admits, but its submit() is currently poisoned by a broken sibling action", async () => {
-    const app = createManifesto<BrokenLegalityDomain>(
-      createBrokenLegalitySchema(),
-      {},
-    ).activate();
+  it("a broken sibling action no longer poisons healthy dispatches", async () => {
+    const app = activate();
 
-    // Admission of the healthy action itself works…
     expect(app.action.increment.available()).toBe(true);
     expect(app.action.increment.check()).toMatchObject({ ok: true });
 
-    // …but the post-dispatch execution report derives newAvailableActions by
-    // evaluating EVERY action's availability, so one broken expression in the
-    // domain currently fails every dispatch (blast radius of the throwing
-    // legality queries).
-    await expect(app.action.increment.submit()).rejects.toThrow(
-      /Availability condition must return boolean/,
-    );
+    const result = await app.action.increment.submit();
+    expect(result.ok).toBe(true);
+    expect(app.snapshot().state.count).toBe(1);
   });
 });

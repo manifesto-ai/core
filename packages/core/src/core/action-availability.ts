@@ -6,8 +6,8 @@ import { evaluateComputed } from "../evaluator/computed.js";
 import { evaluateExpr } from "../evaluator/expr.js";
 import { isErr } from "../schema/common.js";
 
-type ActionAvailabilityErrorCode = "UNKNOWN_ACTION" | "INTERNAL_ERROR" | "TYPE_MISMATCH";
-type ActionDispatchabilityErrorCode = "UNKNOWN_ACTION" | "INTERNAL_ERROR" | "TYPE_MISMATCH";
+export type ActionAvailabilityErrorCode = "UNKNOWN_ACTION" | "INTERNAL_ERROR" | "TYPE_MISMATCH";
+export type ActionDispatchabilityErrorCode = "UNKNOWN_ACTION" | "INTERNAL_ERROR" | "TYPE_MISMATCH";
 
 export type ActionAvailabilityEvaluation =
   | { kind: "ok"; available: boolean }
@@ -119,6 +119,10 @@ export function evaluateActionAvailability(
 
 /**
  * Check whether an action is available for a new invocation.
+ *
+ * @deprecated Use {@link evaluateActionAvailability}: this wrapper throws on
+ * evaluation errors, violating the errors-are-values contract. It will be
+ * removed in the next major release.
  */
 export function isActionAvailable(
   schema: DomainSchema,
@@ -208,6 +212,10 @@ export function evaluateIntentDispatchability(
 
 /**
  * Check whether a specific bound intent is dispatchable.
+ *
+ * @deprecated Use {@link evaluateIntentDispatchability}: this wrapper throws
+ * on evaluation errors, violating the errors-are-values contract. It will be
+ * removed in the next major release.
  */
 export function isIntentDispatchable(
   schema: DomainSchema,
@@ -221,8 +229,71 @@ export function isIntentDispatchable(
   return result.dispatchable;
 }
 
+export type AvailableActionError = {
+  readonly actionName: string;
+  readonly code: ActionAvailabilityErrorCode;
+  readonly message: string;
+};
+
+export type AvailableActionsEvaluation =
+  | {
+    kind: "ok";
+    /** Action names whose availability evaluated to true, in schema key order. */
+    actions: readonly string[];
+    /**
+     * Actions whose availability expression failed to evaluate. They are
+     * excluded from `actions` (an action whose legality cannot be evaluated
+     * is not available), but the failure stays observable as a value so one
+     * broken expression cannot poison the whole legality query.
+     */
+    errors: readonly AvailableActionError[];
+  }
+  | { kind: "error"; code: "INTERNAL_ERROR"; message: string };
+
+/**
+ * Evaluate availability for every action without re-entry semantics.
+ *
+ * Per-action evaluation failures are reported as values alongside the
+ * available list; only a snapshot-level preparation failure (computed
+ * evaluation) makes the whole query fail.
+ */
+export function evaluateAvailableActions(
+  schema: DomainSchema,
+  snapshot: Snapshot
+): AvailableActionsEvaluation {
+  const prepared = prepareQuerySnapshot(schema, snapshot);
+  if (prepared.kind === "error") {
+    return prepared;
+  }
+
+  const actions: string[] = [];
+  const errors: AvailableActionError[] = [];
+
+  for (const actionName of Object.keys(schema.actions)) {
+    const result = evaluateAvailabilityAgainstPreparedSnapshot(
+      schema,
+      prepared.snapshot,
+      actionName,
+      snapshot.meta.timestamp
+    );
+    if (result.kind === "error") {
+      errors.push({ actionName, code: result.code, message: result.message });
+      continue;
+    }
+    if (result.available) {
+      actions.push(actionName);
+    }
+  }
+
+  return { kind: "ok", actions, errors };
+}
+
 /**
  * Return all currently available actions in schema key order.
+ *
+ * @deprecated Use {@link evaluateAvailableActions}: this wrapper throws on
+ * evaluation errors, violating the errors-are-values contract. It will be
+ * removed in the next major release.
  */
 export function getAvailableActions(
   schema: DomainSchema,
