@@ -5,6 +5,10 @@
  * to the HCTS test suite. This allows testing Host implementations
  * with the same compliance tests.
  *
+ * Split rationale: this file owns the implementation-agnostic
+ * HostTestAdapter contract and the test effect runners; the concrete
+ * adapter for the current ManifestoHost lives in `adapter-v2.ts`.
+ *
  * @see host-SPEC-compilance-test-suite.md §1.1
  */
 

@@ -7,6 +7,11 @@
  * @see host-SPEC-v2.0.1.md
  */
 
+import type {
+  ComplianceEvidence,
+  ComplianceResult as KitComplianceResult,
+} from "@manifesto-ai/cts-kit";
+
 /**
  * Opaque execution key for single-writer serialization.
  * @see SPEC §3.6 ExecutionKey
@@ -96,19 +101,22 @@ export type TraceEvent =
     };
 
 /**
- * Compliance result status
+ * Compliance result types come from the shared CTS framework.
+ *
+ * HCTS evidence wraps raw TraceEvents as `kind: "trace"` evidence entries
+ * so the shared `expectCompliance` reporting can render them.
  */
-export type ComplianceStatus = "PASS" | "FAIL" | "SKIP" | "WARN";
+export type { ComplianceStatus, RuleMode } from "@manifesto-ai/cts-kit";
+
+/**
+ * Trace-backed evidence entry for HCTS results.
+ */
+export type HostEvidence = ComplianceEvidence<"trace">;
 
 /**
  * Compliance result for a single rule
  */
-export interface ComplianceResult {
-  ruleId: string;
-  status: ComplianceStatus;
-  message?: string;
-  evidence?: TraceEvent[];
-}
+export type ComplianceResult = KitComplianceResult<HostEvidence>;
 
 /**
  * Effect execution policy for ordering tests

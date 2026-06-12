@@ -1,3 +1,15 @@
+import type {
+  ComplianceCase,
+  ComplianceCoverageEntry,
+  ComplianceEvidence,
+  ComplianceInventoryItem,
+  ComplianceResult,
+  ComplianceRule,
+  ComplianceStatus,
+  RuleLevel,
+  RuleLifecycle,
+  RuleMode,
+} from "@manifesto-ai/cts-kit";
 import type { CompileTrace } from "../../api/compile-mel.js";
 import type { Diagnostic } from "../../diagnostics/types.js";
 import type { Token } from "../../lexer/index.js";
@@ -21,54 +33,28 @@ export const CCTS_SUITES = [
 
 export type CompilerComplianceSuite = (typeof CCTS_SUITES)[number];
 
-export type ComplianceStatus = "PASS" | "FAIL" | "SKIP" | "WARN";
-
-export type RuleMode = "blocking" | "pending" | "informational";
-
-export type RuleLevel = "MUST" | "SHOULD" | "MUST_NOT" | "MAY" | "CRITICAL";
-
-export type RuleLifecycle = "active" | "superseded";
+export type {
+  ComplianceStatus,
+  RuleLevel,
+  RuleLifecycle,
+  RuleMode,
+};
 
 export type CompilerPhase = "lex" | "parse" | "analyze" | "canonical" | "generate" | "compile" | "lower";
 
-export interface CompilerEvidence {
-  kind: "diagnostic" | "ast" | "schema" | "trace" | "note";
-  summary: string;
-  details?: unknown;
-}
+export type CompilerEvidenceKind = "diagnostic" | "ast" | "schema" | "trace" | "note";
 
-export interface CompilerComplianceInventoryItem {
-  ruleId: string;
-  specSection: string;
-  level: RuleLevel;
-  suite: CompilerComplianceSuite;
-  lifecycle: RuleLifecycle;
-  notes?: string;
-}
+export type CompilerEvidence = ComplianceEvidence<CompilerEvidenceKind>;
 
-export interface CompilerComplianceRule extends CompilerComplianceInventoryItem {
-  mode: RuleMode;
-}
+export type CompilerComplianceInventoryItem = ComplianceInventoryItem<CompilerComplianceSuite>;
 
-export interface CompilerComplianceCase {
-  caseId: string;
-  suite: CompilerComplianceSuite;
-  description: string;
-}
+export type CompilerComplianceRule = ComplianceRule<CompilerComplianceSuite>;
 
-export interface CompilerComplianceCoverageEntry {
-  ruleId: string;
-  caseIds: string[];
-}
+export type CompilerComplianceCase = ComplianceCase<CompilerComplianceSuite>;
 
-export interface CompilerComplianceResult {
-  ruleId: string;
-  specSection: string;
-  mode: RuleMode;
-  status: ComplianceStatus;
-  message?: string;
-  evidence?: CompilerEvidence[];
-}
+export type CompilerComplianceCoverageEntry = ComplianceCoverageEntry;
+
+export type CompilerComplianceResult = ComplianceResult<CompilerEvidence>;
 
 export interface CompilerPhaseSnapshot<T = unknown> {
   phase: CompilerPhase;

@@ -6,8 +6,8 @@ export type RuleLevel = "MUST" | "SHOULD" | "MUST_NOT" | "MAY" | "CRITICAL";
 
 export type RuleLifecycle = "active" | "superseded";
 
-export interface ComplianceEvidence {
-  kind: "note";
+export interface ComplianceEvidence<TKind extends string = "note"> {
+  kind: TKind;
   summary: string;
   details?: unknown;
 }
@@ -36,7 +36,9 @@ export interface ComplianceCoverageEntry {
   caseIds: string[];
 }
 
-export interface ComplianceResult<TEvidence extends ComplianceEvidence = ComplianceEvidence> {
+export interface ComplianceResult<
+  TEvidence extends ComplianceEvidence<string> = ComplianceEvidence,
+> {
   ruleId: string;
   specSection: string;
   mode: RuleMode;

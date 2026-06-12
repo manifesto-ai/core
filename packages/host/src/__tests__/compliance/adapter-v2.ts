@@ -4,6 +4,10 @@
  * Adapts the current ManifestoHost implementation to the
  * HostTestAdapter interface for compliance testing.
  *
+ * Split rationale: `hcts-adapter.ts` defines the implementation-agnostic
+ * HostTestAdapter contract plus the test effect runners; this file is the
+ * concrete adapter binding that contract to the current ManifestoHost.
+ *
  * @see host-SPEC.md
  */
 
@@ -219,7 +223,3 @@ export class V2HostAdapter implements HostTestAdapter {
 export function createV2Adapter(): HostTestAdapter {
   return new V2HostAdapter();
 }
-
-// For compatibility, also export as the default adapter
-export { createV2Adapter as createV1Adapter };
-export { V2HostAdapter as V1HostAdapter };
