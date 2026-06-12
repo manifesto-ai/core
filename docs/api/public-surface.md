@@ -993,6 +993,21 @@ _Source: `packages/host/src/index.ts`_
 - `TraceEvent`
 - `TraceGraph`
 
+### @manifesto-ai/host/tooling
+
+_Source: `packages/host/src/tooling.ts`_
+
+#### Values
+
+- `getHostState`
+- `getIntentSlot`
+- `getLegacyDataRootHostState`
+
+#### Types
+
+- `HostOwnedState`
+- `IntentSlot`
+
 ## @manifesto-ai/lineage
 
 ### @manifesto-ai/lineage

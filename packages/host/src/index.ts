@@ -47,8 +47,12 @@ export {
 export type { TraceEvent } from "./types/trace.js";
 
 // Host-owned state namespace (v2.0.2)
-export type { HostOwnedState, IntentSlot } from "./types/host-state.js";
-export { getHostState, getIntentSlot, getLegacyDataRootHostState } from "./types/host-state.js";
+// Deprecated on the main entry: these expose Host's internal execution
+// bookkeeping and belong to the explicit tooling seam. Import from
+// "@manifesto-ai/host/tooling" instead; the main-entry re-exports will be
+// removed in the next major release.
+export type { HostOwnedState, IntentSlot } from "./tooling.js";
+export { getHostState, getIntentSlot, getLegacyDataRootHostState } from "./tooling.js";
 
 // Mailbox
 export {

@@ -9,10 +9,15 @@ import {
   type TraceGraph,
 } from "@manifesto-ai/core";
 import {
-  getHostState,
   type HostContextProvider,
-  type IntentSlot,
 } from "@manifesto-ai/host";
+// Host-owned execution state is read through the explicit tooling seam:
+// simulation must observe Host bookkeeping, and the subpath makes that
+// coupling legible instead of widening the main host surface.
+import {
+  getHostState,
+  type IntentSlot,
+} from "@manifesto-ai/host/tooling";
 
 import {
   ManifestoError,
