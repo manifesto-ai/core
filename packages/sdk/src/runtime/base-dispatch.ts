@@ -1,247 +1,253 @@
 import type {
-  DispatchReport,
-  ExecutionDiagnostics,
-  ExecutionFailureInfo,
-  DispatchExecutionOutcome,
-  IntentAdmission,
-  ManifestoDomainShape,
-  ProjectedSnapshot,
-  TypedIntent,
+	DispatchReport,
+	ExecutionDiagnostics,
+	ExecutionFailureInfo,
+	DispatchExecutionOutcome,
+	IntentAdmission,
+	ManifestoDomainShape,
+	ProjectedSnapshot,
+	TypedIntent,
 } from "../types.js";
-import type {
-  ExtensionKernel,
-} from "../extensions-types.js";
-import type {
-  RuntimeKernel,
-} from "../compat/internal.js";
-import {
-  ManifestoError,
-} from "../errors.js";
-import type {
-  RuntimePublicationHelpers,
-} from "./facets.js";
+import type { ExtensionKernel } from "../extensions-types.js";
+import type { RuntimeKernel } from "../compat/internal.js";
+import { ManifestoError } from "../errors.js";
+import type { RuntimePublicationHelpers } from "./facets.js";
 
 type RejectedAttempt<T extends ManifestoDomainShape> = {
-  readonly kind: "rejected";
-  readonly intent: TypedIntent<T>;
-  readonly admission: Extract<IntentAdmission<T>, { readonly kind: "blocked" }>;
-  readonly beforeSnapshot: ProjectedSnapshot<T>;
-  readonly beforeCanonicalSnapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>;
-  readonly rejection: {
-    readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT";
-    readonly reason: string;
-  };
-  readonly rejectionError: ManifestoError;
+	readonly kind: "rejected";
+	readonly intent: TypedIntent<T>;
+	readonly admission: Extract<IntentAdmission<T>, { readonly kind: "blocked" }>;
+	readonly beforeSnapshot: ProjectedSnapshot<T>;
+	readonly beforeCanonicalSnapshot: ReturnType<
+		RuntimeKernel<T>["getCanonicalSnapshot"]
+	>;
+	readonly rejection: {
+		readonly code:
+			| "ACTION_UNAVAILABLE"
+			| "INTENT_NOT_DISPATCHABLE"
+			| "INVALID_INPUT";
+		readonly reason: string;
+	};
+	readonly rejectionError: ManifestoError;
 };
 
 type FailedAttempt<T extends ManifestoDomainShape> = {
-  readonly kind: "failed";
-  readonly intent: TypedIntent<T>;
-  readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
-  readonly beforeSnapshot: ProjectedSnapshot<T>;
-  readonly beforeCanonicalSnapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>;
-  readonly failure: Error;
-  readonly errorInfo: ExecutionFailureInfo;
-  readonly published: boolean;
-  readonly diagnostics?: ExecutionDiagnostics;
-  readonly outcome?: DispatchExecutionOutcome<T>;
+	readonly kind: "failed";
+	readonly intent: TypedIntent<T>;
+	readonly admission: Extract<
+		IntentAdmission<T>,
+		{ readonly kind: "admitted" }
+	>;
+	readonly beforeSnapshot: ProjectedSnapshot<T>;
+	readonly beforeCanonicalSnapshot: ReturnType<
+		RuntimeKernel<T>["getCanonicalSnapshot"]
+	>;
+	readonly failure: Error;
+	readonly errorInfo: ExecutionFailureInfo;
+	readonly published: boolean;
+	readonly diagnostics?: ExecutionDiagnostics;
+	readonly outcome?: DispatchExecutionOutcome<T>;
 };
 
 type CompletedAttempt<T extends ManifestoDomainShape> = {
-  readonly kind: "completed";
-  readonly intent: TypedIntent<T>;
-  readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
-  readonly publishedSnapshot: ProjectedSnapshot<T>;
-  readonly outcome: DispatchExecutionOutcome<T>;
-  readonly diagnostics: ExecutionDiagnostics;
+	readonly kind: "completed";
+	readonly intent: TypedIntent<T>;
+	readonly admission: Extract<
+		IntentAdmission<T>,
+		{ readonly kind: "admitted" }
+	>;
+	readonly publishedSnapshot: ProjectedSnapshot<T>;
+	readonly outcome: DispatchExecutionOutcome<T>;
+	readonly diagnostics: ExecutionDiagnostics;
 };
 
 export type BaseDispatchAttemptResult<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> =
-  | RejectedAttempt<T>
-  | FailedAttempt<T>
-  | CompletedAttempt<T>;
+	T extends ManifestoDomainShape = ManifestoDomainShape,
+> = RejectedAttempt<T> | FailedAttempt<T> | CompletedAttempt<T>;
 
 export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
-  kernel: RuntimeKernel<T>,
-  extensionKernel: Pick<ExtensionKernel<T>, "projectSnapshot">,
-  publication: Pick<
-    RuntimePublicationHelpers<T>,
-    "publishCompletedHostResult" | "publishFailedHostResult"
-  >,
-  intent: TypedIntent<T>,
-  context: ReturnType<RuntimeKernel<T>["createComputeContext"]>,
+	kernel: RuntimeKernel<T>,
+	extensionKernel: Pick<ExtensionKernel<T>, "projectSnapshot">,
+	publication: Pick<
+		RuntimePublicationHelpers<T>,
+		"publishCompletedHostResult" | "publishFailedHostResult"
+	>,
+	intent: TypedIntent<T>,
+	context: ReturnType<RuntimeKernel<T>["createComputeContext"]>,
 ): Promise<BaseDispatchAttemptResult<T>> {
-  const beforeCanonicalSnapshot = kernel.getCanonicalSnapshot();
-  const beforeSnapshot = extensionKernel.projectSnapshot(beforeCanonicalSnapshot);
-  const legality = kernel.evaluateIntentLegalityFor(beforeCanonicalSnapshot, intent);
-  const admission = kernel.deriveIntentAdmission(beforeCanonicalSnapshot, legality);
+	const beforeCanonicalSnapshot = kernel.getCanonicalSnapshot();
+	const beforeSnapshot = extensionKernel.projectSnapshot(
+		beforeCanonicalSnapshot,
+	);
+	const legality = kernel.evaluateIntentLegalityFor(
+		beforeCanonicalSnapshot,
+		intent,
+	);
+	const admission = kernel.deriveIntentAdmission(
+		beforeCanonicalSnapshot,
+		legality,
+	);
 
-  if (legality.kind !== "admitted") {
-    const blockedAdmission = admission as Extract<
-      IntentAdmission<T>,
-      { readonly kind: "blocked" }
-    >;
-    const rejectionError = toRejectedDispatchError(kernel, legality);
-    const rejection = {
-      code: rejectionError.code as "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT",
-      reason: rejectionError.message,
-    } as const;
+	if (legality.kind !== "admitted") {
+		const blockedAdmission = admission as Extract<
+			IntentAdmission<T>,
+			{ readonly kind: "blocked" }
+		>;
+		const rejectionError = toRejectedDispatchError(kernel, legality);
+		const rejection = {
+			code: rejectionError.code as
+				| "ACTION_UNAVAILABLE"
+				| "INTENT_NOT_DISPATCHABLE"
+				| "INVALID_INPUT",
+			reason: rejectionError.message,
+		} as const;
 
-    return {
-      kind: "rejected",
-      intent: legality.intent,
-      admission: blockedAdmission,
-      beforeSnapshot,
-      beforeCanonicalSnapshot,
-      rejection,
-      rejectionError,
-    };
-  }
+		return {
+			kind: "rejected",
+			intent: legality.intent,
+			admission: blockedAdmission,
+			beforeSnapshot,
+			beforeCanonicalSnapshot,
+			rejection,
+			rejectionError,
+		};
+	}
 
-  const admittedAdmission = admission as Extract<
-    IntentAdmission<T>,
-    { readonly kind: "admitted" }
-  >;
+	const admittedAdmission = admission as Extract<
+		IntentAdmission<T>,
+		{ readonly kind: "admitted" }
+	>;
 
-  let result;
-  try {
-    result = await kernel.executeHost(legality.intent, {
-      context,
-    });
-  } catch (error) {
-    const failure = toError(error);
-    return {
-      kind: "failed",
-      intent: legality.intent,
-      admission: admittedAdmission,
-      beforeSnapshot,
-      beforeCanonicalSnapshot,
-      failure,
-      errorInfo: kernel.classifyExecutionFailure(failure, "host"),
-      published: false,
-    };
-  }
+	let result;
+	try {
+		result = await kernel.executeHost(legality.intent, {
+			context,
+		});
+	} catch (error) {
+		const failure = toError(error);
+		return {
+			kind: "failed",
+			intent: legality.intent,
+			admission: admittedAdmission,
+			beforeSnapshot,
+			beforeCanonicalSnapshot,
+			failure,
+			errorInfo: kernel.classifyExecutionFailure(failure, "host"),
+			published: false,
+		};
+	}
 
-  const diagnostics = kernel.createExecutionDiagnostics(result);
+	const diagnostics = kernel.createExecutionDiagnostics(result);
 
-  if (result.status === "error") {
-    const failure = result.error ?? new ManifestoError("HOST_ERROR", "Host dispatch failed");
-    const {
-      publishedSnapshot,
-      publishedCanonicalSnapshot,
-    } = publication.publishFailedHostResult(
-      result.snapshot,
-    );
-    return {
-      kind: "failed",
-      intent: legality.intent,
-      admission: admittedAdmission,
-      beforeSnapshot,
-      beforeCanonicalSnapshot,
-      failure,
-      errorInfo: kernel.classifyExecutionFailure(failure, "host"),
-      published: true,
-      diagnostics,
-      outcome: kernel.deriveExecutionOutcome(
-        beforeCanonicalSnapshot,
-        publishedCanonicalSnapshot,
-      ),
-    };
-  }
+	if (result.status === "error") {
+		const failure =
+			result.error ?? new ManifestoError("HOST_ERROR", "Host dispatch failed");
+		const { publishedSnapshot, publishedCanonicalSnapshot } =
+			publication.publishFailedHostResult(result.snapshot);
+		return {
+			kind: "failed",
+			intent: legality.intent,
+			admission: admittedAdmission,
+			beforeSnapshot,
+			beforeCanonicalSnapshot,
+			failure,
+			errorInfo: kernel.classifyExecutionFailure(failure, "host"),
+			published: true,
+			diagnostics,
+			outcome: kernel.deriveExecutionOutcome(
+				beforeCanonicalSnapshot,
+				publishedCanonicalSnapshot,
+			),
+		};
+	}
 
-  const {
-    publishedSnapshot,
-    publishedCanonicalSnapshot,
-  } = publication.publishCompletedHostResult(
-    result.snapshot,
-  );
-  return {
-    kind: "completed",
-    intent: legality.intent,
-    admission: admittedAdmission,
-    publishedSnapshot,
-    outcome: kernel.deriveExecutionOutcome(
-      beforeCanonicalSnapshot,
-      publishedCanonicalSnapshot,
-    ),
-    diagnostics,
-  };
+	const { publishedSnapshot, publishedCanonicalSnapshot } =
+		publication.publishCompletedHostResult(result.snapshot);
+	return {
+		kind: "completed",
+		intent: legality.intent,
+		admission: admittedAdmission,
+		publishedSnapshot,
+		outcome: kernel.deriveExecutionOutcome(
+			beforeCanonicalSnapshot,
+			publishedCanonicalSnapshot,
+		),
+		diagnostics,
+	};
 }
 
 export function attemptToDispatchAsyncResult<T extends ManifestoDomainShape>(
-  attempt: BaseDispatchAttemptResult<T>,
+	attempt: BaseDispatchAttemptResult<T>,
 ): ProjectedSnapshot<T> {
-  if (attempt.kind === "completed") {
-    return attempt.publishedSnapshot;
-  }
+	if (attempt.kind === "completed") {
+		return attempt.publishedSnapshot;
+	}
 
-  if (attempt.kind === "rejected") {
-    throw attempt.rejectionError;
-  }
+	if (attempt.kind === "rejected") {
+		throw attempt.rejectionError;
+	}
 
-  throw attempt.failure;
+	throw attempt.failure;
 }
 
 export function attemptToDispatchReport<T extends ManifestoDomainShape>(
-  attempt: BaseDispatchAttemptResult<T>,
+	attempt: BaseDispatchAttemptResult<T>,
 ): DispatchReport<T> {
-  if (attempt.kind === "completed") {
-    return Object.freeze({
-      kind: "completed",
-      intent: attempt.intent,
-      admission: attempt.admission,
-      outcome: attempt.outcome,
-      diagnostics: attempt.diagnostics,
-    }) as DispatchReport<T>;
-  }
+	if (attempt.kind === "completed") {
+		return Object.freeze({
+			kind: "completed",
+			intent: attempt.intent,
+			admission: attempt.admission,
+			outcome: attempt.outcome,
+			diagnostics: attempt.diagnostics,
+		}) as DispatchReport<T>;
+	}
 
-  if (attempt.kind === "rejected") {
-    return Object.freeze({
-      kind: "rejected",
-      intent: attempt.intent,
-      admission: attempt.admission,
-      beforeSnapshot: attempt.beforeSnapshot,
-      beforeCanonicalSnapshot: attempt.beforeCanonicalSnapshot,
-      rejection: attempt.rejection,
-    }) as DispatchReport<T>;
-  }
+	if (attempt.kind === "rejected") {
+		return Object.freeze({
+			kind: "rejected",
+			intent: attempt.intent,
+			admission: attempt.admission,
+			beforeSnapshot: attempt.beforeSnapshot,
+			beforeCanonicalSnapshot: attempt.beforeCanonicalSnapshot,
+			rejection: attempt.rejection,
+		}) as DispatchReport<T>;
+	}
 
-  return Object.freeze({
-    kind: "failed",
-    intent: attempt.intent,
-    admission: attempt.admission,
-    beforeSnapshot: attempt.beforeSnapshot,
-    beforeCanonicalSnapshot: attempt.beforeCanonicalSnapshot,
-    error: attempt.errorInfo,
-    published: attempt.published,
-    ...(attempt.diagnostics !== undefined ? { diagnostics: attempt.diagnostics } : {}),
-    ...(attempt.outcome !== undefined ? { outcome: attempt.outcome } : {}),
-  }) as DispatchReport<T>;
+	return Object.freeze({
+		kind: "failed",
+		intent: attempt.intent,
+		admission: attempt.admission,
+		beforeSnapshot: attempt.beforeSnapshot,
+		beforeCanonicalSnapshot: attempt.beforeCanonicalSnapshot,
+		error: attempt.errorInfo,
+		published: attempt.published,
+		...(attempt.diagnostics !== undefined
+			? { diagnostics: attempt.diagnostics }
+			: {}),
+		...(attempt.outcome !== undefined ? { outcome: attempt.outcome } : {}),
+	}) as DispatchReport<T>;
 }
 
 function toRejectedDispatchError<T extends ManifestoDomainShape>(
-  kernel: RuntimeKernel<T>,
-  legality: ReturnType<RuntimeKernel<T>["evaluateIntentLegalityFor"]>,
+	kernel: RuntimeKernel<T>,
+	legality: ReturnType<RuntimeKernel<T>["evaluateIntentLegalityFor"]>,
 ): ManifestoError {
-  if (legality.kind === "unavailable") {
-    return kernel.createUnavailableError(legality.intent);
-  }
-  if (legality.kind === "invalid-input") {
-    return legality.error;
-  }
-  if (legality.kind === "not-dispatchable") {
-    return kernel.createNotDispatchableError(legality.intent);
-  }
-  throw new ManifestoError(
-    "SDK_REPORT_ERROR",
-    "Cannot derive a rejected dispatch error for an admitted intent",
-  );
+	if (legality.kind === "unavailable") {
+		return kernel.createUnavailableError(legality.intent);
+	}
+	if (legality.kind === "invalid-input") {
+		return legality.error;
+	}
+	if (legality.kind === "not-dispatchable") {
+		return kernel.createNotDispatchableError(legality.intent);
+	}
+	throw new ManifestoError(
+		"SDK_REPORT_ERROR",
+		"Cannot derive a rejected dispatch error for an admitted intent",
+	);
 }
 
 function toError(error: unknown): Error {
-  return error instanceof Error
-    ? error
-    : new Error(String(error));
+	return error instanceof Error ? error : new Error(String(error));
 }
