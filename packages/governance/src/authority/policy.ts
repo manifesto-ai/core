@@ -10,26 +10,20 @@ import type { AuthorityHandler } from "./types.js";
 
 export type CustomConditionEvaluator = (
   proposal: Proposal,
-  binding: ActorAuthorityBinding
+  binding: ActorAuthorityBinding,
 ) => boolean;
 
 export class PolicyRulesHandler implements AuthorityHandler {
   private readonly customEvaluators = new Map<string, CustomConditionEvaluator>();
 
-  registerCustomEvaluator(
-    name: string,
-    evaluator: CustomConditionEvaluator
-  ): void {
+  registerCustomEvaluator(name: string, evaluator: CustomConditionEvaluator): void {
     this.customEvaluators.set(name, evaluator);
   }
 
-  async evaluate(
-    proposal: Proposal,
-    binding: ActorAuthorityBinding
-  ): Promise<AuthorityResponse> {
+  async evaluate(proposal: Proposal, binding: ActorAuthorityBinding): Promise<AuthorityResponse> {
     if (binding.policy.mode !== "policy_rules") {
       throw new Error(
-        `PolicyRulesHandler received non-policy_rules policy: ${binding.policy.mode}`
+        `PolicyRulesHandler received non-policy_rules policy: ${binding.policy.mode}`,
       );
     }
 
@@ -45,14 +39,14 @@ export class PolicyRulesHandler implements AuthorityHandler {
         decision: binding.policy.defaultDecision,
         reason: "Default policy decision",
       },
-      approvedScope
+      approvedScope,
     );
   }
 
   private evaluateCondition(
     condition: PolicyCondition,
     proposal: Proposal,
-    binding: ActorAuthorityBinding
+    binding: ActorAuthorityBinding,
   ): boolean {
     switch (condition.kind) {
       case "intent_type":
@@ -67,15 +61,13 @@ export class PolicyRulesHandler implements AuthorityHandler {
   }
 
   private matchPattern(value: string, pattern: string): boolean {
-    const regex = new RegExp(
-      `^${pattern.replace(/\*/g, ".*").replace(/\?/g, ".")}$`
-    );
+    const regex = new RegExp(`^${pattern.replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
     return regex.test(value);
   }
 
   private applyDecision(
     rule: Pick<PolicyRule, "decision" | "reason">,
-    approvedScope: IntentScope | null
+    approvedScope: IntentScope | null,
   ): AuthorityResponse {
     switch (rule.decision) {
       case "approve":

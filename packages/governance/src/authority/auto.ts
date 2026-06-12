@@ -2,13 +2,10 @@ import type { ActorAuthorityBinding, AuthorityResponse, Proposal } from "../type
 import type { AuthorityHandler } from "./types.js";
 
 export class AutoApproveHandler implements AuthorityHandler {
-  async evaluate(
-    proposal: Proposal,
-    binding: ActorAuthorityBinding
-  ): Promise<AuthorityResponse> {
+  async evaluate(proposal: Proposal, binding: ActorAuthorityBinding): Promise<AuthorityResponse> {
     if (binding.policy.mode !== "auto_approve") {
       throw new Error(
-        `AutoApproveHandler received non-auto_approve policy: ${binding.policy.mode}`
+        `AutoApproveHandler received non-auto_approve policy: ${binding.policy.mode}`,
       );
     }
 

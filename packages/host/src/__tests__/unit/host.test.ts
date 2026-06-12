@@ -2,7 +2,7 @@ import { semanticPathToPatchPath } from "@manifesto-ai/core";
 const pp = semanticPathToPatchPath;
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { ManifestoHost, createHost, } from "../../host.js";
+import { ManifestoHost, createHost } from "../../host.js";
 import { type DomainSchema, type Snapshot } from "@manifesto-ai/core";
 import type { EffectHandler } from "../../effects/types.js";
 import {
@@ -26,10 +26,17 @@ describe("ManifestoHost", () => {
         increment: {
           flow: {
             kind: "patch",
-            op: "set", path: pp("count"),
+            op: "set",
+            path: pp("count"),
             value: {
               kind: "add",
-              left: { kind: "coalesce", args: [{ kind: "get", path: "count" }, { kind: "lit", value: 0 }] },
+              left: {
+                kind: "coalesce",
+                args: [
+                  { kind: "get", path: "count" },
+                  { kind: "lit", value: 0 },
+                ],
+              },
               right: { kind: "lit", value: 1 },
             },
           },
@@ -44,7 +51,8 @@ describe("ManifestoHost", () => {
           },
           flow: {
             kind: "patch",
-            op: "set", path: pp("name"),
+            op: "set",
+            path: pp("name"),
             value: { kind: "get", path: "input.name" },
           },
         },
@@ -74,10 +82,12 @@ describe("ManifestoHost", () => {
     it("should reject ambiguous initialSnapshot and initialData options", () => {
       const initialSnapshot = createTestSnapshot({ count: 2 }, schema.hash);
 
-      expect(() => createHost(schema, {
-        initialSnapshot,
-        initialData: { count: 2 },
-      })).toThrow("either initialSnapshot or legacy initialData");
+      expect(() =>
+        createHost(schema, {
+          initialSnapshot,
+          initialData: { count: 2 },
+        }),
+      ).toThrow("either initialSnapshot or legacy initialData");
     });
   });
 
@@ -277,7 +287,7 @@ describe("ManifestoHost", () => {
             random: { seed: "restored-seed" },
           },
           external: {},
-        }
+        },
       );
 
       host.reset(restored);
@@ -333,7 +343,11 @@ describe("ManifestoHost", () => {
 
     it("should reject reserved state namespace keys on reset", async () => {
       const host = createHost(schema, { initialData: { count: 100 } });
-      const snapshot = createTestSnapshot({ count: 0, $host: { stale: true } }, schema.hash, DEFAULT_HOST_CONTEXT);
+      const snapshot = createTestSnapshot(
+        { count: 0, $host: { stale: true } },
+        schema.hash,
+        DEFAULT_HOST_CONTEXT,
+      );
 
       expect(() => {
         host.reset(snapshot);
@@ -424,9 +438,13 @@ describe("ManifestoHost", () => {
       });
 
       const result = await host.dispatch(createTestIntent("load"));
-      const hostLastError = (result.snapshot.namespaces.host as {
-        readonly lastError?: { readonly code?: string; readonly message?: string };
-      } | undefined)?.lastError;
+      const hostLastError = (
+        result.snapshot.namespaces.host as
+          | {
+              readonly lastError?: { readonly code?: string; readonly message?: string };
+            }
+          | undefined
+      )?.lastError;
 
       expect(result.status).toBe("error");
       expect(result.error?.code).toBe("EFFECT_EXECUTION_FAILED");
@@ -444,11 +462,23 @@ describe("ManifestoHost", () => {
       const workflowSchema = createTestSchema({
         computed: {
           fields: {
-            "total": {
+            total: {
               expr: {
                 kind: "add",
-                left: { kind: "coalesce", args: [{ kind: "get", path: "itemsTotal" }, { kind: "lit", value: 0 }] },
-                right: { kind: "coalesce", args: [{ kind: "get", path: "shipping" }, { kind: "lit", value: 0 }] },
+                left: {
+                  kind: "coalesce",
+                  args: [
+                    { kind: "get", path: "itemsTotal" },
+                    { kind: "lit", value: 0 },
+                  ],
+                },
+                right: {
+                  kind: "coalesce",
+                  args: [
+                    { kind: "get", path: "shipping" },
+                    { kind: "lit", value: 0 },
+                  ],
+                },
               },
               deps: ["itemsTotal", "shipping"],
             },
@@ -465,10 +495,17 @@ describe("ManifestoHost", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("itemsTotal"),
+              op: "set",
+              path: pp("itemsTotal"),
               value: {
                 kind: "add",
-                left: { kind: "coalesce", args: [{ kind: "get", path: "itemsTotal" }, { kind: "lit", value: 0 }] },
+                left: {
+                  kind: "coalesce",
+                  args: [
+                    { kind: "get", path: "itemsTotal" },
+                    { kind: "lit", value: 0 },
+                  ],
+                },
                 right: { kind: "get", path: "input.price" },
               },
             },
@@ -483,7 +520,8 @@ describe("ManifestoHost", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("shipping"),
+              op: "set",
+              path: pp("shipping"),
               value: { kind: "get", path: "input.amount" },
             },
           },
@@ -579,7 +617,8 @@ describe("ManifestoHost", () => {
                 steps: [
                   {
                     kind: "patch",
-                    op: "set", path: pp("pending"),
+                    op: "set",
+                    path: pp("pending"),
                     value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
@@ -605,9 +644,7 @@ describe("ManifestoHost", () => {
       ]);
 
       // 1st dispatch: exits with LOOP_MAX_ITERATIONS.
-      const result1 = await host.dispatch(
-        { type: "run", intentId: "intent-A", input: undefined }
-      );
+      const result1 = await host.dispatch({ type: "run", intentId: "intent-A", input: undefined });
       expect(result1.status).toBe("error");
       expect(result1.error?.code).toBe("LOOP_MAX_ITERATIONS");
       expect(result1.snapshot.system.status).toBe("pending");
@@ -617,18 +654,20 @@ describe("ManifestoHost", () => {
       const snapshotAfter = host.getSnapshot();
       const currentAction = snapshotAfter?.system.currentAction;
       const pending = (snapshotAfter?.state as Record<string, unknown>)?.pending;
-      const hostLastError = (snapshotAfter?.namespaces.host as {
-        lastError?: { code?: string };
-      } | undefined)?.lastError;
+      const hostLastError = (
+        snapshotAfter?.namespaces.host as
+          | {
+              lastError?: { code?: string };
+            }
+          | undefined
+      )?.lastError;
 
       expect(currentAction).toBe("run");
       expect(pending).toBe("intent-A");
       expect(hostLastError?.code).toBe("LOOP_MAX_ITERATIONS");
 
       // 2nd dispatch: same action type, different intentId
-      const result2 = await host.dispatch(
-        { type: "run", intentId: "intent-B", input: undefined }
-      );
+      const result2 = await host.dispatch({ type: "run", intentId: "intent-B", input: undefined });
 
       expect(result2.status).toBe("error");
       expect(result2.error?.code).toBe("LOOP_MAX_ITERATIONS");
@@ -660,7 +699,8 @@ describe("ManifestoHost", () => {
                 steps: [
                   {
                     kind: "patch",
-                    op: "set", path: pp("pending"),
+                    op: "set",
+                    path: pp("pending"),
                     value: { kind: "get", path: "$runtime.intent.id" },
                   },
                   {
@@ -683,9 +723,7 @@ describe("ManifestoHost", () => {
         { op: "set", path: pp("result"), value: "done" },
       ]);
 
-      const result1 = await host.dispatch(
-        { type: "run", intentId: "intent-A", input: undefined }
-      );
+      const result1 = await host.dispatch({ type: "run", intentId: "intent-A", input: undefined });
       expect(result1.status).toBe("complete");
 
       // After normal completion, currentAction MUST be null

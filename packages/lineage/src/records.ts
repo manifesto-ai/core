@@ -31,11 +31,11 @@ export interface WorldRecordResult {
 export function createWorldRecord(
   schemaHash: string,
   terminalSnapshot: Snapshot,
-  parentWorldId: WorldId | null
+  parentWorldId: WorldId | null,
 ): WorldRecordResult {
   assertLineage(
     schemaHash === terminalSnapshot.meta.schemaHash,
-    `LIN-SCHEMA-1 violation: provided schemaHash (${schemaHash}) does not match snapshot.meta.schemaHash (${terminalSnapshot.meta.schemaHash})`
+    `LIN-SCHEMA-1 violation: provided schemaHash (${schemaHash}) does not match snapshot.meta.schemaHash (${terminalSnapshot.meta.schemaHash})`,
   );
 
   const terminalStatus = deriveTerminalStatus(terminalSnapshot);
@@ -64,7 +64,10 @@ export function createWorldEdge(from: WorldId, to: WorldId): WorldEdge {
   };
 }
 
-export function createGenesisBranchEntry(input: SealGenesisInput, worldId: WorldId): PersistedBranchEntry {
+export function createGenesisBranchEntry(
+  input: SealGenesisInput,
+  worldId: WorldId,
+): PersistedBranchEntry {
   const branchName = input.branchName ?? "main";
   const branchId: BranchId = computeBranchId(branchName, worldId);
 
@@ -83,7 +86,7 @@ export function createGenesisBranchEntry(input: SealGenesisInput, worldId: World
 export function createSealGenesisAttempt(
   branchId: BranchId,
   worldId: WorldId,
-  input: SealGenesisInput
+  input: SealGenesisInput,
 ): SealAttempt {
   return {
     attemptId: computeHash({ worldId, branchId, createdAt: input.createdAt }),
@@ -102,7 +105,7 @@ export function createSealNextAttempt(
   branchId: BranchId,
   worldId: WorldId,
   parentWorldId: WorldId,
-  input: SealNextInput
+  input: SealNextInput,
 ): SealAttempt {
   return {
     attemptId: computeHash({ worldId, branchId, createdAt: input.createdAt }),

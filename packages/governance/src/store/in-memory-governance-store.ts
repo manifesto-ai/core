@@ -47,11 +47,11 @@ export class InMemoryGovernanceStore implements GovernanceStore {
 
   async getExecutionStageProposal(branchId: BranchId): Promise<Proposal | null> {
     const matches = (await this.getProposalsByBranch(branchId)).filter((proposal) =>
-      isExecutionStageStatus(proposal.status)
+      isExecutionStageStatus(proposal.status),
     );
     if (matches.length > 1) {
       throw new Error(
-        `GOV-STORE-4 violation: multiple execution-stage proposals found for branch ${branchId}`
+        `GOV-STORE-4 violation: multiple execution-stage proposals found for branch ${branchId}`,
       );
     }
     return matches[0] ?? null;

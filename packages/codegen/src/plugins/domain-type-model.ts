@@ -30,9 +30,7 @@ export function primitiveType(type: DomainPrimitive): DomainType {
   return type === "null" ? NULL_TYPE : { kind: "primitive", type };
 }
 
-export function literalType(
-  value: string | number | boolean | null
-): DomainType {
+export function literalType(value: string | number | boolean | null): DomainType {
   return value === null ? NULL_TYPE : { kind: "literal", value };
 }
 
@@ -67,9 +65,7 @@ export function fieldSpecToDomainType(spec: FieldSpec): DomainType {
   let base: DomainType;
 
   if (typeof spec.type === "object" && "enum" in spec.type) {
-    base = unionOf(
-      spec.type.enum.map((value) => literalValueToType(value))
-    );
+    base = unionOf(spec.type.enum.map((value) => literalValueToType(value)));
   } else {
     switch (spec.type) {
       case "string":
@@ -96,9 +92,7 @@ export function fieldSpecToDomainType(spec: FieldSpec): DomainType {
         base = recordType(primitiveType("string"), unknownType());
         break;
       case "array":
-        base = arrayType(
-          spec.items ? fieldSpecToDomainType(spec.items) : unknownType()
-        );
+        base = arrayType(spec.items ? fieldSpecToDomainType(spec.items) : unknownType());
         break;
       default:
         base = unknownType();
@@ -114,19 +108,13 @@ export function literalValueToType(value: unknown): DomainType {
     return NULL_TYPE;
   }
 
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return literalType(value);
   }
 
   if (Array.isArray(value)) {
     return arrayType(
-      value.length === 0
-        ? unknownType()
-        : unionOf(value.map((item) => literalValueToType(item)))
+      value.length === 0 ? unknownType() : unionOf(value.map((item) => literalValueToType(item))),
     );
   }
 
@@ -258,12 +246,13 @@ function stableTypeKey(type: DomainType): string {
     case "record":
       return `record:${stableTypeKey(type.key)}:${stableTypeKey(type.value)}`;
     case "union":
-      return `union:${type.types.map((member) => stableTypeKey(member)).sort().join("|")}`;
+      return `union:${type.types
+        .map((member) => stableTypeKey(member))
+        .sort()
+        .join("|")}`;
   }
 }
 
-function isPlainObject(
-  value: unknown
-): value is Record<string, unknown> {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }

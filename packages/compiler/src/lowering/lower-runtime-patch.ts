@@ -23,9 +23,7 @@ export type MelRuntimePatchOp = "set" | "unset" | "merge";
 /**
  * MEL path segment for runtime patches before expression lowering.
  */
-export type MelIRPathSegment =
-  | { kind: "prop"; name: string }
-  | { kind: "expr"; expr: MelExprNode };
+export type MelIRPathSegment = { kind: "prop"; name: string } | { kind: "expr"; expr: MelExprNode };
 
 /**
  * MEL runtime patch path represented as IR segments.
@@ -35,9 +33,7 @@ export type MelIRPatchPath = MelIRPathSegment[];
 /**
  * Lowered runtime IR path segment.
  */
-export type IRPathSegment =
-  | { kind: "prop"; name: string }
-  | { kind: "expr"; expr: CoreExprNode };
+export type IRPathSegment = { kind: "prop"; name: string } | { kind: "expr"; expr: CoreExprNode };
 
 /**
  * Runtime patch path represented as IR segments.
@@ -129,7 +125,7 @@ export interface RuntimeConditionalPatchOp {
  */
 export function lowerRuntimePatches(
   patches: MelRuntimePatch[],
-  ctx: ExprLoweringContext
+  ctx: ExprLoweringContext,
 ): RuntimeConditionalPatchOp[] {
   return patches.map((patch) => lowerRuntimePatch(patch, ctx));
 }
@@ -139,12 +135,10 @@ export function lowerRuntimePatches(
  */
 function lowerRuntimePatch(
   patch: MelRuntimePatch,
-  ctx: ExprLoweringContext
+  ctx: ExprLoweringContext,
 ): RuntimeConditionalPatchOp {
   // Lower condition if present
-  const condition = patch.condition
-    ? lowerExprNode(patch.condition, ctx)
-    : undefined;
+  const condition = patch.condition ? lowerExprNode(patch.condition, ctx) : undefined;
 
   // Lower value if present (required for set/merge, forbidden for unset)
   const value = patch.value ? lowerExprNode(patch.value, ctx) : undefined;
@@ -157,10 +151,7 @@ function lowerRuntimePatch(
   };
 }
 
-function lowerRuntimePath(
-  path: MelIRPatchPath,
-  ctx: ExprLoweringContext
-): IRPatchPath {
+function lowerRuntimePath(path: MelIRPatchPath, ctx: ExprLoweringContext): IRPatchPath {
   return path.map((segment) => {
     if (segment.kind === "prop") {
       return segment;

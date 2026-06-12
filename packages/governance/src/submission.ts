@@ -1,23 +1,12 @@
 import type { Context } from "@manifesto-ai/core";
-import type {
-  ManifestoDomainShape,
-  TypedIntent,
-} from "@manifesto-ai/sdk";
-import {
-  DisposedError,
-  ManifestoError,
-} from "@manifesto-ai/sdk";
-import {
-  type BranchId,
-} from "@manifesto-ai/lineage";
+import type { ManifestoDomainShape, TypedIntent } from "@manifesto-ai/sdk";
+import { DisposedError, ManifestoError } from "@manifesto-ai/sdk";
+import { type BranchId } from "@manifesto-ai/lineage";
 
 import type { AuthorityEvaluator } from "./authority/evaluator.js";
 import { createIntentInstance } from "./intent-instance.js";
 import type { GovernanceRuntimeDeps } from "./runtime-deps.js";
-import {
-  toTypedComputeIntent,
-  type SettlementEngine,
-} from "./settlement.js";
+import { toTypedComputeIntent, type SettlementEngine } from "./settlement.js";
 import type {
   ActorAuthorityBinding,
   AuthorityResponse,
@@ -25,10 +14,7 @@ import type {
   Proposal,
   ProposalId,
 } from "./types.js";
-import {
-  createProposalId,
-  defaultExecutionKeyPolicy,
-} from "./types.js";
+import { createProposalId, defaultExecutionKeyPolicy } from "./types.js";
 
 /**
  * Submission/authority decision seam: proposal ingress, authority
@@ -61,14 +47,14 @@ export function createSubmissionFlow<T extends ManifestoDomainShape>(
 
   async function invalidateStaleIngress(branchId: BranchId, epoch: number): Promise<void> {
     const stale = await governanceService.invalidateStaleIngress(branchId, epoch);
-    await Promise.all(stale.map(async (proposal) => {
-      await governanceStore.putProposal(proposal);
-    }));
+    await Promise.all(
+      stale.map(async (proposal) => {
+        await governanceStore.putProposal(proposal);
+      }),
+    );
   }
 
-  async function resolveBinding(
-    actorId: string,
-  ): Promise<ActorAuthorityBinding> {
+  async function resolveBinding(actorId: string): Promise<ActorAuthorityBinding> {
     const binding = await governanceStore.getActorBinding(actorId);
     if (binding) {
       return binding;
@@ -111,13 +97,9 @@ export function createSubmissionFlow<T extends ManifestoDomainShape>(
     proposal: Proposal & { readonly status: "evaluating" },
     response: Extract<AuthorityResponse, { kind: "approved" | "rejected" }>,
   ): Promise<Proposal> {
-    const prepared = await governanceService.prepareAuthorityResult(
-      proposal,
-      response,
-      {
-        decidedAt: getCurrentTimestamp(),
-      },
-    );
+    const prepared = await governanceService.prepareAuthorityResult(proposal, response, {
+      decidedAt: getCurrentTimestamp(),
+    });
 
     if (prepared.decisionRecord) {
       await governanceStore.putDecisionRecord(prepared.decisionRecord);
@@ -131,16 +113,10 @@ export function createSubmissionFlow<T extends ManifestoDomainShape>(
     const executingProposal = governanceService.beginExecution(prepared.proposal);
     await governanceStore.putProposal(executingProposal);
 
-    return finalizeApprovedExecution(
-      executingProposal,
-      toTypedComputeIntent<T>(prepared.proposal),
-    );
+    return finalizeApprovedExecution(executingProposal, toTypedComputeIntent<T>(prepared.proposal));
   }
 
-  async function createSubmission(
-    intent: TypedIntent<T>,
-    context: Context,
-  ): Promise<Proposal> {
+  async function createSubmission(intent: TypedIntent<T>, context: Context): Promise<Proposal> {
     await ensureReady();
 
     const enrichedIntent = kernel.ensureIntentId(intent);
@@ -168,9 +144,7 @@ export function createSubmissionFlow<T extends ManifestoDomainShape>(
     const computeIntent = {
       type: intentInstance.body.type,
       intentId: intentInstance.intentId,
-      ...(intentInstance.body.input !== undefined
-        ? { input: intentInstance.body.input }
-        : {}),
+      ...(intentInstance.body.input !== undefined ? { input: intentInstance.body.input } : {}),
     };
     const proposalIntent = {
       ...computeIntent,
@@ -247,8 +221,9 @@ export function createSubmissionFlow<T extends ManifestoDomainShape>(
       return;
     }
 
-    const binding = proposalSubmissionBindings.get(proposalId)
-      ?? await resolveBinding(evaluatingProposal.actorId);
+    const binding =
+      proposalSubmissionBindings.get(proposalId) ??
+      (await resolveBinding(evaluatingProposal.actorId));
     proposalSubmissionBindings.delete(proposalId);
 
     try {
@@ -300,9 +275,7 @@ export function createSubmissionFlow<T extends ManifestoDomainShape>(
       return applyAuthorityDecision(proposal, {
         kind: "approved",
         approvedScope:
-          approvedScope !== undefined
-            ? approvedScope
-            : proposal.intent.scopeProposal ?? null,
+          approvedScope !== undefined ? approvedScope : (proposal.intent.scopeProposal ?? null),
       });
     });
   }
@@ -334,7 +307,9 @@ export function createSubmissionFlow<T extends ManifestoDomainShape>(
   };
 }
 
-function hasScopeProposal<T extends ManifestoDomainShape>(intent: TypedIntent<T>): intent is TypedIntent<T> & {
+function hasScopeProposal<T extends ManifestoDomainShape>(
+  intent: TypedIntent<T>,
+): intent is TypedIntent<T> & {
   readonly scopeProposal: IntentScope;
 } {
   return "scopeProposal" in intent && intent.scopeProposal !== undefined;

@@ -3,12 +3,10 @@ import type { MelExprNode } from "../lowering/lower-expr.js";
 import { toMelExpr as sharedToMelExpr } from "../lowering/to-mel-expr.js";
 
 export function isSyntheticPatchCondition(
-  condition: ExprNode
-): condition is (ExprNode & { kind: "literal"; literalType: "boolean"; value: true }) {
+  condition: ExprNode,
+): condition is ExprNode & { kind: "literal"; literalType: "boolean"; value: true } {
   return (
-    condition.kind === "literal" &&
-    condition.literalType === "boolean" &&
-    condition.value === true
+    condition.kind === "literal" && condition.literalType === "boolean" && condition.value === true
   );
 }
 

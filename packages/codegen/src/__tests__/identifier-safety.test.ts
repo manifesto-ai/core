@@ -107,10 +107,7 @@ describe("identifier-safety", () => {
 
   describe("sanitizeParameterNames", () => {
     it("keeps valid names and sanitizes invalid ones", () => {
-      expect(sanitizeParameterNames(["title", "new-value"])).toEqual([
-        "title",
-        "new_value",
-      ]);
+      expect(sanitizeParameterNames(["title", "new-value"])).toEqual(["title", "new_value"]);
     });
 
     it("avoids collisions with valid names regardless of order", () => {

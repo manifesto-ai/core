@@ -25,7 +25,7 @@ const colors = {
 export function formatDiagnostic(
   diagnostic: Diagnostic,
   source: string,
-  filePath?: string
+  filePath?: string,
 ): string {
   const lines: string[] = [];
   const { severity, code, message, location } = diagnostic;
@@ -41,9 +41,9 @@ export function formatDiagnostic(
 
   lines.push(
     `${colors.bold}${locationStr}:${colors.reset} ` +
-    `${severityColor}${severityLabel}${colors.reset}` +
-    `${colors.gray}[${code}]${colors.reset}: ` +
-    `${message}`
+      `${severityColor}${severityLabel}${colors.reset}` +
+      `${colors.gray}[${code}]${colors.reset}: ` +
+      `${message}`,
   );
 
   // Source context
@@ -59,7 +59,10 @@ export function formatDiagnostic(
     const padding = " ".repeat(lineNumStr.length + 3 + location.start.column - 1);
     const underlineLen = Math.max(
       1,
-      Math.min(location.end.column - location.start.column, lineContent.length - location.start.column + 1)
+      Math.min(
+        location.end.column - location.start.column,
+        lineContent.length - location.start.column + 1,
+      ),
     );
     const underline = "^".repeat(underlineLen);
     lines.push(`${padding}${severityColor}${underline}${colors.reset}`);
@@ -74,19 +77,17 @@ export function formatDiagnostic(
 export function formatDiagnostics(
   diagnostics: Diagnostic[],
   source: string,
-  filePath?: string
+  filePath?: string,
 ): string {
-  return diagnostics
-    .map(d => formatDiagnostic(d, source, filePath))
-    .join("\n\n");
+  return diagnostics.map((d) => formatDiagnostic(d, source, filePath)).join("\n\n");
 }
 
 /**
  * Create a summary line
  */
 export function formatSummary(diagnostics: Diagnostic[]): string {
-  const errors = diagnostics.filter(d => d.severity === "error").length;
-  const warnings = diagnostics.filter(d => d.severity === "warning").length;
+  const errors = diagnostics.filter((d) => d.severity === "error").length;
+  const warnings = diagnostics.filter((d) => d.severity === "warning").length;
 
   const parts: string[] = [];
 

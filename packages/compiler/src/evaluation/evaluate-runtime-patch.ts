@@ -4,8 +4,20 @@
  * Evaluates RuntimeConditionalPatchOp[] to produce concrete Patch[].
  */
 
-import type { MergePatch, Patch, PatchPath, PatchSegment, SetPatch, UnsetPatch } from "@manifesto-ai/core";
-import { mergeAtPatchPath, patchPathToDisplayString, setByPatchPath, unsetByPatchPath } from "@manifesto-ai/core";
+import type {
+  MergePatch,
+  Patch,
+  PatchPath,
+  PatchSegment,
+  SetPatch,
+  UnsetPatch,
+} from "@manifesto-ai/core";
+import {
+  mergeAtPatchPath,
+  patchPathToDisplayString,
+  setByPatchPath,
+  unsetByPatchPath,
+} from "@manifesto-ai/core";
 import type { IRPatchPath, RuntimeConditionalPatchOp } from "../lowering/lower-runtime-patch.js";
 import type { EvaluationContext, EvaluationSnapshot } from "./context.js";
 import { inheritRuntimeAllocationState } from "./context.js";
@@ -78,7 +90,7 @@ export interface RuntimePatchEvaluationResult {
  */
 export function evaluateRuntimePatches(
   ops: RuntimeConditionalPatchOp[],
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): Patch[] {
   const result = evaluateRuntimePatchesWithTrace(ops, ctx);
   return result.patches;
@@ -89,7 +101,7 @@ export function evaluateRuntimePatches(
  */
 export function evaluateRuntimePatchesWithTrace(
   ops: RuntimeConditionalPatchOp[],
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): RuntimePatchEvaluationResult {
   const patches: Patch[] = [];
   const skipped: SkippedRuntimePatch[] = [];
@@ -101,9 +113,10 @@ export function evaluateRuntimePatchesWithTrace(
     const op = ops[i];
     const isScopedSet = op.op === "set" && isScopedMarkerPath(op.path);
     const isInScope = guardScopeStack.length > 0;
-    const activeSnapshot = isScopedSet || !isInScope
-      ? workingSnapshot
-      : guardScopeStack[guardScopeStack.length - 1].snapshot;
+    const activeSnapshot =
+      isScopedSet || !isInScope
+        ? workingSnapshot
+        : guardScopeStack[guardScopeStack.length - 1].snapshot;
 
     const evalCtx = inheritRuntimeAllocationState(ctx, {
       ...ctx,
@@ -115,11 +128,7 @@ export function evaluateRuntimePatchesWithTrace(
 
       if (conditionResult !== true) {
         const reason: RuntimePatchSkipReason =
-          conditionResult === false
-            ? "false"
-            : conditionResult === null
-              ? "null"
-              : "non-boolean";
+          conditionResult === false ? "false" : conditionResult === null ? "null" : "non-boolean";
 
         skipped.push({
           index: i,
@@ -142,9 +151,7 @@ export function evaluateRuntimePatchesWithTrace(
     }
 
     const concretePath = resolvedPath.path;
-    const concreteValue = op.value
-      ? evaluateExpr(op.value, evalCtx)
-      : undefined;
+    const concreteValue = op.value ? evaluateExpr(op.value, evalCtx) : undefined;
 
     const patch = buildConcretePatch(op.op, concretePath, concreteValue);
     if (patch === null) {
@@ -152,13 +159,10 @@ export function evaluateRuntimePatchesWithTrace(
     }
 
     if (
-      op.op === "unset"
-      && isScopedMarkerPath(op.path)
-      && (!isInScope
-        || !isPatchPathEqual(
-          guardScopeStack[guardScopeStack.length - 1].markerPath,
-          concretePath
-        ))
+      op.op === "unset" &&
+      isScopedMarkerPath(op.path) &&
+      (!isInScope ||
+        !isPatchPathEqual(guardScopeStack[guardScopeStack.length - 1].markerPath, concretePath))
     ) {
       continue;
     }
@@ -178,13 +182,10 @@ export function evaluateRuntimePatchesWithTrace(
     }
 
     if (
-      op.op === "unset"
-      && isScopedMarker
-      && guardScopeStack.length > 0
-      && isPatchPathEqual(
-        guardScopeStack[guardScopeStack.length - 1].markerPath,
-        concretePath
-      )
+      op.op === "unset" &&
+      isScopedMarker &&
+      guardScopeStack.length > 0 &&
+      isPatchPathEqual(guardScopeStack[guardScopeStack.length - 1].markerPath, concretePath)
     ) {
       guardScopeStack.pop();
     }
@@ -203,7 +204,7 @@ export function evaluateRuntimePatchesWithTrace(
 function buildConcretePatch(
   op: "set" | "unset" | "merge",
   path: PatchPath,
-  value: unknown
+  value: unknown,
 ): Patch | null {
   switch (op) {
     case "set":
@@ -222,7 +223,7 @@ function buildConcretePatch(
 
 function applyConcretePatchToWorkingSnapshot(
   snapshot: EvaluationSnapshot,
-  patch: Patch
+  patch: Patch,
 ): EvaluationSnapshot {
   const baseState = snapshot.state;
 
@@ -245,7 +246,7 @@ function applyConcretePatchToWorkingSnapshot(
 
 function resolveIRPath(
   path: IRPatchPath,
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): { ok: true; path: PatchPath } | { ok: false; warning: string } {
   if (path.length === 0) {
     return { ok: false, warning: "path is empty" };
@@ -280,10 +281,10 @@ function resolveIRPath(
 
 function toConcreteSegment(value: unknown): PatchSegment | null {
   if (
-    typeof value === "number"
-    && Number.isInteger(value)
-    && Number.isFinite(value)
-    && value >= 0
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    Number.isFinite(value) &&
+    value >= 0
   ) {
     return { kind: "index", index: value };
   }

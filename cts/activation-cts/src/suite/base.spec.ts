@@ -1,14 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  AlreadyActivatedError,
-  createManifesto,
-} from "@manifesto-ai/sdk";
+import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
-import {
-  evaluateRule,
-  expectAllCompliance,
-  noteEvidence,
-} from "../assertions.js";
+import { evaluateRule, expectAllCompliance, noteEvidence } from "../assertions.js";
 import { getRuleOrThrow } from "../acts-rules.js";
 import {
   createCounterSchema,
@@ -30,9 +23,7 @@ describe("ACTS Base Suite", () => {
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-BASE-1"),
-          "activate" in manifesto
-            && !("dispatchAsync" in manifesto)
-            && !("snapshot" in manifesto),
+          "activate" in manifesto && !("dispatchAsync" in manifesto) && !("snapshot" in manifesto),
           {
             passMessage: "Base composable exposes activation only and no runtime verbs.",
             failMessage: "Base composable leaked runtime verbs before activation.",
@@ -71,13 +62,17 @@ describe("ACTS Base Suite", () => {
       const result = await app.action.add.submit(2);
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("ACTS-BASE-3"), result.ok
-          && result.after.state.count === 2
-          && app.snapshot().state.count === 2, {
-          passMessage: "Base activation chain submitted an action candidate successfully.",
-          failMessage: "Base activation chain did not publish the expected terminal snapshot.",
-          evidence: [noteEvidence("Executed createManifesto() -> activate() -> action.add.submit().")],
-        }),
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-3"),
+          result.ok && result.after.state.count === 2 && app.snapshot().state.count === 2,
+          {
+            passMessage: "Base activation chain submitted an action candidate successfully.",
+            failMessage: "Base activation chain did not publish the expected terminal snapshot.",
+            evidence: [
+              noteEvidence("Executed createManifesto() -> activate() -> action.add.submit()."),
+            ],
+          },
+        ),
       ]);
 
       app.dispose();
@@ -102,7 +97,9 @@ describe("ACTS Base Suite", () => {
         evaluateRule(getRuleOrThrow("ACTS-BASE-4"), app.snapshot().state.count === 3, {
           passMessage: "Projected snapshot mutation did not leak back into runtime state.",
           failMessage: "Projected snapshot mutation changed runtime state.",
-          evidence: [noteEvidence("Mutated a projected snapshot clone and re-read app.snapshot().")],
+          evidence: [
+            noteEvidence("Mutated a projected snapshot clone and re-read app.snapshot()."),
+          ],
         }),
       ]);
 
@@ -122,27 +119,45 @@ describe("ACTS Base Suite", () => {
       const preview = app.action.load.preview();
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("ACTS-BASE-5"), typeof graph.traceUp === "function"
-          && typeof app.action.increment.preview === "function"
-          && typeof app.inspect.action("increment").name === "string", {
-          passMessage: "V5 base runtime exposes inspect.graph(), action info, and action preview.",
-          failMessage: "V5 base runtime introspection surface is incomplete.",
-          evidence: [noteEvidence("Checked inspect.graph(), inspect.action(name), and action.x.preview().")],
-        }),
-        evaluateRule(getRuleOrThrow("ACTS-BASE-6"), graph.traceUp("state:count").nodes.length > 0
-          && !("namespaces" in app.snapshot()), {
-          passMessage: "Schema graph debug lookup works and projected snapshots exclude namespaces.",
-          failMessage: "Schema graph lookup or projected snapshot boundary regressed.",
-          evidence: [noteEvidence("Traced state:count and checked app.snapshot() projection.")],
-        }),
-        evaluateRule(getRuleOrThrow("ACTS-BASE-7"), preview.admitted
-          && preview.status === "pending"
-          && preview.after.state.status === "loading"
-          && app.snapshot() === before, {
-          passMessage: "Preview is non-committing and returns projected after snapshot plus requirements.",
-          failMessage: "Preview committed state or did not expose expected dry-run data.",
-          evidence: [noteEvidence("Ran action.load.preview() and re-read app.snapshot().")],
-        }),
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-5"),
+          typeof graph.traceUp === "function" &&
+            typeof app.action.increment.preview === "function" &&
+            typeof app.inspect.action("increment").name === "string",
+          {
+            passMessage:
+              "V5 base runtime exposes inspect.graph(), action info, and action preview.",
+            failMessage: "V5 base runtime introspection surface is incomplete.",
+            evidence: [
+              noteEvidence(
+                "Checked inspect.graph(), inspect.action(name), and action.x.preview().",
+              ),
+            ],
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-6"),
+          graph.traceUp("state:count").nodes.length > 0 && !("namespaces" in app.snapshot()),
+          {
+            passMessage:
+              "Schema graph debug lookup works and projected snapshots exclude namespaces.",
+            failMessage: "Schema graph lookup or projected snapshot boundary regressed.",
+            evidence: [noteEvidence("Traced state:count and checked app.snapshot() projection.")],
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-7"),
+          preview.admitted &&
+            preview.status === "pending" &&
+            preview.after.state.status === "loading" &&
+            app.snapshot() === before,
+          {
+            passMessage:
+              "Preview is non-committing and returns projected after snapshot plus requirements.",
+            failMessage: "Preview committed state or did not expose expected dry-run data.",
+            evidence: [noteEvidence("Ran action.load.preview() and re-read app.snapshot().")],
+          },
+        ),
       ]);
 
       app.dispose();
@@ -159,13 +174,15 @@ describe("ACTS Base Suite", () => {
       const preview = app.action.finalize.preview();
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("ACTS-BASE-8"), preview.admitted
-          && preview.status === "halted"
-          && app.snapshot().state.status === "idle", {
-          passMessage: "Preview preserved halted status without publishing state.",
-          failMessage: "Preview failed to preserve halted status or committed state.",
-          evidence: [noteEvidence("Ran action.finalize.preview() against halting schema.")],
-        }),
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-8"),
+          preview.admitted && preview.status === "halted" && app.snapshot().state.status === "idle",
+          {
+            passMessage: "Preview preserved halted status without publishing state.",
+            failMessage: "Preview failed to preserve halted status or committed state.",
+            evidence: [noteEvidence("Ran action.finalize.preview() against halting schema.")],
+          },
+        ),
       ]);
 
       app.dispose();
@@ -183,22 +200,28 @@ describe("ACTS Base Suite", () => {
       const rejected = await app.action.add.submit("bad" as unknown as number);
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("ACTS-BASE-9"), result.ok
-          && result.mode === "base"
-          && result.status === "settled"
-          && result.before.state.count === 0
-          && result.after.state.count === 2, {
-          passMessage: "Base submit returned a settled result envelope with projected snapshots.",
-          failMessage: "Base submit did not return the expected settled result envelope.",
-          evidence: [noteEvidence("Ran action.add.submit(2).")],
-        }),
-        evaluateRule(getRuleOrThrow("ACTS-BASE-10"), !rejected.ok
-          && rejected.mode === "base"
-          && rejected.admission.layer === "input", {
-          passMessage: "Base submit returned admission failure as a value.",
-          failMessage: "Base submit did not preserve admission rejection as a value.",
-          evidence: [noteEvidence("Ran action.add.submit() with invalid input.")],
-        }),
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-9"),
+          result.ok &&
+            result.mode === "base" &&
+            result.status === "settled" &&
+            result.before.state.count === 0 &&
+            result.after.state.count === 2,
+          {
+            passMessage: "Base submit returned a settled result envelope with projected snapshots.",
+            failMessage: "Base submit did not return the expected settled result envelope.",
+            evidence: [noteEvidence("Ran action.add.submit(2).")],
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("ACTS-BASE-10"),
+          !rejected.ok && rejected.mode === "base" && rejected.admission.layer === "input",
+          {
+            passMessage: "Base submit returned admission failure as a value.",
+            failMessage: "Base submit did not preserve admission rejection as a value.",
+            evidence: [noteEvidence("Ran action.add.submit() with invalid input.")],
+          },
+        ),
       ]);
 
       app.dispose();

@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  semanticPathToPatchPath,
-} from "@manifesto-ai/core";
+import { semanticPathToPatchPath } from "@manifesto-ai/core";
 
 import { CompileError, ManifestoError } from "../errors.js";
 import {
@@ -278,7 +276,7 @@ describe("resolveSchema()", () => {
     };
     const nested = captureError(() => resolveSchema(withHash(nestedRaw)));
     expect(nested.code).toBe("SCHEMA_ERROR");
-    expect(nested.message).toContain('state.fields.settings.$internal');
+    expect(nested.message).toContain("state.fields.settings.$internal");
   });
 
   it("rejects action types in the reserved system namespace", () => {

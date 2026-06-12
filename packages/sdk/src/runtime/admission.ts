@@ -6,9 +6,7 @@ import {
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
 
-import {
-  ManifestoError,
-} from "../errors.js";
+import { ManifestoError } from "../errors.js";
 import type {
   CanonicalSnapshot,
   DispatchBlocker,
@@ -17,14 +15,8 @@ import type {
   ProjectedSnapshot,
   TypedIntent,
 } from "../types.js";
-import type {
-  IntentLegalityEvaluation,
-  RuntimeAdmission,
-  RuntimeSimulateSync,
-} from "./facets.js";
-import {
-  diffProjectedPaths,
-} from "./reports.js";
+import type { IntentLegalityEvaluation, RuntimeAdmission, RuntimeSimulateSync } from "./facets.js";
+import { diffProjectedPaths } from "./reports.js";
 
 type RuntimeAdmissionOptions<T extends ManifestoDomainShape> = {
   readonly schema: DomainSchema;
@@ -48,9 +40,7 @@ type RuntimeAdmissionOptions<T extends ManifestoDomainShape> = {
     snapshot: CanonicalSnapshot<T["state"]>,
     intent: TypedIntent<T>,
   ) => ActionDispatchabilityEvaluation;
-  readonly projectSnapshotFromCanonical: (
-    snapshot: CoreSnapshot,
-  ) => ProjectedSnapshot<T>;
+  readonly projectSnapshotFromCanonical: (snapshot: CoreSnapshot) => ProjectedSnapshot<T>;
   readonly getSimulateSync: () => RuntimeSimulateSync<T>;
 };
 

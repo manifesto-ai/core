@@ -9,16 +9,10 @@ import {
   type DomainSchema,
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
-import {
-  extractSchemaGraph,
-} from "@manifesto-ai/compiler";
-import type {
-  HostResult,
-} from "@manifesto-ai/host";
+import { extractSchemaGraph } from "@manifesto-ai/compiler";
+import type { HostResult } from "@manifesto-ai/host";
 
-import {
-  ManifestoError,
-} from "../errors.js";
+import { ManifestoError } from "../errors.js";
 import type {
   CanonicalSnapshot,
   DomainExternalContext,
@@ -35,14 +29,8 @@ import type {
   TypedIsIntentDispatchable,
   TypedSimulateIntent,
 } from "../types.js";
-import {
-  cloneAndDeepFreeze,
-  projectCanonicalSnapshot,
-} from "../projection/snapshot-projection.js";
-import type {
-  ExtensionKernel,
-  ExtensionSimulateResult,
-} from "../extensions-types.js";
+import { cloneAndDeepFreeze, projectCanonicalSnapshot } from "../projection/snapshot-projection.js";
+import type { ExtensionKernel, ExtensionSimulateResult } from "../extensions-types.js";
 import type {
   HostDispatchOptions,
   RuntimeKernel,
@@ -53,35 +41,18 @@ import {
   ACTION_SINGLE_PARAM_OBJECT_VALUE,
   EXTENSION_KERNEL,
 } from "../compat/runtime-symbols.js";
-import {
-  createSdkSchemaGraph,
-} from "./schema-graph.js";
-import {
-  createRuntimeAdmission,
-} from "./admission.js";
-import {
-  createRuntimePublication,
-} from "./publication.js";
-import {
-  createRuntimeReportHelpers,
-  diffProjectedPaths,
-} from "./reports.js";
-import {
-  createRuntimeSimulation,
-} from "./simulation.js";
-import {
-  createRuntimeStateStore,
-} from "./state-store.js";
-import {
-  generateUUID,
-} from "./uuid.js";
+import { createSdkSchemaGraph } from "./schema-graph.js";
+import { createRuntimeAdmission } from "./admission.js";
+import { createRuntimePublication } from "./publication.js";
+import { createRuntimeReportHelpers, diffProjectedPaths } from "./reports.js";
+import { createRuntimeSimulation } from "./simulation.js";
+import { createRuntimeStateStore } from "./state-store.js";
+import { generateUUID } from "./uuid.js";
 import {
   captureExternalContext as captureContextOverride,
   materializeExternalContext,
 } from "./context.js";
-import type {
-  RuntimeSimulateSync,
-} from "./facets.js";
+import type { RuntimeSimulateSync } from "./facets.js";
 
 type RuntimeActionParamMetadata = readonly string[] | null;
 type RuntimeActionRef = {
@@ -90,16 +61,9 @@ type RuntimeActionRef = {
   readonly [ACTION_SINGLE_PARAM_OBJECT_VALUE]?: boolean;
 };
 
-const RESERVED_PUBLIC_ACTION_NAMES = new Set([
-  "then",
-  "constructor",
-  "prototype",
-  "__proto__",
-]);
+const RESERVED_PUBLIC_ACTION_NAMES = new Set(["then", "constructor", "prototype", "__proto__"]);
 
-function getActionParamNames(
-  action: DomainSchema["actions"][string],
-): readonly string[] {
+function getActionParamNames(action: DomainSchema["actions"][string]): readonly string[] {
   if (action.params) {
     return action.params;
   }
@@ -113,10 +77,12 @@ function getActionParamNames(
 }
 
 function isThenable(value: unknown): boolean {
-  return typeof value === "object"
-    && value !== null
-    && "then" in value
-    && typeof (value as { readonly then?: unknown }).then === "function";
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof (value as { readonly then?: unknown }).then === "function"
+  );
 }
 
 export function createRuntimeKernel<T extends ManifestoDomainShape>({
@@ -197,19 +163,22 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
         const publicArity = rawParams === null ? 1 : params.length;
         const requiredArity = action.input?.required === false ? 0 : publicArity;
 
-        return [name, Object.freeze({
+        return [
           name,
-          params,
-          publicArity,
-          requiredArity,
-          input: action.input,
-          ...(action.inputType !== undefined ? { inputType: action.inputType } : {}),
-          description: action.description,
-          ...(actionAnnotations[name] !== undefined
-            ? { annotations: actionAnnotations[name] }
-            : {}),
-          hasDispatchableGate: action.dispatchable !== undefined,
-        })];
+          Object.freeze({
+            name,
+            params,
+            publicArity,
+            requiredArity,
+            input: action.input,
+            ...(action.inputType !== undefined ? { inputType: action.inputType } : {}),
+            description: action.description,
+            ...(actionAnnotations[name] !== undefined
+              ? { annotations: actionAnnotations[name] }
+              : {}),
+            hasDispatchableGate: action.dispatchable !== undefined,
+          }),
+        ];
       }),
     ),
   ) as Readonly<Record<keyof T["actions"] & string, TypedActionMetadata<T>>>;
@@ -242,9 +211,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     if (evaluation.kind === "error") {
       return Object.freeze([]);
     }
-    return Object.freeze(
-      [...evaluation.actions] as Array<keyof T["actions"]>,
-    );
+    return Object.freeze([...evaluation.actions] as Array<keyof T["actions"]>);
   }
 
   const reportHelpers = createRuntimeReportHelpers<T>({
@@ -284,13 +251,11 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return evaluation.kind === "ok" && evaluation.dispatchable;
   }
 
-  const isIntentDispatchable: TypedIsIntentDispatchable<T> = ((
-    action,
-    ...args
-  ) => isIntentDispatchableFor(
-    getCanonicalSnapshot(),
-    createIntent(action, ...args),
-  )) as TypedIsIntentDispatchable<T>;
+  const isIntentDispatchable: TypedIsIntentDispatchable<T> = ((action, ...args) =>
+    isIntentDispatchableFor(
+      getCanonicalSnapshot(),
+      createIntent(action, ...args),
+    )) as TypedIsIntentDispatchable<T>;
 
   function ensureIntentId(intent: TypedIntent<T>): TypedIntent<T> {
     if (intent.intentId && intent.intentId.length > 0) {
@@ -314,14 +279,8 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     return currentExternalContext;
   }
 
-  function replaceExternalContext(
-    next: DomainExternalContext<T>,
-  ): DomainExternalContext<T> {
-    currentExternalContext = materializeExternalContext<T>(
-      schema,
-      next,
-      "injectContext",
-    );
+  function replaceExternalContext(next: DomainExternalContext<T>): DomainExternalContext<T> {
+    currentExternalContext = materializeExternalContext<T>(schema, next, "injectContext");
     return currentExternalContext;
   }
 
@@ -335,41 +294,20 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
         "updateContext() updater must return a synchronous JSON context value",
       );
     }
-    currentExternalContext = materializeExternalContext<T>(
-      schema,
-      next,
-      "updateContext",
-    );
+    currentExternalContext = materializeExternalContext<T>(schema, next, "updateContext");
     return currentExternalContext;
   }
 
-  function captureExternalContext(
-    override?: ExternalContext,
-  ): DomainExternalContext<T> {
-    return captureContextOverride<T>(
-      schema,
-      currentExternalContext,
-      override,
-      "transition",
-    );
+  function captureExternalContext(override?: ExternalContext): DomainExternalContext<T> {
+    return captureContextOverride<T>(schema, currentExternalContext, override, "transition");
   }
 
-  function createComputeContext(
-    intent: TypedIntent<T>,
-    externalContext?: ExternalContext,
-  ) {
-    const materializedExternalContext = externalContext === undefined
-      ? currentExternalContext
-      : captureContextOverride<T>(
-        schema,
-        currentExternalContext,
-        externalContext,
-        "transition",
-      );
-    return hostContextProvider.createFrozenContext(
-      intent.intentId,
-      materializedExternalContext,
-    );
+  function createComputeContext(intent: TypedIntent<T>, externalContext?: ExternalContext) {
+    const materializedExternalContext =
+      externalContext === undefined
+        ? currentExternalContext
+        : captureContextOverride<T>(schema, currentExternalContext, externalContext, "transition");
+    return hostContextProvider.createFrozenContext(intent.intentId, materializedExternalContext);
   }
 
   let simulateSyncRef: RuntimeSimulateSync<T> | null = null;
@@ -384,10 +322,7 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     projectSnapshotFromCanonical,
     getSimulateSync: () => {
       if (!simulateSyncRef) {
-        throw new ManifestoError(
-          "SCHEMA_ERROR",
-          "Runtime simulation surface is not initialized",
-        );
+        throw new ManifestoError("SCHEMA_ERROR", "Runtime simulation surface is not initialized");
       }
 
       return simulateSyncRef;
@@ -406,22 +341,15 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
   });
 
   const getIntentBlockersFor = admission.getIntentBlockersFor;
-  const getIntentBlockers: TypedGetIntentBlockers<T> = ((
-    action,
-    ...args
-  ) => getIntentBlockersFor(
-    getCanonicalSnapshot(),
-    createIntent(action, ...args),
-  )) as TypedGetIntentBlockers<T>;
-  const simulateSync: RuntimeKernel<T>["simulateSync"] = (
-    snapshot,
-    intent,
-    options,
-  ) => {
-    const context = options?.context ?? createComputeContext(
-      intent,
-      options?.externalContext ?? captureExternalContext(),
-    );
+  const getIntentBlockers: TypedGetIntentBlockers<T> = ((action, ...args) =>
+    getIntentBlockersFor(
+      getCanonicalSnapshot(),
+      createIntent(action, ...args),
+    )) as TypedGetIntentBlockers<T>;
+  const simulateSync: RuntimeKernel<T>["simulateSync"] = (snapshot, intent, options) => {
+    const context =
+      options?.context ??
+      createComputeContext(intent, options?.externalContext ?? captureExternalContext());
     return simulation.simulateSync(snapshot, intent, { context });
   };
   function projectCurrentSimulationResult(
@@ -439,16 +367,12 @@ export function createRuntimeKernel<T extends ManifestoDomainShape>({
     }) as ProjectedSimulateResult<T>;
   }
 
-  const simulateIntent = ((
-    intent,
-  ) => projectCurrentSimulationResult(
-    simulateSync(getCanonicalSnapshot(), intent),
-  )) as TypedSimulateIntent<T>;
+  const simulateIntent = ((intent) =>
+    projectCurrentSimulationResult(
+      simulateSync(getCanonicalSnapshot(), intent),
+    )) as TypedSimulateIntent<T>;
 
-  const simulate = ((
-    action,
-    ...args
-  ) => {
+  const simulate = ((action, ...args) => {
     return simulateIntent(createIntent(action, ...args));
   }) as RuntimeKernel<T>["simulate"];
 
@@ -542,8 +466,10 @@ function assertNoReservedPublicActionNames(actionNames: readonly string[]): void
 
   throw new ManifestoError(
     "RESERVED_ACTION_NAME",
-    `Action name${reserved.length === 1 ? "" : "s"} ${
-      reserved.map((name) => `"${name}"`).join(", ")
-    } ${reserved.length === 1 ? "is" : "are"} reserved by the SDK public action namespace`,
+    `Action name${reserved.length === 1 ? "" : "s"} ${reserved
+      .map((name) => `"${name}"`)
+      .join(
+        ", ",
+      )} ${reserved.length === 1 ? "is" : "are"} reserved by the SDK public action namespace`,
   );
 }

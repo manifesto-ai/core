@@ -34,16 +34,15 @@ export type BaseComposableLaws = BaseLaws & {
   readonly __governanceLaws?: never;
 };
 
-export type LineageComposableLaws = BaseLaws & LineageLaws & {
-  readonly __governanceLaws?: never;
-};
+export type LineageComposableLaws = BaseLaws &
+  LineageLaws & {
+    readonly __governanceLaws?: never;
+  };
 
 export type LineageContinuitySurface<T extends ManifestoDomainShape> = {
   readonly restore: (worldId: WorldId) => Promise<void>;
   readonly getWorld: (worldId: WorldId) => Promise<WorldRecord | null>;
-  readonly getWorldSnapshot: (
-    worldId: WorldId,
-  ) => Promise<CanonicalSnapshot<T["state"]> | null>;
+  readonly getWorldSnapshot: (worldId: WorldId) => Promise<CanonicalSnapshot<T["state"]> | null>;
   readonly getLineage: () => Promise<WorldLineage>;
   readonly getLatestHead: () => Promise<WorldHead | null>;
   readonly getHeads: () => Promise<readonly WorldHead[]>;
@@ -53,12 +52,13 @@ export type LineageContinuitySurface<T extends ManifestoDomainShape> = {
   readonly createBranch: (name: string, fromWorldId?: WorldId) => Promise<BranchId>;
 };
 
-export type LineageInstance<T extends ManifestoDomainShape> =
-  ManifestoApp<T, "lineage"> & LineageContinuitySurface<T>;
+export type LineageInstance<T extends ManifestoDomainShape> = ManifestoApp<T, "lineage"> &
+  LineageContinuitySurface<T>;
 
-export type LineageComposableManifesto<
-  T extends ManifestoDomainShape,
-> = Omit<ComposableManifesto<T, LineageComposableLaws>, "activate"> & {
+export type LineageComposableManifesto<T extends ManifestoDomainShape> = Omit<
+  ComposableManifesto<T, LineageComposableLaws>,
+  "activate"
+> & {
   activate(): LineageInstance<T>;
 };
 
@@ -68,6 +68,7 @@ declare module "@manifesto-ai/sdk" {
   }
 }
 
-export type BaseComposableManifesto<
-  T extends ManifestoDomainShape,
-> = ComposableManifesto<T, BaseComposableLaws>;
+export type BaseComposableManifesto<T extends ManifestoDomainShape> = ComposableManifesto<
+  T,
+  BaseComposableLaws
+>;

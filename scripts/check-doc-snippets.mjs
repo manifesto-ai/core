@@ -23,10 +23,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const COMPILER_DIST = path.join(ROOT, "packages", "compiler", "dist", "index.js");
 const SDK_DIST = path.join(ROOT, "packages", "sdk", "dist", "index.js");
 
-const CHECKED_DOCS = [
-  "README.md",
-  "docs/guide/quick-start.md",
-];
+const CHECKED_DOCS = ["README.md", "docs/guide/quick-start.md"];
 
 function fail(message) {
   console.error(`doc-snippet check failed: ${message}`);
@@ -52,9 +49,9 @@ function findSnippetPair(blocks, docPath) {
   const mel = blocks.find((b) => b.lang === "mel");
   const runtime = blocks.find(
     (b) =>
-      (b.lang === "typescript" || b.lang === "ts")
-      && b.code.includes("createManifesto")
-      && b.code.includes("./counter.mel"),
+      (b.lang === "typescript" || b.lang === "ts") &&
+      b.code.includes("createManifesto") &&
+      b.code.includes("./counter.mel"),
   );
   if (!mel) fail(`${docPath}: no \`\`\`mel block found`);
   if (!runtime) fail(`${docPath}: no runtime typescript block importing ./counter.mel found`);
@@ -82,10 +79,7 @@ function toExecutableModule(runtimeCode, schema) {
         `from ${JSON.stringify(pathToFileURL(SDK_DIST).href)}`,
       ),
     );
-  return [
-    `const CounterMel = ${JSON.stringify(schema)};`,
-    ...lines,
-  ].join("\n");
+  return [`const CounterMel = ${JSON.stringify(schema)};`, ...lines].join("\n");
 }
 
 let checked = 0;
@@ -116,18 +110,23 @@ for (const docPath of CHECKED_DOCS) {
     fail(`${docPath}: documented runtime snippet exited ${result.status}:\n${result.stderr}`);
   }
 
-  const actual = result.stdout.trim().split("\n").map((line) => line.trim());
+  const actual = result.stdout
+    .trim()
+    .split("\n")
+    .map((line) => line.trim());
   expected.forEach((value, index) => {
     if (actual[index] !== value) {
       fail(
-        `${docPath}: documented output mismatch at log #${index + 1}: `
-        + `docs say "${value}", snippet printed "${actual[index] ?? "<nothing>"}"`,
+        `${docPath}: documented output mismatch at log #${index + 1}: ` +
+          `docs say "${value}", snippet printed "${actual[index] ?? "<nothing>"}"`,
       );
     }
   });
 
   checked += 1;
-  console.log(`✓ ${docPath}: MEL compiles, snippet runs, output matches docs (${expected.length} assertions)`);
+  console.log(
+    `✓ ${docPath}: MEL compiles, snippet runs, output matches docs (${expected.length} assertions)`,
+  );
 }
 
 console.log(`Doc snippets OK (${checked} documents executed against built packages).`);

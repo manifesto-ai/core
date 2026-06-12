@@ -22,7 +22,10 @@ export function snapshotCompileFragmentOptions(options: unknown): OptionsSnapsho
   if (options === null || typeof options !== "object") {
     return {
       ok: false,
-      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "compileFragmentInContext() options must be an object."),
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        "compileFragmentInContext() options must be an object.",
+      ),
     };
   }
 
@@ -59,31 +62,55 @@ function defaultOptionsSnapshot(): CompileFragmentOptionsSnapshot {
   return { baseModuleSourceHash: null, includeModule: false, includeSchemaDiff: false };
 }
 
-function readBooleanOption(value: object, key: string): { ok: true; value: boolean } | { ok: false; diagnostic: Diagnostic } {
+function readBooleanOption(
+  value: object,
+  key: string,
+): { ok: true; value: boolean } | { ok: false; diagnostic: Diagnostic } {
   const read = readOptionalDataProperty(value, key, `options.${key}`);
   if (!read.ok) return { ok: false, diagnostic: read.diagnostic };
   if (read.value === undefined) return { ok: true, value: false };
   if (typeof read.value !== "boolean") {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `options.${key} must be a boolean.`) };
+    return {
+      ok: false,
+      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `options.${key} must be a boolean.`),
+    };
   }
   return { ok: true, value: read.value };
 }
 
-function readBaseModuleSourceHash(value: unknown): { ok: true; value: string } | { ok: false; diagnostic: Diagnostic } {
+function readBaseModuleSourceHash(
+  value: unknown,
+): { ok: true; value: string } | { ok: false; diagnostic: Diagnostic } {
   if (value === null || typeof value !== "object") {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "options.baseModule must be an object.") };
+    return {
+      ok: false,
+      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "options.baseModule must be an object."),
+    };
   }
   const sourceMap = readRequiredDataProperty(value, "sourceMap", "options.baseModule.sourceMap");
   if (!sourceMap.ok) return { ok: false, diagnostic: sourceMap.diagnostic };
   if (sourceMap.value === null || typeof sourceMap.value !== "object") {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "options.baseModule.sourceMap must be an object.") };
+    return {
+      ok: false,
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        "options.baseModule.sourceMap must be an object.",
+      ),
+    };
   }
-  const sourceHash = readRequiredDataProperty(sourceMap.value, "sourceHash", "options.baseModule.sourceMap.sourceHash");
+  const sourceHash = readRequiredDataProperty(
+    sourceMap.value,
+    "sourceHash",
+    "options.baseModule.sourceMap.sourceHash",
+  );
   if (!sourceHash.ok) return { ok: false, diagnostic: sourceHash.diagnostic };
   if (typeof sourceHash.value !== "string") {
     return {
       ok: false,
-      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "options.baseModule.sourceMap.sourceHash must be source text."),
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        "options.baseModule.sourceMap.sourceHash must be source text.",
+      ),
     };
   }
   return { ok: true, value: sourceHash.value };
@@ -94,16 +121,31 @@ function readOptionalDataProperty(value: object, key: string, label: string): Va
   try {
     descriptor = Object.getOwnPropertyDescriptor(value, key);
   } catch {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+    return {
+      ok: false,
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        `${label} must be inspectable JSON data.`,
+      ),
+    };
   }
   if (!descriptor) return { ok: true, value: undefined };
   if (!("value" in descriptor)) {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a JSON data property.`) };
+    return {
+      ok: false,
+      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a JSON data property.`),
+    };
   }
   try {
     return { ok: true, value: (value as Record<string, unknown>)[key] };
   } catch {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+    return {
+      ok: false,
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        `${label} must be inspectable JSON data.`,
+      ),
+    };
   }
 }
 
@@ -111,7 +153,10 @@ function readRequiredDataProperty(value: object, key: string, label: string): Va
   const read = readOptionalDataProperty(value, key, label);
   if (!read.ok) return read;
   if (read.value === undefined) {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be present JSON data.`) };
+    return {
+      ok: false,
+      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be present JSON data.`),
+    };
   }
   return read;
 }

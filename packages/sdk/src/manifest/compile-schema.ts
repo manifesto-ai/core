@@ -4,14 +4,9 @@ import {
   tokenize as tokenizeMel,
   type AnnotationIndex,
 } from "@manifesto-ai/compiler";
-import {
-  type DomainSchema,
-} from "@manifesto-ai/core";
+import { type DomainSchema } from "@manifesto-ai/core";
 
-import {
-  CompileError,
-  ManifestoError,
-} from "../errors.js";
+import { CompileError, ManifestoError } from "../errors.js";
 import type {
   ActionParamMetadata,
   ActionAnnotationMap,
@@ -23,28 +18,33 @@ export function compileSchema(source: string): CompiledSchema {
   const result = compileMelModule(source, { mode: "module" });
 
   if (result.errors.length > 0) {
-    const formatted = result.errors.map((diagnostic) => {
-      const loc = diagnostic.location;
-      if (!loc || (loc.start.line === 0 && loc.start.column === 0)) {
-        return `[${diagnostic.code}] ${diagnostic.message}`;
-      }
+    const formatted = result.errors
+      .map((diagnostic) => {
+        const loc = diagnostic.location;
+        if (!loc || (loc.start.line === 0 && loc.start.column === 0)) {
+          return `[${diagnostic.code}] ${diagnostic.message}`;
+        }
 
-      const header = `[${diagnostic.code}] ${diagnostic.message} (${loc.start.line}:${loc.start.column})`;
-      const line = source.split("\n")[loc.start.line - 1];
-      if (!line) {
-        return header;
-      }
+        const header = `[${diagnostic.code}] ${diagnostic.message} (${loc.start.line}:${loc.start.column})`;
+        const line = source.split("\n")[loc.start.line - 1];
+        if (!line) {
+          return header;
+        }
 
-      const lineNum = String(loc.start.line).padStart(4, " ");
-      const underlineLen = Math.max(
-        1,
-        loc.end.line === loc.start.line
-          ? Math.min(loc.end.column - loc.start.column, Math.max(1, line.length - loc.start.column + 1))
-          : 1,
-      );
-      const padding = " ".repeat(lineNum.length + 3 + loc.start.column - 1);
-      return `${header}\n${lineNum} | ${line}\n${padding}${"^".repeat(underlineLen)}`;
-    }).join("\n\n");
+        const lineNum = String(loc.start.line).padStart(4, " ");
+        const underlineLen = Math.max(
+          1,
+          loc.end.line === loc.start.line
+            ? Math.min(
+                loc.end.column - loc.start.column,
+                Math.max(1, line.length - loc.start.column + 1),
+              )
+            : 1,
+        );
+        const padding = " ".repeat(lineNum.length + 3 + loc.start.column - 1);
+        return `${header}\n${lineNum} | ${line}\n${padding}${"^".repeat(underlineLen)}`;
+      })
+      .join("\n\n");
 
     throw new CompileError(result.errors, `MEL compilation failed:\n${formatted}`);
   }
@@ -56,67 +56,74 @@ export function compileSchema(source: string): CompiledSchema {
   const schema = result.module.schema as DomainSchema;
   return {
     schema,
-    actionParamMetadata: deriveActionParamMetadata(
-      schema,
-      extractActionParamOrderFromMel(source),
-    ),
+    actionParamMetadata: deriveActionParamMetadata(schema, extractActionParamOrderFromMel(source)),
     actionSingleParamObjectValueMetadata: deriveSingleParamObjectValueMetadata(schema),
     actionAnnotations: deriveActionAnnotations(result.module.annotations),
   };
 }
 
-export function deriveActionAnnotations(
-  annotations?: AnnotationIndex | null,
-): ActionAnnotationMap {
+export function deriveActionAnnotations(annotations?: AnnotationIndex | null): ActionAnnotationMap {
   if (!annotations) {
     return Object.freeze({});
   }
 
-  return Object.freeze(Object.fromEntries(
-    Object.entries(annotations.entries)
-      .filter(([target]) => target.startsWith("action:"))
-      .map(([target, entries]) => {
-        const actionName = target.slice("action:".length);
-        return [actionName, Object.freeze(Object.fromEntries(
-          entries.map((entry) => [entry.tag, entry.payload ?? true]),
-        ))];
-      }),
-  ));
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(annotations.entries)
+        .filter(([target]) => target.startsWith("action:"))
+        .map(([target, entries]) => {
+          const actionName = target.slice("action:".length);
+          return [
+            actionName,
+            Object.freeze(
+              Object.fromEntries(entries.map((entry) => [entry.tag, entry.payload ?? true])),
+            ),
+          ];
+        }),
+    ),
+  );
 }
 
 export function deriveActionParamMetadata(
   schema: DomainSchema,
   actionParamOrder?: Readonly<Record<string, readonly string[]>>,
 ): Readonly<Record<string, ActionParamMetadata>> {
-  return Object.freeze(Object.fromEntries(
-    (Object.entries(schema.actions) as [string, DomainSchema["actions"][string]][]).map(([name, action]) => {
-      const preferredOrder = actionParamOrder?.[name];
-      if (preferredOrder && preferredOrder.length > 0) {
-        return [name, Object.freeze([...preferredOrder])];
-      }
+  return Object.freeze(
+    Object.fromEntries(
+      (Object.entries(schema.actions) as [string, DomainSchema["actions"][string]][]).map(
+        ([name, action]) => {
+          const preferredOrder = actionParamOrder?.[name];
+          if (preferredOrder && preferredOrder.length > 0) {
+            return [name, Object.freeze([...preferredOrder])];
+          }
 
-      if (action.params && action.params.length > 0) {
-        const params = Object.freeze([...action.params]);
-        return [name, params];
-      }
+          if (action.params && action.params.length > 0) {
+            const params = Object.freeze([...action.params]);
+            return [name, params];
+          }
 
-      if (!action.input || action.input.type !== "object" || !action.input.fields) {
-        return [name, []];
-      }
+          if (!action.input || action.input.type !== "object" || !action.input.fields) {
+            return [name, []];
+          }
 
-      const fieldNames = getActionParamNames(action.input);
-      return [name, fieldNames.length <= 1 ? fieldNames : null];
-    }),
-  ));
+          const fieldNames = getActionParamNames(action.input);
+          return [name, fieldNames.length <= 1 ? fieldNames : null];
+        },
+      ),
+    ),
+  );
 }
 
 export function deriveSingleParamObjectValueMetadata(
   schema: DomainSchema,
 ): Readonly<Record<string, ActionSingleParamObjectValueMetadata>> {
-  return Object.freeze(Object.fromEntries(
-    (Object.entries(schema.actions) as [string, DomainSchema["actions"][string]][])
-      .map(([name, action]) => [name, isSingleParamObjectValued(schema, action)]),
-  ));
+  return Object.freeze(
+    Object.fromEntries(
+      (Object.entries(schema.actions) as [string, DomainSchema["actions"][string]][]).map(
+        ([name, action]) => [name, isSingleParamObjectValued(schema, action)],
+      ),
+    ),
+  );
 }
 
 function getActionParamNames(input: DomainSchema["actions"][string]["input"]): readonly string[] {
@@ -141,9 +148,9 @@ function isSingleParamObjectValued(
   }
 
   if (
-    action.input?.type === "object"
-    && action.input.fields
-    && Object.keys(action.input.fields).length === 1
+    action.input?.type === "object" &&
+    action.input.fields &&
+    Object.keys(action.input.fields).length === 1
   ) {
     const [fieldName] = Object.keys(action.input.fields);
     const field = fieldName ? action.input.fields[fieldName] : undefined;
@@ -166,13 +173,17 @@ function getObjectFieldTypeDefinition(
 
     const next = types[definition.name];
     return next
-      ? getObjectFieldTypeDefinition(next.definition, fieldName, types, [...seenRefs, definition.name])
+      ? getObjectFieldTypeDefinition(next.definition, fieldName, types, [
+          ...seenRefs,
+          definition.name,
+        ])
       : null;
   }
 
   if (definition.kind === "union") {
-    const nonNullTypes = definition.types.filter((candidate: typeof definition.types[number]) =>
-      !isNullLikeTypeDefinition(candidate, types, seenRefs)
+    const nonNullTypes = definition.types.filter(
+      (candidate: (typeof definition.types)[number]) =>
+        !isNullLikeTypeDefinition(candidate, types, seenRefs),
     );
     return nonNullTypes.length === 1
       ? getObjectFieldTypeDefinition(nonNullTypes[0], fieldName, types, seenRefs)
@@ -203,8 +214,9 @@ function isPlainObjectLikeTypeDefinition(
   }
 
   if (definition.kind === "union") {
-    const nonNullTypes = definition.types.filter((candidate: typeof definition.types[number]) =>
-      !isNullLikeTypeDefinition(candidate, types, seenRefs)
+    const nonNullTypes = definition.types.filter(
+      (candidate: (typeof definition.types)[number]) =>
+        !isNullLikeTypeDefinition(candidate, types, seenRefs),
     );
     return nonNullTypes.length === 1
       ? isPlainObjectLikeTypeDefinition(nonNullTypes[0], types, seenRefs)
@@ -212,9 +224,9 @@ function isPlainObjectLikeTypeDefinition(
   }
 
   return (
-    definition.kind === "object"
-    || definition.kind === "record"
-    || (definition.kind === "primitive" && definition.type === "object")
+    definition.kind === "object" ||
+    definition.kind === "record" ||
+    (definition.kind === "primitive" && definition.type === "object")
   );
 }
 
@@ -235,8 +247,8 @@ function isNullLikeTypeDefinition(
   }
 
   return (
-    (definition.kind === "primitive" && definition.type === "null")
-    || (definition.kind === "literal" && definition.value === null)
+    (definition.kind === "primitive" && definition.type === "null") ||
+    (definition.kind === "literal" && definition.value === null)
   );
 }
 
@@ -253,9 +265,11 @@ function extractActionParamOrderFromMel(
     return undefined;
   }
 
-  return Object.freeze(Object.fromEntries(
-    parsed.program.domain.members
-      .filter((member) => member.kind === "action")
-      .map((action) => [action.name, Object.freeze(action.params.map((param) => param.name))]),
-  ));
+  return Object.freeze(
+    Object.fromEntries(
+      parsed.program.domain.members
+        .filter((member) => member.kind === "action")
+        .map((action) => [action.name, Object.freeze(action.params.map((param) => param.name))]),
+    ),
+  );
 }

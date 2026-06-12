@@ -17,12 +17,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
-import {
-  createTestSchema,
-  createTestIntent,
-  createTestSnapshot,
-} from "../../helpers/index.js";
-import { createTestEffectRunner, } from "../hcts-adapter.js";
+import { createTestSchema, createTestIntent, createTestSnapshot } from "../../helpers/index.js";
+import { createTestEffectRunner } from "../hcts-adapter.js";
 
 describe("HCTS Ordering Tests", () => {
   let adapter: HostTestAdapter;
@@ -198,13 +194,9 @@ describe("HCTS Ordering Tests", () => {
 
       const effectRunner = createTestEffectRunner();
 
-      effectRunner.register("step1", async () => [
-        { op: "set", path: pp("step1"), value: true },
-      ]);
+      effectRunner.register("step1", async () => [{ op: "set", path: pp("step1"), value: true }]);
 
-      effectRunner.register("step2", async () => [
-        { op: "set", path: pp("step2"), value: true },
-      ]);
+      effectRunner.register("step2", async () => [{ op: "set", path: pp("step2"), value: true }]);
 
       await adapter.create({ schema, effectRunner, runtime });
 
@@ -247,9 +239,7 @@ describe("HCTS Ordering Tests", () => {
 
       effectRunner.register("serialEffect", async () => {
         effectExecuted = true;
-        return [
-          { op: "set", path: pp("response"), value: { first: true, second: true } },
-        ];
+        return [{ op: "set", path: pp("response"), value: { first: true, second: true } }];
       });
 
       await adapter.create({ schema, effectRunner, runtime });
@@ -264,7 +254,10 @@ describe("HCTS Ordering Tests", () => {
       expect(effectExecuted).toBe(true);
 
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<
+        string,
+        unknown
+      >;
       expect(response.first).toBe(true);
       expect(response.second).toBe(true);
     });
@@ -436,5 +429,4 @@ describe("HCTS Ordering Tests", () => {
       expect(clearEvents.length).toBeGreaterThan(0);
     });
   });
-
 });

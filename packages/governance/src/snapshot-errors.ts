@@ -6,11 +6,7 @@ export function readSnapshotCurrentError(snapshot: Snapshot): ErrorValue | null 
 
 function readHostNamespaceError(snapshot: Snapshot): ErrorValue | null {
   const hostNamespace = snapshot.namespaces?.host;
-  if (
-    hostNamespace
-    && typeof hostNamespace === "object"
-    && !Array.isArray(hostNamespace)
-  ) {
+  if (hostNamespace && typeof hostNamespace === "object" && !Array.isArray(hostNamespace)) {
     const lastError = (hostNamespace as { readonly lastError?: unknown }).lastError;
     if (isErrorValue(lastError)) {
       return lastError;
@@ -26,11 +22,13 @@ function isErrorValue(value: unknown): value is ErrorValue {
   }
 
   const candidate = value as Partial<ErrorValue>;
-  return typeof candidate.code === "string"
-    && typeof candidate.message === "string"
-    && typeof candidate.timestamp === "number"
-    && !!candidate.source
-    && typeof candidate.source === "object"
-    && typeof candidate.source.actionId === "string"
-    && typeof candidate.source.nodePath === "string";
+  return (
+    typeof candidate.code === "string" &&
+    typeof candidate.message === "string" &&
+    typeof candidate.timestamp === "number" &&
+    !!candidate.source &&
+    typeof candidate.source === "object" &&
+    typeof candidate.source.actionId === "string" &&
+    typeof candidate.source.nodePath === "string"
+  );
 }

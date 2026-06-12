@@ -22,57 +22,120 @@ describe("Core CTS expression rules", () => {
       schema.hash,
     );
 
-    expect(evaluate({ kind: "div", left: { kind: "lit", value: 1 }, right: { kind: "lit", value: 0 } }, snapshot, schema)).toBeNull();
-    expect(evaluate({ kind: "mod", left: { kind: "lit", value: 1 }, right: { kind: "lit", value: 0 } }, snapshot, schema)).toBeNull();
-    expect(evaluate({ kind: "at", array: { kind: "get", path: "nums" }, index: { kind: "lit", value: 10 } }, snapshot, schema)).toBeNull();
-    expect(evaluate({ kind: "replace", str: { kind: "get", path: "text" }, search: { kind: "lit", value: "-" }, replacement: { kind: "lit", value: "_" } }, snapshot, schema)).toBe("a_a-a");
-    expect(evaluate({ kind: "unique", array: { kind: "get", path: "nums" } }, snapshot, schema)).toEqual([1, 2]);
-    expect(evaluate({ kind: "indexOf", str: { kind: "get", path: "text" }, search: { kind: "lit", value: "z" } }, snapshot, schema)).toBe(-1);
-    expect(evaluate({ kind: "split", str: { kind: "get", path: "text" }, delimiter: { kind: "lit", value: "|" } }, snapshot, schema)).toEqual(["a-a-a"]);
-    expect(evaluate({ kind: "toNumber", arg: { kind: "get", path: "value" } }, snapshot, schema)).toBe(0);
-    expect(evaluate({ kind: "toBoolean", arg: { kind: "lit", value: null } }, snapshot, schema)).toBe(false);
+    expect(
+      evaluate(
+        { kind: "div", left: { kind: "lit", value: 1 }, right: { kind: "lit", value: 0 } },
+        snapshot,
+        schema,
+      ),
+    ).toBeNull();
+    expect(
+      evaluate(
+        { kind: "mod", left: { kind: "lit", value: 1 }, right: { kind: "lit", value: 0 } },
+        snapshot,
+        schema,
+      ),
+    ).toBeNull();
+    expect(
+      evaluate(
+        { kind: "at", array: { kind: "get", path: "nums" }, index: { kind: "lit", value: 10 } },
+        snapshot,
+        schema,
+      ),
+    ).toBeNull();
+    expect(
+      evaluate(
+        {
+          kind: "replace",
+          str: { kind: "get", path: "text" },
+          search: { kind: "lit", value: "-" },
+          replacement: { kind: "lit", value: "_" },
+        },
+        snapshot,
+        schema,
+      ),
+    ).toBe("a_a-a");
+    expect(
+      evaluate({ kind: "unique", array: { kind: "get", path: "nums" } }, snapshot, schema),
+    ).toEqual([1, 2]);
+    expect(
+      evaluate(
+        {
+          kind: "indexOf",
+          str: { kind: "get", path: "text" },
+          search: { kind: "lit", value: "z" },
+        },
+        snapshot,
+        schema,
+      ),
+    ).toBe(-1);
+    expect(
+      evaluate(
+        {
+          kind: "split",
+          str: { kind: "get", path: "text" },
+          delimiter: { kind: "lit", value: "|" },
+        },
+        snapshot,
+        schema,
+      ),
+    ).toEqual(["a-a-a"]);
+    expect(
+      evaluate({ kind: "toNumber", arg: { kind: "get", path: "value" } }, snapshot, schema),
+    ).toBe(0);
+    expect(
+      evaluate({ kind: "toBoolean", arg: { kind: "lit", value: null } }, snapshot, schema),
+    ).toBe(false);
   });
 
-  it(caseTitle(CORE_CTS_CASES.EXPR_NAMESPACE_BOUNDARY, "rejects user-authored namespace reads while allowing lexical variables"), () => {
-    const schema = createComplianceSchema({
-      computed: {
-        fields: {
-          completedCount: {
-            expr: {
-              kind: "len",
-              arg: {
-                kind: "filter",
-                array: { kind: "get", path: "items" },
-                predicate: { kind: "get", path: "$item.completed" },
+  it(
+    caseTitle(
+      CORE_CTS_CASES.EXPR_NAMESPACE_BOUNDARY,
+      "rejects user-authored namespace reads while allowing lexical variables",
+    ),
+    () => {
+      const schema = createComplianceSchema({
+        computed: {
+          fields: {
+            completedCount: {
+              expr: {
+                kind: "len",
+                arg: {
+                  kind: "filter",
+                  array: { kind: "get", path: "items" },
+                  predicate: { kind: "get", path: "$item.completed" },
+                },
               },
+              deps: ["items"],
             },
-            deps: ["items"],
-          },
-          badNamespace: {
+            badNamespace: {
               expr: { kind: "get", path: "$platform.requestId" },
-            deps: [],
+              deps: [],
+            },
           },
         },
-      },
-      actions: {
-        badAction: {
-          flow: {
-            kind: "patch",
-            op: "set",
-            path: [{ kind: "prop", name: "name" }],
-            value: { kind: "get", path: "$platform.requestId" },
+        actions: {
+          badAction: {
+            flow: {
+              kind: "patch",
+              op: "set",
+              path: [{ kind: "prop", name: "name" }],
+              value: { kind: "get", path: "$platform.requestId" },
+            },
           },
         },
-      },
-    });
+      });
 
-    const result = validate(schema);
+      const result = validate(schema);
 
-    expect(result.valid).toBe(false);
-    expectValidationCode(result.errors, "V-012", "computed.fields.badNamespace");
-    expectValidationCode(result.errors, "V-003", "actions.badAction");
-    expect(result.errors).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ path: "computed.fields.completedCount" }),
-    ]));
-  });
+      expect(result.valid).toBe(false);
+      expectValidationCode(result.errors, "V-012", "computed.fields.badNamespace");
+      expectValidationCode(result.errors, "V-003", "actions.badAction");
+      expect(result.errors).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: "computed.fields.completedCount" }),
+        ]),
+      );
+    },
+  );
 });

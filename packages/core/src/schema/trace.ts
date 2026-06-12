@@ -5,17 +5,17 @@ import { generateTraceId } from "../utils/hash.js";
  * TraceNodeKind - Types of trace nodes
  */
 export const TraceNodeKind = z.enum([
-  "expr",     // Expression evaluation
+  "expr", // Expression evaluation
   "computed", // Computed field evaluation
-  "flow",     // Flow execution
-  "patch",    // State mutation
-  "namespaceRead",  // Namespace read
+  "flow", // Flow execution
+  "patch", // State mutation
+  "namespaceRead", // Namespace read
   "namespaceDelta", // Namespace mutation
-  "effect",   // Effect declaration
-  "branch",   // Conditional branch taken
-  "call",     // Flow call
-  "halt",     // Normal termination
-  "error",    // Error occurred
+  "effect", // Effect declaration
+  "branch", // Conditional branch taken
+  "call", // Flow call
+  "halt", // Normal termination
+  "error", // Error occurred
 ]);
 export type TraceNodeKind = z.infer<typeof TraceNodeKind>;
 
@@ -69,7 +69,7 @@ export const TraceNode: z.ZodType<TraceNode> = z.lazy(() =>
     output: z.unknown(),
     children: z.array(TraceNode),
     timestamp: z.number(),
-  })
+  }),
 );
 
 /**
@@ -150,7 +150,7 @@ export function createTraceNode(
   sourcePath: string,
   inputs: Record<string, unknown>,
   output: unknown,
-  children: TraceNode[] = []
+  children: TraceNode[] = [],
 ): TraceNode {
   return {
     id: trace.nextId(),

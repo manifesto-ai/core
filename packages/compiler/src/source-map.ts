@@ -51,10 +51,8 @@ export interface SourceMapExtractionResult {
   readonly diagnostics: Diagnostic[];
 }
 
-const DANGLING_TARGET_MESSAGE =
-  "Source-map target does not map to the emitted DomainSchema.";
-const MISSING_TARGET_MESSAGE =
-  "Source-map entry missing for emitted DomainSchema target.";
+const DANGLING_TARGET_MESSAGE = "Source-map target does not map to the emitted DomainSchema.";
+const MISSING_TARGET_MESSAGE = "Source-map entry missing for emitted DomainSchema target.";
 
 type EntryMap = Map<LocalTargetKey, SourceMapEntry>;
 type SourceSpanConverter = (location: ProgramNode["location"]) => SourceSpan;
@@ -238,10 +236,7 @@ function collectTypeFieldEntries(
   }
 }
 
-function expectedTargetKeys(
-  program: ProgramNode,
-  schema: DomainSchema,
-): readonly LocalTargetKey[] {
+function expectedTargetKeys(program: ProgramNode, schema: DomainSchema): readonly LocalTargetKey[] {
   const keys = new Set<LocalTargetKey>();
 
   keys.add(`domain:${program.domain.name}`);
@@ -361,14 +356,16 @@ function inferTargetLocation(
       return null;
 
     case "computed":
-      return program.domain.members.find(
-        (member) => member.kind === "computed" && member.name === name,
-      )?.location ?? null;
+      return (
+        program.domain.members.find((member) => member.kind === "computed" && member.name === name)
+          ?.location ?? null
+      );
 
     case "action":
-      return program.domain.members.find(
-        (member) => member.kind === "action" && member.name === name,
-      )?.location ?? null;
+      return (
+        program.domain.members.find((member) => member.kind === "action" && member.name === name)
+          ?.location ?? null
+      );
 
     default:
       return null;
@@ -399,8 +396,8 @@ function findTypeFieldLocation(
 
     case "recordType":
       return (
-        findTypeFieldLocation(typeExpr.keyType, fieldName, depth + 1)
-        ?? findTypeFieldLocation(typeExpr.valueType, fieldName, depth + 1)
+        findTypeFieldLocation(typeExpr.keyType, fieldName, depth + 1) ??
+        findTypeFieldLocation(typeExpr.valueType, fieldName, depth + 1)
       );
 
     case "unionType":

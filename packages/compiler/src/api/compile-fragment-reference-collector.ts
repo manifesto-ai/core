@@ -81,9 +81,17 @@ export function collectTargetReferences(
   const visitExpr = (expr: ExprNode, ctx: ExprVisitContext = {}): void => {
     switch (expr.kind) {
       case "identifier":
-        if (target.kind === "state_field" && expr.name === target.name && !isLocalParamPreferred(expr.name, ctx)) {
+        if (
+          target.kind === "state_field" &&
+          expr.name === target.name &&
+          !isLocalParamPreferred(expr.name, ctx)
+        ) {
           push(expr.location, true);
-        } else if (target.kind === "computed" && expr.name === target.name && !isLocalParamPreferred(expr.name, ctx)) {
+        } else if (
+          target.kind === "computed" &&
+          expr.name === target.name &&
+          !isLocalParamPreferred(expr.name, ctx)
+        ) {
           push(expr.location, true);
         }
         return;
@@ -136,7 +144,11 @@ export function collectTargetReferences(
 
   const visitPath = (path: PathNode, rewriteRoot: boolean, ctx: ExprVisitContext = {}): void => {
     const [first, ...rest] = path.segments;
-    if (first?.kind === "propertySegment" && target.kind === "state_field" && first.name === target.name) {
+    if (
+      first?.kind === "propertySegment" &&
+      target.kind === "state_field" &&
+      first.name === target.name
+    ) {
       push(first.location, rewriteRoot);
     }
     for (const segment of rest) {
@@ -203,7 +215,8 @@ export function collectTargetReferences(
     const localParams = new Set(action.params.map((param) => param.name));
     action.params.forEach((param) => visitParam(param));
     if (action.available) visitExpr(action.available, { localParams });
-    if (action.dispatchable) visitExpr(action.dispatchable, { localParams, preferLocalParams: true });
+    if (action.dispatchable)
+      visitExpr(action.dispatchable, { localParams, preferLocalParams: true });
     action.body.forEach((stmt) => visitGuardedStmt(stmt, { localParams, preferLocalParams: true }));
   };
 
@@ -265,19 +278,22 @@ function visitMember(
   }
 }
 
-function isLocalParamPreferred(
-  name: string,
-  ctx: ExprVisitContext,
-): boolean {
+function isLocalParamPreferred(name: string, ctx: ExprVisitContext): boolean {
   return ctx.preferLocalParams === true && ctx.localParams?.has(name) === true;
 }
 
-function findTokenRange(tokens: readonly Token[], location: SourceLocation, name: string): OffsetRange | null {
+function findTokenRange(
+  tokens: readonly Token[],
+  location: SourceLocation,
+  name: string,
+): OffsetRange | null {
   const range = locationRange(location);
-  const matches = tokens.filter((token) =>
-    token.location.start.offset >= range.start
-    && token.location.end.offset <= range.end
-    && token.lexeme === name);
+  const matches = tokens.filter(
+    (token) =>
+      token.location.start.offset >= range.start &&
+      token.location.end.offset <= range.end &&
+      token.lexeme === name,
+  );
   const token = matches[matches.length - 1];
   return token ? locationRange(token.location) : null;
 }
@@ -302,5 +318,7 @@ function dedupeReferences(refs: readonly ReferenceSpan[]): ReferenceSpan[] {
       deduped.set(key, ref);
     }
   }
-  return [...deduped.values()].sort((left, right) => left.range.start - right.range.start || left.range.end - right.range.end);
+  return [...deduped.values()].sort(
+    (left, right) => left.range.start - right.range.start || left.range.end - right.range.end,
+  );
 }

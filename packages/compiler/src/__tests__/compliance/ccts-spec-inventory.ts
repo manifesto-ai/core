@@ -13,7 +13,7 @@ function inventory(
   options?: {
     lifecycle?: RuleLifecycle;
     notes?: string;
-  }
+  },
 ): CompilerComplianceInventoryItem {
   return {
     ruleId,
@@ -33,13 +33,18 @@ function inventoryMany(
   options?: {
     lifecycle?: RuleLifecycle;
     notes?: string;
-  }
+  },
 ): CompilerComplianceInventoryItem[] {
   return ruleIds.map((ruleId) => inventory(ruleId, specSection, level, suite, options));
 }
 
 export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[] = [
-  ...inventoryMany(["A1", "A2", "A3", "A4", "A8", "A9", "A11", "A12", "A18", "A35"], "§2.1", "MUST", "determinism"),
+  ...inventoryMany(
+    ["A1", "A2", "A3", "A4", "A8", "A9", "A11", "A12", "A18", "A35"],
+    "§2.1",
+    "MUST",
+    "determinism",
+  ),
   inventory("A5", "§2.1", "MUST", "grammar"),
   inventory("A6", "§2.1", "MUST", "grammar"),
   inventory("A7", "§2.1", "MUST", "actions-and-control"),
@@ -52,7 +57,12 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
     notes: "Superseded by A20 in the current SPEC.",
   }),
   inventory("A17", "§2.1 / §11.6", "MUST", "grammar"),
-  ...inventoryMany(["A19", "A20", "A21", "A22", "A23", "A24", "A26", "A27", "A34"], "§2.1", "MUST", "lowering-and-ir"),
+  ...inventoryMany(
+    ["A19", "A20", "A21", "A22", "A23", "A24", "A26", "A27", "A34"],
+    "§2.1",
+    "MUST",
+    "lowering-and-ir",
+  ),
   ...inventoryMany(["A25", "A28"], "§2.1", "MUST", "context"),
   ...inventoryMany(["A29", "A30", "A31", "A32"], "§2.1", "MUST", "actions-and-control"),
   inventory("A33", "§2.1 / §4.3", "MUST", "state-and-computed"),
@@ -60,52 +70,144 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
   inventory("ADR-013a", "§4.7.3-§4.7.5 / §13.4", "MUST", "flow-composition"),
   inventory("ADR-013b", "§9.1.10", "MUST", "entity-primitives"),
 
-  ...inventoryMany(["ACTION-INPUT-1", "ACTION-INPUT-2", "ACTION-INPUT-3"], "§4.5.1", "MUST", "state-and-computed"),
+  ...inventoryMany(
+    ["ACTION-INPUT-1", "ACTION-INPUT-2", "ACTION-INPUT-3"],
+    "§4.5.1",
+    "MUST",
+    "state-and-computed",
+  ),
   inventory("FLOW-PARAM-1", "§4.7.5", "MUST", "flow-composition"),
   inventory("FLOW-PARAM-2", "§4.7.5", "MUST_NOT", "flow-composition"),
   inventory("FLOW-CALL-1", "§4.7.5", "MUST", "flow-composition"),
   inventory("FLOW-CALL-2", "§4.7.5", "MUST", "flow-composition"),
 
-  ...inventoryMany(["STATE-INIT-1", "STATE-INIT-2", "STATE-INIT-3", "STATE-INIT-4", "STATE-INIT-5"], "§4.3.1", "MUST", "state-and-computed"),
-  ...inventoryMany(["COMP-DEP-1", "COMP-DEP-2", "COMP-DEP-3", "COMP-DEP-4", "COMP-DEP-5"], "§4.4.1", "MUST", "state-and-computed"),
+  ...inventoryMany(
+    ["STATE-INIT-1", "STATE-INIT-2", "STATE-INIT-3", "STATE-INIT-4", "STATE-INIT-5"],
+    "§4.3.1",
+    "MUST",
+    "state-and-computed",
+  ),
+  ...inventoryMany(
+    ["COMP-DEP-1", "COMP-DEP-2", "COMP-DEP-3", "COMP-DEP-4", "COMP-DEP-5"],
+    "§4.4.1",
+    "MUST",
+    "state-and-computed",
+  ),
   inventory("COMP-DEP-6", "§4.4.1", "SHOULD", "state-and-computed"),
 
-  ...inventoryMany(["TYPE-LOWER-1", "TYPE-LOWER-2", "TYPE-LOWER-3", "TYPE-LOWER-4", "TYPE-LOWER-5"], "§5.6.2", "MUST", "state-and-computed"),
+  ...inventoryMany(
+    ["TYPE-LOWER-1", "TYPE-LOWER-2", "TYPE-LOWER-3", "TYPE-LOWER-4", "TYPE-LOWER-5"],
+    "§5.6.2",
+    "MUST",
+    "state-and-computed",
+  ),
   inventory("TYPE-LOWER-6", "§5.6.2", "MUST", "state-and-computed", {
-    notes: "Nullable schema-position types MUST lower through compatibility FieldSpec plus precise TypeDefinition.",
+    notes:
+      "Nullable schema-position types MUST lower through compatibility FieldSpec plus precise TypeDefinition.",
   }),
   inventory("TYPE-LOWER-7", "§5.6.2", "MUST", "state-and-computed", {
-    notes: "Record schema-position types MUST lower through compatibility FieldSpec plus precise TypeDefinition.",
+    notes:
+      "Record schema-position types MUST lower through compatibility FieldSpec plus precise TypeDefinition.",
   }),
   ...inventoryMany(["TYPE-LOWER-8", "TYPE-LOWER-9"], "§5.6.2", "MUST", "state-and-computed"),
-  inventory("PATCH-MERGE-1", "docs/mel/REFERENCE.md `patch merge` / docs/mel/SYNTAX.md `patch path merge expr`", "MUST", "state-and-computed"),
-  inventory("COALESCE-1", "docs/mel/REFERENCE.md `coalesce(a, b, ...)`", "MUST", "state-and-computed"),
-  inventory("COLLECT-VALUES-1", "docs/mel/REFERENCE.md `values(obj)` / docs/mel/SYNTAX.md computed examples", "MUST", "state-and-computed"),
+  inventory(
+    "PATCH-MERGE-1",
+    "docs/mel/REFERENCE.md `patch merge` / docs/mel/SYNTAX.md `patch path merge expr`",
+    "MUST",
+    "state-and-computed",
+  ),
+  inventory(
+    "COALESCE-1",
+    "docs/mel/REFERENCE.md `coalesce(a, b, ...)`",
+    "MUST",
+    "state-and-computed",
+  ),
+  inventory(
+    "COLLECT-VALUES-1",
+    "docs/mel/REFERENCE.md `values(obj)` / docs/mel/SYNTAX.md computed examples",
+    "MUST",
+    "state-and-computed",
+  ),
   inventory("SPREAD-OPERAND-1", "§5.2 Typing rules", "MUST", "state-and-computed", {
-    notes: "Object-literal spread operands must be object-shaped or `T | null` where `T` is object-shaped.",
+    notes:
+      "Object-literal spread operands must be object-shaped or `T | null` where `T` is object-shaped.",
   }),
   inventory("SPREAD-PATCH-1", "§5.2 Normative rules / Typing rules", "MUST", "state-and-computed", {
-    notes: "`patch path = { ...expr, key: value }` remains a set patch checked against the target type.",
+    notes:
+      "`patch path = { ...expr, key: value }` remains a set patch checked against the target type.",
   }),
   inventory("SPREAD-PRESENCE-1", "§5.2 Typing rules", "MUST", "state-and-computed", {
-    notes: "Spread result typing is presence-aware; optional contributors do not satisfy required targets without a later unconditional contribution.",
+    notes:
+      "Spread result typing is presence-aware; optional contributors do not satisfy required targets without a later unconditional contribution.",
   }),
   inventory("SPREAD-CONSUME-1", "§5.2 Typing rules", "MUST", "state-and-computed", {
-    notes: "Direct reads from optional spread-result fields are observed as `T | null` and require explicit normalization for non-null sinks.",
+    notes:
+      "Direct reads from optional spread-result fields are observed as `T | null` and require explicit normalization for non-null sinks.",
   }),
-  ...inventoryMany(["SGRAPH-1", "SGRAPH-2", "SGRAPH-3", "SGRAPH-4", "SGRAPH-5", "SGRAPH-6", "SGRAPH-7", "SGRAPH-8", "SGRAPH-9", "SGRAPH-10", "SGRAPH-11", "SGRAPH-12", "SGRAPH-13", "SGRAPH-14"], "SPEC v1.2.0 §6/§7/§8", "MUST", "introspection"),
+  ...inventoryMany(
+    [
+      "SGRAPH-1",
+      "SGRAPH-2",
+      "SGRAPH-3",
+      "SGRAPH-4",
+      "SGRAPH-5",
+      "SGRAPH-6",
+      "SGRAPH-7",
+      "SGRAPH-8",
+      "SGRAPH-9",
+      "SGRAPH-10",
+      "SGRAPH-11",
+      "SGRAPH-12",
+      "SGRAPH-13",
+      "SGRAPH-14",
+    ],
+    "SPEC v1.2.0 §6/§7/§8",
+    "MUST",
+    "introspection",
+  ),
   inventory("SGRAPH-15", "SPEC v1.2.0 §6", "SHOULD", "introspection"),
 
-  ...inventoryMany(["ENTITY-1", "ENTITY-2", "ENTITY-2a", "ENTITY-2b", "ENTITY-3", "ENTITY-4", "ENTITY-5", "ENTITY-7", "ENTITY-8", "ENTITY-9"], "§9.1.10", "MUST", "entity-primitives"),
-  ...inventoryMany(["TRANSFORM-1", "TRANSFORM-2", "TRANSFORM-3", "TRANSFORM-4", "TRANSFORM-5"], "§9.1.10", "MUST", "entity-primitives"),
+  ...inventoryMany(
+    [
+      "ENTITY-1",
+      "ENTITY-2",
+      "ENTITY-2a",
+      "ENTITY-2b",
+      "ENTITY-3",
+      "ENTITY-4",
+      "ENTITY-5",
+      "ENTITY-7",
+      "ENTITY-8",
+      "ENTITY-9",
+    ],
+    "§9.1.10",
+    "MUST",
+    "entity-primitives",
+  ),
+  ...inventoryMany(
+    ["TRANSFORM-1", "TRANSFORM-2", "TRANSFORM-3", "TRANSFORM-4", "TRANSFORM-5"],
+    "§9.1.10",
+    "MUST",
+    "entity-primitives",
+  ),
 
-  ...inventoryMany(["COMPILER-MEL-1", "COMPILER-MEL-2", "COMPILER-MEL-4"], "§21", "MUST", "lowering-and-ir"),
+  ...inventoryMany(
+    ["COMPILER-MEL-1", "COMPILER-MEL-2", "COMPILER-MEL-4"],
+    "§21",
+    "MUST",
+    "lowering-and-ir",
+  ),
   inventory("COMPILER-MEL-3", "§21", "MUST", "grammar"),
   inventory("COMPILER-MEL-2a", "§21", "MAY", "lowering-and-ir", {
     notes: "Optional lowering strategy equivalent to COMPILER-MEL-2.",
   }),
 
-  ...inventoryMany(["MEL-SUGAR-1", "MEL-SUGAR-2", "MEL-SUGAR-3", "MEL-SUGAR-4"], "§5.1", "MUST", "lowering-and-ir"),
+  ...inventoryMany(
+    ["MEL-SUGAR-1", "MEL-SUGAR-2", "MEL-SUGAR-3", "MEL-SUGAR-4"],
+    "§5.1",
+    "MUST",
+    "lowering-and-ir",
+  ),
   inventory("SPREAD-LOWER-1", "§5.2 Normative rules", "MUST", "lowering-and-ir", {
     notes: "Object-literal spread lowers to canonical `merge(...)` with source order preserved.",
   }),
@@ -113,44 +215,138 @@ export const COMPILER_SPEC_INVENTORY: readonly CompilerComplianceInventoryItem[]
     notes: "Direct `merge()` typing must stay aligned with the lowered spread form.",
   }),
 
-  ...inventoryMany(["MEL-EDIT-1", "MEL-EDIT-3", "MEL-EDIT-4", "MEL-EDIT-5", "MEL-EDIT-7", "MEL-EDIT-8", "MEL-EDIT-9"], "§9.4", "MUST", "source-editing"),
+  ...inventoryMany(
+    [
+      "MEL-EDIT-1",
+      "MEL-EDIT-3",
+      "MEL-EDIT-4",
+      "MEL-EDIT-5",
+      "MEL-EDIT-7",
+      "MEL-EDIT-8",
+      "MEL-EDIT-9",
+    ],
+    "§9.4",
+    "MUST",
+    "source-editing",
+  ),
   inventory("MEL-EDIT-2", "§9.4", "MUST_NOT", "source-editing"),
   inventory("MEL-EDIT-6", "§9.4", "MUST_NOT", "source-editing"),
-  ...inventoryMany(["MEL-EDIT-10", "MEL-EDIT-11", "MEL-EDIT-12"], "§9.4 / §9.5", "MUST", "source-editing"),
-  ...inventoryMany(["MEL-EDIT-13", "MEL-EDIT-14", "MEL-EDIT-15", "MEL-EDIT-16"], "§9.4 / §9.6", "MUST", "source-editing"),
+  ...inventoryMany(
+    ["MEL-EDIT-10", "MEL-EDIT-11", "MEL-EDIT-12"],
+    "§9.4 / §9.5",
+    "MUST",
+    "source-editing",
+  ),
+  ...inventoryMany(
+    ["MEL-EDIT-13", "MEL-EDIT-14", "MEL-EDIT-15", "MEL-EDIT-16"],
+    "§9.4 / §9.6",
+    "MUST",
+    "source-editing",
+  ),
   inventory("MEL-EDIT-17", "§9.4 / §9.6", "MUST_NOT", "source-editing"),
   inventory("MEL-EDIT-18", "§9.4 / §9.5", "MUST", "source-editing"),
 
-  ...inventoryMany(["META-1", "META-2", "META-3", "META-4", "META-5", "META-6", "META-7", "META-8", "META-9", "META-10"], "§8.2-§8.4", "MUST", "annotations"),
-  ...inventoryMany(["INV-META-1", "INV-META-2", "INV-META-3", "INV-META-4", "INV-META-5", "INV-META-6"], "§8.4", "CRITICAL", "annotations"),
+  ...inventoryMany(
+    [
+      "META-1",
+      "META-2",
+      "META-3",
+      "META-4",
+      "META-5",
+      "META-6",
+      "META-7",
+      "META-8",
+      "META-9",
+      "META-10",
+    ],
+    "§8.2-§8.4",
+    "MUST",
+    "annotations",
+  ),
+  ...inventoryMany(
+    ["INV-META-1", "INV-META-2", "INV-META-3", "INV-META-4", "INV-META-5", "INV-META-6"],
+    "§8.4",
+    "CRITICAL",
+    "annotations",
+  ),
 
-  ...inventoryMany(["AD-COMP-LOW-001", "AD-COMP-LOW-002", "AD-COMP-LOW-003"], "§16", "MUST", "lowering-and-ir"),
+  ...inventoryMany(
+    ["AD-COMP-LOW-001", "AD-COMP-LOW-002", "AD-COMP-LOW-003"],
+    "§16",
+    "MUST",
+    "lowering-and-ir",
+  ),
   inventory("SCHEMA-RESERVED-1", "§17.4 / §21", "MUST", "lowering-and-ir"),
 
   ...inventoryMany(["E001", "E002"], "§11.6", "MUST", "context"),
   ...inventoryMany(["E003", "E004"], "§11.6", "MUST", "grammar"),
   inventory("SPREAD-SURFACE-1", "§5.2", "MUST", "grammar", {
-    notes: "Object-literal spread is the sole bounded parser-level shorthand admitted in current MEL.",
+    notes:
+      "Object-literal spread is the sole bounded parser-level shorthand admitted in current MEL.",
   }),
   inventory("SPREAD-DIAG-1", "§5.2 / §9", "MUST", "grammar", {
-    notes: "Adjacent JS-like forms around spread must remain rejected with spread-specific diagnostics.",
+    notes:
+      "Adjacent JS-like forms around spread must remain rejected with spread-specific diagnostics.",
   }),
   inventory("E005", "§13.6", "MUST", "context"),
-  ...inventoryMany(["E006", "E007", "E008", "E009", "E010", "E011"], "§13.6", "MUST", "actions-and-control"),
+  ...inventoryMany(
+    ["E006", "E007", "E008", "E009", "E010", "E011"],
+    "§13.6",
+    "MUST",
+    "actions-and-control",
+  ),
   inventory("E012", "§13.6", "MUST", "state-and-computed"),
-  ...inventoryMany(["E013", "E014", "E015", "E016", "E017", "E018", "E019", "E020", "E021", "E022", "E023", "E024"], "§13.6", "MUST", "flow-composition"),
-  ...inventoryMany(["E030", "E030a", "E030b", "E031", "E032", "E033", "E034", "E035"], "§13.6", "MUST", "entity-primitives"),
+  ...inventoryMany(
+    [
+      "E013",
+      "E014",
+      "E015",
+      "E016",
+      "E017",
+      "E018",
+      "E019",
+      "E020",
+      "E021",
+      "E022",
+      "E023",
+      "E024",
+    ],
+    "§13.6",
+    "MUST",
+    "flow-composition",
+  ),
+  ...inventoryMany(
+    ["E030", "E030a", "E030b", "E031", "E032", "E033", "E034", "E035"],
+    "§13.6",
+    "MUST",
+    "entity-primitives",
+  ),
   ...inventoryMany(["E040", "E041", "E042", "E043", "E044"], "§13.6", "MUST", "state-and-computed"),
   ...inventoryMany(["E049", "E050", "E051", "E052"], "§13.6", "MUST", "lowering-and-ir"),
   ...inventoryMany(["E053", "E054", "E055", "E056", "E057", "E058"], "§9", "MUST", "annotations"),
-  ...inventoryMany(["E_STALE_MODULE", "E_FRAGMENT_PARSE_FAILED", "E_FRAGMENT_SCOPE_VIOLATION", "E_TARGET_NOT_FOUND", "E_TARGET_KIND_MISMATCH", "E_UNSAFE_RENAME_AMBIGUOUS", "E_REMOVE_BLOCKED_BY_REFERENCES"], "§9.6 / §10", "MUST", "source-editing"),
+  ...inventoryMany(
+    [
+      "E_STALE_MODULE",
+      "E_FRAGMENT_PARSE_FAILED",
+      "E_FRAGMENT_SCOPE_VIOLATION",
+      "E_TARGET_NOT_FOUND",
+      "E_TARGET_KIND_MISMATCH",
+      "E_UNSAFE_RENAME_AMBIGUOUS",
+      "E_REMOVE_BLOCKED_BY_REFERENCES",
+    ],
+    "§9.6 / §10",
+    "MUST",
+    "source-editing",
+  ),
   inventory("E045", "§13.6", "MUST", "state-and-computed", {
     lifecycle: "superseded",
-    notes: "Superseded when nullable schema-position types became supported through TypeDefinition-backed runtime validation.",
+    notes:
+      "Superseded when nullable schema-position types became supported through TypeDefinition-backed runtime validation.",
   }),
   inventory("E046", "§13.6", "MUST", "state-and-computed", {
     lifecycle: "superseded",
-    notes: "Superseded when Record schema-position types became supported through TypeDefinition-backed runtime validation.",
+    notes:
+      "Superseded when Record schema-position types became supported through TypeDefinition-backed runtime validation.",
   }),
 ] as const;
 

@@ -18,15 +18,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
-import {
-  assertRunToCompletion,
-  expectCompliance,
-} from "../hcts-assertions.js";
-import {
-  createTestSchema,
-  createTestIntent,
-  createTestSnapshot,
-} from "../../helpers/index.js";
+import { assertRunToCompletion, expectCompliance } from "../hcts-assertions.js";
+import { createTestSchema, createTestIntent, createTestSnapshot } from "../../helpers/index.js";
 import { createTestEffectRunner } from "../hcts-adapter.js";
 
 describe("HCTS Job Tests", () => {
@@ -56,17 +49,20 @@ describe("HCTS Job Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set", path: pp("step1"),
+                  op: "set",
+                  path: pp("step1"),
                   value: { kind: "lit", value: true },
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("step2"),
+                  op: "set",
+                  path: pp("step2"),
                   value: { kind: "lit", value: true },
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("step3"),
+                  op: "set",
+                  path: pp("step3"),
                   value: { kind: "lit", value: true },
                 },
               ],
@@ -106,17 +102,20 @@ describe("HCTS Job Tests", () => {
               steps: [
                 {
                   kind: "patch",
-                  op: "set", path: pp("a"),
+                  op: "set",
+                  path: pp("a"),
                   value: { kind: "lit", value: 1 },
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("b"),
+                  op: "set",
+                  path: pp("b"),
                   value: { kind: "lit", value: 2 },
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("c"),
+                  op: "set",
+                  path: pp("c"),
                   value: { kind: "lit", value: 3 },
                 },
               ],
@@ -155,7 +154,8 @@ describe("HCTS Job Tests", () => {
           start: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("started"),
+              op: "set",
+              path: pp("started"),
               value: { kind: "lit", value: true },
             },
           },
@@ -173,7 +173,7 @@ describe("HCTS Job Tests", () => {
 
       const trace = adapter.getTrace(executionKey);
       const jobStartEvents = trace.filter(
-        (e) => e.t === "job:start" && e.jobType === "StartIntent"
+        (e) => e.t === "job:start" && e.jobType === "StartIntent",
       );
 
       expect(jobStartEvents.length).toBeGreaterThan(0);
@@ -197,7 +197,8 @@ describe("HCTS Job Tests", () => {
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("continued"),
+                  op: "set",
+                  path: pp("continued"),
                   value: { kind: "lit", value: true },
                 },
               ],

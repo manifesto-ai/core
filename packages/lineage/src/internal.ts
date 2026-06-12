@@ -9,10 +9,7 @@ import {
   type Snapshot,
   type TypedIntent,
 } from "@manifesto-ai/sdk";
-import type {
-  HostDispatchOptions,
-  LineageRuntimeKernel,
-} from "@manifesto-ai/sdk/provider";
+import type { HostDispatchOptions, LineageRuntimeKernel } from "@manifesto-ai/sdk/provider";
 
 import type { LineageConfig } from "./runtime-types.js";
 import type {
@@ -112,19 +109,15 @@ export type SealedIntentResult<T extends ManifestoDomainShape> = {
   readonly publishedSnapshot?: Snapshot<T["state"]>;
 };
 
-export type LineageSealRuntimeFailure<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = Error & {
-  readonly stage: "host" | "seal";
-  readonly hostResult?: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>;
-};
+export type LineageSealRuntimeFailure<T extends ManifestoDomainShape = ManifestoDomainShape> =
+  Error & {
+    readonly stage: "host" | "seal";
+    readonly hostResult?: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>;
+  };
 
 export interface LineageRuntimeController<T extends ManifestoDomainShape> {
   ensureReady(): Promise<void>;
-  sealIntent(
-    intent: TypedIntent<T>,
-    options?: SealIntentOptions,
-  ): Promise<SealedIntentResult<T>>;
+  sealIntent(intent: TypedIntent<T>, options?: SealIntentOptions): Promise<SealedIntentResult<T>>;
   getWorld(worldId: WorldId): Promise<WorldRecord | null>;
   getWorldSnapshot(worldId: WorldId): Promise<CanonicalSnapshot<T["state"]> | null>;
   getLineage(): Promise<WorldLineage>;
@@ -145,12 +138,7 @@ function createLineageSealRuntimeFailure<T extends ManifestoDomainShape>(
   hostResult?: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>,
 ): LineageSealRuntimeFailure<T> {
   const failure = toError(error) as LineageSealRuntimeFailure<T>;
-  return Object.assign(
-    failure,
-    hostResult !== undefined
-      ? { stage, hostResult }
-      : { stage },
-  );
+  return Object.assign(failure, hostResult !== undefined ? { stage, hostResult } : { stage });
 }
 
 export function toLineageSealRuntimeFailure<T extends ManifestoDomainShape>(
@@ -161,15 +149,10 @@ export function toLineageSealRuntimeFailure<T extends ManifestoDomainShape>(
   }
 
   const candidate = error as LineageSealRuntimeFailure<T>;
-  return candidate.stage === "host" || candidate.stage === "seal"
-    ? candidate
-    : null;
+  return candidate.stage === "host" || candidate.stage === "seal" ? candidate : null;
 }
 
-export function attachLineageDecoration<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
->(
+export function attachLineageDecoration<T extends ManifestoDomainShape, Laws extends BaseLaws>(
   manifesto: ComposableManifesto<T, Laws & LineageLaws>,
   decoration: LineageDecoration,
 ): InternalLineageComposableManifesto<T, Laws> {
@@ -183,10 +166,7 @@ export function attachLineageDecoration<
   return manifesto as InternalLineageComposableManifesto<T, Laws>;
 }
 
-export function getLineageDecoration<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
->(
+export function getLineageDecoration<T extends ManifestoDomainShape, Laws extends BaseLaws>(
   manifesto: ComposableManifesto<T, Laws>,
 ): LineageDecoration | null {
   const internal = manifesto as Partial<InternalLineageComposableManifesto<T, Laws>>;
@@ -284,10 +264,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
 
       const scopedSealTarget =
         options?.branchId !== undefined || options?.baseWorldId !== undefined;
-      if (
-        (options?.branchId === undefined) !==
-        (options?.baseWorldId === undefined)
-      ) {
+      if ((options?.branchId === undefined) !== (options?.baseWorldId === undefined)) {
         throw createLineageSealRuntimeFailure<T>(
           new ManifestoError(
             "LINEAGE_SCOPED_SEAL_TARGET_INCOMPLETE",
@@ -309,9 +286,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
 
       const targetBranchId = options?.branchId ?? currentBranchId;
       const targetBaseWorldId = options?.baseWorldId ?? currentCompletedWorldId;
-      const previousVisibleSnapshot = scopedSealTarget
-        ? kernel.getVisibleCoreSnapshot()
-        : null;
+      const previousVisibleSnapshot = scopedSealTarget ? kernel.getVisibleCoreSnapshot() : null;
       let sealViewRestored = false;
       const restoreSealView = (): void => {
         if (sealViewRestored) {
@@ -364,7 +339,8 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
       }
 
       const actionAvailable = restoreScopedSealViewOnThrow(() =>
-        kernel.isActionAvailable(enrichedIntent.type as keyof T["actions"]));
+        kernel.isActionAvailable(enrichedIntent.type as keyof T["actions"]),
+      );
       if (!actionAvailable) {
         if (scopedSealTarget) {
           restoreSealView();
@@ -372,7 +348,8 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         return kernel.rejectUnavailable(enrichedIntent);
       }
       const invalidInput = restoreScopedSealViewOnThrow(() =>
-        kernel.validateIntentInputFor(kernel.getCanonicalSnapshot(), enrichedIntent));
+        kernel.validateIntentInputFor(kernel.getCanonicalSnapshot(), enrichedIntent),
+      );
       if (invalidInput) {
         if (scopedSealTarget) {
           restoreSealView();
@@ -380,7 +357,8 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         return kernel.rejectInvalidInput(enrichedIntent, invalidInput.message);
       }
       const intentDispatchable = restoreScopedSealViewOnThrow(() =>
-        kernel.isIntentDispatchableFor(kernel.getCanonicalSnapshot(), enrichedIntent));
+        kernel.isIntentDispatchableFor(kernel.getCanonicalSnapshot(), enrichedIntent),
+      );
       if (!intentDispatchable) {
         if (scopedSealTarget) {
           restoreSealView();
@@ -388,22 +366,18 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         return kernel.rejectNotDispatchable(enrichedIntent);
       }
 
-      const transitionContext = options?.context ?? restoreScopedSealViewOnThrow(() =>
-        kernel.createComputeContext(
-          enrichedIntent,
-          options?.externalContext,
-        ),
-      );
+      const transitionContext =
+        options?.context ??
+        restoreScopedSealViewOnThrow(() =>
+          kernel.createComputeContext(enrichedIntent, options?.externalContext),
+        );
 
       let result: Awaited<ReturnType<LineageControllerKernel<T>["executeHost"]>>;
       try {
-        result = await kernel.executeHost(
-          enrichedIntent,
-          {
-            ...(options?.executionKey !== undefined ? { key: options.executionKey } : {}),
-            context: transitionContext,
-          },
-        );
+        result = await kernel.executeHost(enrichedIntent, {
+          ...(options?.executionKey !== undefined ? { key: options.executionKey } : {}),
+          context: transitionContext,
+        });
       } catch (error) {
         restoreSealView();
         throw createLineageSealRuntimeFailure<T>(error, "host");
@@ -455,10 +429,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         throw createLineageSealRuntimeFailure<T>(error, "seal", result);
       }
 
-      if (
-        prepared.branchChange.headAdvanced &&
-        prepared.branchId === currentBranchId
-      ) {
+      if (prepared.branchChange.headAdvanced && prepared.branchId === currentBranchId) {
         currentCompletedWorldId = prepared.worldId;
       }
 
@@ -495,9 +466,7 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
     return service.getWorld(worldId);
   }
 
-  async function getWorldSnapshot(
-    worldId: WorldId,
-  ): Promise<CanonicalSnapshot<T["state"]> | null> {
+  async function getWorldSnapshot(worldId: WorldId): Promise<CanonicalSnapshot<T["state"]> | null> {
     await ensureReady();
     const snapshot = await service.getSnapshot(worldId);
     return snapshot as CanonicalSnapshot<T["state"]> | null;
@@ -665,7 +634,6 @@ function shouldAdvanceLineageHead(
   return finalTrace?.terminatedBy === "complete";
 }
 
-
 /**
  * Structural check for failure evidence on a host result: a host-level
  * error, a system lastError, or a host-owned lastError under
@@ -683,13 +651,11 @@ function hasRecordedFailureEvidence(
     return true;
   }
 
-  const hostNamespace = (
-    result.snapshot.namespaces as Record<string, unknown> | undefined
-  )?.host;
+  const hostNamespace = (result.snapshot.namespaces as Record<string, unknown> | undefined)?.host;
   if (
-    hostNamespace !== null
-    && typeof hostNamespace === "object"
-    && (hostNamespace as { readonly lastError?: unknown }).lastError
+    hostNamespace !== null &&
+    typeof hostNamespace === "object" &&
+    (hostNamespace as { readonly lastError?: unknown }).lastError
   ) {
     return true;
   }
@@ -698,7 +664,5 @@ function hasRecordedFailureEvidence(
 }
 
 function toError(error: unknown): Error {
-  return error instanceof Error
-    ? error
-    : new Error(String(error));
+  return error instanceof Error ? error : new Error(String(error));
 }

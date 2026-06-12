@@ -1,9 +1,5 @@
 import { AlreadyActivatedError, ManifestoError } from "../errors.js";
-import type {
-  BaseLaws,
-  ComposableManifesto,
-  ManifestoDomainShape,
-} from "../types.js";
+import type { BaseLaws, ComposableManifesto, ManifestoDomainShape } from "../types.js";
 import type { ExtensionKernel } from "../extensions-types.js";
 import {
   ACTIVATION_STATE,
@@ -25,10 +21,7 @@ export {
 // a thin compatibility layer: aliases, attachment helpers, factory
 // re-exports, and the symbols decorators need.
 export * from "../runtime/kernel-contract.js";
-import type {
-  RuntimeExtensionFacet,
-  RuntimeKernelFactory,
-} from "../runtime/kernel-contract.js";
+import type { RuntimeExtensionFacet, RuntimeKernelFactory } from "../runtime/kernel-contract.js";
 
 export type InternalComposableManifesto<
   T extends ManifestoDomainShape,
@@ -42,10 +35,7 @@ type ExtensionKernelCarrier<T extends ManifestoDomainShape> = {
   readonly [EXTENSION_KERNEL]: ExtensionKernel<T>;
 };
 
-export function attachRuntimeKernelFactory<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
->(
+export function attachRuntimeKernelFactory<T extends ManifestoDomainShape, Laws extends BaseLaws>(
   manifesto: ComposableManifesto<T, Laws>,
   factory: RuntimeKernelFactory<T>,
   activationState?: ActivationState,
@@ -74,10 +64,9 @@ export function attachRuntimeKernelFactory<
   return manifesto as InternalComposableManifesto<T, Laws>;
 }
 
-export function getRuntimeKernelFactory<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
->(manifesto: ComposableManifesto<T, Laws>): RuntimeKernelFactory<T> {
+export function getRuntimeKernelFactory<T extends ManifestoDomainShape, Laws extends BaseLaws>(
+  manifesto: ComposableManifesto<T, Laws>,
+): RuntimeKernelFactory<T> {
   const internal = manifesto as Partial<InternalComposableManifesto<T, Laws>>;
   const factory = internal[RUNTIME_KERNEL_FACTORY];
 
@@ -91,10 +80,10 @@ export function getRuntimeKernelFactory<
   return factory;
 }
 
-export function attachExtensionKernel<
-  T extends ManifestoDomainShape,
-  TInstance extends object,
->(runtime: TInstance, kernel: RuntimeExtensionFacet<T>): TInstance {
+export function attachExtensionKernel<T extends ManifestoDomainShape, TInstance extends object>(
+  runtime: TInstance,
+  kernel: RuntimeExtensionFacet<T>,
+): TInstance {
   Object.defineProperty(runtime, EXTENSION_KERNEL, {
     enumerable: false,
     configurable: false,
@@ -112,45 +101,36 @@ export function getAttachedExtensionKernel<T extends ManifestoDomainShape>(
   const kernel = internal[EXTENSION_KERNEL];
 
   if (!kernel) {
-    throw new ManifestoError(
-      "SCHEMA_ERROR",
-      "Activated runtime is missing its extension kernel",
-    );
+    throw new ManifestoError("SCHEMA_ERROR", "Activated runtime is missing its extension kernel");
   }
 
   return kernel;
 }
 
-export function getActivationState<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
->(manifesto: ComposableManifesto<T, Laws>): ActivationState {
+export function getActivationState<T extends ManifestoDomainShape, Laws extends BaseLaws>(
+  manifesto: ComposableManifesto<T, Laws>,
+): ActivationState {
   const internal = manifesto as Partial<InternalComposableManifesto<T, Laws>>;
   const state = internal[ACTIVATION_STATE];
 
   if (!state) {
-    throw new ManifestoError(
-      "SCHEMA_ERROR",
-      "ComposableManifesto is missing its activation state",
-    );
+    throw new ManifestoError("SCHEMA_ERROR", "ComposableManifesto is missing its activation state");
   }
 
   return state;
 }
 
-export function assertComposableNotActivated<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
->(manifesto: ComposableManifesto<T, Laws>): void {
+export function assertComposableNotActivated<T extends ManifestoDomainShape, Laws extends BaseLaws>(
+  manifesto: ComposableManifesto<T, Laws>,
+): void {
   if (getActivationState(manifesto).activated) {
     throw new AlreadyActivatedError();
   }
 }
 
-export function activateComposable<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
->(manifesto: ComposableManifesto<T, Laws>): void {
+export function activateComposable<T extends ManifestoDomainShape, Laws extends BaseLaws>(
+  manifesto: ComposableManifesto<T, Laws>,
+): void {
   const state = getActivationState(manifesto);
   if (state.activated) {
     throw new AlreadyActivatedError();
@@ -158,10 +138,9 @@ export function activateComposable<
   state.activated = true;
 }
 
-function getExistingActivationState<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
->(manifesto: ComposableManifesto<T, Laws>): ActivationState | null {
+function getExistingActivationState<T extends ManifestoDomainShape, Laws extends BaseLaws>(
+  manifesto: ComposableManifesto<T, Laws>,
+): ActivationState | null {
   const internal = manifesto as Partial<InternalComposableManifesto<T, Laws>>;
   return internal[ACTIVATION_STATE] ?? null;
 }

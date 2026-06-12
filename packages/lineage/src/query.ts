@@ -42,25 +42,28 @@ export function toWorldHead(branch: PersistedBranchEntry, world: WorldRecord): W
 
 export function getBranchById(
   branches: readonly PersistedBranchEntry[],
-  branchId: string
+  branchId: string,
 ): PersistedBranchEntry | null {
   return branches.find((branch) => branch.id === branchId) ?? null;
 }
 
-export async function getHeadsFromStore(
-  store: LineageStore
-): Promise<readonly WorldHead[]> {
+export async function getHeadsFromStore(store: LineageStore): Promise<readonly WorldHead[]> {
   const branches = await store.getBranches();
 
-  return Promise.all(branches.map(async (branch) => {
-    const world = await store.getWorld(branch.head);
-    assertLineage(world != null, `LIN-HEAD-6 violation: missing head world ${branch.head} for branch ${branch.id}`);
-    assertLineage(
-      world.terminalStatus === "completed",
-      `LIN-HEAD-3 violation: head world ${branch.head} for branch ${branch.id} must be completed`
-    );
-    return toWorldHead(branch, world);
-  }));
+  return Promise.all(
+    branches.map(async (branch) => {
+      const world = await store.getWorld(branch.head);
+      assertLineage(
+        world != null,
+        `LIN-HEAD-6 violation: missing head world ${branch.head} for branch ${branch.id}`,
+      );
+      assertLineage(
+        world.terminalStatus === "completed",
+        `LIN-HEAD-3 violation: head world ${branch.head} for branch ${branch.id} must be completed`,
+      );
+      return toWorldHead(branch, world);
+    }),
+  );
 }
 
 export function selectLatestHead(heads: readonly WorldHead[]): WorldHead | null {
@@ -84,7 +87,9 @@ export function selectLatestHead(heads: readonly WorldHead[]): WorldHead | null 
   return sorted[0];
 }
 
-function normalizeNamespaces(namespaces: Snapshot["namespaces"] | null | undefined): Snapshot["namespaces"] {
+function normalizeNamespaces(
+  namespaces: Snapshot["namespaces"] | null | undefined,
+): Snapshot["namespaces"] {
   const normalized: Record<string, unknown> = {};
 
   for (const key of Object.keys(namespaces ?? {})) {
@@ -95,7 +100,10 @@ function normalizeNamespaces(namespaces: Snapshot["namespaces"] | null | undefin
 }
 
 export function migrateStoredSnapshotShape(stored: unknown): Snapshot {
-  assertLineage(isRecord(stored), "LIN-RESTORE-ONTO-1 violation: stored snapshot must be an object");
+  assertLineage(
+    isRecord(stored),
+    "LIN-RESTORE-ONTO-1 violation: stored snapshot must be an object",
+  );
 
   const stateSource = isRecord(stored.state)
     ? stored.state
@@ -152,10 +160,7 @@ export function normalizeForRestore(snapshot: Snapshot): Snapshot {
   };
 }
 
-export async function restoreSnapshot(
-  store: LineageStore,
-  worldId: WorldId
-): Promise<Snapshot> {
+export async function restoreSnapshot(store: LineageStore, worldId: WorldId): Promise<Snapshot> {
   const stored = await store.getSnapshot(worldId);
   assertLineage(stored != null, `LIN-RESUME-2 violation: missing snapshot for world ${worldId}`);
 
@@ -194,26 +199,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isSystemStatus(value: unknown): value is Snapshot["system"]["status"] {
-  return value === "idle"
-    || value === "computing"
-    || value === "pending"
-    || value === "error";
+  return value === "idle" || value === "computing" || value === "pending" || value === "error";
 }
 
 function isErrorValue(value: unknown): value is NonNullable<Snapshot["system"]["lastError"]> {
-  return isRecord(value)
-    && typeof value.code === "string"
-    && typeof value.message === "string"
-    && isRecord(value.source)
-    && typeof value.source.actionId === "string"
-    && typeof value.source.nodePath === "string"
-    && typeof value.timestamp === "number";
+  return (
+    isRecord(value) &&
+    typeof value.code === "string" &&
+    typeof value.message === "string" &&
+    isRecord(value.source) &&
+    typeof value.source.actionId === "string" &&
+    typeof value.source.nodePath === "string" &&
+    typeof value.timestamp === "number"
+  );
 }
 
 export async function buildWorldLineage(store: LineageStore): Promise<WorldLineage> {
   const enumerable = store as EnumerableLineageStore;
-  const worlds = enumerable.listWorlds?.() ?? await collectWorldsFromBranches(store);
-  const edges = enumerable.listEdges?.() ?? await collectEdgesFromWorlds(store, worlds);
+  const worlds = enumerable.listWorlds?.() ?? (await collectWorldsFromBranches(store));
+  const edges = enumerable.listEdges?.() ?? (await collectEdgesFromWorlds(store, worlds));
 
   assertLineage(worlds.length > 0, "LIN-RESUME-1 violation: lineage is empty");
 
@@ -262,7 +266,7 @@ async function collectWorldsFromBranches(store: LineageStore): Promise<readonly 
 
 async function collectEdgesFromWorlds(
   store: LineageStore,
-  worlds: readonly WorldRecord[]
+  worlds: readonly WorldRecord[],
 ): Promise<readonly WorldEdge[]> {
   const edges = new Map<string, WorldEdge>();
 

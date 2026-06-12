@@ -33,7 +33,7 @@ export function createError(
   actionId: string,
   nodePath: string,
   timestamp: number,
-  context?: Record<string, unknown>
+  context?: Record<string, unknown>,
 ): ErrorValue {
   return {
     code,

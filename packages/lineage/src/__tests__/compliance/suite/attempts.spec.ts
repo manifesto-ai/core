@@ -12,7 +12,7 @@ describe("LCTS Attempts Suite", () => {
   it(
     caseTitle(
       LCTS_CASES.ATTEMPT_PERSISTENCE,
-      "Every successful seal persists exactly one SealAttempt and exposes attempt chronology by world and branch."
+      "Every successful seal persists exactly one SealAttempt and exposes attempt chronology by world and branch.",
     ),
     async () => {
       const { service, genesis } = await createBootstrappedLineage();
@@ -30,23 +30,32 @@ describe("LCTS Attempts Suite", () => {
       const branchAttempts = await service.getAttemptsByBranch(next.branchId);
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("MRKL-ATTEMPT-2"), worldAttempts.length === 1 && branchAttempts.length === 2, {
-          passMessage: "Successful seals persist attempt records and expose them by world and branch.",
-          failMessage: "Seal attempt persistence/query surface is incomplete.",
-          evidence: [noteEvidence("Genesis contributes one branch attempt; the completed next seal contributes one world-specific attempt.")],
-        }),
+        evaluateRule(
+          getRuleOrThrow("MRKL-ATTEMPT-2"),
+          worldAttempts.length === 1 && branchAttempts.length === 2,
+          {
+            passMessage:
+              "Successful seals persist attempt records and expose them by world and branch.",
+            failMessage: "Seal attempt persistence/query surface is incomplete.",
+            evidence: [
+              noteEvidence(
+                "Genesis contributes one branch attempt; the completed next seal contributes one world-specific attempt.",
+              ),
+            ],
+          },
+        ),
       ]);
 
       expect(worldAttempts).toHaveLength(1);
       expect(worldAttempts[0]?.reused).toBe(false);
       expect(branchAttempts).toHaveLength(2);
-    }
+    },
   );
 
   it(
     caseTitle(
       LCTS_CASES.IDEMPOTENT_REUSE,
-      "Same-parent same-snapshot seals reuse the existing world while preserving first-written substrate."
+      "Same-parent same-snapshot seals reuse the existing world while preserving first-written substrate.",
     ),
     async () => {
       const { service } = await createBootstrappedLineage();
@@ -65,7 +74,7 @@ describe("LCTS Attempts Suite", () => {
             host: { trace: "first" },
             mel: { guards: { intent: {} } },
           },
-        }
+        },
       );
       const mainBranch = await service.getActiveBranch();
       const firstCommit = await service.prepareSealNext({
@@ -96,7 +105,7 @@ describe("LCTS Attempts Suite", () => {
             host: { trace: "second" },
             mel: { guards: { intent: {} } },
           },
-        }
+        },
       );
       const reusedCommit = await service.prepareSealNext({
         schemaHash: "schema-hash",
@@ -115,24 +124,41 @@ describe("LCTS Attempts Suite", () => {
       const forkBranch = await service.getBranch(forkBranchId);
 
       expectAllCompliance([
-        evaluateRule(getRuleOrThrow("MRKL-REUSE-1"), reusedCommit.worldId === firstCommit.worldId && lineage.worlds.size === 2, {
-          passMessage: "Same-parent same-snapshot seal reused the existing world identity.",
-          failMessage: "Same-parent same-snapshot seal created a duplicate world instead of reusing it.",
-        }),
-        evaluateRule(getRuleOrThrow("MRKL-REUSE-2"), attemptsForWorld.length === 2 && attemptsForWorld[1]?.reused === true, {
-          passMessage: "Reuse commit still persisted a distinct SealAttempt marked reused=true.",
-          failMessage: "Reuse commit did not persist a distinct reused SealAttempt.",
-          evidence: [noteEvidence("Committed the same parent+snapshot on a fork branch after the main branch had already sealed it.")],
-        }),
-        evaluateRule(getRuleOrThrow("MRKL-STORE-4"), JSON.stringify(storedSnapshot) === JSON.stringify(firstSnapshot), {
-          passMessage: "Reuse preserved the first-written snapshot substrate.",
-          failMessage: "Reuse overwrote the stored snapshot substrate for the reused world.",
-        }),
+        evaluateRule(
+          getRuleOrThrow("MRKL-REUSE-1"),
+          reusedCommit.worldId === firstCommit.worldId && lineage.worlds.size === 2,
+          {
+            passMessage: "Same-parent same-snapshot seal reused the existing world identity.",
+            failMessage:
+              "Same-parent same-snapshot seal created a duplicate world instead of reusing it.",
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("MRKL-REUSE-2"),
+          attemptsForWorld.length === 2 && attemptsForWorld[1]?.reused === true,
+          {
+            passMessage: "Reuse commit still persisted a distinct SealAttempt marked reused=true.",
+            failMessage: "Reuse commit did not persist a distinct reused SealAttempt.",
+            evidence: [
+              noteEvidence(
+                "Committed the same parent+snapshot on a fork branch after the main branch had already sealed it.",
+              ),
+            ],
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("MRKL-STORE-4"),
+          JSON.stringify(storedSnapshot) === JSON.stringify(firstSnapshot),
+          {
+            passMessage: "Reuse preserved the first-written snapshot substrate.",
+            failMessage: "Reuse overwrote the stored snapshot substrate for the reused world.",
+          },
+        ),
       ]);
 
       expect(forkBranch?.head).toBe(firstCommit.worldId);
       expect(forkBranch?.tip).toBe(firstCommit.worldId);
       expect(storedSnapshot).toEqual(firstSnapshot);
-    }
+    },
   );
 });

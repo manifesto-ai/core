@@ -1,11 +1,7 @@
 import { type SchemaGraph as RawSchemaGraph } from "@manifesto-ai/compiler";
 
 import { ManifestoError } from "../errors.js";
-import type {
-  SchemaGraph,
-  SchemaGraphNodeId,
-  SchemaGraphNodeRef,
-} from "../types.js";
+import type { SchemaGraph, SchemaGraphNodeId, SchemaGraphNodeRef } from "../types.js";
 
 const SCHEMA_GRAPH_NODE_ID_PATTERN = /^(state|computed|action):.+$/;
 
@@ -32,17 +28,11 @@ export function createSdkSchemaGraph(rawGraph: RawSchemaGraph): SchemaGraph {
     link(incoming, edge.to, edge.from);
   }
 
-  const materialize = (
-    included: ReadonlySet<SchemaGraphNodeId>,
-  ): SchemaGraph => {
+  const materialize = (included: ReadonlySet<SchemaGraphNodeId>): SchemaGraph => {
     const subgraph: RawSchemaGraph = Object.freeze({
-      nodes: Object.freeze(
-        rawGraph.nodes.filter((node) => included.has(node.id)),
-      ),
+      nodes: Object.freeze(rawGraph.nodes.filter((node) => included.has(node.id))),
       edges: Object.freeze(
-        rawGraph.edges.filter(
-          (edge) => included.has(edge.from) && included.has(edge.to),
-        ),
+        rawGraph.edges.filter((edge) => included.has(edge.from) && included.has(edge.to)),
       ),
     });
     return createSdkSchemaGraph(subgraph);
@@ -101,10 +91,7 @@ function resolveSchemaGraphNodeId(
     }
 
     if (!nodeIds.has(target as SchemaGraphNodeId)) {
-      throw new ManifestoError(
-        "SCHEMA_ERROR",
-        `Unknown SchemaGraph node id "${target}"`,
-      );
+      throw new ManifestoError("SCHEMA_ERROR", `Unknown SchemaGraph node id "${target}"`);
     }
 
     return target as SchemaGraphNodeId;
@@ -122,10 +109,7 @@ function resolveSchemaGraphNodeId(
       nodeId = `computed:${target.name}`;
       break;
     default:
-      throw new ManifestoError(
-        "SCHEMA_ERROR",
-        "Unsupported SchemaGraph ref lookup target",
-      );
+      throw new ManifestoError("SCHEMA_ERROR", "Unsupported SchemaGraph ref lookup target");
   }
 
   if (!nodeIds.has(nodeId)) {

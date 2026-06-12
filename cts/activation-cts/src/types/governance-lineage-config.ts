@@ -1,8 +1,5 @@
 import { withGovernance } from "@manifesto-ai/governance";
-import {
-  createInMemoryLineageStore,
-  withLineage,
-} from "@manifesto-ai/lineage";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import { createManifesto } from "@manifesto-ai/sdk";
 import {
   createAutoBinding,

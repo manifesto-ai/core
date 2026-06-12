@@ -9,9 +9,7 @@ import type { StateSpec } from "./field.js";
  * @param stateSpec - The state specification from a DomainSchema
  * @returns Record of field names to their default values
  */
-export function extractDefaults(
-  stateSpec: StateSpec
-): Record<string, unknown> {
+export function extractDefaults(stateSpec: StateSpec): Record<string, unknown> {
   const defaults: Record<string, unknown> = {};
 
   for (const [name, spec] of Object.entries(stateSpec.fields)) {

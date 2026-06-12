@@ -1,8 +1,4 @@
-import {
-  hashSchemaSync,
-  semanticPathToPatchPath,
-  type DomainSchema,
-} from "@manifesto-ai/core";
+import { hashSchemaSync, semanticPathToPatchPath, type DomainSchema } from "@manifesto-ai/core";
 
 const pp = semanticPathToPatchPath;
 

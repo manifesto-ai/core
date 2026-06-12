@@ -17,11 +17,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
-import {
-  createTestSchema,
-  createTestIntent,
-  createTestSnapshot,
-} from "../../helpers/index.js";
+import { createTestSchema, createTestIntent, createTestSnapshot } from "../../helpers/index.js";
 import { createTestEffectRunner } from "../hcts-adapter.js";
 
 describe("HCTS Reinjection Tests", () => {
@@ -264,7 +260,10 @@ describe("HCTS Reinjection Tests", () => {
 
       // Effect result should be applied
       const finalSnapshot = adapter.getSnapshot(executionKey);
-      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<string, unknown>;
+      const response = (finalSnapshot.state as Record<string, unknown>).response as Record<
+        string,
+        unknown
+      >;
       expect(response.executed).toBe(true);
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
     });

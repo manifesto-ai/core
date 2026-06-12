@@ -32,7 +32,10 @@ export class HostError extends Error {
     this.details = details;
 
     // Maintain proper stack trace for V8
-    if ("captureStackTrace" in Error && typeof (Error as ErrorConstructorWithCapture).captureStackTrace === "function") {
+    if (
+      "captureStackTrace" in Error &&
+      typeof (Error as ErrorConstructorWithCapture).captureStackTrace === "function"
+    ) {
       (Error as ErrorConstructorWithCapture).captureStackTrace(this, HostError);
     }
   }
@@ -44,7 +47,7 @@ export class HostError extends Error {
 export function createHostError(
   code: HostErrorCode,
   message: string,
-  details?: Record<string, unknown>
+  details?: Record<string, unknown>,
 ): HostError {
   return new HostError(code, message, details);
 }

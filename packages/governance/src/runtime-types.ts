@@ -7,10 +7,7 @@ import type {
   ManifestoDomainShape,
   TypedIntent,
 } from "@manifesto-ai/sdk";
-import type {
-  BranchId,
-  LineageContinuitySurface,
-} from "@manifesto-ai/lineage";
+import type { BranchId, LineageContinuitySurface } from "@manifesto-ai/lineage";
 
 import type { AuthorityEvaluator } from "./authority/evaluator.js";
 import type {
@@ -42,9 +39,10 @@ export type GovernanceConfig<T extends ManifestoDomainShape = ManifestoDomainSha
   readonly execution: GovernanceExecutionConfig<T>;
 };
 
-export type LineageComposableLaws = BaseLaws & LineageLaws & {
-  readonly __governanceLaws?: never;
-};
+export type LineageComposableLaws = BaseLaws &
+  LineageLaws & {
+    readonly __governanceLaws?: never;
+  };
 
 export type GovernedComposableLaws = BaseLaws & LineageLaws & GovernanceLaws;
 
@@ -58,21 +56,16 @@ export type GovernanceControlSurface = {
   readonly getProposals: (branchId?: BranchId) => Promise<readonly Proposal[]>;
   readonly bindActor: (binding: ActorAuthorityBinding) => Promise<void>;
   readonly getActorBinding: (actorId: ActorId) => Promise<ActorAuthorityBinding | null>;
-  readonly getDecisionRecord: (
-    decisionId: DecisionId,
-  ) => Promise<DecisionRecord | null>;
+  readonly getDecisionRecord: (decisionId: DecisionId) => Promise<DecisionRecord | null>;
 };
 
-export type GovernanceInstance<T extends ManifestoDomainShape> =
-  ManifestoApp<T, "governance">
-  & LineageContinuitySurface<T>
-  & GovernanceControlSurface;
+export type GovernanceInstance<T extends ManifestoDomainShape> = ManifestoApp<T, "governance"> &
+  LineageContinuitySurface<T> &
+  GovernanceControlSurface;
 
 export type GovernanceProposalRuntime<_T extends ManifestoDomainShape> = Record<never, never>;
 
-export type GovernanceComposableManifesto<
-  T extends ManifestoDomainShape,
-> = Omit<
+export type GovernanceComposableManifesto<T extends ManifestoDomainShape> = Omit<
   ComposableManifesto<T, GovernedComposableLaws>,
   "activate"
 > & {
@@ -85,6 +78,7 @@ declare module "@manifesto-ai/sdk" {
   }
 }
 
-export type LineageComposableManifestoInput<
-  T extends ManifestoDomainShape,
-> = ComposableManifesto<T, LineageComposableLaws>;
+export type LineageComposableManifestoInput<T extends ManifestoDomainShape> = ComposableManifesto<
+  T,
+  LineageComposableLaws
+>;

@@ -51,9 +51,7 @@ export {
   createIntentInstance,
   createIntentInstanceSync,
 } from "./intent-instance.js";
-export type {
-  CreateIntentInstanceOptions,
-} from "./intent-instance.js";
+export type { CreateIntentInstanceOptions } from "./intent-instance.js";
 export {
   INGRESS_STATUSES,
   EXECUTION_STAGE_STATUSES,
@@ -74,12 +72,8 @@ export {
   DefaultGovernanceService,
   createGovernanceService,
 } from "./service/governance-service.js";
-export {
-  createGovernanceEventDispatcher,
-} from "./event-dispatcher.js";
-export type {
-  CreateGovernanceEventDispatcherOptions,
-} from "./event-dispatcher.js";
+export { createGovernanceEventDispatcher } from "./event-dispatcher.js";
+export type { CreateGovernanceEventDispatcherOptions } from "./event-dispatcher.js";
 export type {
   AuthorityHandler,
   HITLDecisionCallback,

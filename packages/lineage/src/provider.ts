@@ -45,4 +45,7 @@ export {
 // provider authors can compose a lineage runtime around a pre-built kernel
 // (#491 — the declaration shipped in dist types without a JS export).
 export { createLineageRuntimeInstance } from "./lineage-runtime.js";
-export { InMemoryLineageStore, createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
+export {
+  InMemoryLineageStore,
+  createInMemoryLineageStore,
+} from "./store/in-memory-lineage-store.js";

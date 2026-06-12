@@ -1,8 +1,5 @@
 import type { ActivationComplianceRule } from "./acts-types.js";
-import {
-  ACTIVATION_SPEC_INVENTORY,
-  getInventoryRuleOrThrow,
-} from "./acts-spec-inventory.js";
+import { ACTIVATION_SPEC_INVENTORY, getInventoryRuleOrThrow } from "./acts-spec-inventory.js";
 
 function registry(
   ruleId: string,
@@ -134,9 +131,7 @@ export const ACTIVATION_COMPLIANCE_RULES: readonly ActivationComplianceRule[] = 
 ] as const;
 
 export function getRuleOrThrow(ruleId: string): ActivationComplianceRule {
-  const rule = ACTIVATION_COMPLIANCE_RULES.find(
-    (candidate) => candidate.ruleId === ruleId,
-  );
+  const rule = ACTIVATION_COMPLIANCE_RULES.find((candidate) => candidate.ruleId === ruleId);
   if (!rule) {
     throw new Error(`Unknown activation CTS rule: ${ruleId}`);
   }
@@ -149,6 +144,4 @@ export function getRulesBySuite(
   return ACTIVATION_COMPLIANCE_RULES.filter((rule) => rule.suite === suite);
 }
 
-export const ACTIVATION_SPEC_RULE_IDS = ACTIVATION_SPEC_INVENTORY.map(
-  (rule) => rule.ruleId,
-);
+export const ACTIVATION_SPEC_RULE_IDS = ACTIVATION_SPEC_INVENTORY.map((rule) => rule.ruleId);

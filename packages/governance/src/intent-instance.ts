@@ -1,11 +1,5 @@
 import { sha256, toJcs } from "@manifesto-ai/core";
-import type {
-  ActorRef,
-  IntentBody,
-  IntentInstance,
-  IntentOrigin,
-  SourceRef,
-} from "./types.js";
+import type { ActorRef, IntentBody, IntentInstance, IntentOrigin, SourceRef } from "./types.js";
 
 export interface CreateIntentInstanceOptions {
   readonly body: IntentBody;
@@ -17,10 +11,7 @@ export interface CreateIntentInstanceOptions {
   readonly intentId?: string;
 }
 
-export async function computeIntentKey(
-  schemaHash: string,
-  body: IntentBody
-): Promise<string> {
+export async function computeIntentKey(schemaHash: string, body: IntentBody): Promise<string> {
   const input = [
     schemaHash,
     body.type,
@@ -32,29 +23,24 @@ export async function computeIntentKey(
 }
 
 export async function createIntentInstance(
-  options: CreateIntentInstanceOptions
+  options: CreateIntentInstanceOptions,
 ): Promise<IntentInstance> {
   const intentId = options.intentId ?? `intent-${crypto.randomUUID()}`;
   const intentKey = await computeIntentKey(options.schemaHash, options.body);
 
-  return createIntentInstanceSync(
-    options.body,
-    intentId,
-    intentKey,
-    {
-      projectionId: options.projectionId,
-      source: options.source,
-      actor: options.actor,
-      note: options.note,
-    }
-  );
+  return createIntentInstanceSync(options.body, intentId, intentKey, {
+    projectionId: options.projectionId,
+    source: options.source,
+    actor: options.actor,
+    note: options.note,
+  });
 }
 
 export function createIntentInstanceSync(
   body: IntentBody,
   intentId: string,
   intentKey: string,
-  origin: IntentOrigin
+  origin: IntentOrigin,
 ): IntentInstance {
   return deepFreeze({
     body,

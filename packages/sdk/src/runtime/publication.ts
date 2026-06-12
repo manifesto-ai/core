@@ -1,14 +1,7 @@
 import type { Snapshot as CoreSnapshot } from "@manifesto-ai/core";
 
-import type {
-  CanonicalSnapshot,
-  ManifestoDomainShape,
-  ProjectedSnapshot,
-} from "../types.js";
-import type {
-  PublishedRuntimeSnapshot,
-  RuntimePublicationHelpers,
-} from "./facets.js";
+import type { CanonicalSnapshot, ManifestoDomainShape, ProjectedSnapshot } from "../types.js";
+import type { PublishedRuntimeSnapshot, RuntimePublicationHelpers } from "./facets.js";
 
 type RuntimePublicationOptions<T extends ManifestoDomainShape> = {
   readonly setVisibleSnapshot: (
@@ -31,9 +24,7 @@ export function createRuntimePublication<T extends ManifestoDomainShape>({
     return setVisibleSnapshot(snapshot, options);
   }
 
-  function publishCompletedHostResult(
-    snapshot: CoreSnapshot,
-  ): PublishedRuntimeSnapshot<T> {
+  function publishCompletedHostResult(snapshot: CoreSnapshot): PublishedRuntimeSnapshot<T> {
     const publishedSnapshot = replaceVisibleSnapshot(snapshot);
 
     return Object.freeze({
@@ -42,9 +33,7 @@ export function createRuntimePublication<T extends ManifestoDomainShape>({
     }) as PublishedRuntimeSnapshot<T>;
   }
 
-  function publishFailedHostResult(
-    snapshot: CoreSnapshot,
-  ): PublishedRuntimeSnapshot<T> {
+  function publishFailedHostResult(snapshot: CoreSnapshot): PublishedRuntimeSnapshot<T> {
     const publishedSnapshot = replaceVisibleSnapshot(snapshot);
 
     return Object.freeze({

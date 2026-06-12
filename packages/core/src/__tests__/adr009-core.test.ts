@@ -16,7 +16,10 @@ const HOST_CONTEXT = {
 };
 const pp = (path: string) => semanticPathToPatchPath(path);
 
-function createSchema(stateFields: DomainSchema["state"]["fields"], actions: DomainSchema["actions"]): DomainSchema {
+function createSchema(
+  stateFields: DomainSchema["state"]["fields"],
+  actions: DomainSchema["actions"],
+): DomainSchema {
   return {
     id: "manifesto:test",
     version: "1.0.0",
@@ -30,11 +33,13 @@ function createSchema(stateFields: DomainSchema["state"]["fields"], actions: Dom
 
 describe("ADR-009 core acceptance", () => {
   it("ADR §9.1: supports composite path segments and display format", () => {
-    expect(patchPathToDisplayString([
-      { kind: "prop", name: "todos" },
-      { kind: "index", index: 0 },
-      { kind: "prop", name: "title" },
-    ])).toBe("todos[0].title");
+    expect(
+      patchPathToDisplayString([
+        { kind: "prop", name: "todos" },
+        { kind: "index", index: 0 },
+        { kind: "prop", name: "title" },
+      ]),
+    ).toBe("todos[0].title");
 
     const schema = createSchema(
       {
@@ -52,15 +57,21 @@ describe("ADR-009 core acceptance", () => {
           },
         },
       },
-      { noop: { flow: { kind: "halt", reason: "noop" } } }
+      { noop: { flow: { kind: "halt", reason: "noop" } } },
     );
 
     const snapshot = createSnapshot({ history: { files: {} } }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "set", path: [{ kind: "prop", name: "history" }, { kind: "prop", name: "files" }, { kind: "prop", name: "file:///proof.lean" }], value: "ok" }]
-    );
+    const result = apply(schema, snapshot, [
+      {
+        op: "set",
+        path: [
+          { kind: "prop", name: "history" },
+          { kind: "prop", name: "files" },
+          { kind: "prop", name: "file:///proof.lean" },
+        ],
+        value: "ok",
+      },
+    ]);
 
     expect(result.state).toEqual({
       history: {
@@ -97,15 +108,11 @@ describe("ADR-009 core acceptance", () => {
           },
         },
       },
-      { noop: { flow: { kind: "halt", reason: "noop" } } }
+      { noop: { flow: { kind: "halt", reason: "noop" } } },
     );
 
     const snapshot = createSnapshot({ metrics: {} }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "set", path: pp("metrics.2024"), value: 7 }]
-    );
+    const result = apply(schema, snapshot, [{ op: "set", path: pp("metrics.2024"), value: 7 }]);
 
     const metrics = (result.state as { metrics: unknown }).metrics;
     expect(Array.isArray(metrics)).toBe(false);
@@ -121,18 +128,27 @@ describe("ADR-009 core acceptance", () => {
           items: { type: "string", required: false },
         },
       },
-      { noop: { flow: { kind: "halt", reason: "noop" } } }
+      { noop: { flow: { kind: "halt", reason: "noop" } } },
     );
 
     const snapshot = createSnapshot({ items: ["a", "b", "c"] }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [
-        { op: "unset", path: [{ kind: "prop", name: "items" }, { kind: "index", index: 0 }] },
-        { op: "set", path: [{ kind: "prop", name: "items" }, { kind: "index", index: 1 }], value: "B" },
-      ]
-    );
+    const result = apply(schema, snapshot, [
+      {
+        op: "unset",
+        path: [
+          { kind: "prop", name: "items" },
+          { kind: "index", index: 0 },
+        ],
+      },
+      {
+        op: "set",
+        path: [
+          { kind: "prop", name: "items" },
+          { kind: "index", index: 1 },
+        ],
+        value: "B",
+      },
+    ]);
 
     const items = (result.state as { items: unknown[] }).items;
     expect(items).toHaveLength(3);
@@ -158,23 +174,26 @@ describe("ADR-009 core acceptance", () => {
           },
         },
       },
-      { noop: { flow: { kind: "halt", reason: "noop" } } }
+      { noop: { flow: { kind: "halt", reason: "noop" } } },
     );
 
     const snapshot = createSnapshot({ history: { files: {} } }, schema.hash, HOST_CONTEXT);
-    const dottedResult = apply(
-      schema,
-      snapshot,
-      [{ op: "set", path: pp("history.files.TACTIC_FAILED:simp"), value: "safe" }]
-    );
+    const dottedResult = apply(schema, snapshot, [
+      { op: "set", path: pp("history.files.TACTIC_FAILED:simp"), value: "safe" },
+    ]);
 
     expect(dottedResult.state).toEqual({ history: { files: { "TACTIC_FAILED:simp": "safe" } } });
 
-    const polluted = apply(
-      schema,
-      snapshot,
-      [{ op: "set", path: [{ kind: "prop", name: "__proto__" }, { kind: "prop", name: "polluted" }], value: true }]
-    );
+    const polluted = apply(schema, snapshot, [
+      {
+        op: "set",
+        path: [
+          { kind: "prop", name: "__proto__" },
+          { kind: "prop", name: "polluted" },
+        ],
+        value: true,
+      },
+    ]);
 
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
     expect(polluted.system.status).toBe("error");
@@ -186,30 +205,30 @@ describe("ADR-009 core acceptance", () => {
       {
         count: { type: "number", required: true },
       },
-      { noop: { flow: { kind: "halt", reason: "noop" } } }
+      { noop: { flow: { kind: "halt", reason: "noop" } } },
     );
 
     const snapshot = createSnapshot({ count: 1 }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "merge", path: pp("$runtime.runtime"), value: { marker: "ok" } }]
-    );
+    const result = apply(schema, snapshot, [
+      { op: "merge", path: pp("$runtime.runtime"), value: { marker: "ok" } },
+    ]);
 
     expect(result.state).toEqual({ count: 1 });
     expect(result.system.status).toBe("error");
     expect(result.system.lastError?.code).toBe("PATH_NOT_FOUND");
 
-    const namespaceResult = applyNamespaceDeltas(
-      snapshot,
-      [{ namespace: "runtime", patches: [{ op: "merge", path: pp("runtime"), value: { marker: "ok" } }] }]
-    );
+    const namespaceResult = applyNamespaceDeltas(snapshot, [
+      {
+        namespace: "runtime",
+        patches: [{ op: "merge", path: pp("runtime"), value: { marker: "ok" } }],
+      },
+    ]);
 
     expect(namespaceResult.state).toEqual({ count: 1 });
     expect(namespaceResult.namespaces.runtime).toEqual({
-        runtime: {
-          marker: "ok",
-        },
+      runtime: {
+        marker: "ok",
+      },
     });
     expect(namespaceResult.system.status).toBe("idle");
   });
@@ -225,15 +244,17 @@ describe("ADR-009 core acceptance", () => {
           },
         },
       },
-      { noop: { flow: { kind: "halt", reason: "noop" } } }
+      { noop: { flow: { kind: "halt", reason: "noop" } } },
     );
 
-    const snapshot = createSnapshot({ system: { status: "domain-idle" } }, schema.hash, HOST_CONTEXT);
-    const result = apply(
-      schema,
-      snapshot,
-      [{ op: "set", path: pp("system.status"), value: "domain-updated" }]
+    const snapshot = createSnapshot(
+      { system: { status: "domain-idle" } },
+      schema.hash,
+      HOST_CONTEXT,
     );
+    const result = apply(schema, snapshot, [
+      { op: "set", path: pp("system.status"), value: "domain-updated" },
+    ]);
 
     expect((result.state as { system: { status: string } }).system.status).toBe("domain-updated");
     expect(result.system.status).toBe("idle");
@@ -257,7 +278,7 @@ describe("ADR-009 core acceptance", () => {
             },
           },
         },
-      }
+      },
     );
 
     const snapshot = createSnapshot({ count: 0 }, schema.hash, HOST_CONTEXT);
@@ -285,7 +306,7 @@ describe("ADR-009 core acceptance", () => {
       {
         count: { type: "number", required: true },
       },
-      { noop: { flow: { kind: "halt", reason: "noop" } } }
+      { noop: { flow: { kind: "halt", reason: "noop" } } },
     );
 
     const requirementA: Requirement = {
@@ -325,14 +346,17 @@ describe("ADR-009 core acceptance", () => {
     const result2 = applySystemDelta(snapshot, delta);
 
     expect(result1).toEqual(result2);
-    expect(result1.system.pendingRequirements.map((requirement) => requirement.id)).toEqual(["req-b", "req-a"]);
+    expect(result1.system.pendingRequirements.map((requirement) => requirement.id)).toEqual([
+      "req-b",
+      "req-a",
+    ]);
     expect(result1.meta.version).toBe(snapshot.meta.version + 1);
   });
 
   it("applySystemDelta treats explicit null as a state change", () => {
     const schema = createSchema(
       { count: { type: "number", required: true } },
-      { noop: { flow: { kind: "halt", reason: "noop" } } }
+      { noop: { flow: { kind: "halt", reason: "noop" } } },
     );
 
     const base = createSnapshot({ count: 0 }, schema.hash, HOST_CONTEXT);

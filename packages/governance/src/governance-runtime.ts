@@ -1,8 +1,4 @@
-import type {
-  Context,
-  ErrorValue,
-  Intent,
-} from "@manifesto-ai/core";
+import type { Context, ErrorValue, Intent } from "@manifesto-ai/core";
 import {
   DisposedError,
   ManifestoError,
@@ -47,14 +43,9 @@ import {
   type GovernanceRuntimeKernel,
   mapBlockedAdmission,
 } from "@manifesto-ai/sdk/provider";
-import type {
-  LineageRuntimeController,
-} from "@manifesto-ai/lineage/provider";
+import type { LineageRuntimeController } from "@manifesto-ai/lineage/provider";
 
-import {
-  cloneAndFreezeActionPayload,
-  tryCloneAndFreezeActionPayload,
-} from "./action-payload.js";
+import { cloneAndFreezeActionPayload, tryCloneAndFreezeActionPayload } from "./action-payload.js";
 import type { GovernanceInstance } from "./runtime-types.js";
 import type {
   ActorAuthorityBinding,
@@ -67,10 +58,7 @@ import type {
   ProposalId,
 } from "./types.js";
 
-type Candidate<
-  T extends ManifestoDomainShape,
-  Name extends ActionName<T>,
-> = {
+type Candidate<T extends ManifestoDomainShape, Name extends ActionName<T>> = {
   readonly actionName: Name;
   readonly input: ActionInput<T, Name>;
   readonly intent: TypedIntent<T, Name> | null;
@@ -86,10 +74,7 @@ type RuntimeExecutionView<T extends ManifestoDomainShape> = {
 export type GovernanceRuntimeServices<T extends ManifestoDomainShape> = {
   readonly lineage: LineageRuntimeController<T>;
   readonly ensureReady: () => Promise<void>;
-  readonly createSubmission: (
-    intent: TypedIntent<T>,
-    context: Context,
-  ) => Promise<Proposal>;
+  readonly createSubmission: (intent: TypedIntent<T>, context: Context) => Promise<Proposal>;
   readonly settleSubmission: (proposalId: ProposalId) => Promise<void>;
   readonly resumePendingSettlements: () => Promise<void>;
   readonly waitForSettlement: <Name extends ActionName<T>>(
@@ -170,8 +155,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     },
   });
 
-  const getAction = ((name: string) =>
-    actionByName.get(name)) as GetAction<T, "governance">;
+  const getAction = ((name: string) => actionByName.get(name)) as GetAction<T, "governance">;
 
   const runtime = {
     action: Object.freeze(action),
@@ -186,8 +170,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       },
       availableActions(): readonly ActionInfo<ActionName<T>>[] {
         return Object.freeze(
-          kernel.getAvailableActions()
-            .map((name) => getActionInfo(name as ActionName<T>)),
+          kernel.getAvailableActions().map((name) => getActionInfo(name as ActionName<T>)),
         );
       },
       schemaHash(): string {
@@ -220,12 +203,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     },
     with(nextView) {
       return Object.freeze(
-        createGovernanceRuntimeInstance(
-          kernel,
-          services,
-          mergeRuntimeView(nextView),
-          true,
-        ),
+        createGovernanceRuntimeInstance(kernel, services, mergeRuntimeView(nextView), true),
       );
     },
     dispose: kernel.dispose,
@@ -274,11 +252,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
         enumerable: true,
         configurable: false,
         writable: false,
-        value: createReadHandle(
-          name,
-          ref,
-          (snapshot) => snapshot.state[name],
-        ),
+        value: createReadHandle(name, ref, (snapshot) => snapshot.state[name]),
       });
     }
 
@@ -293,11 +267,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
         enumerable: true,
         configurable: false,
         writable: false,
-        value: createReadHandle(
-          name,
-          ref,
-          (snapshot) => snapshot.computed[name],
-        ),
+        value: createReadHandle(name, ref, (snapshot) => snapshot.computed[name]),
       });
     }
 
@@ -332,9 +302,8 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
   ): BoundAction<T, Name, "governance"> {
     const candidate = createCandidate(name, args);
     const stableArgs = tryCloneAndFreezeActionPayload<readonly unknown[]>([...args]);
-    const createFreshCandidate = (): Candidate<T, Name> => stableArgs.ok
-      ? createCandidate(name, stableArgs.value as ActionArgs<T, Name>)
-      : candidate;
+    const createFreshCandidate = (): Candidate<T, Name> =>
+      stableArgs.ok ? createCandidate(name, stableArgs.value as ActionArgs<T, Name>) : candidate;
     return Object.freeze({
       action: name,
       input: candidate.input,
@@ -343,7 +312,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       submit: () => submitCandidate(createFreshCandidate()),
       intent: () => {
         const fresh = createFreshCandidate();
-        return fresh.inputError ? null : fresh.intent as Intent | null;
+        return fresh.inputError ? null : (fresh.intent as Intent | null);
       },
     });
   }
@@ -366,10 +335,7 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
 
     try {
       const intent = cloneAndFreezeActionPayload(kernel.createIntent(actionRef, ...args));
-      const inputError = kernel.validateIntentInputFor(
-        kernel.getCanonicalSnapshot(),
-        intent,
-      );
+      const inputError = kernel.validateIntentInputFor(kernel.getCanonicalSnapshot(), intent);
       return Object.freeze({
         actionName: name,
         input: stableInput.value,
@@ -442,7 +408,8 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       after: outcome.projected.afterSnapshot,
       changes: outcome.projected.changedPaths,
       requirements: simulated.requirements,
-      newAvailableActions: kernel.getAvailableActionsFor(simulated.snapshot)
+      newAvailableActions: kernel
+        .getAvailableActionsFor(simulated.snapshot)
         .map((name) => getActionInfo(name as ActionName<T>)),
       ...previewDiagnostics(simulated.diagnostics, runtimeView.diagnostics),
       error: simulated.snapshot.system.lastError,
@@ -474,7 +441,12 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       const admission = admitCandidate(candidate, beforeCanonical);
       if (!admission.admission.ok || admission.intent === null) {
         const rejectedAdmission = admission.admission as AdmissionFailure<Name>;
-        emitSubmissionRejected(candidate.actionName, candidate.intent, rejectedAdmission, beforeCanonical);
+        emitSubmissionRejected(
+          candidate.actionName,
+          candidate.intent,
+          rejectedAdmission,
+          beforeCanonical,
+        );
         return Object.freeze({
           ok: false,
           mode: "governance",
@@ -484,7 +456,12 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       }
 
       const admittedIntent = admission.intent;
-      emitSubmissionAdmitted(candidate.actionName, admittedIntent, admission.admission, beforeCanonical);
+      emitSubmissionAdmitted(
+        candidate.actionName,
+        admittedIntent,
+        admission.admission,
+        beforeCanonical,
+      );
       emitSubmissionSubmitted(candidate.actionName, admittedIntent, beforeCanonical);
 
       let proposal: Proposal;
@@ -497,7 +474,13 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
         const failure = toError(error);
         const failedSnapshot = kernel.getCanonicalSnapshot();
         const errorValue = toErrorValue(failure, admittedIntent, failedSnapshot);
-        emitSubmissionFailed(candidate.actionName, admittedIntent, errorValue, failedSnapshot, "runtime");
+        emitSubmissionFailed(
+          candidate.actionName,
+          admittedIntent,
+          errorValue,
+          failedSnapshot,
+          "runtime",
+        );
         throw new SubmissionFailedError(failure.message, "runtime", { cause: failure });
       }
 
@@ -505,75 +488,72 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       emitProposalCreated(candidate.actionName, proposalRef, beforeCanonical);
       emitSubmissionPending(candidate.actionName, admittedIntent, proposalRef, beforeCanonical);
 
-      void kernel.enqueue(async () => {
-        await services.settleSubmission(proposalRef);
-        const finalProposal = await services.getProposal(proposalRef);
-        if (
-          !finalProposal
-          || finalProposal.status === "evaluating"
-          || finalProposal.status === "approved"
-          || finalProposal.status === "executing"
-        ) {
-          return;
-        }
+      void kernel
+        .enqueue(async () => {
+          await services.settleSubmission(proposalRef);
+          const finalProposal = await services.getProposal(proposalRef);
+          if (
+            !finalProposal ||
+            finalProposal.status === "evaluating" ||
+            finalProposal.status === "approved" ||
+            finalProposal.status === "executing"
+          ) {
+            return;
+          }
 
-        const settledSnapshot = kernel.getCanonicalSnapshot();
-        const decision = finalProposal?.decisionId
-          ? await services.getDecisionRecord(finalProposal.decisionId)
-          : null;
-        if (decision) {
-          emitProposalDecided(
-            candidate.actionName,
-            proposalRef,
-            decision,
-            settledSnapshot,
-          );
-        }
+          const settledSnapshot = kernel.getCanonicalSnapshot();
+          const decision = finalProposal?.decisionId
+            ? await services.getDecisionRecord(finalProposal.decisionId)
+            : null;
+          if (decision) {
+            emitProposalDecided(candidate.actionName, proposalRef, decision, settledSnapshot);
+          }
 
-        const settlement = await services.waitForSettlement(
-          proposalRef,
-          candidate.actionName,
-          "summary",
-        );
-        if (settlement.status === "settled") {
-          emitSubmissionSettled(
-            candidate.actionName,
-            admittedIntent,
-            settlement.outcome,
-            settledSnapshot,
+          const settlement = await services.waitForSettlement(
             proposalRef,
-            settlement.world.worldId,
+            candidate.actionName,
+            "summary",
           );
-        } else if (settlement.status === "settlement_failed") {
+          if (settlement.status === "settled") {
+            emitSubmissionSettled(
+              candidate.actionName,
+              admittedIntent,
+              settlement.outcome,
+              settledSnapshot,
+              proposalRef,
+              settlement.world.worldId,
+            );
+          } else if (settlement.status === "settlement_failed") {
+            emitSubmissionFailed(
+              candidate.actionName,
+              admittedIntent,
+              settlement.error,
+              settledSnapshot,
+              "settlement",
+              proposalRef,
+            );
+          } else if (!decision && settlement.decision) {
+            emitProposalDecided(
+              candidate.actionName,
+              proposalRef,
+              settlement.decision,
+              settledSnapshot,
+            );
+          }
+        })
+        .catch((error) => {
+          const failure = toError(error);
+          const failedSnapshot = kernel.getCanonicalSnapshot();
+          const errorValue = toErrorValue(failure, admittedIntent, failedSnapshot);
           emitSubmissionFailed(
             candidate.actionName,
             admittedIntent,
-            settlement.error,
-            settledSnapshot,
+            errorValue,
+            failedSnapshot,
             "settlement",
             proposalRef,
           );
-        } else if (!decision && settlement.decision) {
-          emitProposalDecided(
-            candidate.actionName,
-            proposalRef,
-            settlement.decision,
-            settledSnapshot,
-          );
-        }
-      }).catch((error) => {
-        const failure = toError(error);
-        const failedSnapshot = kernel.getCanonicalSnapshot();
-        const errorValue = toErrorValue(failure, admittedIntent, failedSnapshot);
-        emitSubmissionFailed(
-          candidate.actionName,
-          admittedIntent,
-          errorValue,
-          failedSnapshot,
-          "settlement",
-          proposalRef,
-        );
-      });
+        });
 
       return Object.freeze({
         ok: true,
@@ -581,11 +561,8 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
         status: "pending",
         action: candidate.actionName,
         proposal: proposalRef,
-        waitForSettlement: () => services.waitForSettlement(
-          proposalRef,
-          candidate.actionName,
-          runtimeView.report,
-        ),
+        waitForSettlement: () =>
+          services.waitForSettlement(proposalRef, candidate.actionName, runtimeView.report),
       }) as GovernanceSubmissionResult<T, Name>;
     });
   }
@@ -594,7 +571,9 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
     return runtimeView.context ?? kernel.getExternalContext();
   }
 
-  function captureViewExternalContext(): ReturnType<GovernanceRuntimeKernel<T>["getExternalContext"]> {
+  function captureViewExternalContext(): ReturnType<
+    GovernanceRuntimeKernel<T>["getExternalContext"]
+  > {
     return runtimeView.context ?? kernel.captureExternalContext();
   }
 
@@ -614,13 +593,15 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
   function admitCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
     snapshot: CanonicalSnapshot<T["state"]>,
-  ): {
-    readonly admission: AdmissionOk<Name>;
-    readonly intent: TypedIntent<T, Name>;
-  } | {
-    readonly admission: AdmissionFailure<Name>;
-    readonly intent: null;
-  } {
+  ):
+    | {
+        readonly admission: AdmissionOk<Name>;
+        readonly intent: TypedIntent<T, Name>;
+      }
+    | {
+        readonly admission: AdmissionFailure<Name>;
+        readonly intent: null;
+      } {
     if (!kernel.isActionAvailableFor(snapshot, candidate.actionName)) {
       return {
         admission: Object.freeze({
@@ -724,7 +705,6 @@ export function createGovernanceRuntimeInstance<T extends ManifestoDomainShape>(
       }
     }
   }
-
 
   function getAvailabilityBlockers<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
@@ -892,36 +872,29 @@ function freezeRuntimeView<T extends ManifestoDomainShape>(
   return Object.freeze({ ...view });
 }
 
-function toActionInfo<
-  T extends ManifestoDomainShape,
-  Name extends ActionName<T>,
->(
+function toActionInfo<T extends ManifestoDomainShape, Name extends ActionName<T>>(
   metadata: TypedActionMetadata<T, Name>,
 ): ActionInfo<Name> {
-  const inputFields = metadata.input?.type === "object"
-    ? metadata.input.fields ?? {}
-    : {};
-  const parameterNames = metadata.params.length > 0
-    ? metadata.params
-    : Object.keys(inputFields);
+  const inputFields = metadata.input?.type === "object" ? (metadata.input.fields ?? {}) : {};
+  const parameterNames = metadata.params.length > 0 ? metadata.params : Object.keys(inputFields);
   const annotations = metadata.annotations;
-  const title = typeof annotations?.title === "string"
-    ? annotations.title
-    : undefined;
+  const title = typeof annotations?.title === "string" ? annotations.title : undefined;
 
   return Object.freeze({
     name: metadata.name,
     ...(title !== undefined ? { title } : {}),
     ...(metadata.description !== undefined ? { description: metadata.description } : {}),
-    parameters: Object.freeze(parameterNames.map((name) => {
-      const field = inputFields[name];
-      return Object.freeze({
-        name,
-        required: field?.required ?? true,
-        ...(field?.type !== undefined ? { type: fieldTypeToString(field.type) } : {}),
-        ...(field?.description !== undefined ? { description: field.description } : {}),
-      });
-    })),
+    parameters: Object.freeze(
+      parameterNames.map((name) => {
+        const field = inputFields[name];
+        return Object.freeze({
+          name,
+          required: field?.required ?? true,
+          ...(field?.type !== undefined ? { type: fieldTypeToString(field.type) } : {}),
+          ...(field?.description !== undefined ? { description: field.description } : {}),
+        });
+      }),
+    ),
     ...(annotations !== undefined ? { annotations } : {}),
   }) as ActionInfo<Name>;
 }
@@ -935,7 +908,6 @@ function fieldTypeToString(type: unknown): string {
   }
   return "unknown";
 }
-
 
 function toErrorValue<T extends ManifestoDomainShape>(
   error: Error,

@@ -11,20 +11,20 @@
  * Test files (__tests__/, *.test.ts, *.spec.ts) are exempt from the import
  * matrix so compliance suites can use @manifesto-ai/cts-kit.
  */
-import fs from 'node:fs';
-import path from 'node:path';
+import fs from "node:fs";
+import path from "node:path";
 
 const ROOT = process.cwd();
 
 // Allowed @manifesto-ai/* imports per package (production src only).
 const ALLOWED_IMPORTS = {
   core: [],
-  host: ['@manifesto-ai/core'],
-  compiler: ['@manifesto-ai/core'],
-  codegen: ['@manifesto-ai/core'],
-  sdk: ['@manifesto-ai/core', '@manifesto-ai/host', '@manifesto-ai/compiler'],
-  lineage: ['@manifesto-ai/core', '@manifesto-ai/sdk'],
-  governance: ['@manifesto-ai/core', '@manifesto-ai/sdk', '@manifesto-ai/lineage'],
+  host: ["@manifesto-ai/core"],
+  compiler: ["@manifesto-ai/core"],
+  codegen: ["@manifesto-ai/core"],
+  sdk: ["@manifesto-ai/core", "@manifesto-ai/host", "@manifesto-ai/compiler"],
+  lineage: ["@manifesto-ai/core", "@manifesto-ai/sdk"],
+  governance: ["@manifesto-ai/core", "@manifesto-ai/sdk", "@manifesto-ai/lineage"],
 };
 
 // Temporary exemptions from the core no-throw rule. Each entry must reference
@@ -32,23 +32,21 @@ const ALLOWED_IMPORTS = {
 const CORE_THROW_ALLOWLIST = new Set([
   // M1 legality-channel workstream (#493): throwing query wrappers pending
   // replacement by evaluateActionAvailability / evaluateIntentDispatchability.
-  'packages/core/src/core/action-availability.ts',
+  "packages/core/src/core/action-availability.ts",
 ]);
 
-const SKIP_DIRS = new Set(['.git', '.turbo', 'coverage', 'dist', 'node_modules']);
+const SKIP_DIRS = new Set([".git", ".turbo", "coverage", "dist", "node_modules"]);
 
 const IMPORT_PATTERN = /(?:^|[^\\])["'](@manifesto-ai\/[a-z-]+)(\/[^"']*)?["']/g;
-const IMPORT_LINE_PATTERN = /(?:\bfrom\s*["']|\bimport\s*\(\s*["']|\brequire\s*\(\s*["']|^\s*import\s+["'])/;
+const IMPORT_LINE_PATTERN =
+  /(?:\bfrom\s*["']|\bimport\s*\(\s*["']|\brequire\s*\(\s*["']|^\s*import\s+["'])/;
 
 function toPosix(p) {
-  return p.split(path.sep).join('/');
+  return p.split(path.sep).join("/");
 }
 
 function isTestPath(relativePath) {
-  return (
-    relativePath.includes('/__tests__/') ||
-    /\.(test|spec)\.[cm]?tsx?$/.test(relativePath)
-  );
+  return relativePath.includes("/__tests__/") || /\.(test|spec)\.[cm]?tsx?$/.test(relativePath);
 }
 
 function collectSourceFiles(startDir) {
@@ -74,15 +72,15 @@ function collectSourceFiles(startDir) {
 function checkImportMatrix() {
   const violations = [];
   for (const [pkg, allowed] of Object.entries(ALLOWED_IMPORTS)) {
-    const srcDir = path.join(ROOT, 'packages', pkg, 'src');
+    const srcDir = path.join(ROOT, "packages", pkg, "src");
     for (const file of collectSourceFiles(srcDir)) {
       if (isTestPath(file.rel)) continue;
-      const lines = fs.readFileSync(file.abs, 'utf-8').split(/\r?\n/u);
+      const lines = fs.readFileSync(file.abs, "utf-8").split(/\r?\n/u);
       lines.forEach((line, index) => {
-        if (!IMPORT_LINE_PATTERN.test(line) && !line.includes('} from')) return;
+        if (!IMPORT_LINE_PATTERN.test(line) && !line.includes("} from")) return;
         for (const match of line.matchAll(IMPORT_PATTERN)) {
           const target = match[1];
-          const subpath = match[2] ?? '';
+          const subpath = match[2] ?? "";
           if (target === `@manifesto-ai/${pkg}`) continue;
           if (!allowed.includes(target)) {
             violations.push({
@@ -110,18 +108,18 @@ function checkImportMatrix() {
 
 function checkCoreNoThrow() {
   const violations = [];
-  const srcDir = path.join(ROOT, 'packages', 'core', 'src');
+  const srcDir = path.join(ROOT, "packages", "core", "src");
   for (const file of collectSourceFiles(srcDir)) {
     if (isTestPath(file.rel)) continue;
     if (CORE_THROW_ALLOWLIST.has(file.rel)) continue;
-    const lines = fs.readFileSync(file.abs, 'utf-8').split(/\r?\n/u);
+    const lines = fs.readFileSync(file.abs, "utf-8").split(/\r?\n/u);
     lines.forEach((line, index) => {
-      const code = line.replace(/\/\/.*$/u, '');
+      const code = line.replace(/\/\/.*$/u, "");
       if (/\bthrow\b/.test(code) && !/^\s*\*/.test(line)) {
         violations.push({
           path: file.rel,
           line: index + 1,
-          message: 'core must not throw (errors are values, constitution §5.2)',
+          message: "core must not throw (errors are values, constitution §5.2)",
           snippet: line.trim(),
         });
       }
@@ -133,7 +131,7 @@ function checkCoreNoThrow() {
 const violations = [...checkImportMatrix(), ...checkCoreNoThrow()];
 
 if (violations.length > 0) {
-  console.error('Package boundary violations found:');
+  console.error("Package boundary violations found:");
   for (const v of violations) {
     console.error(`- ${v.path}:${v.line} ${v.message}`);
     console.error(`    ${v.snippet}`);
@@ -141,4 +139,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('Package boundaries OK (constitution §3 matrix + core no-throw).');
+console.log("Package boundaries OK (constitution §3 matrix + core no-throw).");

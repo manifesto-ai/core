@@ -18,14 +18,9 @@ type RejectedAttempt<T extends ManifestoDomainShape> = {
   readonly intent: TypedIntent<T>;
   readonly admission: Extract<IntentAdmission<T>, { readonly kind: "blocked" }>;
   readonly beforeSnapshot: ProjectedSnapshot<T>;
-  readonly beforeCanonicalSnapshot: ReturnType<
-    RuntimeKernel<T>["getCanonicalSnapshot"]
-  >;
+  readonly beforeCanonicalSnapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>;
   readonly rejection: {
-    readonly code:
-      | "ACTION_UNAVAILABLE"
-      | "INTENT_NOT_DISPATCHABLE"
-      | "INVALID_INPUT";
+    readonly code: "ACTION_UNAVAILABLE" | "INTENT_NOT_DISPATCHABLE" | "INVALID_INPUT";
     readonly reason: string;
   };
   readonly rejectionError: ManifestoError;
@@ -34,14 +29,9 @@ type RejectedAttempt<T extends ManifestoDomainShape> = {
 type FailedAttempt<T extends ManifestoDomainShape> = {
   readonly kind: "failed";
   readonly intent: TypedIntent<T>;
-  readonly admission: Extract<
-    IntentAdmission<T>,
-    { readonly kind: "admitted" }
-  >;
+  readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
   readonly beforeSnapshot: ProjectedSnapshot<T>;
-  readonly beforeCanonicalSnapshot: ReturnType<
-    RuntimeKernel<T>["getCanonicalSnapshot"]
-  >;
+  readonly beforeCanonicalSnapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>;
   readonly failure: Error;
   readonly errorInfo: ExecutionFailureInfo;
   readonly published: boolean;
@@ -52,18 +42,16 @@ type FailedAttempt<T extends ManifestoDomainShape> = {
 type CompletedAttempt<T extends ManifestoDomainShape> = {
   readonly kind: "completed";
   readonly intent: TypedIntent<T>;
-  readonly admission: Extract<
-    IntentAdmission<T>,
-    { readonly kind: "admitted" }
-  >;
+  readonly admission: Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
   readonly publishedSnapshot: ProjectedSnapshot<T>;
   readonly outcome: DispatchExecutionOutcome<T>;
   readonly diagnostics: ExecutionDiagnostics;
 };
 
-export type BaseDispatchAttemptResult<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = RejectedAttempt<T> | FailedAttempt<T> | CompletedAttempt<T>;
+export type BaseDispatchAttemptResult<T extends ManifestoDomainShape = ManifestoDomainShape> =
+  | RejectedAttempt<T>
+  | FailedAttempt<T>
+  | CompletedAttempt<T>;
 
 export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
   kernel: RuntimeKernel<T>,
@@ -76,23 +64,12 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
   context: ReturnType<RuntimeKernel<T>["createComputeContext"]>,
 ): Promise<BaseDispatchAttemptResult<T>> {
   const beforeCanonicalSnapshot = kernel.getCanonicalSnapshot();
-  const beforeSnapshot = extensionKernel.projectSnapshot(
-    beforeCanonicalSnapshot,
-  );
-  const legality = kernel.evaluateIntentLegalityFor(
-    beforeCanonicalSnapshot,
-    intent,
-  );
-  const admission = kernel.deriveIntentAdmission(
-    beforeCanonicalSnapshot,
-    legality,
-  );
+  const beforeSnapshot = extensionKernel.projectSnapshot(beforeCanonicalSnapshot);
+  const legality = kernel.evaluateIntentLegalityFor(beforeCanonicalSnapshot, intent);
+  const admission = kernel.deriveIntentAdmission(beforeCanonicalSnapshot, legality);
 
   if (legality.kind !== "admitted") {
-    const blockedAdmission = admission as Extract<
-      IntentAdmission<T>,
-      { readonly kind: "blocked" }
-    >;
+    const blockedAdmission = admission as Extract<IntentAdmission<T>, { readonly kind: "blocked" }>;
     const rejectionError = toRejectedDispatchError(kernel, legality);
     const rejection = {
       code: rejectionError.code as
@@ -113,10 +90,7 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
     };
   }
 
-  const admittedAdmission = admission as Extract<
-    IntentAdmission<T>,
-    { readonly kind: "admitted" }
-  >;
+  const admittedAdmission = admission as Extract<IntentAdmission<T>, { readonly kind: "admitted" }>;
 
   let result: Awaited<ReturnType<typeof kernel.executeHost>>;
   try {
@@ -140,10 +114,8 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
   const diagnostics = kernel.createExecutionDiagnostics(result);
 
   if (result.status === "error") {
-    const failure =
-      result.error ?? new ManifestoError("HOST_ERROR", "Host dispatch failed");
-    const { publishedCanonicalSnapshot } =
-      publication.publishFailedHostResult(result.snapshot);
+    const failure = result.error ?? new ManifestoError("HOST_ERROR", "Host dispatch failed");
+    const { publishedCanonicalSnapshot } = publication.publishFailedHostResult(result.snapshot);
     return {
       kind: "failed",
       intent: legality.intent,
@@ -154,24 +126,19 @@ export async function runBaseDispatchAttempt<T extends ManifestoDomainShape>(
       errorInfo: kernel.classifyExecutionFailure(failure, "host"),
       published: true,
       diagnostics,
-      outcome: kernel.deriveExecutionOutcome(
-        beforeCanonicalSnapshot,
-        publishedCanonicalSnapshot,
-      ),
+      outcome: kernel.deriveExecutionOutcome(beforeCanonicalSnapshot, publishedCanonicalSnapshot),
     };
   }
 
-  const { publishedSnapshot, publishedCanonicalSnapshot } =
-    publication.publishCompletedHostResult(result.snapshot);
+  const { publishedSnapshot, publishedCanonicalSnapshot } = publication.publishCompletedHostResult(
+    result.snapshot,
+  );
   return {
     kind: "completed",
     intent: legality.intent,
     admission: admittedAdmission,
     publishedSnapshot,
-    outcome: kernel.deriveExecutionOutcome(
-      beforeCanonicalSnapshot,
-      publishedCanonicalSnapshot,
-    ),
+    outcome: kernel.deriveExecutionOutcome(beforeCanonicalSnapshot, publishedCanonicalSnapshot),
     diagnostics,
   };
 }
@@ -222,9 +189,7 @@ export function attemptToDispatchReport<T extends ManifestoDomainShape>(
     beforeCanonicalSnapshot: attempt.beforeCanonicalSnapshot,
     error: attempt.errorInfo,
     published: attempt.published,
-    ...(attempt.diagnostics !== undefined
-      ? { diagnostics: attempt.diagnostics }
-      : {}),
+    ...(attempt.diagnostics !== undefined ? { diagnostics: attempt.diagnostics } : {}),
     ...(attempt.outcome !== undefined ? { outcome: attempt.outcome } : {}),
   }) as DispatchReport<T>;
 }

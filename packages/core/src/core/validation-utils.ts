@@ -10,8 +10,7 @@ import { pathExistsInTypeDefinitionSegments } from "./type-definition-utils.js";
 const SEMVER_REGEX =
   /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const URI_SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function isValidSchemaId(id: string): boolean {
   return URI_SCHEME_REGEX.test(id) || UUID_REGEX.test(id);
@@ -249,9 +248,8 @@ export function pathExistsInStateSpec(
 
     const rootType = state.fieldTypes[root];
     if (rootType) {
-      const existsInTypeDefinition = rest.length === 0
-        ? true
-        : pathExistsInTypeDefinitionSegments(rootType, types, rest);
+      const existsInTypeDefinition =
+        rest.length === 0 ? true : pathExistsInTypeDefinitionSegments(rootType, types, rest);
       if (existsInTypeDefinition) {
         return true;
       }
@@ -311,7 +309,7 @@ export function pathExistsInFieldSpec(spec: FieldSpec, path: string): boolean {
 
 export function pathExistsInFieldSpecSegments(
   spec: FieldSpec,
-  segments: readonly PatchSegment[]
+  segments: readonly PatchSegment[],
 ): boolean {
   if (segments.length === 0) {
     return true;
@@ -357,7 +355,7 @@ export function pathExistsInFieldSpecSegments(
 export function validateValueAgainstFieldSpec(
   value: unknown,
   spec: FieldSpec,
-  options?: { allowPartial?: boolean; allowUndefined?: boolean }
+  options?: { allowPartial?: boolean; allowUndefined?: boolean },
 ): { ok: boolean; message?: string } {
   if (value === undefined) {
     if (options?.allowUndefined && spec.required === false) {
@@ -396,7 +394,7 @@ export function validateValueAgainstFieldSpec(
         value as Record<string, unknown>,
         spec,
         options?.allowPartial ?? false,
-        options?.allowUndefined ?? false
+        options?.allowUndefined ?? false,
       );
     case "array":
       if (!Array.isArray(value)) {
@@ -419,7 +417,7 @@ function validateObjectValue(
   value: Record<string, unknown>,
   spec: FieldSpec,
   allowPartial: boolean,
-  allowUndefined: boolean
+  allowUndefined: boolean,
 ): { ok: boolean; message?: string } {
   if (!spec.fields) {
     return { ok: true };
@@ -495,7 +493,7 @@ export function getFieldSpecAtPath(spec: FieldSpec, path: string): FieldSpec | n
 
 export function getFieldSpecAtSegments(
   spec: FieldSpec,
-  segments: readonly PatchSegment[]
+  segments: readonly PatchSegment[],
 ): FieldSpec | null {
   if (segments.length === 0) return spec;
 

@@ -7,7 +7,7 @@ async function expectedKey(
   schemaHash: string,
   bodyType: string,
   inputJcs: string,
-  scopeJcs: string
+  scopeJcs: string,
 ): Promise<string> {
   return sha256(`${schemaHash}:${bodyType}:${inputJcs}:${scopeJcs}`);
 }
@@ -24,8 +24,8 @@ describe("computeIntentKey", () => {
       },
     };
 
-    const inputJcs = "{\"a\":1,\"b\":2}";
-    const scopeJcs = "{\"allowedPaths\":[\"data.todos.*\"],\"note\":\"create todo\"}";
+    const inputJcs = '{"a":1,"b":2}';
+    const scopeJcs = '{"allowedPaths":["data.todos.*"],"note":"create todo"}';
     const expected = await expectedKey(schemaHash, body.type, inputJcs, scopeJcs);
 
     await expect(computeIntentKey(schemaHash, body)).resolves.toBe(expected);
@@ -46,7 +46,7 @@ describe("computeIntentKey", () => {
       input: { values: [1, NaN, Infinity, -Infinity] },
     };
 
-    const inputJcs = "{\"values\":[1,null,null,null]}";
+    const inputJcs = '{"values":[1,null,null,null]}';
     const expected = await expectedKey(schemaHash, body.type, inputJcs, "null");
     await expect(computeIntentKey(schemaHash, body)).resolves.toBe(expected);
   });

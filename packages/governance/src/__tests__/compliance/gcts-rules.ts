@@ -1,13 +1,10 @@
 import type { GovernanceComplianceRule } from "./gcts-types.js";
-import {
-  GOVERNANCE_SPEC_INVENTORY,
-  getInventoryRuleOrThrow,
-} from "./gcts-spec-inventory.js";
+import { GOVERNANCE_SPEC_INVENTORY, getInventoryRuleOrThrow } from "./gcts-spec-inventory.js";
 
 function registry(
   ruleId: string,
   mode: GovernanceComplianceRule["mode"],
-  notes?: string
+  notes?: string,
 ): GovernanceComplianceRule {
   const inventoryRule = getInventoryRuleOrThrow(ruleId);
   return {
@@ -20,7 +17,7 @@ function registry(
 function registryMany(
   ruleIds: readonly string[],
   mode: GovernanceComplianceRule["mode"],
-  notes?: string
+  notes?: string,
 ): GovernanceComplianceRule[] {
   return ruleIds.map((ruleId) => registry(ruleId, mode, notes));
 }
@@ -50,7 +47,7 @@ export const GOVERNANCE_COMPLIANCE_RULES: readonly GovernanceComplianceRule[] = 
       "GOV-EXEC-EVT-5",
       "GOV-EXEC-EVT-6",
     ],
-    "blocking"
+    "blocking",
   ),
   registry("GOV-BOUNDARY-5", "blocking"),
   registry("GOV-DEP-1", "informational"),
@@ -66,7 +63,9 @@ export function getRuleOrThrow(ruleId: string): GovernanceComplianceRule {
   return rule;
 }
 
-export function getRulesBySuite(suite: GovernanceComplianceRule["suite"]): GovernanceComplianceRule[] {
+export function getRulesBySuite(
+  suite: GovernanceComplianceRule["suite"],
+): GovernanceComplianceRule[] {
   return GOVERNANCE_COMPLIANCE_RULES.filter((rule) => rule.suite === suite);
 }
 

@@ -43,9 +43,9 @@ function getAvailableActionRefs<T extends ManifestoDomainShape>(
   }
 
   return Object.freeze(
-    ext.getAvailableActionsFor(snapshot).map(
-      (name) => ext.refs.actions[name],
-    ) as readonly SimulationActionRef<T>[],
+    ext
+      .getAvailableActionsFor(snapshot)
+      .map((name) => ext.refs.actions[name]) as readonly SimulationActionRef<T>[],
   );
 }
 
@@ -97,9 +97,9 @@ function createSession<T extends ManifestoDomainShape>(
 
       const intent = isActionRef(actionOrIntent)
         ? ext.createIntent(
-          actionOrIntent as TypedActionRef<T, never>,
-          ...(args as CreateIntentArgs<T, never>),
-        )
+            actionOrIntent as TypedActionRef<T, never>,
+            ...(args as CreateIntentArgs<T, never>),
+          )
         : actionOrIntent;
       const simulated = ext.simulateSync(state.canonicalSnapshot, intent);
       const step = createSessionStep(
@@ -127,10 +127,7 @@ function createSession<T extends ManifestoDomainShape>(
   return result as SimulationSession<T>;
 }
 
-export function createSimulationSession<
-  T extends ManifestoDomainShape,
-  Laws extends BaseLaws,
->(
+export function createSimulationSession<T extends ManifestoDomainShape, Laws extends BaseLaws>(
   app: ActivatedInstance<T, Laws>,
 ): SimulationSession<T> {
   const ext = getAttachedExtensionKernel<T>(app as object);

@@ -15,17 +15,13 @@ import {
   type Patch,
 } from "@manifesto-ai/core";
 
-import type {
-  EffectHandler,
-} from "../types.js";
+import type { EffectHandler } from "../types.js";
 import {
   cloneAndDeepFreeze,
   projectEffectContextSnapshot,
   type SnapshotProjectionPlan,
 } from "../projection/snapshot-projection.js";
-import type {
-  InternalHostBundle,
-} from "./shared.js";
+import type { InternalHostBundle } from "./shared.js";
 
 export function createInternalHost(
   schema: DomainSchema,
@@ -43,9 +39,9 @@ export function createInternalHost(
   const host = createHost(schema, {
     initialSnapshot: isOk(initialComputed)
       ? {
-        ...initialSnapshot,
-        computed: initialComputed.value,
-      }
+          ...initialSnapshot,
+          computed: initialComputed.value,
+        }
       : initialSnapshot,
     runtime,
   });
@@ -57,9 +53,7 @@ export function createInternalHost(
       ctx: HostEffectContext,
     ): Promise<Patch[]> => {
       const patches = await appHandler(params, {
-        snapshot: cloneAndDeepFreeze(
-          projectEffectContextSnapshot(ctx.snapshot, projectionPlan),
-        ),
+        snapshot: cloneAndDeepFreeze(projectEffectContextSnapshot(ctx.snapshot, projectionPlan)),
       });
       return patches as Patch[];
     };

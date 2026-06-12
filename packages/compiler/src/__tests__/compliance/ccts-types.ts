@@ -33,14 +33,16 @@ export const CCTS_SUITES = [
 
 export type CompilerComplianceSuite = (typeof CCTS_SUITES)[number];
 
-export type {
-  ComplianceStatus,
-  RuleLevel,
-  RuleLifecycle,
-  RuleMode,
-};
+export type { ComplianceStatus, RuleLevel, RuleLifecycle, RuleMode };
 
-export type CompilerPhase = "lex" | "parse" | "analyze" | "canonical" | "generate" | "compile" | "lower";
+export type CompilerPhase =
+  | "lex"
+  | "parse"
+  | "analyze"
+  | "canonical"
+  | "generate"
+  | "compile"
+  | "lower";
 
 export type CompilerEvidenceKind = "diagnostic" | "ast" | "schema" | "trace" | "note";
 

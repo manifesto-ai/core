@@ -71,10 +71,7 @@ export type MelExprNode =
  *
  * @see SPEC v0.4.0 §17.3
  */
-export function lowerExprNode(
-  input: MelExprNode,
-  ctx: ExprLoweringContext
-): CoreExprNode {
+export function lowerExprNode(input: MelExprNode, ctx: ExprLoweringContext): CoreExprNode {
   switch (input.kind) {
     case "lit":
       return lowerLit(input);
@@ -124,10 +121,7 @@ function lowerLit(input: { kind: "lit"; value: MelPrimitive }): CoreExprNode {
  *
  * @see FDR-MEL-068, SPEC §17.3.2
  */
-function lowerVar(
-  _input: { kind: "var"; name: "item" },
-  ctx: ExprLoweringContext
-): CoreExprNode {
+function lowerVar(_input: { kind: "var"; name: "item" }, ctx: ExprLoweringContext): CoreExprNode {
   if (!ctx.allowItem) {
     throw invalidKindForContext("var", ctx.mode);
   }
@@ -146,7 +140,7 @@ function lowerVar(
  */
 function lowerSys(
   input: { kind: "sys"; path: MelSystemPath },
-  ctx: ExprLoweringContext
+  ctx: ExprLoweringContext,
 ): CoreExprNode {
   if (input.path.length === 0) {
     throw invalidSysPath(input.path);
@@ -178,7 +172,7 @@ function lowerSys(
  */
 function lowerGet(
   input: { kind: "get"; base?: MelExprNode; path: MelPathNode },
-  ctx: ExprLoweringContext
+  ctx: ExprLoweringContext,
 ): CoreExprNode {
   const pathStr = input.path.map((seg) => seg.name).join(".");
 
@@ -205,7 +199,7 @@ function lowerGet(
  */
 function lowerField(
   input: { kind: "field"; object: MelExprNode; property: string },
-  ctx: ExprLoweringContext
+  ctx: ExprLoweringContext,
 ): CoreExprNode {
   if (input.object.kind === "get" && input.object.base === undefined) {
     const objectPath = input.object.path.map((segment) => segment.name).join(".");
@@ -231,7 +225,7 @@ function lowerField(
  */
 function lowerCall(
   input: { kind: "call"; fn: string; args: MelExprNode[] },
-  ctx: ExprLoweringContext
+  ctx: ExprLoweringContext,
 ): CoreExprNode {
   const { fn, args } = input;
 
@@ -258,10 +252,7 @@ function lowerCall(
       args: [
         {
           kind: "max",
-          args: [
-            lowerExprNode(args[0], ctx),
-            lowerExprNode(args[1], ctx),
-          ],
+          args: [lowerExprNode(args[0], ctx), lowerExprNode(args[1], ctx)],
         },
         lowerExprNode(args[2], ctx),
       ],
@@ -456,7 +447,7 @@ function lowerCall(
         object: args[0],
         property: property.value,
       },
-      ctx
+      ctx,
     );
   }
 
@@ -531,11 +522,12 @@ function lowerCall(
     if (args.length < 2 || args.length > 3) {
       throw unknownCallFn(fn);
     }
-    const result: { kind: "slice"; array: CoreExprNode; start: CoreExprNode; end?: CoreExprNode } = {
-      kind: "slice",
-      array: lowerExprNode(args[0], ctx),
-      start: lowerExprNode(args[1], ctx),
-    };
+    const result: { kind: "slice"; array: CoreExprNode; start: CoreExprNode; end?: CoreExprNode } =
+      {
+        kind: "slice",
+        array: lowerExprNode(args[0], ctx),
+        start: lowerExprNode(args[1], ctx),
+      };
     if (args.length === 3) {
       result.end = lowerExprNode(args[2], ctx);
     }
@@ -547,7 +539,12 @@ function lowerCall(
     if (args.length < 2 || args.length > 3) {
       throw unknownCallFn(fn);
     }
-    const result: { kind: "substring"; str: CoreExprNode; start: CoreExprNode; end?: CoreExprNode } = {
+    const result: {
+      kind: "substring";
+      str: CoreExprNode;
+      start: CoreExprNode;
+      end?: CoreExprNode;
+    } = {
       kind: "substring",
       str: lowerExprNode(args[0], ctx),
       start: lowerExprNode(args[1], ctx),
@@ -590,7 +587,7 @@ function lowerCall(
  */
 function lowerObj(
   input: { kind: "obj"; fields: MelObjField[] },
-  ctx: ExprLoweringContext
+  ctx: ExprLoweringContext,
 ): CoreExprNode {
   const fields: Record<string, CoreExprNode> = {};
   for (const field of stableSortByUnicodeObjectKey(input.fields)) {
@@ -612,14 +609,12 @@ function lowerObj(
  */
 function lowerArr(
   input: { kind: "arr"; elements: MelExprNode[] },
-  ctx: ExprLoweringContext
+  ctx: ExprLoweringContext,
 ): CoreExprNode {
   // If all elements are literals, we can create a lit array
   const allLiterals = input.elements.every((e) => e.kind === "lit");
   if (allLiterals) {
-    const values = input.elements.map(
-      (e) => (e as { kind: "lit"; value: MelPrimitive }).value
-    );
+    const values = input.elements.map((e) => (e as { kind: "lit"; value: MelPrimitive }).value);
     return { kind: "lit", value: values };
   }
 
@@ -676,7 +671,7 @@ function lowerMatchCall(args: MelExprNode[], ctx: ExprLoweringContext): CoreExpr
 function lowerArgSelectionCall(
   fn: "argmax" | "argmin",
   args: MelExprNode[],
-  ctx: ExprLoweringContext
+  ctx: ExprLoweringContext,
 ): CoreExprNode {
   if (args.length < 2) {
     throw unknownCallFn(fn);
@@ -698,7 +693,7 @@ function lowerArgSelectionCall(
 function lowerArgCandidate(
   candidate: MelExprNode,
   ctx: ExprLoweringContext,
-  fn: "argmax" | "argmin"
+  fn: "argmax" | "argmin",
 ): LoweredArgCandidate {
   if (candidate.kind !== "arr" || candidate.elements.length !== 3) {
     throw unknownCallFn(fn);
@@ -714,7 +709,7 @@ function lowerArgCandidate(
 function buildArgSelection(
   fn: "argmax" | "argmin",
   candidates: LoweredArgCandidate[],
-  tieBreak: "first" | "last"
+  tieBreak: "first" | "last",
 ): CoreExprNode {
   let current: CoreExprNode = { kind: "lit", value: null };
   for (let index = candidates.length - 1; index >= 0; index -= 1) {
@@ -732,7 +727,7 @@ function buildArgSelectionCondition(
   fn: "argmax" | "argmin",
   candidates: LoweredArgCandidate[],
   tieBreak: "first" | "last",
-  index: number
+  index: number,
 ): CoreExprNode {
   const current = candidates[index]!;
   const comparisons: CoreExprNode[] = [];
@@ -769,7 +764,7 @@ function selectionCompareKind(
   fn: "argmax" | "argmin",
   tieBreak: "first" | "last",
   index: number,
-  otherIndex: number
+  otherIndex: number,
 ): "gt" | "gte" | "lt" | "lte" {
   const prefersCurrentOnTie = tieBreak === "first" ? index < otherIndex : index > otherIndex;
   if (fn === "argmax") {
@@ -782,10 +777,7 @@ function selectionCompareKind(
 
 /** Binary operators: eq, neq, gt, gte, lt, lte, add, sub, mul, div, mod */
 function isBinaryOp(fn: string): boolean {
-  return [
-    "eq", "neq", "gt", "gte", "lt", "lte",
-    "add", "sub", "mul", "div", "mod",
-  ].includes(fn);
+  return ["eq", "neq", "gt", "gte", "lt", "lte", "add", "sub", "mul", "div", "mod"].includes(fn);
 }
 
 type UnaryArgOp =

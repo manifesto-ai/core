@@ -309,7 +309,11 @@ export class ScopeAnalyzer {
     }
   }
 
-  private checkIdentifier(name: string, location: SourceLocation, context: "computed" | "action"): void {
+  private checkIdentifier(
+    name: string,
+    location: SourceLocation,
+    context: "computed" | "action",
+  ): void {
     const symbol = this.currentScope?.lookup(name);
 
     if (!symbol) {
@@ -324,31 +328,31 @@ export class ScopeAnalyzer {
         this.error(
           `Cannot access parameter '${name}' in computed expression`,
           location,
-          "E_INVALID_ACCESS"
+          "E_INVALID_ACCESS",
         );
       }
     }
   }
 
-  private checkSystemIdent(path: string[], location: SourceLocation, context: "computed" | "action"): void {
+  private checkSystemIdent(
+    path: string[],
+    location: SourceLocation,
+    context: "computed" | "action",
+  ): void {
     const [namespace, ...rest] = path;
 
     if (namespace === "system" || namespace === "meta") {
       this.error(
         `$${namespace}.* is retired in v5 MEL; use $runtime.* or declared $context.* where action-flow context is available`,
         location,
-        context === "computed" ? "E001" : "E003"
+        context === "computed" ? "E001" : "E003",
       );
       return;
     }
 
     if (namespace === "runtime") {
       if (context === "computed") {
-        this.error(
-          "$runtime.* cannot be used in computed expressions",
-          location,
-          "E001"
-        );
+        this.error("$runtime.* cannot be used in computed expressions", location, "E001");
         return;
       }
       const validKeys = [
@@ -364,7 +368,7 @@ export class ScopeAnalyzer {
         this.error(
           `Invalid runtime value '$runtime.${key}'. Valid values: ${validKeys.join(", ")}`,
           location,
-          "E003"
+          "E003",
         );
       }
       return;
@@ -372,11 +376,7 @@ export class ScopeAnalyzer {
 
     if (namespace === "context") {
       if (context === "computed") {
-        this.error(
-          "$context.* cannot be used in computed expressions",
-          location,
-          "E001"
-        );
+        this.error("$context.* cannot be used in computed expressions", location, "E001");
       }
       return;
     }
@@ -388,7 +388,7 @@ export class ScopeAnalyzer {
     this.error(
       `Invalid dollar identifier namespace '$${namespace}'. Valid namespaces: $runtime, $context, $input, $item`,
       location,
-      "E003"
+      "E003",
     );
   }
 
@@ -400,11 +400,7 @@ export class ScopeAnalyzer {
     if (first?.kind === "propertySegment") {
       const symbol = this.currentScope?.lookup(first.name);
       if (!symbol) {
-        this.error(
-          `Undefined identifier '${first.name}' in path`,
-          path.location,
-          "E_UNDEFINED"
-        );
+        this.error(`Undefined identifier '${first.name}' in path`, path.location, "E_UNDEFINED");
       }
     }
   }
@@ -413,11 +409,7 @@ export class ScopeAnalyzer {
     if (!this.currentScope) return;
 
     if (this.currentScope.isDefined(symbol.name)) {
-      this.error(
-        `Duplicate identifier '${symbol.name}'`,
-        symbol.location,
-        "E_DUPLICATE"
-      );
+      this.error(`Duplicate identifier '${symbol.name}'`, symbol.location, "E_DUPLICATE");
       return;
     }
 

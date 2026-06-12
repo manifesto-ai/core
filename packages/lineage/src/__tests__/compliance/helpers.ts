@@ -19,7 +19,7 @@ export function createTestComputeEnvelope(
 
 export function createTestSnapshot(
   state: Record<string, unknown>,
-  overrides?: Partial<Snapshot>
+  overrides?: Partial<Snapshot>,
 ): Snapshot {
   return {
     state,
@@ -50,11 +50,12 @@ export function snapshotStoreState(store: {
   getActiveBranchId(): Promise<unknown>;
   getWorld(worldId: string): Promise<unknown>;
 }): Promise<string> {
-  return (async () => JSON.stringify({
-    branches: await store.getBranches(),
-    activeBranchId: await store.getActiveBranchId(),
-    world: await store.getWorld("missing"),
-  }))();
+  return (async () =>
+    JSON.stringify({
+      branches: await store.getBranches(),
+      activeBranchId: await store.getActiveBranchId(),
+      world: await store.getWorld("missing"),
+    }))();
 }
 
 export async function createBootstrappedLineage() {

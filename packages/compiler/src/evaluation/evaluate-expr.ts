@@ -370,7 +370,7 @@ function evaluateComparison(
   left: ExprNode,
   right: ExprNode,
   ctx: EvaluationContext,
-  compare: (a: number, b: number) => boolean
+  compare: (a: number, b: number) => boolean,
 ): boolean | null {
   const l = evaluateNode(left, ctx);
   const r = evaluateNode(right, ctx);
@@ -402,10 +402,7 @@ function deepEqual(a: unknown, b: unknown): boolean {
     return aKeys.every(
       (key) =>
         Object.prototype.hasOwnProperty.call(b, key) &&
-        deepEqual(
-          (a as Record<string, unknown>)[key],
-          (b as Record<string, unknown>)[key]
-        )
+        deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
     );
   }
 
@@ -451,7 +448,7 @@ function evaluateIf(
   cond: ExprNode,
   thenExpr: ExprNode,
   elseExpr: ExprNode,
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): unknown {
   const condResult = evaluateNode(cond, ctx);
   if (condResult === true) {
@@ -470,7 +467,7 @@ function evaluateArithmetic(
   left: ExprNode,
   right: ExprNode,
   ctx: EvaluationContext,
-  op: (a: number, b: number) => number
+  op: (a: number, b: number) => number,
 ): number | null {
   const l = evaluateNode(left, ctx);
   const r = evaluateNode(right, ctx);
@@ -616,7 +613,7 @@ function evaluateSubstring(
   str: ExprNode,
   start: ExprNode,
   end: ExprNode | undefined,
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): string | null {
   const s = evaluateNode(str, ctx);
   const startIdx = evaluateNode(start, ctx);
@@ -678,7 +675,12 @@ function evaluateAt(array: ExprNode, index: ExprNode, ctx: EvaluationContext): u
   }
 
   // Record lookup: at(record, stringKey) — exclude arrays
-  if (typeof base === "object" && base !== null && !Array.isArray(base) && typeof key === "string") {
+  if (
+    typeof base === "object" &&
+    base !== null &&
+    !Array.isArray(base) &&
+    typeof key === "string"
+  ) {
     return (base as Record<string, unknown>)[key] ?? null;
   }
 
@@ -709,7 +711,7 @@ function evaluateSlice(
   array: ExprNode,
   start: ExprNode,
   end: ExprNode | undefined,
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): unknown[] | null {
   const arr = evaluateNode(array, ctx);
   const startIdx = evaluateNode(start, ctx);
@@ -744,7 +746,7 @@ function evaluateIncludes(array: ExprNode, item: ExprNode, ctx: EvaluationContex
 function evaluateFilter(
   array: ExprNode,
   predicate: ExprNode,
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): unknown[] | null {
   const arr = evaluateNode(array, ctx);
 
@@ -767,11 +769,7 @@ function evaluateFilter(
   return result;
 }
 
-function evaluateMap(
-  array: ExprNode,
-  mapper: ExprNode,
-  ctx: EvaluationContext
-): unknown[] | null {
+function evaluateMap(array: ExprNode, mapper: ExprNode, ctx: EvaluationContext): unknown[] | null {
   const arr = evaluateNode(array, ctx);
 
   if (!Array.isArray(arr)) {
@@ -788,11 +786,7 @@ function evaluateMap(
   return result;
 }
 
-function evaluateFind(
-  array: ExprNode,
-  predicate: ExprNode,
-  ctx: EvaluationContext
-): unknown {
+function evaluateFind(array: ExprNode, predicate: ExprNode, ctx: EvaluationContext): unknown {
   const arr = evaluateNode(array, ctx);
 
   if (!Array.isArray(arr)) {
@@ -817,7 +811,7 @@ function evaluateFind(
 function evaluateEvery(
   array: ExprNode,
   predicate: ExprNode,
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): boolean | null {
   const arr = evaluateNode(array, ctx);
 
@@ -843,7 +837,7 @@ function evaluateEvery(
 function evaluateSome(
   array: ExprNode,
   predicate: ExprNode,
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): boolean | null {
   const arr = evaluateNode(array, ctx);
 
@@ -869,7 +863,7 @@ function evaluateSome(
 function evaluateAppend(
   array: ExprNode,
   items: ExprNode[],
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): unknown[] | null {
   const arr = evaluateNode(array, ctx);
 
@@ -939,7 +933,7 @@ function evaluateMaxArray(array: ExprNode, ctx: EvaluationContext): number | nul
 
 function evaluateObject(
   fields: Record<string, ExprNode>,
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const key of Object.keys(fields).sort(compareUnicodeCodePoints)) {
@@ -952,7 +946,7 @@ function evaluateObject(
 function evaluateFieldAccess(
   objectExpr: ExprNode,
   property: string,
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): unknown {
   const obj = evaluateNode(objectExpr, ctx);
 
@@ -999,7 +993,7 @@ function evaluateEntries(obj: ExprNode, ctx: EvaluationContext): [string, unknow
 
 function evaluateMerge(
   objects: ExprNode[],
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): Record<string, unknown> | null {
   const result: Record<string, unknown> = {};
 

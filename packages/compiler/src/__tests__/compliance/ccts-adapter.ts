@@ -24,7 +24,7 @@ function phaseSnapshot<T>(
   phase: CompilerPhaseSnapshot<T>["phase"],
   value: T | null,
   diagnostics: Diagnostic[],
-  trace?: CompilerPhaseSnapshot<T>["trace"]
+  trace?: CompilerPhaseSnapshot<T>["trace"],
 ): CompilerPhaseSnapshot<T> {
   const warnings = diagnostics.filter((diagnostic) => diagnostic.severity === "warning");
   const errors = diagnostics.filter((diagnostic) => diagnostic.severity === "error");

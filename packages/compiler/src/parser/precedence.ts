@@ -11,17 +11,17 @@ import type { BinaryOperator } from "./ast.js";
  */
 export enum Precedence {
   NONE = 0,
-  TERNARY = 1,      // ? :
-  NULLISH = 2,      // ??
-  OR = 3,           // ||
-  AND = 4,          // &&
-  EQUALITY = 5,     // == !=
-  COMPARISON = 6,   // < <= > >=
-  ADDITIVE = 7,     // + -
+  TERNARY = 1, // ? :
+  NULLISH = 2, // ??
+  OR = 3, // ||
+  AND = 4, // &&
+  EQUALITY = 5, // == !=
+  COMPARISON = 6, // < <= > >=
+  ADDITIVE = 7, // + -
   MULTIPLICATIVE = 8, // * / %
-  UNARY = 9,        // ! -
-  CALL = 10,        // ()
-  ACCESS = 11,      // . []
+  UNARY = 9, // ! -
+  CALL = 10, // ()
+  ACCESS = 11, // . []
 }
 
 /**
@@ -29,22 +29,31 @@ export enum Precedence {
  */
 export function getBinaryPrecedence(kind: TokenKind): Precedence {
   switch (kind) {
-    case "QUESTION": return Precedence.TERNARY;
-    case "QUESTION_QUESTION": return Precedence.NULLISH;
-    case "PIPE_PIPE": return Precedence.OR;
-    case "AMP_AMP": return Precedence.AND;
+    case "QUESTION":
+      return Precedence.TERNARY;
+    case "QUESTION_QUESTION":
+      return Precedence.NULLISH;
+    case "PIPE_PIPE":
+      return Precedence.OR;
+    case "AMP_AMP":
+      return Precedence.AND;
     case "EQ_EQ":
-    case "BANG_EQ": return Precedence.EQUALITY;
+    case "BANG_EQ":
+      return Precedence.EQUALITY;
     case "LT":
     case "LT_EQ":
     case "GT":
-    case "GT_EQ": return Precedence.COMPARISON;
+    case "GT_EQ":
+      return Precedence.COMPARISON;
     case "PLUS":
-    case "MINUS": return Precedence.ADDITIVE;
+    case "MINUS":
+      return Precedence.ADDITIVE;
     case "STAR":
     case "SLASH":
-    case "PERCENT": return Precedence.MULTIPLICATIVE;
-    default: return Precedence.NONE;
+    case "PERCENT":
+      return Precedence.MULTIPLICATIVE;
+    default:
+      return Precedence.NONE;
   }
 }
 
@@ -53,21 +62,36 @@ export function getBinaryPrecedence(kind: TokenKind): Precedence {
  */
 export function tokenToBinaryOp(kind: TokenKind): BinaryOperator | null {
   switch (kind) {
-    case "PLUS": return "+";
-    case "MINUS": return "-";
-    case "STAR": return "*";
-    case "SLASH": return "/";
-    case "PERCENT": return "%";
-    case "EQ_EQ": return "==";
-    case "BANG_EQ": return "!=";
-    case "LT": return "<";
-    case "LT_EQ": return "<=";
-    case "GT": return ">";
-    case "GT_EQ": return ">=";
-    case "AMP_AMP": return "&&";
-    case "PIPE_PIPE": return "||";
-    case "QUESTION_QUESTION": return "??";
-    default: return null;
+    case "PLUS":
+      return "+";
+    case "MINUS":
+      return "-";
+    case "STAR":
+      return "*";
+    case "SLASH":
+      return "/";
+    case "PERCENT":
+      return "%";
+    case "EQ_EQ":
+      return "==";
+    case "BANG_EQ":
+      return "!=";
+    case "LT":
+      return "<";
+    case "LT_EQ":
+      return "<=";
+    case "GT":
+      return ">";
+    case "GT_EQ":
+      return ">=";
+    case "AMP_AMP":
+      return "&&";
+    case "PIPE_PIPE":
+      return "||";
+    case "QUESTION_QUESTION":
+      return "??";
+    default:
+      return null;
   }
 }
 

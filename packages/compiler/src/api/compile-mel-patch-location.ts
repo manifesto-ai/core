@@ -19,7 +19,7 @@ export function computeLineStartOffsets(lines: string[]): number[] {
 
 export function makePatchLocationMapper(
   patchLines: string[],
-  patchLineStarts: number[]
+  patchLineStarts: number[],
 ): (location: Diagnostic["location"]) => Diagnostic["location"] {
   return (location) => remapLocationToPatchSource(location, patchLines, patchLineStarts);
 }
@@ -27,34 +27,28 @@ export function makePatchLocationMapper(
 export function remapDiagnosticsToPatchSource(
   diagnostics: Diagnostic[],
   patchLines: string[],
-  patchLineStarts: number[]
+  patchLineStarts: number[],
 ): Diagnostic[] {
-  return diagnostics.map((diagnostic) => remapDiagnosticToPatchSource(
-    diagnostic,
-    patchLines,
-    patchLineStarts
-  ));
+  return diagnostics.map((diagnostic) =>
+    remapDiagnosticToPatchSource(diagnostic, patchLines, patchLineStarts),
+  );
 }
 
 function remapDiagnosticToPatchSource(
   diagnostic: Diagnostic,
   patchLines: string[],
-  patchLineStarts: number[]
+  patchLineStarts: number[],
 ): Diagnostic {
   return {
     ...diagnostic,
-    location: remapLocationToPatchSource(
-      diagnostic.location,
-      patchLines,
-      patchLineStarts
-    ),
+    location: remapLocationToPatchSource(diagnostic.location, patchLines, patchLineStarts),
   };
 }
 
 function remapLocationToPatchSource(
   location: Diagnostic["location"],
   patchLines: string[],
-  patchLineStarts: number[]
+  patchLineStarts: number[],
 ): Diagnostic["location"] {
   return {
     ...location,
@@ -66,7 +60,7 @@ function remapLocationToPatchSource(
 function remapPositionToPatchSource(
   position: Diagnostic["location"]["start"],
   patchLines: string[],
-  patchLineStarts: number[]
+  patchLineStarts: number[],
 ): Diagnostic["location"]["start"] {
   const patchLine = position.line - SYNTHETIC_PATCH_PREFIX_LINES;
   const patchLineCount = patchLines.length;
@@ -77,7 +71,7 @@ function remapPositionToPatchSource(
   const maxSourceColumn = Math.max(sourceLineText.length + 1, 1);
   const sourceColumn = Math.min(
     Math.max(position.column - SYNTHETIC_PATCH_PREFIX_COLUMNS, 1),
-    maxSourceColumn
+    maxSourceColumn,
   );
 
   return {

@@ -17,12 +17,7 @@ function joinPath(base: string, segment: string): string {
   return base.length === 0 ? segment : `${base}.${segment}`;
 }
 
-function collectInto(
-  before: unknown,
-  after: unknown,
-  path: string,
-  out: Set<string>,
-): void {
+function collectInto(before: unknown, after: unknown, path: string, out: Set<string>): void {
   if (Object.is(before, after)) {
     return;
   }
@@ -56,19 +51,13 @@ function collectInto(
 /**
  * Collect dot paths of leaf-level differences between two domain states.
  */
-export function collectChangedStatePaths(
-  before: unknown,
-  after: unknown,
-): readonly string[] {
+export function collectChangedStatePaths(before: unknown, after: unknown): readonly string[] {
   const out = new Set<string>();
   collectInto(before, after, "", out);
   return Object.freeze([...out].sort());
 }
 
-export function isPathAllowed(
-  path: string,
-  allowedPaths: readonly string[],
-): boolean {
+export function isPathAllowed(path: string, allowedPaths: readonly string[]): boolean {
   for (const allowed of allowedPaths) {
     if (allowed === "*") {
       return true;
@@ -95,9 +84,7 @@ export function findScopeViolations(
     return Object.freeze([]);
   }
 
-  return Object.freeze(
-    changedPaths.filter((path) => !isPathAllowed(path, allowedPaths)),
-  );
+  return Object.freeze(changedPaths.filter((path) => !isPathAllowed(path, allowedPaths)));
 }
 
 /**
@@ -113,10 +100,7 @@ export function toIntentScope(value: unknown): IntentScope | null {
     return value as IntentScope;
   }
 
-  if (
-    Array.isArray(allowedPaths)
-    && allowedPaths.every((entry) => typeof entry === "string")
-  ) {
+  if (Array.isArray(allowedPaths) && allowedPaths.every((entry) => typeof entry === "string")) {
     return value as IntentScope;
   }
 

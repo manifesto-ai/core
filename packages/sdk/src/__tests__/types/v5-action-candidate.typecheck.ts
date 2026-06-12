@@ -78,8 +78,10 @@ type ContextTypedDomain = {
   };
 };
 
-const app: ManifestoApp<CounterDomain, "base"> =
-  createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
+const app: ManifestoApp<CounterDomain, "base"> = createManifesto<CounterDomain>(
+  createCounterSchema(),
+  {},
+).activate();
 declare const objectApp: ManifestoApp<ObjectInputDomain, "base">;
 declare const multiArgApp: ManifestoApp<MultiArgDomain, "base">;
 declare const optionalSingleArgApp: ManifestoApp<OptionalSingleArgDomain, "base">;
@@ -87,11 +89,11 @@ declare const contextApp: ManifestoApp<ContextTypedDomain, "base">;
 declare const broadApp: ManifestoApp<ManifestoDomainShape, "base">;
 
 const handle: ActionHandle<CounterDomain, "add", "base"> = app.action.add;
-const preciseLookup: ActionHandle<CounterDomain, "increment", "base"> =
-  app.getAction("increment");
+const preciseLookup: ActionHandle<CounterDomain, "increment", "base"> = app.getAction("increment");
 declare const knownActionName: ActionName<CounterDomain>;
-const knownLookup: ActionHandle<CounterDomain, ActionName<CounterDomain>, "base"> =
-  app.getAction(knownActionName);
+const knownLookup: ActionHandle<CounterDomain, ActionName<CounterDomain>, "base"> = app.getAction(
+  knownActionName,
+);
 declare const unknownActionName: string;
 const dynamicLookup: DynamicActionHandle<CounterDomain, "base"> | undefined =
   app.getAction(unknownActionName);
@@ -107,8 +109,10 @@ const bound: BoundAction<CounterDomain, "add", "base"> = handle.bind(input);
 const objectBound = objectApp.action.toggleTodo.bind({ id: "todo-1" });
 const objectInput: ToggleTodoInput = objectBound.input;
 const scalarInput: string = objectApp.action.toggleTodoById.bind("todo-1").input;
-const multiArgInput: readonly [string, boolean?] =
-  multiArgApp.action.rename.bind("Ada", true).input;
+const multiArgInput: readonly [string, boolean?] = multiArgApp.action.rename.bind(
+  "Ada",
+  true,
+).input;
 const multiArgOptionalInput: readonly [string, boolean?] =
   multiArgApp.action.rename.bind("Ada").input;
 const optionalSingleInput: string | undefined =
@@ -117,14 +121,18 @@ const optionalSingleInputWithValue: string | undefined =
   optionalSingleArgApp.action.maybeRename.bind("Ada").input;
 const admission: Admission<"add"> = bound.check();
 if (dynamicLookup) {
-  const dynamicAdmission: Admission<ActionName<CounterDomain>> =
-    dynamicLookup.check(...([] as unknown[]));
-  const dynamicPreview: PreviewResult<CounterDomain, ActionName<CounterDomain>> =
-    dynamicLookup.preview(...([] as unknown[]));
+  const dynamicAdmission: Admission<ActionName<CounterDomain>> = dynamicLookup.check(
+    ...([] as unknown[]),
+  );
+  const dynamicPreview: PreviewResult<
+    CounterDomain,
+    ActionName<CounterDomain>
+  > = dynamicLookup.preview(...([] as unknown[]));
   const dynamicSubmit: Promise<SubmitResultFor<"base", CounterDomain, ActionName<CounterDomain>>> =
     dynamicLookup.submit(...([] as unknown[]));
-  const dynamicBound: DynamicBoundAction<CounterDomain, "base"> =
-    dynamicLookup.bind(...([] as unknown[]));
+  const dynamicBound: DynamicBoundAction<CounterDomain, "base"> = dynamicLookup.bind(
+    ...([] as unknown[]),
+  );
   void dynamicAdmission;
   void dynamicPreview;
   void dynamicSubmit;
@@ -139,9 +147,14 @@ if (broadDynamicLookup) {
 const previewMode: PreviewDiagnosticsMode = "summary";
 const submitMode: SubmitReportMode = "summary";
 const view: ExecutionView = { diagnostics: previewMode, report: submitMode };
-const preview: PreviewResult<CounterDomain, "add"> = app.with(view).action.add.bind(input).preview();
-const baseResult: Promise<BaseSubmissionResult<CounterDomain, "add">> =
-  app.with(view).action.add.bind(input).submit();
+const preview: PreviewResult<CounterDomain, "add"> = app
+  .with(view)
+  .action.add.bind(input)
+  .preview();
+const baseResult: Promise<BaseSubmissionResult<CounterDomain, "add">> = app
+  .with(view)
+  .action.add.bind(input)
+  .submit();
 const projected: ProjectedSnapshot<CounterDomain> = app.snapshot();
 const stateSurface: StateReadSurface<CounterDomain> = app.state;
 const computedSurface: ComputedReadSurface<CounterDomain> = app.computed;
@@ -225,16 +238,24 @@ void updatedContext.tenantId;
 void contextView.context().tenantId;
 void contextView.action.stamp.preview();
 void contextView.action.stamp.submit();
-void createManifesto<ContextTypedDomain>(createCounterSchema(), {}, {
-  context: { tenantId: "acme", locale: "ko-KR" },
-});
+void createManifesto<ContextTypedDomain>(
+  createCounterSchema(),
+  {},
+  {
+    context: { tenantId: "acme", locale: "ko-KR" },
+  },
+);
 
 // @ts-expect-error waitForSettlement is governance-mode only
 app.waitForSettlement("proposal-1");
-createManifesto<ContextTypedDomain>(createCounterSchema(), {}, {
-  // @ts-expect-error createManifesto context must match the domain context type
-  context: { tenantId: "acme" },
-});
+createManifesto<ContextTypedDomain>(
+  createCounterSchema(),
+  {},
+  {
+    // @ts-expect-error createManifesto context must match the domain context type
+    context: { tenantId: "acme" },
+  },
+);
 // @ts-expect-error projected computed fields keep their domain type
 const _computedDoubledString: string = projected.computed.doubled;
 // @ts-expect-error optional single-argument action input is scalar or undefined, not a tuple

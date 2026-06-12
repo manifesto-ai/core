@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  semanticPathToPatchPath,
-  type DomainSchema,
-} from "@manifesto-ai/core";
+import { semanticPathToPatchPath, type DomainSchema } from "@manifesto-ai/core";
 
 import { createManifesto } from "../index.js";
 import { withHash } from "./helpers/schema.js";
@@ -71,10 +68,7 @@ function createBrokenLegalitySchema(): DomainSchema {
 }
 
 function activate() {
-  return createManifesto<BrokenLegalityDomain>(
-    createBrokenLegalitySchema(),
-    {},
-  ).activate();
+  return createManifesto<BrokenLegalityDomain>(createBrokenLegalitySchema(), {}).activate();
 }
 
 describe("admission error paths (legality evaluation failures)", () => {
@@ -96,9 +90,7 @@ describe("admission error paths (legality evaluation failures)", () => {
     if (!admission.ok) {
       expect(admission.blockers.length).toBeGreaterThan(0);
       expect(
-        admission.blockers.some((blocker) =>
-          blocker.message.includes("must return boolean"),
-        ),
+        admission.blockers.some((blocker) => blocker.message.includes("must return boolean")),
       ).toBe(true);
     }
   });
@@ -114,9 +106,7 @@ describe("admission error paths (legality evaluation failures)", () => {
     });
     if (!admission.ok) {
       expect(
-        admission.blockers.some((blocker) =>
-          blocker.message.includes("must return boolean"),
-        ),
+        admission.blockers.some((blocker) => blocker.message.includes("must return boolean")),
       ).toBe(true);
     }
   });

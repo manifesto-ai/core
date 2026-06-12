@@ -57,9 +57,7 @@ describe("lowerExprNode", () => {
 
     it("should throw in non-effect context", () => {
       const input: MelExprNode = { kind: "var", name: "item" };
-      expect(() => lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT)).toThrow(
-        LoweringError
-      );
+      expect(() => lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT)).toThrow(LoweringError);
     });
   });
 
@@ -78,16 +76,12 @@ describe("lowerExprNode", () => {
 
     it("should throw for retired sys([system, ...]) in action context", () => {
       const input: MelExprNode = { kind: "sys", path: ["system", "uuid"] };
-      expect(() => lowerExprNode(input, DEFAULT_ACTION_CONTEXT)).toThrow(
-        LoweringError
-      );
+      expect(() => lowerExprNode(input, DEFAULT_ACTION_CONTEXT)).toThrow(LoweringError);
     });
 
     it("should throw for empty sys path", () => {
       const input: MelExprNode = { kind: "sys", path: [] };
-      expect(() => lowerExprNode(input, DEFAULT_ACTION_CONTEXT)).toThrow(
-        LoweringError
-      );
+      expect(() => lowerExprNode(input, DEFAULT_ACTION_CONTEXT)).toThrow(LoweringError);
     });
   });
 
@@ -95,7 +89,10 @@ describe("lowerExprNode", () => {
     it("should convert PathNode[] to dot-notation", () => {
       const input: MelExprNode = {
         kind: "get",
-        path: [{ kind: "prop", name: "user" }, { kind: "prop", name: "name" }],
+        path: [
+          { kind: "prop", name: "user" },
+          { kind: "prop", name: "name" },
+        ],
       };
       const result = lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT);
       expect(result).toEqual({ kind: "get", path: "user.name" });
@@ -126,9 +123,7 @@ describe("lowerExprNode", () => {
         base: { kind: "lit", value: {} },
         path: [{ kind: "prop", name: "x" }],
       };
-      expect(() => lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT)).toThrow(
-        LoweringError
-      );
+      expect(() => lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT)).toThrow(LoweringError);
     });
   });
 
@@ -168,11 +163,9 @@ describe("lowerExprNode", () => {
           ä: { kind: "lit", value: 2 },
         },
       });
-      expect(Object.keys((result as { kind: "object"; fields: Record<string, unknown> }).fields)).toEqual([
-        "a",
-        "b",
-        "ä",
-      ]);
+      expect(
+        Object.keys((result as { kind: "object"; fields: Record<string, unknown> }).fields),
+      ).toEqual(["a", "b", "ä"]);
     });
   });
 
@@ -309,9 +302,7 @@ describe("lowerExprNode", () => {
           { kind: "get", path: [{ kind: "prop", name: "base" }] },
           {
             kind: "obj",
-            fields: [
-              { key: "status", value: { kind: "lit", value: "active" } },
-            ],
+            fields: [{ key: "status", value: { kind: "lit", value: "active" } }],
           },
         ],
       };
@@ -336,8 +327,8 @@ describe("lowerExprNode", () => {
               { kind: "get", path: [{ kind: "prop", name: "predicted" }] },
             ],
           },
-          DEFAULT_SCHEMA_CONTEXT
-        )
+          DEFAULT_SCHEMA_CONTEXT,
+        ),
       ).toEqual({
         kind: "abs",
         arg: {
@@ -358,8 +349,8 @@ describe("lowerExprNode", () => {
               { kind: "lit", value: 10 },
             ],
           },
-          DEFAULT_SCHEMA_CONTEXT
-        )
+          DEFAULT_SCHEMA_CONTEXT,
+        ),
       ).toEqual({
         kind: "min",
         args: [
@@ -384,8 +375,8 @@ describe("lowerExprNode", () => {
               { kind: "lit", value: 2 },
             ],
           },
-          DEFAULT_SCHEMA_CONTEXT
-        )
+          DEFAULT_SCHEMA_CONTEXT,
+        ),
       ).toEqual({
         kind: "floor",
         arg: {
@@ -405,8 +396,8 @@ describe("lowerExprNode", () => {
               { kind: "get", path: [{ kind: "prop", name: "flag" }] },
             ],
           },
-          DEFAULT_SCHEMA_CONTEXT
-        )
+          DEFAULT_SCHEMA_CONTEXT,
+        ),
       ).toEqual({
         kind: "if",
         cond: { kind: "get", path: "flag" },
@@ -425,8 +416,20 @@ describe("lowerExprNode", () => {
         fn: "match",
         args: [
           { kind: "get", path: [{ kind: "prop", name: "status" }] },
-          { kind: "arr", elements: [{ kind: "lit", value: "open" }, { kind: "lit", value: 1 }] },
-          { kind: "arr", elements: [{ kind: "lit", value: "closed" }, { kind: "lit", value: 0 }] },
+          {
+            kind: "arr",
+            elements: [
+              { kind: "lit", value: "open" },
+              { kind: "lit", value: 1 },
+            ],
+          },
+          {
+            kind: "arr",
+            elements: [
+              { kind: "lit", value: "closed" },
+              { kind: "lit", value: 0 },
+            ],
+          },
           { kind: "lit", value: -1 },
         ],
       };
@@ -458,24 +461,52 @@ describe("lowerExprNode", () => {
           kind: "call",
           fn: "argmax",
           args: [
-            { kind: "arr", elements: [{ kind: "lit", value: "a" }, { kind: "get", path: [{ kind: "prop", name: "aOk" }] }, { kind: "get", path: [{ kind: "prop", name: "aScore" }] }] },
-            { kind: "arr", elements: [{ kind: "lit", value: "b" }, { kind: "get", path: [{ kind: "prop", name: "bOk" }] }, { kind: "get", path: [{ kind: "prop", name: "bScore" }] }] },
+            {
+              kind: "arr",
+              elements: [
+                { kind: "lit", value: "a" },
+                { kind: "get", path: [{ kind: "prop", name: "aOk" }] },
+                { kind: "get", path: [{ kind: "prop", name: "aScore" }] },
+              ],
+            },
+            {
+              kind: "arr",
+              elements: [
+                { kind: "lit", value: "b" },
+                { kind: "get", path: [{ kind: "prop", name: "bOk" }] },
+                { kind: "get", path: [{ kind: "prop", name: "bScore" }] },
+              ],
+            },
             { kind: "lit", value: "first" },
           ],
         },
-        DEFAULT_SCHEMA_CONTEXT
+        DEFAULT_SCHEMA_CONTEXT,
       );
       const argmin = lowerExprNode(
         {
           kind: "call",
           fn: "argmin",
           args: [
-            { kind: "arr", elements: [{ kind: "lit", value: "a" }, { kind: "get", path: [{ kind: "prop", name: "aOk" }] }, { kind: "get", path: [{ kind: "prop", name: "aScore" }] }] },
-            { kind: "arr", elements: [{ kind: "lit", value: "b" }, { kind: "get", path: [{ kind: "prop", name: "bOk" }] }, { kind: "get", path: [{ kind: "prop", name: "bScore" }] }] },
+            {
+              kind: "arr",
+              elements: [
+                { kind: "lit", value: "a" },
+                { kind: "get", path: [{ kind: "prop", name: "aOk" }] },
+                { kind: "get", path: [{ kind: "prop", name: "aScore" }] },
+              ],
+            },
+            {
+              kind: "arr",
+              elements: [
+                { kind: "lit", value: "b" },
+                { kind: "get", path: [{ kind: "prop", name: "bOk" }] },
+                { kind: "get", path: [{ kind: "prop", name: "bScore" }] },
+              ],
+            },
             { kind: "lit", value: "last" },
           ],
         },
-        DEFAULT_SCHEMA_CONTEXT
+        DEFAULT_SCHEMA_CONTEXT,
       );
 
       expect(argmax).toEqual({
@@ -645,9 +676,7 @@ describe("lowerExprNode", () => {
         fn: "unknownFn",
         args: [],
       };
-      expect(() => lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT)).toThrow(
-        LoweringError
-      );
+      expect(() => lowerExprNode(input, DEFAULT_SCHEMA_CONTEXT)).toThrow(LoweringError);
     });
   });
 
@@ -771,9 +800,7 @@ describe("lowerPatchFragments", () => {
           typeName: "User",
           typeExpr: {
             kind: "object",
-            fields: [
-              { name: "id", type: { kind: "primitive", name: "string" } },
-            ],
+            fields: [{ name: "id", type: { kind: "primitive", name: "string" } }],
           },
         },
         confidence: 0.85,
@@ -832,9 +859,7 @@ describe("lowerRuntimePatches", () => {
         path: irp("user"),
         value: {
           kind: "obj",
-          fields: [
-            { key: "name", value: { kind: "lit", value: "Alice" } },
-          ],
+          fields: [{ key: "name", value: { kind: "lit", value: "Alice" } }],
         },
       },
     ];
@@ -938,9 +963,7 @@ describe("lowerRuntimePatches", () => {
       },
     ];
 
-    expect(() => lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT)).toThrow(
-      LoweringError
-    );
+    expect(() => lowerRuntimePatches(patches, DEFAULT_ACTION_CONTEXT)).toThrow(LoweringError);
   });
 
   it("should lower multiple patches", () => {

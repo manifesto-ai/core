@@ -1,32 +1,25 @@
 #!/usr/bin/env node
-import fs from 'node:fs';
-import path from 'node:path';
+import fs from "node:fs";
+import path from "node:path";
 
 const ROOT = process.cwd();
-const DISALLOWED = '@manifesto-ai/app';
+const DISALLOWED = "@manifesto-ai/app";
 
-const SKIP_DIRS = new Set([
-  '.git',
-  '.turbo',
-  'coverage',
-  'dist',
-  'node_modules',
-  'temp',
-]);
+const SKIP_DIRS = new Set([".git", ".turbo", "coverage", "dist", "node_modules", "temp"]);
 
 const SCAN_EXTENSIONS = new Set([
-  '.cjs',
-  '.cts',
-  '.js',
-  '.json',
-  '.jsx',
-  '.md',
-  '.mdx',
-  '.mjs',
-  '.ts',
-  '.tsx',
-  '.yaml',
-  '.yml',
+  ".cjs",
+  ".cts",
+  ".js",
+  ".json",
+  ".jsx",
+  ".md",
+  ".mdx",
+  ".mjs",
+  ".ts",
+  ".tsx",
+  ".yaml",
+  ".yml",
 ]);
 
 const LEGACY_ALLOWLIST = [
@@ -46,7 +39,7 @@ const LEGACY_ALLOWLIST = [
 ];
 
 function toPosixPath(filePath) {
-  return filePath.split(path.sep).join('/');
+  return filePath.split(path.sep).join("/");
 }
 
 function isLegacyPath(relativePath) {
@@ -102,7 +95,7 @@ function findViolations() {
   const files = collectFiles(ROOT);
 
   for (const file of files) {
-    const content = fs.readFileSync(file.absolutePath, 'utf-8');
+    const content = fs.readFileSync(file.absolutePath, "utf-8");
     if (!content.includes(DISALLOWED)) {
       continue;
     }
@@ -127,11 +120,11 @@ function findViolations() {
 const violations = findViolations();
 
 if (violations.length > 0) {
-  console.error('Found forbidden @manifesto-ai/app references in active paths:');
+  console.error("Found forbidden @manifesto-ai/app references in active paths:");
   for (const violation of violations) {
     console.error(`- ${violation.path}:${violation.line} ${violation.snippet}`);
   }
   process.exit(1);
 }
 
-console.log('No forbidden @manifesto-ai/app references found in active paths.');
+console.log("No forbidden @manifesto-ai/app references found in active paths.");

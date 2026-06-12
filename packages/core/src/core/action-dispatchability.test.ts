@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  createCore,
-  createIntent,
-  createSnapshot,
-  isIntentDispatchable,
-} from "../index.js";
+import { createCore, createIntent, createSnapshot, isIntentDispatchable } from "../index.js";
 import type { DomainSchema } from "../schema/domain.js";
 import { hashSchemaSync } from "../utils/hash.js";
 
@@ -124,7 +119,7 @@ describe("intent dispatchability query", () => {
     const snapshot = createTestSnapshot(schema.hash, 10, false);
 
     expect(
-      isIntentDispatchable(schema, snapshot, createIntent("withdraw", { amount: 1 }, "intent-1"))
+      isIntentDispatchable(schema, snapshot, createIntent("withdraw", { amount: 1 }, "intent-1")),
     ).toBe(false);
   });
 
@@ -133,11 +128,7 @@ describe("intent dispatchability query", () => {
     const snapshot = createTestSnapshot(schema.hash, 10);
 
     expect(
-      isIntentDispatchable(
-        schema,
-        snapshot,
-        createIntent("unavailableInvalid", "intent-1"),
-      ),
+      isIntentDispatchable(schema, snapshot, createIntent("unavailableInvalid", "intent-1")),
     ).toBe(false);
   });
 
@@ -146,10 +137,10 @@ describe("intent dispatchability query", () => {
     const snapshot = createTestSnapshot(schema.hash, 10);
 
     expect(
-      isIntentDispatchable(schema, snapshot, createIntent("withdraw", { amount: 5 }, "intent-1"))
+      isIntentDispatchable(schema, snapshot, createIntent("withdraw", { amount: 5 }, "intent-1")),
     ).toBe(true);
     expect(
-      isIntentDispatchable(schema, snapshot, createIntent("withdraw", { amount: 15 }, "intent-2"))
+      isIntentDispatchable(schema, snapshot, createIntent("withdraw", { amount: 15 }, "intent-2")),
     ).toBe(false);
   });
 
@@ -158,10 +149,10 @@ describe("intent dispatchability query", () => {
     const snapshot = createTestSnapshot(schema.hash, 10);
 
     expect(
-      isIntentDispatchable(schema, snapshot, createIntent("shadowed", { amount: 4 }, "intent-1"))
+      isIntentDispatchable(schema, snapshot, createIntent("shadowed", { amount: 4 }, "intent-1")),
     ).toBe(true);
     expect(
-      isIntentDispatchable(schema, snapshot, createIntent("shadowed", { amount: 8 }, "intent-2"))
+      isIntentDispatchable(schema, snapshot, createIntent("shadowed", { amount: 8 }, "intent-2")),
     ).toBe(false);
   });
 
@@ -169,8 +160,8 @@ describe("intent dispatchability query", () => {
     const schema = createTestSchema({ includeInvalid: true });
     const snapshot = createTestSnapshot(schema.hash, 10);
 
-    expect(
-      () => isIntentDispatchable(schema, snapshot, createIntent("invalid", "intent-1"))
+    expect(() =>
+      isIntentDispatchable(schema, snapshot, createIntent("invalid", "intent-1")),
     ).toThrow("Dispatchability condition must return boolean");
   });
 
@@ -180,7 +171,11 @@ describe("intent dispatchability query", () => {
     const core = createCore();
 
     expect(
-      core.isIntentDispatchable(schema, snapshot, createIntent("withdraw", { amount: 5 }, "intent-1"))
+      core.isIntentDispatchable(
+        schema,
+        snapshot,
+        createIntent("withdraw", { amount: 5 }, "intent-1"),
+      ),
     ).toBe(true);
   });
 });

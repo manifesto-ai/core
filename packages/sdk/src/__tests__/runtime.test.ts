@@ -1,21 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  hashSchemaSync,
-  semanticPathToPatchPath,
-  type DomainSchema,
-} from "@manifesto-ai/core";
+import { hashSchemaSync, semanticPathToPatchPath, type DomainSchema } from "@manifesto-ai/core";
 
-import {
-  DisposedError,
-  ManifestoError,
-  createManifesto,
-} from "../index.js";
+import { DisposedError, ManifestoError, createManifesto } from "../index.js";
 import { getExtensionKernel } from "../extensions.js";
 import { projectedSnapshotsEqual } from "../projection/snapshot-projection.js";
-import {
-  createCounterSchema,
-  type CounterDomain,
-} from "./helpers/schema.js";
+import { createCounterSchema, type CounterDomain } from "./helpers/schema.js";
 
 const pp = semanticPathToPatchPath;
 
@@ -192,9 +181,13 @@ const initialContext = {
 
 describe("activated v5 base runtime", () => {
   it("uses initial context for preview and submit while exposing a frozen flat context", async () => {
-    const app = createManifesto<ContextDomain>(createContextSchema(), {}, {
-      context: initialContext,
-    }).activate();
+    const app = createManifesto<ContextDomain>(
+      createContextSchema(),
+      {},
+      {
+        context: initialContext,
+      },
+    ).activate();
 
     expect(app.context()).toEqual(initialContext);
     expect(Object.isFrozen(app.context())).toBe(true);
@@ -219,9 +212,13 @@ describe("activated v5 base runtime", () => {
   });
 
   it("full-replaces context through injectContext and updateContext without publishing runtime events", async () => {
-    const app = createManifesto<ContextDomain>(createContextSchema(), {}, {
-      context: initialContext,
-    }).activate();
+    const app = createManifesto<ContextDomain>(
+      createContextSchema(),
+      {},
+      {
+        context: initialContext,
+      },
+    ).activate();
     const stateListener = vi.fn();
     const eventListener = vi.fn();
 
@@ -251,9 +248,13 @@ describe("activated v5 base runtime", () => {
   });
 
   it("applies execution view context only to transitions triggered through that view", async () => {
-    const app = createManifesto<ContextDomain>(createContextSchema(), {}, {
-      context: initialContext,
-    }).activate();
+    const app = createManifesto<ContextDomain>(
+      createContextSchema(),
+      {},
+      {
+        context: initialContext,
+      },
+    ).activate();
 
     const requestApp = app.with({
       context: {
@@ -326,16 +327,28 @@ describe("activated v5 base runtime", () => {
   it("rejects invalid context values before runtime execution", () => {
     const schema = createContextSchema();
 
-    expect(() => createManifesto<ContextDomain>(schema, {}, {
-      context: { tenantId: "acme", locale: "ko-KR" },
-    }).activate()).toThrow(ManifestoError);
+    expect(() =>
+      createManifesto<ContextDomain>(
+        schema,
+        {},
+        {
+          context: { tenantId: "acme", locale: "ko-KR" },
+        },
+      ).activate(),
+    ).toThrow(ManifestoError);
 
-    expect(() => createManifesto<ContextDomain>(schema, {}, {
-      context: {
-        ...initialContext,
-        extra: "nope",
-      },
-    }).activate()).toThrow(/Unknown context field/);
+    expect(() =>
+      createManifesto<ContextDomain>(
+        schema,
+        {},
+        {
+          context: {
+            ...initialContext,
+            extra: "nope",
+          },
+        },
+      ).activate(),
+    ).toThrow(/Unknown context field/);
 
     const withProtoKey: Record<string, unknown> = { ...initialContext };
     Object.defineProperty(withProtoKey, "__proto__", {
@@ -344,34 +357,64 @@ describe("activated v5 base runtime", () => {
       configurable: true,
       writable: true,
     });
-    expect(() => createManifesto<ContextDomain>(schema, {}, {
-      context: withProtoKey as never,
-    }).activate()).toThrow(/Unknown context field/);
+    expect(() =>
+      createManifesto<ContextDomain>(
+        schema,
+        {},
+        {
+          context: withProtoKey as never,
+        },
+      ).activate(),
+    ).toThrow(/Unknown context field/);
 
-    expect(() => createManifesto<ContextDomain>(schema, {}, {
-      context: {
-        ...initialContext,
-        locale: 123,
-      },
-    }).activate()).toThrow(/Expected string/);
+    expect(() =>
+      createManifesto<ContextDomain>(
+        schema,
+        {},
+        {
+          context: {
+            ...initialContext,
+            locale: 123,
+          },
+        },
+      ).activate(),
+    ).toThrow(/Expected string/);
 
-    expect(() => createManifesto<ContextDomain>(schema, {}, {
-      context: {
-        ...initialContext,
-        getId: () => "id",
-      } as never,
-    }).activate()).toThrow(/functions/);
+    expect(() =>
+      createManifesto<ContextDomain>(
+        schema,
+        {},
+        {
+          context: {
+            ...initialContext,
+            getId: () => "id",
+          } as never,
+        },
+      ).activate(),
+    ).toThrow(/functions/);
 
-    expect(() => createManifesto<ContextDomain>(schema, {}, {
-      context: {
-        ...initialContext,
-        pending: Promise.resolve("x"),
-      } as never,
-    }).activate()).toThrow(/plain JSON objects/);
+    expect(() =>
+      createManifesto<ContextDomain>(
+        schema,
+        {},
+        {
+          context: {
+            ...initialContext,
+            pending: Promise.resolve("x"),
+          } as never,
+        },
+      ).activate(),
+    ).toThrow(/plain JSON objects/);
 
-    expect(() => createManifesto<ContextDomain>(schema, {}, {
-      context: new Date() as never,
-    }).activate()).toThrow(/plain JSON object/);
+    expect(() =>
+      createManifesto<ContextDomain>(
+        schema,
+        {},
+        {
+          context: new Date() as never,
+        },
+      ).activate(),
+    ).toThrow(/plain JSON object/);
 
     const withGetter = {
       ...initialContext,
@@ -380,28 +423,51 @@ describe("activated v5 base runtime", () => {
       enumerable: true,
       get: () => "ko-KR",
     });
-    expect(() => createManifesto<ContextDomain>(schema, {}, {
-      context: withGetter,
-    }).activate()).toThrow(/getters/);
+    expect(() =>
+      createManifesto<ContextDomain>(
+        schema,
+        {},
+        {
+          context: withGetter,
+        },
+      ).activate(),
+    ).toThrow(/getters/);
 
     const circular: Record<string, unknown> = { ...initialContext };
     circular.self = circular;
-    expect(() => createManifesto<ContextDomain>(schema, {}, {
-      context: circular as never,
-    }).activate()).toThrow(/cycles/);
+    expect(() =>
+      createManifesto<ContextDomain>(
+        schema,
+        {},
+        {
+          context: circular as never,
+        },
+      ).activate(),
+    ).toThrow(/cycles/);
   });
 
   it("rejects async updateContext results and non-empty context for schemas without context", () => {
-    const app = createManifesto<ContextDomain>(createContextSchema(), {}, {
-      context: initialContext,
-    }).activate();
+    const app = createManifesto<ContextDomain>(
+      createContextSchema(),
+      {},
+      {
+        context: initialContext,
+      },
+    ).activate();
 
-    expect(() => app.updateContext((() =>
-      Promise.resolve(initialContext)) as never)).toThrow(/synchronous/);
+    expect(() => app.updateContext((() => Promise.resolve(initialContext)) as never)).toThrow(
+      /synchronous/,
+    );
 
-    expect(() => createManifesto<CounterDomain>(createCounterSchema(), {}, {
-      context: { tenantId: "acme" },
-    }).activate()).toThrow(/does not declare/);
+    expect(() =>
+      createManifesto<CounterDomain>(
+        createCounterSchema(),
+        {},
+        {
+          context: { tenantId: "acme" },
+        },
+      ).activate(),
+    ).toThrow(/does not declare/);
   });
 
   it("submits through action handles and publishes the terminal projected snapshot", async () => {
@@ -431,10 +497,7 @@ describe("activated v5 base runtime", () => {
   });
 
   it("keeps computed fields that depend on domain state.namespaces paths visible", () => {
-    const app = createManifesto<NamespaceDomain>(
-      createNamespaceDomainSchema(),
-      {},
-    ).activate();
+    const app = createManifesto<NamespaceDomain>(createNamespaceDomainSchema(), {}).activate();
 
     expect(app.snapshot().computed.visibleValue).toBe(true);
   });

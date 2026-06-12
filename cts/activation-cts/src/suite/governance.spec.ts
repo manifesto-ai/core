@@ -1,20 +1,10 @@
 import { describe, it } from "vitest";
-import {
-  createInMemoryGovernanceStore,
-  withGovernance,
-} from "@manifesto-ai/governance";
-import {
-  createInMemoryLineageStore,
-  withLineage,
-} from "@manifesto-ai/lineage";
+import { createInMemoryGovernanceStore, withGovernance } from "@manifesto-ai/governance";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
 import { createLineageService } from "@manifesto-ai/lineage/provider";
 import { AlreadyActivatedError, createManifesto } from "@manifesto-ai/sdk";
 import { caseTitle, ACTS_CASES } from "../acts-coverage.js";
-import {
-  evaluateRule,
-  expectAllCompliance,
-  noteEvidence,
-} from "../assertions.js";
+import { evaluateRule, expectAllCompliance, noteEvidence } from "../assertions.js";
 import { getRuleOrThrow } from "../acts-rules.js";
 import {
   createAutoBinding,
@@ -52,13 +42,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isPendingGovernanceSubmit(value: unknown): value is PendingGovernanceSubmit {
-  return isRecord(value)
-    && value.ok === true
-    && value.mode === "governance"
-    && value.status === "pending"
-    && typeof value.action === "string"
-    && typeof value.proposal === "string"
-    && typeof value.waitForSettlement === "function";
+  return (
+    isRecord(value) &&
+    value.ok === true &&
+    value.mode === "governance" &&
+    value.status === "pending" &&
+    typeof value.action === "string" &&
+    typeof value.proposal === "string" &&
+    typeof value.waitForSettlement === "function"
+  );
 }
 
 function hasRuntimeSettlementSurface(
@@ -92,9 +84,7 @@ async function getActiveBranchId(runtime: unknown): Promise<string | undefined> 
     return undefined;
   }
   const branch = await runtime.getActiveBranch.call(runtime);
-  return isRecord(branch) && typeof branch.id === "string"
-    ? branch.id
-    : undefined;
+  return isRecord(branch) && typeof branch.id === "string" ? branch.id : undefined;
 }
 
 async function submitIncrementCandidate(runtime: unknown): Promise<unknown> {
@@ -113,17 +103,17 @@ async function submitIncrementCandidate(runtime: unknown): Promise<unknown> {
 }
 
 function isSettlementFor(value: unknown, proposal: string): boolean {
-  return isRecord(value)
-    && value.mode === "governance"
-    && value.proposal === proposal
-    && (
-      value.status === "settled"
-      || value.status === "rejected"
-      || value.status === "superseded"
-      || value.status === "expired"
-      || value.status === "cancelled"
-      || value.status === "settlement_failed"
-    );
+  return (
+    isRecord(value) &&
+    value.mode === "governance" &&
+    value.proposal === proposal &&
+    (value.status === "settled" ||
+      value.status === "rejected" ||
+      value.status === "superseded" ||
+      value.status === "expired" ||
+      value.status === "cancelled" ||
+      value.status === "settlement_failed")
+  );
 }
 
 describe("ACTS Governance Suite", () => {
@@ -134,27 +124,21 @@ describe("ACTS Governance Suite", () => {
     ),
     () => {
       const base = createManifesto<CounterDomain>(createCounterSchema(), {});
-      const lineage = withLineage(
-        base,
-        { store: createInMemoryLineageStore() },
-      );
-      const manifesto = withGovernance(
-        lineage,
-        {
-          governanceStore: createInMemoryGovernanceStore(),
-          bindings: [createAutoBinding()],
-          execution: createExecutionConfig("acts-gov-surface"),
-        },
-      );
+      const lineage = withLineage(base, { store: createInMemoryLineageStore() });
+      const manifesto = withGovernance(lineage, {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: createExecutionConfig("acts-gov-surface"),
+      });
       const governed = manifesto.activate();
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-1"),
-          "activate" in manifesto
-            && !("dispatchAsync" in manifesto)
-            && !("proposeAsync" in manifesto)
-            && !("getSnapshot" in manifesto),
+          "activate" in manifesto &&
+            !("dispatchAsync" in manifesto) &&
+            !("proposeAsync" in manifesto) &&
+            !("getSnapshot" in manifesto),
           {
             passMessage: "Governance decorator stays pre-activation until activate().",
             failMessage: "Governance decorator leaked runtime verbs before activation.",
@@ -192,8 +176,10 @@ describe("ACTS Governance Suite", () => {
             }
           })(),
           {
-            passMessage: "Governance-decorated composable shares one-shot activation with lineage and base composables.",
-            failMessage: "Governance activation still leaves a re-activation backdoor on the governed, lineage, or base composable.",
+            passMessage:
+              "Governance-decorated composable shares one-shot activation with lineage and base composables.",
+            failMessage:
+              "Governance activation still leaves a re-activation backdoor on the governed, lineage, or base composable.",
             evidence: [
               noteEvidence(
                 "Second activation attempt threw AlreadyActivatedError on the governed, lineage, and base composables.",
@@ -213,53 +199,45 @@ describe("ACTS Governance Suite", () => {
       "Governance requires explicit lineage composition and removes direct lower-authority and v3 write verbs from the governed runtime.",
     ),
     async () => {
-      const lineage = withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      );
-      const governed = withGovernance(
-        lineage,
-        {
-          governanceStore: createInMemoryGovernanceStore(),
-          bindings: [createAutoBinding()],
-          execution: createExecutionConfig("acts-gov-auto"),
-        },
-      ).activate();
+      const lineage = withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      });
+      const governed = withGovernance(lineage, {
+        governanceStore: createInMemoryGovernanceStore(),
+        bindings: [createAutoBinding()],
+        execution: createExecutionConfig("acts-gov-auto"),
+      }).activate();
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-2"),
-          !("dispatchAsync" in governed)
-            && !("dispatchAsyncWithReport" in governed)
-            && !("commitAsync" in governed)
-            && !("commitAsyncWithReport" in governed)
-            && !("proposeAsync" in governed)
-            && !("waitForProposal" in governed)
-            && !("waitForProposalWithReport" in governed)
-            && !("createIntent" in governed)
-            && !("MEL" in governed)
-            && !("simulateIntent" in governed),
+          !("dispatchAsync" in governed) &&
+            !("dispatchAsyncWithReport" in governed) &&
+            !("commitAsync" in governed) &&
+            !("commitAsyncWithReport" in governed) &&
+            !("proposeAsync" in governed) &&
+            !("waitForProposal" in governed) &&
+            !("waitForProposalWithReport" in governed) &&
+            !("createIntent" in governed) &&
+            !("MEL" in governed) &&
+            !("simulateIntent" in governed),
           {
             passMessage: "Governed runtime removes direct lower-authority and v3 write backdoors.",
-            failMessage: "Governed runtime still exposes a superseded execution or intent-construction verb.",
-            evidence: [
-              noteEvidence(
-                "Checked runtime surface on governed activation output.",
-              ),
-            ],
+            failMessage:
+              "Governed runtime still exposes a superseded execution or intent-construction verb.",
+            evidence: [noteEvidence("Checked runtime surface on governed activation output.")],
           },
         ),
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-8"),
-          hasIncrementSubmitSurface(governed)
-            && hasRuntimeSettlementSurface(governed),
+          hasIncrementSubmitSurface(governed) && hasRuntimeSettlementSurface(governed),
           {
-            passMessage: "Governed runtime exposes the v5 action-candidate and settlement observer surfaces.",
-            failMessage: "Governed runtime is missing v5 action submit or runtime settlement observation.",
+            passMessage:
+              "Governed runtime exposes the v5 action-candidate and settlement observer surfaces.",
+            failMessage:
+              "Governed runtime is missing v5 action submit or runtime settlement observation.",
             evidence: [
-              noteEvidence(
-                "Checked for action.increment.submit() and app.waitForSettlement(ref).",
-              ),
+              noteEvidence("Checked for action.increment.submit() and app.waitForSettlement(ref)."),
             ],
           },
         ),
@@ -278,10 +256,9 @@ describe("ACTS Governance Suite", () => {
       const governanceStore = createInMemoryGovernanceStore();
 
       const governed = withGovernance(
-        withLineage(
-          createManifesto<CounterDomain>(createCounterSchema(), {}),
-          { store: createInMemoryLineageStore() },
-        ),
+        withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+          store: createInMemoryLineageStore(),
+        }),
         {
           governanceStore,
           bindings: [createAutoBinding()],
@@ -292,35 +269,30 @@ describe("ACTS Governance Suite", () => {
       const proposalCreatedEvents: ProposalCreatedEvent[] = [];
       const stopProposalEvents = hasProposalEventSurface(governed)
         ? governed.observe.event("proposal:created", (event) => {
-          proposalCreatedEvents.push(event);
-        })
+            proposalCreatedEvents.push(event);
+          })
         : () => {};
       const result = await submitIncrementCandidate(governed);
       stopProposalEvents();
       const branchId = await getActiveBranchId(governed);
-      const proposals = branchId === undefined
-        ? []
-        : await governanceStore.getProposalsByBranch(branchId);
-      const proposalRef = isPendingGovernanceSubmit(result)
-        ? result.proposal
-        : undefined;
-      const storedProposal = proposalRef === undefined
-        ? null
-        : await governanceStore.getProposal(proposalRef);
-      const roundTrippedRef = proposalRef === undefined
-        ? undefined
-        : JSON.parse(JSON.stringify(proposalRef)) as string;
+      const proposals =
+        branchId === undefined ? [] : await governanceStore.getProposalsByBranch(branchId);
+      const proposalRef = isPendingGovernanceSubmit(result) ? result.proposal : undefined;
+      const storedProposal =
+        proposalRef === undefined ? null : await governanceStore.getProposal(proposalRef);
+      const roundTrippedRef =
+        proposalRef === undefined ? undefined : (JSON.parse(JSON.stringify(proposalRef)) as string);
       const proposalCreatedEvent = proposalCreatedEvents[0];
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-3"),
-          isPendingGovernanceSubmit(result)
-            && result.mode === "governance"
-            && result.status === "pending"
-            && result.action === "increment"
-            && proposals.length === 1
-            && storedProposal?.proposalId === result.proposal,
+          isPendingGovernanceSubmit(result) &&
+            result.mode === "governance" &&
+            result.status === "pending" &&
+            result.action === "increment" &&
+            proposals.length === 1 &&
+            storedProposal?.proposalId === result.proposal,
           {
             passMessage: "Governance submit returns a pending proposal-bearing result.",
             failMessage: "Governance submit did not create a pending governance proposal result.",
@@ -335,29 +307,30 @@ describe("ACTS Governance Suite", () => {
         ),
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-9"),
-          proposalRef !== undefined
-            && proposalCreatedEvents.length === 1
-            && proposalCreatedEvent?.proposal === proposalRef
-            && proposalCreatedEvent.action === "increment"
-            && typeof proposalCreatedEvent.schemaHash === "string"
-            && !("snapshot" in proposalCreatedEvent)
-            && !("canonicalSnapshot" in proposalCreatedEvent),
+          proposalRef !== undefined &&
+            proposalCreatedEvents.length === 1 &&
+            proposalCreatedEvent?.proposal === proposalRef &&
+            proposalCreatedEvent.action === "increment" &&
+            typeof proposalCreatedEvent.schemaHash === "string" &&
+            !("snapshot" in proposalCreatedEvent) &&
+            !("canonicalSnapshot" in proposalCreatedEvent),
           {
-            passMessage: "Governance submit emits compact proposal:created telemetry for the created ProposalRef.",
+            passMessage:
+              "Governance submit emits compact proposal:created telemetry for the created ProposalRef.",
             failMessage: "Governance submit did not emit compact proposal:created telemetry.",
-            evidence: [
-              noteEvidence("Observed proposal:created events", proposalCreatedEvents),
-            ],
+            evidence: [noteEvidence("Observed proposal:created events", proposalCreatedEvents)],
           },
         ),
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-6"),
-          proposalRef !== undefined
-            && roundTrippedRef === proposalRef
-            && storedProposal?.proposalId === proposalRef,
+          proposalRef !== undefined &&
+            roundTrippedRef === proposalRef &&
+            storedProposal?.proposalId === proposalRef,
           {
-            passMessage: "Governance ProposalRef is the raw stored ProposalId and survives JSON string round-trip.",
-            failMessage: "Governance ProposalRef did not match the stored ProposalId or failed JSON round-trip.",
+            passMessage:
+              "Governance ProposalRef is the raw stored ProposalId and survives JSON string round-trip.",
+            failMessage:
+              "Governance ProposalRef did not match the stored ProposalId or failed JSON round-trip.",
             evidence: [
               noteEvidence("Observed ProposalRef identity", {
                 proposalRef,
@@ -384,10 +357,9 @@ describe("ACTS Governance Suite", () => {
       const governanceStore = createInMemoryGovernanceStore();
 
       const governed = withGovernance(
-        withLineage(
-          createManifesto<CounterDomain>(createCounterSchema(), {}),
-          { service: explicitService },
-        ),
+        withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+          service: explicitService,
+        }),
         {
           governanceStore,
           bindings: [createAutoBinding()],
@@ -396,31 +368,30 @@ describe("ACTS Governance Suite", () => {
       ).activate();
 
       const pending = await submitIncrementCandidate(governed);
-      const proposalRef = isPendingGovernanceSubmit(pending)
-        ? pending.proposal
-        : undefined;
-      const roundTrippedRef = proposalRef === undefined
-        ? undefined
-        : JSON.parse(JSON.stringify(proposalRef)) as string;
+      const proposalRef = isPendingGovernanceSubmit(pending) ? pending.proposal : undefined;
+      const roundTrippedRef =
+        proposalRef === undefined ? undefined : (JSON.parse(JSON.stringify(proposalRef)) as string);
       const resultBoundSettlement = isPendingGovernanceSubmit(pending)
         ? await pending.waitForSettlement()
         : null;
-      const runtimeSettlement = roundTrippedRef !== undefined
-        && hasRuntimeSettlementSurface(governed)
-        ? await governed.waitForSettlement(roundTrippedRef)
-        : null;
+      const runtimeSettlement =
+        roundTrippedRef !== undefined && hasRuntimeSettlementSurface(governed)
+          ? await governed.waitForSettlement(roundTrippedRef)
+          : null;
       const branches = await explicitService.getBranches();
 
       expectAllCompliance([
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-4"),
-          proposalRef !== undefined
-            && isSettlementFor(resultBoundSettlement, proposalRef)
-            && isSettlementFor(runtimeSettlement, proposalRef)
-            && branches.length > 0,
+          proposalRef !== undefined &&
+            isSettlementFor(resultBoundSettlement, proposalRef) &&
+            isSettlementFor(runtimeSettlement, proposalRef) &&
+            branches.length > 0,
           {
-            passMessage: "Governance settlement re-attaches by ProposalRef and reuses the explicitly composed lineage service.",
-            failMessage: "Governance settlement did not re-attach by ProposalRef or did not use the explicit lineage service.",
+            passMessage:
+              "Governance settlement re-attaches by ProposalRef and reuses the explicitly composed lineage service.",
+            failMessage:
+              "Governance settlement did not re-attach by ProposalRef or did not use the explicit lineage service.",
             evidence: [
               noteEvidence("Observed pending governance result", pending),
               noteEvidence("Observed result-bound settlement", resultBoundSettlement),
@@ -431,12 +402,14 @@ describe("ACTS Governance Suite", () => {
         ),
         evaluateRule(
           getRuleOrThrow("ACTS-GOV-7"),
-          proposalRef !== undefined
-            && roundTrippedRef === proposalRef
-            && isSettlementFor(runtimeSettlement, proposalRef),
+          proposalRef !== undefined &&
+            roundTrippedRef === proposalRef &&
+            isSettlementFor(runtimeSettlement, proposalRef),
           {
-            passMessage: "Governance runtime waitForSettlement(ref) accepts a JSON round-tripped ProposalRef.",
-            failMessage: "Governance runtime waitForSettlement(ref) did not accept the round-tripped ProposalRef.",
+            passMessage:
+              "Governance runtime waitForSettlement(ref) accepts a JSON round-tripped ProposalRef.",
+            failMessage:
+              "Governance runtime waitForSettlement(ref) did not accept the round-tripped ProposalRef.",
             evidence: [
               noteEvidence("Observed ProposalRef re-attachment", {
                 proposalRef,

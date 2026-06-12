@@ -35,9 +35,7 @@ export type {
   GovernanceInstance,
   GovernanceProposalRuntime,
 } from "./runtime-types.js";
-export {
-  createNoopGovernanceEventSink,
-} from "./types.js";
+export { createNoopGovernanceEventSink } from "./types.js";
 export { createInMemoryGovernanceStore } from "./store/in-memory-governance-store.js";
 
 export { withGovernance } from "./with-governance.js";

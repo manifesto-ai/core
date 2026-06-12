@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { validate } from "./validate.js";
-import { collectGetPathsFromExpr, getFieldSpecAtPath, pathExistsInFieldSpec } from "./validation-utils.js";
+import {
+  collectGetPathsFromExpr,
+  getFieldSpecAtPath,
+  pathExistsInFieldSpec,
+} from "./validation-utils.js";
 import { hashSchemaSync } from "../utils/hash.js";
 import { semanticPathToPatchPath } from "../utils/patch-path.js";
 import type { DomainSchema } from "../schema/domain.js";
@@ -32,7 +36,7 @@ const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
 };
 
 const BASE_COMPUTED_FIELDS: DomainSchema["computed"]["fields"] = {
-  "dummy": {
+  dummy: {
     expr: { kind: "get", path: "x" },
     deps: ["x"],
   },
@@ -187,8 +191,12 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "total": {
-              expr: { kind: "add", left: { kind: "get", path: "a" }, right: { kind: "get", path: "b" } },
+            total: {
+              expr: {
+                kind: "add",
+                left: { kind: "get", path: "a" },
+                right: { kind: "get", path: "b" },
+              },
               deps: ["a", "b"],
             },
           },
@@ -203,8 +211,12 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "sum": {
-              expr: { kind: "add", left: { kind: "get", path: "a" }, right: { kind: "get", path: "b" } },
+            sum: {
+              expr: {
+                kind: "add",
+                left: { kind: "get", path: "a" },
+                right: { kind: "get", path: "b" },
+              },
               deps: ["a"],
             },
           },
@@ -221,7 +233,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "sum": {
+            sum: {
               expr: { kind: "get", path: "a" },
               deps: ["a", "missing.path"],
             },
@@ -240,7 +252,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "invalid": {
+            invalid: {
               expr: { kind: "get", path: "system.status" },
               deps: ["dummy"],
             },
@@ -259,11 +271,11 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "a": {
+            a: {
               expr: { kind: "get", path: "b" },
               deps: ["b"],
             },
-            "b": {
+            b: {
               expr: { kind: "get", path: "a" },
               deps: ["a"],
             },
@@ -281,7 +293,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "self": {
+            self: {
               expr: { kind: "get", path: "self" },
               deps: ["self"],
             },
@@ -299,15 +311,15 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "a": {
+            a: {
               expr: { kind: "get", path: "b" },
               deps: ["b"],
             },
-            "b": {
+            b: {
               expr: { kind: "get", path: "c" },
               deps: ["c"],
             },
-            "c": {
+            c: {
               expr: { kind: "get", path: "a" },
               deps: ["a"],
             },
@@ -325,15 +337,15 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "a": {
+            a: {
               expr: { kind: "get", path: "x" },
               deps: ["x"],
             },
-            "b": {
+            b: {
               expr: { kind: "get", path: "a" },
               deps: ["a"],
             },
-            "c": {
+            c: {
               expr: { kind: "get", path: "b" },
               deps: ["b"],
             },
@@ -353,7 +365,8 @@ describe("validate", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: { kind: "lit", value: 1 },
             },
           },
@@ -375,7 +388,8 @@ describe("validate", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("balance"),
+              op: "set",
+              path: pp("balance"),
               value: { kind: "lit", value: 0 },
             },
           },
@@ -404,7 +418,8 @@ describe("validate", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("balance"),
+              op: "set",
+              path: pp("balance"),
               value: { kind: "lit", value: 0 },
             },
           },
@@ -421,7 +436,8 @@ describe("validate", () => {
           mark: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("dummy"),
+              op: "set",
+              path: pp("dummy"),
               value: { kind: "get", path: "$runtime.intent.id" },
             },
           },
@@ -445,7 +461,8 @@ describe("validate", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("dummy"),
+              op: "set",
+              path: pp("dummy"),
               value: { kind: "get", path: "input.missing" },
             },
           },
@@ -487,8 +504,12 @@ describe("validate", () => {
       const result = validate(schema);
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.code === "V-003" && e.message.includes("meta.timestamp"))).toBe(true);
-      expect(result.errors.some((e) => e.code === "V-003" && e.message.includes("system.status"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.code === "V-003" && e.message.includes("meta.timestamp")),
+      ).toBe(true);
+      expect(
+        result.errors.some((e) => e.code === "V-003" && e.message.includes("system.status")),
+      ).toBe(true);
     });
 
     it("should reject unknown input paths in dispatchable expressions", () => {
@@ -505,7 +526,8 @@ describe("validate", () => {
             dispatchable: { kind: "get", path: "input.missing" },
             flow: {
               kind: "patch",
-              op: "set", path: pp("dummy"),
+              op: "set",
+              path: pp("dummy"),
               value: { kind: "get", path: "input.value" },
             },
           },
@@ -542,7 +564,8 @@ describe("validate", () => {
             },
             flow: {
               kind: "patch",
-              op: "set", path: pp("dummy"),
+              op: "set",
+              path: pp("dummy"),
               value: { kind: "get", path: "input.payload.0" },
             },
           },
@@ -713,8 +736,18 @@ describe("validate", () => {
             flow: {
               kind: "if",
               cond: { kind: "get", path: "flag" },
-              then: { kind: "patch", op: "set", path: pp("result"), value: { kind: "lit", value: "yes" } },
-              else: { kind: "patch", op: "set", path: pp("result"), value: { kind: "lit", value: "no" } },
+              then: {
+                kind: "patch",
+                op: "set",
+                path: pp("result"),
+                value: { kind: "lit", value: "yes" },
+              },
+              else: {
+                kind: "patch",
+                op: "set",
+                path: pp("result"),
+                value: { kind: "lit", value: "no" },
+              },
             },
           },
         },
@@ -779,14 +812,22 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "complex": {
+            complex: {
               expr: {
                 kind: "if",
                 cond: {
                   kind: "and",
                   args: [
-                    { kind: "gt", left: { kind: "get", path: "x" }, right: { kind: "lit", value: 0 } },
-                    { kind: "lt", left: { kind: "get", path: "x" }, right: { kind: "lit", value: 100 } },
+                    {
+                      kind: "gt",
+                      left: { kind: "get", path: "x" },
+                      right: { kind: "lit", value: 0 },
+                    },
+                    {
+                      kind: "lt",
+                      left: { kind: "get", path: "x" },
+                      right: { kind: "lit", value: 100 },
+                    },
                   ],
                 },
                 then: {
@@ -810,7 +851,7 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "filtered": {
+            filtered: {
               expr: {
                 kind: "filter",
                 array: { kind: "get", path: "items" },
@@ -832,11 +873,11 @@ describe("validate", () => {
       const schema = createValidSchema({
         computed: {
           fields: {
-            "a": {
+            a: {
               expr: { kind: "get", path: "b" },
               deps: ["b"],
             },
-            "b": {
+            b: {
               expr: { kind: "get", path: "a" },
               deps: ["a"],
             },
@@ -1012,9 +1053,7 @@ describe("V-009: default type validation", () => {
     });
     const result = validate(schema);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContainEqual(
-      expect.objectContaining({ code: "V-009" })
-    );
+    expect(result.errors).toContainEqual(expect.objectContaining({ code: "V-009" }));
   });
 
   it("should fail when number field has string default", () => {
@@ -1027,9 +1066,7 @@ describe("V-009: default type validation", () => {
     });
     const result = validate(schema);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContainEqual(
-      expect.objectContaining({ code: "V-009" })
-    );
+    expect(result.errors).toContainEqual(expect.objectContaining({ code: "V-009" }));
   });
 
   it("should fail when boolean field has string default", () => {
@@ -1042,9 +1079,7 @@ describe("V-009: default type validation", () => {
     });
     const result = validate(schema);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContainEqual(
-      expect.objectContaining({ code: "V-009" })
-    );
+    expect(result.errors).toContainEqual(expect.objectContaining({ code: "V-009" }));
   });
 
   it("should fail when required string field has null default", () => {
@@ -1057,9 +1092,7 @@ describe("V-009: default type validation", () => {
     });
     const result = validate(schema);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContainEqual(
-      expect.objectContaining({ code: "V-009" })
-    );
+    expect(result.errors).toContainEqual(expect.objectContaining({ code: "V-009" }));
   });
 
   it("should pass when optional string field has null default", () => {
@@ -1111,7 +1144,7 @@ describe("V-009: default type validation", () => {
     const result = validate(schema);
     expect(result.valid).toBe(false);
     expect(result.errors).toContainEqual(
-      expect.objectContaining({ code: "V-009", path: "state.fields.selectedId" })
+      expect.objectContaining({ code: "V-009", path: "state.fields.selectedId" }),
     );
   });
 
@@ -1414,9 +1447,7 @@ describe("V-009: default type validation", () => {
     });
     const result = validate(schema);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContainEqual(
-      expect.objectContaining({ code: "V-009" })
-    );
+    expect(result.errors).toContainEqual(expect.objectContaining({ code: "V-009" }));
   });
 
   it("should fail when array field has wrong item types in default", () => {
@@ -1434,9 +1465,7 @@ describe("V-009: default type validation", () => {
     });
     const result = validate(schema);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContainEqual(
-      expect.objectContaining({ code: "V-009" })
-    );
+    expect(result.errors).toContainEqual(expect.objectContaining({ code: "V-009" }));
   });
 
   it("should fail when enum field has out-of-range default", () => {
@@ -1453,9 +1482,7 @@ describe("V-009: default type validation", () => {
     });
     const result = validate(schema);
     expect(result.valid).toBe(false);
-    expect(result.errors).toContainEqual(
-      expect.objectContaining({ code: "V-009" })
-    );
+    expect(result.errors).toContainEqual(expect.objectContaining({ code: "V-009" }));
   });
 
   it("should pass with valid defaults for each type", () => {

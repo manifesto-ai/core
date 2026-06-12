@@ -12,22 +12,23 @@ import { createCounterSchema, type CounterDomain } from "../helpers/schema.ts";
 
 const app = createManifesto<CounterDomain>(createCounterSchema(), {}).activate();
 
-const increment: ActionHandle<CounterDomain, "increment", "base"> =
-  app.action.increment;
-const boundIncrement: BoundAction<CounterDomain, "increment", "base"> =
-  increment.bind();
+const increment: ActionHandle<CounterDomain, "increment", "base"> = app.action.increment;
+const boundIncrement: BoundAction<CounterDomain, "increment", "base"> = increment.bind();
 const rawIntent: Intent | null = boundIncrement.intent();
 const admission: Admission<"increment"> = boundIncrement.check();
-const preview: PreviewResult<CounterDomain, "increment"> =
-  app.with({ diagnostics: "summary" }).action.increment.bind().preview();
-const submitted: Promise<BaseSubmissionResult<CounterDomain, "increment">> =
-  app.with({ report: "summary" }).action.increment.bind().submit();
+const preview: PreviewResult<CounterDomain, "increment"> = app
+  .with({ diagnostics: "summary" })
+  .action.increment.bind()
+  .preview();
+const submitted: Promise<BaseSubmissionResult<CounterDomain, "increment">> = app
+  .with({ report: "summary" })
+  .action.increment.bind()
+  .submit();
 
 const add = app.action.add;
 const boundAdd = add.bind(3);
 const addInput: number = boundAdd.input;
-const addSubmitted: Promise<BaseSubmissionResult<CounterDomain, "add">> =
-  add.submit(3);
+const addSubmitted: Promise<BaseSubmissionResult<CounterDomain, "add">> = add.submit(3);
 
 void rawIntent;
 void admission;

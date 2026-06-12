@@ -9,10 +9,7 @@ import type {
 import { createManifesto } from "../../index.ts";
 import { createCounterSchema, type CounterDomain } from "../helpers/schema.ts";
 
-function previewAction<
-  T extends ManifestoDomainShape,
-  Name extends ActionName<T>,
->(
+function previewAction<T extends ManifestoDomainShape, Name extends ActionName<T>>(
   app: ManifestoApp<T, "base">,
   name: Name,
   ...args: ActionArgs<T, Name>
@@ -20,10 +17,7 @@ function previewAction<
   return app.action[name].bind(...args).preview();
 }
 
-function submitAction<
-  T extends ManifestoDomainShape,
-  Name extends ActionName<T>,
->(
+function submitAction<T extends ManifestoDomainShape, Name extends ActionName<T>>(
   app: ManifestoApp<T, "base">,
   name: Name,
   ...args: ActionArgs<T, Name>

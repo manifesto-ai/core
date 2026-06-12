@@ -17,14 +17,8 @@ import {
   createCounterSchema,
   type CounterDomain,
 } from "../../../../sdk/src/__tests__/helpers/schema.ts";
-import {
-  createInMemoryLineageStore,
-  withLineage,
-} from "../../../../lineage/src/index.ts";
-import {
-  createInMemoryGovernanceStore,
-  withGovernance,
-} from "../../index.ts";
+import { createInMemoryLineageStore, withLineage } from "../../../../lineage/src/index.ts";
+import { createInMemoryGovernanceStore, withGovernance } from "../../index.ts";
 import {
   type ProposalSettlement,
   type ProposalSettlementReport,
@@ -67,10 +61,12 @@ const submitFor: Promise<SubmitResultFor<"governance", CounterDomain, "increment
   governed.action.increment.submit();
 const dynamicGovernanceHandle: DynamicActionHandle<CounterDomain, "governance"> | undefined =
   governed.getAction("increment" as string);
-const dynamicGovernanceSubmit: Promise<SubmitResultFor<"governance", CounterDomain, ActionName<CounterDomain>>> =
-  governed.getAction("increment" as string)!.submit(...([] as unknown[]));
-const runtimeSettlement: Promise<GovernanceSettlementResult<CounterDomain, ActionName<CounterDomain>>> =
-  governed.waitForSettlement(proposalRef);
+const dynamicGovernanceSubmit: Promise<
+  SubmitResultFor<"governance", CounterDomain, ActionName<CounterDomain>>
+> = governed.getAction("increment" as string)!.submit(...([] as unknown[]));
+const runtimeSettlement: Promise<
+  GovernanceSettlementResult<CounterDomain, ActionName<CounterDomain>>
+> = governed.waitForSettlement(proposalRef);
 const appSettlement: Promise<GovernanceSettlementResult<CounterDomain, ActionName<CounterDomain>>> =
   governedApp.waitForSettlement(proposalRef);
 const governedWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> | null> =
@@ -90,10 +86,8 @@ const governedSettlement: Promise<ProposalSettlement<CounterDomain>> = waitForPr
   governed,
   "proposal-1",
 );
-const governedSettlementReport: Promise<ProposalSettlementReport<CounterDomain>> = waitForProposalWithReport(
-  governed,
-  "proposal-1",
-);
+const governedSettlementReport: Promise<ProposalSettlementReport<CounterDomain>> =
+  waitForProposalWithReport(governed, "proposal-1");
 void governedSettlement;
 void governedSettlementReport;
 
@@ -117,10 +111,9 @@ governed.getIntentBlockers;
 governed.proposeAsyncWithReport;
 
 const foreignGoverned = withGovernance<ForeignDomain>(
-  withLineage<ForeignDomain>(
-    createManifesto<ForeignDomain>(createForeignSchema(), {}),
-    { store: createInMemoryLineageStore() },
-  ),
+  withLineage<ForeignDomain>(createManifesto<ForeignDomain>(createForeignSchema(), {}), {
+    store: createInMemoryLineageStore(),
+  }),
   {
     governanceStore: createInMemoryGovernanceStore(),
     bindings: [],

@@ -13,10 +13,7 @@ import {
   createCounterSchema,
   type CounterDomain,
 } from "../../../../sdk/src/__tests__/helpers/schema.ts";
-import {
-  createInMemoryLineageStore,
-  withLineage,
-} from "../../index.ts";
+import { createInMemoryLineageStore, withLineage } from "../../index.ts";
 
 const lineage = withLineage<CounterDomain>(
   createManifesto<CounterDomain>(createCounterSchema(), {}),
@@ -30,17 +27,16 @@ const submitResultFor: Promise<SubmitResultFor<"lineage", CounterDomain, "increm
   lineage.action.increment.submit();
 const dynamicLineageHandle: DynamicActionHandle<CounterDomain, "lineage"> | undefined =
   lineage.getAction("increment" as string);
-const dynamicLineageSubmit: Promise<SubmitResultFor<"lineage", CounterDomain, ActionName<CounterDomain>>> =
-  lineage.getAction("increment" as string)!.submit(...([] as unknown[]));
+const dynamicLineageSubmit: Promise<
+  SubmitResultFor<"lineage", CounterDomain, ActionName<CounterDomain>>
+> = lineage.getAction("increment" as string)!.submit(...([] as unknown[]));
 const boundSubmitResult: Promise<LineageSubmissionResult<CounterDomain, "increment">> =
   lineage.action.increment.bind().submit();
 const lineageWorldSnapshot: Promise<CanonicalSnapshot<CounterDomain["state"]> | null> =
   lineage.getWorldSnapshot("world-1");
 const lineageAdmission = lineage.action.increment.check();
 const lineageDispatchable: boolean = lineageAdmission.ok;
-const lineageBlockers: readonly Blocker[] = lineageAdmission.ok
-  ? []
-  : lineageAdmission.blockers;
+const lineageBlockers: readonly Blocker[] = lineageAdmission.ok ? [] : lineageAdmission.blockers;
 
 void app;
 void submitResult;

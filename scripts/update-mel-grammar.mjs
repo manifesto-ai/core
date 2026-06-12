@@ -6,14 +6,8 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 
-const normalizerPath = path.join(
-  repoRoot,
-  "packages/compiler/src/generator/normalizer.ts"
-);
-const grammarPath = path.join(
-  repoRoot,
-  "docs/.vitepress/languages/mel.tmLanguage.json"
-);
+const normalizerPath = path.join(repoRoot, "packages/compiler/src/generator/normalizer.ts");
+const grammarPath = path.join(repoRoot, "docs/.vitepress/languages/mel.tmLanguage.json");
 
 const normalizerSource = fs.readFileSync(normalizerPath, "utf-8");
 const switchIndex = normalizerSource.indexOf("switch (name)");
@@ -54,5 +48,5 @@ grammar.repository.builtins.match = builtinPattern;
 fs.writeFileSync(grammarPath, `${JSON.stringify(grammar, null, 2)}\n`, "utf-8");
 
 console.log(
-  `Updated MEL builtins (${builtinList.length}) in ${path.relative(repoRoot, grammarPath)}`
+  `Updated MEL builtins (${builtinList.length}) in ${path.relative(repoRoot, grammarPath)}`,
 );

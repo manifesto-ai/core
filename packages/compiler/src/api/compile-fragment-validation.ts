@@ -11,22 +11,34 @@ export const EMPTY_LOCATION = {
   end: { line: 1, column: 1, offset: 0 },
 };
 
-export function editError(code: string, message: string, location: ProgramNode["location"] = EMPTY_LOCATION): Diagnostic {
+export function editError(
+  code: string,
+  message: string,
+  location: ProgramNode["location"] = EMPTY_LOCATION,
+): Diagnostic {
   return createError(code, message, location);
 }
 
-export function diagnosticsOf(result: { warnings: readonly Diagnostic[]; errors: readonly Diagnostic[] }): Diagnostic[] {
+export function diagnosticsOf(result: {
+  warnings: readonly Diagnostic[];
+  errors: readonly Diagnostic[];
+}): Diagnostic[] {
   return [...result.warnings, ...result.errors];
 }
 
-export function parseProgram(source: string): { program: ProgramNode | null; diagnostics: Diagnostic[] } {
+export function parseProgram(source: string): {
+  program: ProgramNode | null;
+  diagnostics: Diagnostic[];
+} {
   const lexResult = tokenize(source);
   const lexErrors = lexResult.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
   if (lexErrors.length > 0) {
     return { program: null, diagnostics: lexErrors };
   }
   const parseResult = parse(lexResult.tokens);
-  const parseErrors = parseResult.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  const parseErrors = parseResult.diagnostics.filter(
+    (diagnostic) => diagnostic.severity === "error",
+  );
   return { program: parseResult.program, diagnostics: parseErrors };
 }
 
@@ -34,19 +46,30 @@ export function validateExpressionFragment(expr: unknown): Diagnostic[] {
   if (typeof expr !== "string") {
     return [editError("E_FRAGMENT_SCOPE_VIOLATION", "expression fragment must be source text.")];
   }
-  return mapFragmentDiagnostics(parseFragment(`domain __Fragment { computed __fragment = ${expr} }`), "expression");
+  return mapFragmentDiagnostics(
+    parseFragment(`domain __Fragment { computed __fragment = ${expr} }`),
+    "expression",
+  );
 }
 
 export function validateTypeFragment(typeSource: unknown): Diagnostic[] {
   if (typeof typeSource !== "string") {
     return [editError("E_FRAGMENT_SCOPE_VIOLATION", "type fragment must be source text.")];
   }
-  return mapFragmentDiagnostics(parseFragment(`domain __Fragment { type __FragmentType = ${typeSource} }`), "type");
+  return mapFragmentDiagnostics(
+    parseFragment(`domain __Fragment { type __FragmentType = ${typeSource} }`),
+    "type",
+  );
 }
 
-export function validateStateFieldFragment(typeSource: unknown, defaultSource: string): Diagnostic[] {
+export function validateStateFieldFragment(
+  typeSource: unknown,
+  defaultSource: string,
+): Diagnostic[] {
   if (typeof typeSource !== "string") {
-    return [editError("E_FRAGMENT_SCOPE_VIOLATION", "state field type fragment must be source text.")];
+    return [
+      editError("E_FRAGMENT_SCOPE_VIOLATION", "state field type fragment must be source text."),
+    ];
   }
   return mapFragmentDiagnostics(
     parseFragment(`domain __Fragment { state { __field: ${typeSource} = ${defaultSource} } }`),
@@ -60,11 +83,21 @@ export function validateActionBodyFragment(body: unknown): Diagnostic[] {
   }
   const bodyLex = tokenize(body);
   const smuggled = bodyLex.tokens.find((token) =>
-    ["DOMAIN", "STATE", "COMPUTED", "ACTION", "TYPE", "IMPORT", "EXPORT"].includes(token.kind));
+    ["DOMAIN", "STATE", "COMPUTED", "ACTION", "TYPE", "IMPORT", "EXPORT"].includes(token.kind),
+  );
   if (smuggled) {
-    return [editError("E_FRAGMENT_SCOPE_VIOLATION", "Action body fragments cannot contain top-level declarations.", smuggled.location)];
+    return [
+      editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        "Action body fragments cannot contain top-level declarations.",
+        smuggled.location,
+      ),
+    ];
   }
-  return mapFragmentDiagnostics(parseFragment(`domain __Fragment { action __fragment() { ${body} } }`), "action body");
+  return mapFragmentDiagnostics(
+    parseFragment(`domain __Fragment { action __fragment() { ${body} } }`),
+    "action body",
+  );
 }
 
 export function validateIdentifierFragment(value: unknown, label: string): Diagnostic[] {
@@ -75,10 +108,10 @@ export function validateIdentifierFragment(value: unknown, label: string): Diagn
   const lexErrors = lexResult.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
   const tokens = lexResult.tokens.filter((token) => token.kind !== "EOF");
   if (
-    lexErrors.length > 0
-    || tokens.length !== 1
-    || tokens[0]?.kind !== "IDENTIFIER"
-    || tokens[0].lexeme !== value
+    lexErrors.length > 0 ||
+    tokens.length !== 1 ||
+    tokens[0]?.kind !== "IDENTIFIER" ||
+    tokens[0].lexeme !== value
   ) {
     return [
       editError(
@@ -96,7 +129,11 @@ export function validateParamsFragment(params: unknown): Diagnostic[] {
 }
 
 type ParamsFragmentSnapshot =
-  | { readonly ok: true; readonly value: readonly MelParamSource[]; readonly diagnostics: readonly Diagnostic[] }
+  | {
+      readonly ok: true;
+      readonly value: readonly MelParamSource[];
+      readonly diagnostics: readonly Diagnostic[];
+    }
   | { readonly ok: false; readonly diagnostics: readonly Diagnostic[] };
 
 export function snapshotParamsFragment(params: unknown): ParamsFragmentSnapshot {
@@ -105,7 +142,10 @@ export function snapshotParamsFragment(params: unknown): ParamsFragmentSnapshot 
     return { ok: false, diagnostics: [array.diagnostic] };
   }
   if (array.value === null) {
-    return { ok: false, diagnostics: [editError("E_FRAGMENT_SCOPE_VIOLATION", "action params must be an array.")] };
+    return {
+      ok: false,
+      diagnostics: [editError("E_FRAGMENT_SCOPE_VIOLATION", "action params must be an array.")],
+    };
   }
   const length = readArrayLength(array.value, "action params");
   if (!length.ok) {
@@ -125,7 +165,9 @@ export function snapshotParamsFragment(params: unknown): ParamsFragmentSnapshot 
     }
     const param = item.value;
     if (param === null || typeof param !== "object") {
-      diagnostics.push(editError("E_FRAGMENT_SCOPE_VIOLATION", `action parameter ${index} must be an object.`));
+      diagnostics.push(
+        editError("E_FRAGMENT_SCOPE_VIOLATION", `action parameter ${index} must be an object.`),
+      );
       continue;
     }
     const name = readOptionalDataProperty(param, "name", `action parameter ${index}.name`);
@@ -159,9 +201,7 @@ export function snapshotParamsFragment(params: unknown): ParamsFragmentSnapshot 
       value.push({ name: nameValue, type: typeValue });
     }
   }
-  return diagnostics.length === 0
-    ? { ok: true, value, diagnostics }
-    : { ok: false, diagnostics };
+  return diagnostics.length === 0 ? { ok: true, value, diagnostics } : { ok: false, diagnostics };
 }
 
 type EditOperationKindRead =
@@ -172,7 +212,10 @@ export function readEditOperationKind(value: unknown): EditOperationKindRead {
   if (value === null || typeof value !== "object") {
     return {
       ok: false,
-      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "compileFragmentInContext() requires one object edit operation."),
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        "compileFragmentInContext() requires one object edit operation.",
+      ),
     };
   }
   const array = readArrayBrand(value, "Source edit operation must be inspectable.");
@@ -182,7 +225,10 @@ export function readEditOperationKind(value: unknown): EditOperationKindRead {
   if (array.value !== null) {
     return {
       ok: false,
-      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "compileFragmentInContext() accepts exactly one edit operation."),
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        "compileFragmentInContext() accepts exactly one edit operation.",
+      ),
     };
   }
   let kind: unknown;
@@ -191,13 +237,19 @@ export function readEditOperationKind(value: unknown): EditOperationKindRead {
   } catch {
     return {
       ok: false,
-      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation kind must be inspectable."),
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        "Source edit operation kind must be inspectable.",
+      ),
     };
   }
   if (typeof kind !== "string") {
     return {
       ok: false,
-      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", "Source edit operation kind must be source text."),
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        "Source edit operation kind must be source text.",
+      ),
     };
   }
   return { ok: true, value: kind };
@@ -227,7 +279,13 @@ function readArrayLength(value: readonly unknown[], label: string): LengthReadRe
   try {
     return { ok: true, value: value.length };
   } catch {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+    return {
+      ok: false,
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        `${label} must be inspectable JSON data.`,
+      ),
+    };
   }
 }
 
@@ -263,10 +321,16 @@ function validateArrayShape(
       return editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`);
     }
     if (!descriptor || !("value" in descriptor)) {
-      return editError("E_FRAGMENT_SCOPE_VIOLATION", `${label}[${key}] must be a JSON data property.`);
+      return editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        `${label}[${key}] must be a JSON data property.`,
+      );
     }
     if (!descriptor.enumerable) {
-      return editError("E_FRAGMENT_SCOPE_VIOLATION", `${label}[${key}] must be enumerable JSON data.`);
+      return editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        `${label}[${key}] must be enumerable JSON data.`,
+      );
     }
     indexCount += 1;
   }
@@ -278,22 +342,32 @@ function validateArrayShape(
 
 function isArrayIndexKey(key: string, length: number): boolean {
   const index = Number(key);
-  return Number.isInteger(index)
-    && index >= 0
-    && index < length
-    && String(index) === key;
+  return Number.isInteger(index) && index >= 0 && index < length && String(index) === key;
 }
 
-function readRequiredArrayItem(value: readonly unknown[], index: number, label: string): ValueReadResult {
+function readRequiredArrayItem(
+  value: readonly unknown[],
+  index: number,
+  label: string,
+): ValueReadResult {
   try {
     if (!Object.hasOwn(value, index)) {
       return {
         ok: false,
-        diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label}[${index}] must be present JSON data.`),
+        diagnostic: editError(
+          "E_FRAGMENT_SCOPE_VIOLATION",
+          `${label}[${index}] must be present JSON data.`,
+        ),
       };
     }
   } catch {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+    return {
+      ok: false,
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        `${label} must be inspectable JSON data.`,
+      ),
+    };
   }
   return readRequiredDataProperty(value, String(index), `${label}[${index}]`);
 }
@@ -303,18 +377,33 @@ function readOptionalDataProperty(value: object, key: string, label: string): Va
   try {
     descriptor = Object.getOwnPropertyDescriptor(value, key);
   } catch {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+    return {
+      ok: false,
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        `${label} must be inspectable JSON data.`,
+      ),
+    };
   }
   if (!descriptor) {
     return { ok: true, value: undefined };
   }
   if (!("value" in descriptor)) {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a JSON data property.`) };
+    return {
+      ok: false,
+      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a JSON data property.`),
+    };
   }
   try {
     return { ok: true, value: (value as Record<string, unknown>)[key] };
   } catch {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+    return {
+      ok: false,
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        `${label} must be inspectable JSON data.`,
+      ),
+    };
   }
 }
 
@@ -323,18 +412,36 @@ function readRequiredDataProperty(value: object, key: string, label: string): Va
   try {
     descriptor = Object.getOwnPropertyDescriptor(value, key);
   } catch {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+    return {
+      ok: false,
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        `${label} must be inspectable JSON data.`,
+      ),
+    };
   }
   if (!descriptor) {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be present JSON data.`) };
+    return {
+      ok: false,
+      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be present JSON data.`),
+    };
   }
   if (!("value" in descriptor)) {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a JSON data property.`) };
+    return {
+      ok: false,
+      diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be a JSON data property.`),
+    };
   }
   try {
     return { ok: true, value: (value as Record<string, unknown>)[key] };
   } catch {
-    return { ok: false, diagnostic: editError("E_FRAGMENT_SCOPE_VIOLATION", `${label} must be inspectable JSON data.`) };
+    return {
+      ok: false,
+      diagnostic: editError(
+        "E_FRAGMENT_SCOPE_VIOLATION",
+        `${label} must be inspectable JSON data.`,
+      ),
+    };
   }
 }
 
@@ -378,5 +485,10 @@ function parseFragment(source: string): readonly Diagnostic[] {
 
 function mapFragmentDiagnostics(diagnostics: readonly Diagnostic[], label: string): Diagnostic[] {
   return diagnostics.map((diagnostic) =>
-    editError("E_FRAGMENT_PARSE_FAILED", `Invalid ${label} fragment: ${diagnostic.message}`, diagnostic.location));
+    editError(
+      "E_FRAGMENT_PARSE_FAILED",
+      `Invalid ${label} fragment: ${diagnostic.message}`,
+      diagnostic.location,
+    ),
+  );
 }

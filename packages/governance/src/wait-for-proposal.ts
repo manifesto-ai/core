@@ -9,27 +9,19 @@ import type { WaitForProposalRuntimeKernel } from "@manifesto-ai/sdk/provider";
 
 import type { GovernanceInstance } from "./runtime-types.js";
 import { deriveErrorInfo } from "./error-info.js";
-import type {
-  ErrorInfo,
-  Proposal,
-  ProposalId,
-  WorldId,
-} from "./types.js";
+import type { ErrorInfo, Proposal, ProposalId, WorldId } from "./types.js";
 
 const WAIT_FOR_PROPOSAL_RUNTIME = Symbol("manifesto-governance.wait-for-proposal");
 
-type WaitForProposalRuntimeState<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = WaitForProposalRuntimeKernel<T>;
+type WaitForProposalRuntimeState<T extends ManifestoDomainShape = ManifestoDomainShape> =
+  WaitForProposalRuntimeKernel<T>;
 
 export type WaitForProposalOptions = {
   readonly timeoutMs?: number;
   readonly pollIntervalMs?: number;
 };
 
-export type ProposalSettlement<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> =
+export type ProposalSettlement<T extends ManifestoDomainShape = ManifestoDomainShape> =
   | {
       readonly kind: "completed";
       readonly proposal: Proposal & { readonly status: "completed"; readonly resultWorld: WorldId };
@@ -59,9 +51,7 @@ export type ProposalSettlement<
       readonly proposal: Proposal;
     };
 
-export type ProposalSettlementReport<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> =
+export type ProposalSettlementReport<T extends ManifestoDomainShape = ManifestoDomainShape> =
   | {
       readonly kind: "completed";
       readonly proposal: Proposal & { readonly status: "completed"; readonly resultWorld: WorldId };
@@ -95,9 +85,7 @@ export type ProposalSettlementReport<
       readonly proposal: Proposal;
     };
 
-export function attachWaitForProposalRuntime<
-  T extends ManifestoDomainShape,
->(
+export function attachWaitForProposalRuntime<T extends ManifestoDomainShape>(
   runtime: GovernanceInstance<T>,
   state: WaitForProposalRuntimeState<T>,
 ): GovernanceInstance<T> {
@@ -111,16 +99,12 @@ export function attachWaitForProposalRuntime<
   return runtime;
 }
 
-export async function waitForProposal<
-  T extends ManifestoDomainShape,
->(
+export async function waitForProposal<T extends ManifestoDomainShape>(
   app: GovernanceInstance<T>,
   proposalOrId: Proposal | ProposalId,
   options?: WaitForProposalOptions,
 ): Promise<ProposalSettlement<T>> {
-  const proposalId = typeof proposalOrId === "string"
-    ? proposalOrId
-    : proposalOrId.proposalId;
+  const proposalId = typeof proposalOrId === "string" ? proposalOrId : proposalOrId.proposalId;
   const timeoutMs = normalizeDuration(options?.timeoutMs, 0);
   const pollIntervalMs = normalizeDuration(options?.pollIntervalMs, 50);
   const startedAt = Date.now();
@@ -166,9 +150,7 @@ export async function waitForProposal<
       return {
         kind: "failed",
         proposal: failedProposal,
-        ...(failureInfo.resultWorld !== undefined
-          ? { resultWorld: failureInfo.resultWorld }
-          : {}),
+        ...(failureInfo.resultWorld !== undefined ? { resultWorld: failureInfo.resultWorld } : {}),
         error: failureInfo.error,
       };
     }
@@ -210,9 +192,7 @@ export async function waitForProposal<
   }
 }
 
-export async function waitForProposalWithReport<
-  T extends ManifestoDomainShape,
->(
+export async function waitForProposalWithReport<T extends ManifestoDomainShape>(
   app: GovernanceInstance<T>,
   proposalOrId: Proposal | ProposalId,
   options?: WaitForProposalOptions,

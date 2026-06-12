@@ -83,9 +83,7 @@ export function createSettlementEngine<T extends ManifestoDomainShape>(
       // and validated before the governance commit is finalized (#477).
       const approvedScope = toIntentScope(executingProposal.approvedScope);
       if (approvedScope?.allowedPaths && approvedScope.allowedPaths.length > 0) {
-        const baseSnapshot = await lineage.getWorldSnapshot(
-          executingProposal.baseWorld,
-        );
+        const baseSnapshot = await lineage.getWorldSnapshot(executingProposal.baseWorld);
         const changedPaths = collectChangedStatePaths(
           baseSnapshot?.state ?? {},
           (sealed.hostResult.snapshot as CanonicalSnapshot<T["state"]>).state,
@@ -168,12 +166,12 @@ export function createSettlementEngine<T extends ManifestoDomainShape>(
     fallbackProposal: Proposal,
     resultWorld?: string,
   ): Promise<void> {
-    const current = await governanceStore.getProposal(proposalId) ?? fallbackProposal;
+    const current = (await governanceStore.getProposal(proposalId)) ?? fallbackProposal;
     if (
-      current.status === "completed"
-      || current.status === "failed"
-      || current.status === "rejected"
-      || current.status === "superseded"
+      current.status === "completed" ||
+      current.status === "failed" ||
+      current.status === "rejected" ||
+      current.status === "superseded"
     ) {
       return;
     }
@@ -190,19 +188,11 @@ export function createSettlementEngine<T extends ManifestoDomainShape>(
     if (proposal.status === "approved") {
       const executing = governanceService.beginExecution(proposal);
       await governanceStore.putProposal(executing);
-      return governanceService.failExecution(
-        executing,
-        getCurrentTimestamp(),
-        resultWorld,
-      );
+      return governanceService.failExecution(executing, getCurrentTimestamp(), resultWorld);
     }
 
     if (proposal.status === "executing") {
-      return governanceService.failExecution(
-        proposal,
-        getCurrentTimestamp(),
-        resultWorld,
-      );
+      return governanceService.failExecution(proposal, getCurrentTimestamp(), resultWorld);
     }
 
     return governanceService.prepareSupersede(proposal, "manual_cancel");
@@ -214,7 +204,9 @@ export function createSettlementEngine<T extends ManifestoDomainShape>(
   };
 }
 
-export function toTypedComputeIntent<T extends ManifestoDomainShape>(proposal: Proposal): TypedIntent<T> {
+export function toTypedComputeIntent<T extends ManifestoDomainShape>(
+  proposal: Proposal,
+): TypedIntent<T> {
   return {
     type: proposal.computeEnvelope.intent.type,
     intentId: proposal.computeEnvelope.intent.intentId,

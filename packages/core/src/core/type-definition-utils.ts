@@ -21,8 +21,8 @@ function isNullType(definition: TypeDefinition, types: Record<string, TypeSpec>)
   }
 
   return (
-    (resolved.kind === "primitive" && resolved.type === "null")
-    || (resolved.kind === "literal" && resolved.value === null)
+    (resolved.kind === "primitive" && resolved.type === "null") ||
+    (resolved.kind === "literal" && resolved.value === null)
   );
 }
 
@@ -210,9 +210,7 @@ export function getStateTypeDefinitionAtSegments(
     return null;
   }
 
-  return rest.length === 0
-    ? rootType
-    : getTypeDefinitionAtSegments(rootType, types, rest);
+  return rest.length === 0 ? rootType : getTypeDefinitionAtSegments(rootType, types, rest);
 }
 
 export function validateValueAgainstTypeDefinition(
@@ -222,9 +220,7 @@ export function validateValueAgainstTypeDefinition(
   options?: TypeValidationOptions,
 ): TypeValidationResult {
   if (value === undefined) {
-    return options?.allowUndefined
-      ? { ok: true }
-      : { ok: false, message: "Value is required" };
+    return options?.allowUndefined ? { ok: true } : { ok: false, message: "Value is required" };
   }
 
   const resolved = resolveTypeDefinition(definition, types);
@@ -234,10 +230,14 @@ export function validateValueAgainstTypeDefinition(
 
   if (resolved.kind === "union") {
     const results = resolved.types.map((candidate) =>
-      validateValueAgainstTypeDefinition(value, candidate, types, options)
+      validateValueAgainstTypeDefinition(value, candidate, types, options),
     );
-    return results.find((result) => result.ok)
-      ?? { ok: false, message: "Value does not match any union branch" };
+    return (
+      results.find((result) => result.ok) ?? {
+        ok: false,
+        message: "Value does not match any union branch",
+      }
+    );
   }
 
   switch (resolved.kind) {
@@ -246,21 +246,23 @@ export function validateValueAgainstTypeDefinition(
         case "null":
           return value === null ? { ok: true } : { ok: false, message: "Expected null" };
         case "string":
-          return typeof value === "string" ? { ok: true } : { ok: false, message: "Expected string" };
+          return typeof value === "string"
+            ? { ok: true }
+            : { ok: false, message: "Expected string" };
         case "number":
           return typeof value === "number" && Number.isFinite(value)
             ? { ok: true }
             : { ok: false, message: "Expected number" };
         case "boolean":
-          return typeof value === "boolean" ? { ok: true } : { ok: false, message: "Expected boolean" };
+          return typeof value === "boolean"
+            ? { ok: true }
+            : { ok: false, message: "Expected boolean" };
         case "object":
           return value !== null && !Array.isArray(value) && typeof value === "object"
             ? { ok: true }
             : { ok: false, message: "Expected object" };
         case "array":
-          return Array.isArray(value)
-            ? { ok: true }
-            : { ok: false, message: "Expected array" };
+          return Array.isArray(value) ? { ok: true } : { ok: false, message: "Expected array" };
         default:
           return { ok: false, message: `Unsupported primitive type: ${resolved.type}` };
       }

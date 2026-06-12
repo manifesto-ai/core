@@ -24,12 +24,12 @@ export type TokenKind =
   | "FALSE"
   | "NULL"
   | "AS"
-  | "AVAILABLE"   // v0.3.2
+  | "AVAILABLE" // v0.3.2
   | "DISPATCHABLE" // v0.9.0
-  | "FAIL"        // v0.3.2
-  | "STOP"        // v0.3.2
-  | "WITH"        // v0.3.2
-  | "TYPE"        // v0.3.3
+  | "FAIL" // v0.3.2
+  | "STOP" // v0.3.2
+  | "WITH" // v0.3.2
+  | "TYPE" // v0.3.3
   | "IMPORT"
   | "FROM"
   | "EXPORT"
@@ -108,12 +108,12 @@ export const KEYWORDS: Record<string, TokenKind> = {
   false: "FALSE",
   null: "NULL",
   as: "AS",
-  available: "AVAILABLE",  // v0.3.2
+  available: "AVAILABLE", // v0.3.2
   dispatchable: "DISPATCHABLE", // v0.9.0
-  fail: "FAIL",            // v0.3.2
-  stop: "STOP",            // v0.3.2
-  with: "WITH",            // v0.3.2
-  type: "TYPE",            // v0.3.3
+  fail: "FAIL", // v0.3.2
+  stop: "STOP", // v0.3.2
+  with: "WITH", // v0.3.2
+  type: "TYPE", // v0.3.3
   import: "IMPORT",
   from: "FROM",
   export: "EXPORT",
@@ -124,16 +124,45 @@ export const KEYWORDS: Record<string, TokenKind> = {
  */
 export const RESERVED_KEYWORDS = new Set([
   // Control flow (forbidden)
-  "function", "var", "let", "const", "if", "else",
-  "for", "while", "do", "switch", "case", "break",
-  "continue", "return", "throw", "try", "catch", "finally",
-  "new", "delete", "instanceof", "void",
+  "function",
+  "var",
+  "let",
+  "const",
+  "if",
+  "else",
+  "for",
+  "while",
+  "do",
+  "switch",
+  "case",
+  "break",
+  "continue",
+  "return",
+  "throw",
+  "try",
+  "catch",
+  "finally",
+  "new",
+  "delete",
+  "instanceof",
+  "void",
   // NOTE: "typeof" removed - now a MEL builtin function
   // NOTE: "with" removed - now a MEL keyword in v0.3.2
-  "debugger", "this", "super", "arguments", "eval",
+  "debugger",
+  "this",
+  "super",
+  "arguments",
+  "eval",
   // Reserved for future
-  "async", "await", "yield", "class", "extends",
-  "interface", "enum", "namespace", "module",
+  "async",
+  "await",
+  "yield",
+  "class",
+  "extends",
+  "interface",
+  "enum",
+  "namespace",
+  "module",
   // NOTE: "type" removed - now a MEL keyword in v0.3.3
 ]);
 
@@ -166,7 +195,7 @@ export function createToken(
   kind: TokenKind,
   lexeme: string,
   location: SourceLocation,
-  value?: unknown
+  value?: unknown,
 ): Token {
   return { kind, lexeme, location, value };
 }

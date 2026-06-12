@@ -19,7 +19,7 @@ import { isOk } from "../schema/common.js";
 export function explain(
   schema: DomainSchema,
   snapshot: Snapshot,
-  path: SemanticPath
+  path: SemanticPath,
 ): ExplainResult {
   const trace = createTraceContext(snapshot.meta.timestamp);
   return explainWithTrace(schema, snapshot, path, trace);
@@ -29,7 +29,7 @@ function explainWithTrace(
   schema: DomainSchema,
   snapshot: Snapshot,
   path: SemanticPath,
-  trace: ReturnType<typeof createTraceContext>
+  trace: ReturnType<typeof createTraceContext>,
 ): ExplainResult {
   // Check if it's a computed path (schema lookup, no prefix)
   if (schema.computed.fields[path] !== undefined) {
@@ -72,7 +72,7 @@ function explainComputed(
   schema: DomainSchema,
   snapshot: Snapshot,
   path: SemanticPath,
-  trace: ReturnType<typeof createTraceContext>
+  trace: ReturnType<typeof createTraceContext>,
 ): ExplainResult {
   const spec = schema.computed.fields[path];
 

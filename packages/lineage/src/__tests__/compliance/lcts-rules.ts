@@ -1,13 +1,10 @@
 import type { LineageComplianceRule } from "./lcts-types.js";
-import {
-  LINEAGE_SPEC_INVENTORY,
-  getInventoryRuleOrThrow,
-} from "./lcts-spec-inventory.js";
+import { LINEAGE_SPEC_INVENTORY, getInventoryRuleOrThrow } from "./lcts-spec-inventory.js";
 
 function registry(
   ruleId: string,
   mode: LineageComplianceRule["mode"],
-  notes?: string
+  notes?: string,
 ): LineageComplianceRule {
   const inventoryRule = getInventoryRuleOrThrow(ruleId);
   return {
@@ -20,7 +17,7 @@ function registry(
 function registryMany(
   ruleIds: readonly string[],
   mode: LineageComplianceRule["mode"],
-  notes?: string
+  notes?: string,
 ): LineageComplianceRule[] {
   return ruleIds.map((ruleId) => registry(ruleId, mode, notes));
 }
@@ -62,7 +59,7 @@ export const LINEAGE_COMPLIANCE_RULES: readonly LineageComplianceRule[] = [
       "LIN-BOUNDARY-4",
       "LIN-STORE-3",
     ],
-    "blocking"
+    "blocking",
   ),
 ] as const;
 

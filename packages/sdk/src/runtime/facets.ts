@@ -57,14 +57,10 @@ export interface RuntimeReportHelpers<T extends ManifestoDomainShape> {
     error: unknown,
     stage: "host" | "seal",
   ) => ExecutionFailureInfo;
-  readonly createExecutionDiagnostics: (
-    result: HostResult,
-  ) => ExecutionDiagnostics;
+  readonly createExecutionDiagnostics: (result: HostResult) => ExecutionDiagnostics;
 }
 
-export type IntentLegalityEvaluation<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> =
+export type IntentLegalityEvaluation<T extends ManifestoDomainShape = ManifestoDomainShape> =
   | {
       readonly kind: "unavailable";
       readonly intent: TypedIntent<T>;
@@ -88,9 +84,7 @@ export type IntentLegalityEvaluation<
       readonly actionName: keyof T["actions"] & string;
     };
 
-export type RuntimeSimulationResult<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
+export type RuntimeSimulationResult<T extends ManifestoDomainShape = ManifestoDomainShape> = {
   readonly snapshot: CanonicalSnapshot<T["state"]>;
   readonly patches: readonly Patch[];
   readonly systemDelta: Readonly<SystemDelta>;
@@ -99,9 +93,7 @@ export type RuntimeSimulationResult<
   readonly diagnostics?: SimulationDiagnostics;
 };
 
-export type RuntimeSimulateSync<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = (
+export type RuntimeSimulateSync<T extends ManifestoDomainShape = ManifestoDomainShape> = (
   snapshot: CanonicalSnapshot<T["state"]>,
   intent: TypedIntent<T>,
   options?: {
@@ -132,20 +124,13 @@ export interface RuntimeAdmission<T extends ManifestoDomainShape> {
     intent: TypedIntent<T>,
   ) => IntentExplanation<T>;
   readonly createUnavailableError: (intent: TypedIntent<T>) => ManifestoError;
-  readonly createNotDispatchableError: (
-    intent: TypedIntent<T>,
-  ) => ManifestoError;
-  readonly rejectInvalidInput: (
-    intent: TypedIntent<T>,
-    message: string,
-  ) => never;
+  readonly createNotDispatchableError: (intent: TypedIntent<T>) => ManifestoError;
+  readonly rejectInvalidInput: (intent: TypedIntent<T>, message: string) => never;
   readonly rejectUnavailable: (intent: TypedIntent<T>) => never;
   readonly rejectNotDispatchable: (intent: TypedIntent<T>) => never;
 }
 
-export type PublishedRuntimeSnapshot<
-  T extends ManifestoDomainShape = ManifestoDomainShape,
-> = {
+export type PublishedRuntimeSnapshot<T extends ManifestoDomainShape = ManifestoDomainShape> = {
   readonly publishedSnapshot: ProjectedSnapshot<T>;
   readonly publishedCanonicalSnapshot: CanonicalSnapshot<T["state"]>;
 };
@@ -153,10 +138,6 @@ export type PublishedRuntimeSnapshot<
 export interface RuntimePublicationHelpers<T extends ManifestoDomainShape> {
   readonly replaceVisibleSnapshot: RuntimeStateStore<T>["setVisibleSnapshot"];
   readonly restoreVisibleSnapshot: RuntimeStateStore<T>["restoreVisibleSnapshot"];
-  readonly publishCompletedHostResult: (
-    snapshot: CoreSnapshot,
-  ) => PublishedRuntimeSnapshot<T>;
-  readonly publishFailedHostResult: (
-    snapshot: CoreSnapshot,
-  ) => PublishedRuntimeSnapshot<T>;
+  readonly publishCompletedHostResult: (snapshot: CoreSnapshot) => PublishedRuntimeSnapshot<T>;
+  readonly publishFailedHostResult: (snapshot: CoreSnapshot) => PublishedRuntimeSnapshot<T>;
 }

@@ -183,13 +183,15 @@ export function evaluateExpr(expr: ExprNode, ctx: EvalContext): ExprResult {
       return evaluateToBoolean(expr.arg, ctx);
 
     default:
-      return err(createError(
-        "INTERNAL_ERROR",
-        `Unknown expression kind: ${(expr as ExprNode).kind}`,
-        ctx.currentAction ?? "",
-        ctx.nodePath,
-        ctx.trace.timestamp
-      ));
+      return err(
+        createError(
+          "INTERNAL_ERROR",
+          `Unknown expression kind: ${(expr as ExprNode).kind}`,
+          ctx.currentAction ?? "",
+          ctx.nodePath,
+          ctx.trace.timestamp,
+        ),
+      );
   }
 }
 
@@ -261,29 +263,37 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
   // Namespace reads are not part of the public expression language. Core-owned
   // internals that need namespace bookkeeping use dedicated Flow primitives.
   if (path.startsWith("$")) {
-    return err(createError(
-      "PATH_NOT_FOUND",
-      `Unknown reserved expression path: ${path}`,
-      ctx.currentAction ?? "",
-      ctx.nodePath,
-      ctx.trace.timestamp
-    ));
+    return err(
+      createError(
+        "PATH_NOT_FOUND",
+        `Unknown reserved expression path: ${path}`,
+        ctx.currentAction ?? "",
+        ctx.nodePath,
+        ctx.trace.timestamp,
+      ),
+    );
   }
 
   // Handle input path
   if (path.startsWith("input.") || path === "input") {
     if (ctx.phase !== "flow" && ctx.phase !== "dispatchability") {
-      return err(createError(
-        "PATH_NOT_FOUND",
-        `Input path is not available during ${ctx.phase} expression evaluation: ${path}`,
-        ctx.currentAction ?? "",
-        ctx.nodePath,
-        ctx.trace.timestamp
-      ));
+      return err(
+        createError(
+          "PATH_NOT_FOUND",
+          `Input path is not available during ${ctx.phase} expression evaluation: ${path}`,
+          ctx.currentAction ?? "",
+          ctx.nodePath,
+          ctx.trace.timestamp,
+        ),
+      );
     }
 
     const subPath = path === "input" ? "" : path.slice(6);
-    return ok(subPath ? normalizeMissingPathValue(getByPath(ctx.snapshot.input, subPath)) : ctx.snapshot.input);
+    return ok(
+      subPath
+        ? normalizeMissingPathValue(getByPath(ctx.snapshot.input, subPath))
+        : ctx.snapshot.input,
+    );
   }
 
   // Handle computed path (schema lookup, no prefix)
@@ -297,13 +307,15 @@ function evaluateGet(path: string, ctx: EvalContext): ExprResult {
 
 function evaluateRuntimeGet(path: string, ctx: EvalContext): ExprResult {
   if (ctx.phase !== "flow" || !ctx.context) {
-    return err(createError(
-      "PATH_NOT_FOUND",
-      `Runtime path is only available during bound action flow evaluation: ${path}`,
-      ctx.currentAction ?? "",
-      ctx.nodePath,
-      ctx.trace.timestamp
-    ));
+    return err(
+      createError(
+        "PATH_NOT_FOUND",
+        `Runtime path is only available during bound action flow evaluation: ${path}`,
+        ctx.currentAction ?? "",
+        ctx.nodePath,
+        ctx.trace.timestamp,
+      ),
+    );
   }
 
   switch (path) {
@@ -320,35 +332,41 @@ function evaluateRuntimeGet(path: string, ctx: EvalContext): ExprResult {
     case "$runtime.random.uuid":
       return ok(deriveRuntimeUuid(ctx));
     default:
-      return err(createError(
-        "PATH_NOT_FOUND",
-        `Unknown runtime path: ${path}`,
-        ctx.currentAction ?? "",
-        ctx.nodePath,
-        ctx.trace.timestamp
-      ));
+      return err(
+        createError(
+          "PATH_NOT_FOUND",
+          `Unknown runtime path: ${path}`,
+          ctx.currentAction ?? "",
+          ctx.nodePath,
+          ctx.trace.timestamp,
+        ),
+      );
   }
 }
 
 function evaluateExternalContextGet(path: string, ctx: EvalContext): ExprResult {
   if (ctx.phase !== "flow" || !ctx.context) {
-    return err(createError(
-      "PATH_NOT_FOUND",
-      `Context path is only available during bound action flow evaluation: ${path}`,
-      ctx.currentAction ?? "",
-      ctx.nodePath,
-      ctx.trace.timestamp
-    ));
+    return err(
+      createError(
+        "PATH_NOT_FOUND",
+        `Context path is only available during bound action flow evaluation: ${path}`,
+        ctx.currentAction ?? "",
+        ctx.nodePath,
+        ctx.trace.timestamp,
+      ),
+    );
   }
 
   if (!ctx.schema.context) {
-    return err(createError(
-      "PATH_NOT_FOUND",
-      `Schema does not declare user context path: ${path}`,
-      ctx.currentAction ?? "",
-      ctx.nodePath,
-      ctx.trace.timestamp
-    ));
+    return err(
+      createError(
+        "PATH_NOT_FOUND",
+        `Schema does not declare user context path: ${path}`,
+        ctx.currentAction ?? "",
+        ctx.nodePath,
+        ctx.trace.timestamp,
+      ),
+    );
   }
 
   if (path === "$context") {
@@ -357,13 +375,15 @@ function evaluateExternalContextGet(path: string, ctx: EvalContext): ExprResult 
 
   const subPath = path.slice("$context.".length);
   if (!pathExistsInStateSpec(ctx.schema.context, subPath, ctx.schema.types)) {
-    return err(createError(
-      "PATH_NOT_FOUND",
-      `Unknown user context path: ${path}`,
-      ctx.currentAction ?? "",
-      ctx.nodePath,
-      ctx.trace.timestamp
-    ));
+    return err(
+      createError(
+        "PATH_NOT_FOUND",
+        `Unknown user context path: ${path}`,
+        ctx.currentAction ?? "",
+        ctx.nodePath,
+        ctx.trace.timestamp,
+      ),
+    );
   }
 
   return ok(normalizeMissingPathValue(getByPath(ctx.context.external, subPath)));
@@ -422,7 +442,7 @@ function evaluateBinary(
   left: ExprNode,
   right: ExprNode,
   ctx: EvalContext,
-  op: (a: unknown, b: unknown) => unknown
+  op: (a: unknown, b: unknown) => unknown,
 ): ExprResult {
   const leftResult = evaluateExpr(left, ctx);
   if (!leftResult.ok) return leftResult;
@@ -461,7 +481,10 @@ function evaluateNot(arg: ExprNode, ctx: EvalContext): ExprResult {
 
 // ============ Conditional ============
 
-function evaluateIf(expr: { cond: ExprNode; then: ExprNode; else: ExprNode }, ctx: EvalContext): ExprResult {
+function evaluateIf(
+  expr: { cond: ExprNode; then: ExprNode; else: ExprNode },
+  ctx: EvalContext,
+): ExprResult {
   const condResult = evaluateExpr(expr.cond, ctx);
   if (!condResult.ok) return condResult;
 
@@ -546,7 +569,7 @@ function evaluateConcat(args: ExprNode[], ctx: EvalContext): ExprResult {
   }
 
   // If any argument is an array, treat as array concatenation
-  const hasArray = values.some(v => Array.isArray(v));
+  const hasArray = values.some((v) => Array.isArray(v));
   if (hasArray) {
     const result: unknown[] = [];
     for (const value of values) {
@@ -561,13 +584,13 @@ function evaluateConcat(args: ExprNode[], ctx: EvalContext): ExprResult {
   }
 
   // Otherwise, string concatenation
-  const parts = values.map(v => coerceToString(v));
+  const parts = values.map((v) => coerceToString(v));
   return ok(parts.join(""));
 }
 
 function evaluateSubstring(
   expr: { str: ExprNode; start: ExprNode; end?: ExprNode },
-  ctx: EvalContext
+  ctx: EvalContext,
 ): ExprResult {
   const strResult = evaluateExpr(expr.str, ctx);
   if (!strResult.ok) return strResult;
@@ -651,7 +674,7 @@ function evaluateLast(array: ExprNode, ctx: EvalContext): ExprResult {
 
 function evaluateSlice(
   expr: { array: ExprNode; start: ExprNode; end?: ExprNode },
-  ctx: EvalContext
+  ctx: EvalContext,
 ): ExprResult {
   const arrayResult = evaluateExpr(expr.array, ctx);
   if (!arrayResult.ok) return arrayResult;
@@ -840,7 +863,7 @@ function evaluateValues(obj: ExprNode, ctx: EvalContext): ExprResult {
   return ok(
     Object.keys(value)
       .sort(compareUnicodeCodePoints)
-      .map((key) => (value as Record<string, unknown>)[key])
+      .map((key) => (value as Record<string, unknown>)[key]),
   );
 }
 
@@ -853,7 +876,7 @@ function evaluateEntries(obj: ExprNode, ctx: EvalContext): ExprResult {
   return ok(
     Object.keys(value)
       .sort(compareUnicodeCodePoints)
-      .map((key) => [key, (value as Record<string, unknown>)[key]])
+      .map((key) => [key, (value as Record<string, unknown>)[key]]),
   );
 }
 
@@ -1032,7 +1055,12 @@ function evaluateIndexOf(str: ExprNode, search: ExprNode, ctx: EvalContext): Exp
   return ok(coerceToString(strResult.value).indexOf(coerceToString(searchResult.value)));
 }
 
-function evaluateReplace(str: ExprNode, search: ExprNode, replacement: ExprNode, ctx: EvalContext): ExprResult {
+function evaluateReplace(
+  str: ExprNode,
+  search: ExprNode,
+  replacement: ExprNode,
+  ctx: EvalContext,
+): ExprResult {
   const strResult = evaluateExpr(str, ctx);
   if (!strResult.ok) return strResult;
   const searchResult = evaluateExpr(search, ctx);
@@ -1040,7 +1068,12 @@ function evaluateReplace(str: ExprNode, search: ExprNode, replacement: ExprNode,
   const replacementResult = evaluateExpr(replacement, ctx);
   if (!replacementResult.ok) return replacementResult;
   // String.prototype.replace with string arg replaces only the first occurrence
-  return ok(coerceToString(strResult.value).replace(coerceToString(searchResult.value), coerceToString(replacementResult.value)));
+  return ok(
+    coerceToString(strResult.value).replace(
+      coerceToString(searchResult.value),
+      coerceToString(replacementResult.value),
+    ),
+  );
 }
 
 function evaluateSplit(str: ExprNode, delimiter: ExprNode, ctx: EvalContext): ExprResult {
@@ -1072,7 +1105,7 @@ function evaluateUnique(array: ExprNode, ctx: EvalContext): ExprResult {
   const seen: unknown[] = [];
   const unique: unknown[] = [];
   for (const item of arr) {
-    if (!seen.some(s => s === item)) {
+    if (!seen.some((s) => s === item)) {
       seen.push(item);
       unique.push(item);
     }

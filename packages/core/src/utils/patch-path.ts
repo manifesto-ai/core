@@ -45,7 +45,9 @@ export function semanticPathToPatchPath(path: string): PatchPath {
 }
 
 export function isSafePatchPath(path: PatchPath): boolean {
-  return path.every((segment) => segment.kind !== "prop" || !UNSAFE_PROP_SEGMENTS.has(segment.name));
+  return path.every(
+    (segment) => segment.kind !== "prop" || !UNSAFE_PROP_SEGMENTS.has(segment.name),
+  );
 }
 
 export function getByPatchPath(obj: unknown, path: PatchPath): unknown {
@@ -80,7 +82,7 @@ export function unsetByPatchPath(obj: unknown, path: PatchPath): unknown {
 export function mergeAtPatchPath(
   obj: unknown,
   path: PatchPath,
-  value: Record<string, unknown>
+  value: Record<string, unknown>,
 ): unknown {
   const existing = getByPatchPath(obj, path);
   const merged = isRecord(existing) ? { ...existing, ...value } : value;

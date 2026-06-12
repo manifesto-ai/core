@@ -37,10 +37,7 @@ export class AuthorityEvaluator {
     this.handlers.set("tribunal", this.tribunalHandler);
   }
 
-  async evaluate(
-    proposal: Proposal,
-    binding: ActorAuthorityBinding
-  ): Promise<AuthorityResponse> {
+  async evaluate(proposal: Proposal, binding: ActorAuthorityBinding): Promise<AuthorityResponse> {
     const handler = this.handlers.get(binding.policy.mode);
     if (!handler) {
       throw new Error(`Unknown policy mode: ${binding.policy.mode}`);
@@ -76,7 +73,7 @@ export class AuthorityEvaluator {
     proposalId: string,
     decision: "approved" | "rejected",
     reasoning?: string,
-    approvedScope?: IntentScope | null
+    approvedScope?: IntentScope | null,
   ): void {
     this.hitlHandler.submitDecision(proposalId, decision, reasoning, approvedScope);
   }
@@ -89,7 +86,7 @@ export class AuthorityEvaluator {
       name?: string;
     },
     decision: "approve" | "reject" | "abstain",
-    reasoning?: string
+    reasoning?: string,
   ): void {
     this.tribunalHandler.submitVote(proposalId, voter, decision, reasoning);
   }

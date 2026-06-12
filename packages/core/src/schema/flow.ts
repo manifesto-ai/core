@@ -64,12 +64,13 @@ export type SeqFlow = z.infer<typeof SeqFlow>;
 /**
  * if - Conditional execution
  */
-export const IfFlow: z.ZodType<{ kind: "if"; cond: ExprNode; then: FlowNode; else?: FlowNode }> = z.object({
-  kind: z.literal("if"),
-  cond: ExprNodeSchema,
-  then: z.lazy(() => FlowNodeSchema),
-  else: z.lazy(() => FlowNodeSchema).optional(),
-});
+export const IfFlow: z.ZodType<{ kind: "if"; cond: ExprNode; then: FlowNode; else?: FlowNode }> =
+  z.object({
+    kind: z.literal("if"),
+    cond: ExprNodeSchema,
+    then: z.lazy(() => FlowNodeSchema),
+    else: z.lazy(() => FlowNodeSchema).optional(),
+  });
 export type IfFlow = z.infer<typeof IfFlow>;
 
 /**
@@ -158,5 +159,14 @@ export const FlowNodeSchema: z.ZodType<FlowNode> = z.union([
 /**
  * Flow node kinds enum
  */
-export const FlowKind = z.enum(["seq", "if", "patch", "causalGuard", "effect", "call", "halt", "fail"]);
+export const FlowKind = z.enum([
+  "seq",
+  "if",
+  "patch",
+  "causalGuard",
+  "effect",
+  "call",
+  "halt",
+  "fail",
+]);
 export type FlowKind = z.infer<typeof FlowKind>;

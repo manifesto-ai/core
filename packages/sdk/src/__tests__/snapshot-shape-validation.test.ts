@@ -1,14 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  createHost,
-  createHostContextProvider,
-  defaultRuntime,
-} from "@manifesto-ai/host";
-import {
-  createSnapshot,
-  extractDefaults,
-  type Snapshot as CoreSnapshot,
-} from "@manifesto-ai/core";
+import { createHost, createHostContextProvider, defaultRuntime } from "@manifesto-ai/host";
+import { createSnapshot, extractDefaults, type Snapshot as CoreSnapshot } from "@manifesto-ai/core";
 
 import { createRuntimeStateStore } from "../runtime/state-store.js";
 import { createCounterSchema, type CounterDomain } from "./helpers/schema.js";
@@ -38,8 +30,7 @@ function createStore() {
     store: createRuntimeStateStore<CounterDomain>({
       host,
       initialCanonicalSnapshot: initial,
-      projectSnapshotFromCanonical: (snapshot) =>
-        structuredClone(snapshot) as never,
+      projectSnapshotFromCanonical: (snapshot) => structuredClone(snapshot) as never,
     }),
   };
 }

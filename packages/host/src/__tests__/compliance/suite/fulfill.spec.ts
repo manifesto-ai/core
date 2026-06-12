@@ -14,7 +14,7 @@ const pp = semanticPathToPatchPath;
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
-import { createV2Adapter, } from "../adapter-v2.js";
+import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
 import {
   createTestSchema,
@@ -78,7 +78,9 @@ describe("HCTS Fulfillment Tests", () => {
       const finalSnapshot = adapter.getSnapshot(executionKey);
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
       expect(finalSnapshot.system.status).toBe("idle");
-      expect((finalSnapshot.state as Record<string, unknown>).response).toEqual({ data: "fetched" });
+      expect((finalSnapshot.state as Record<string, unknown>).response).toEqual({
+        data: "fetched",
+      });
     });
 
     it("HCTS-REQ-001b: Multiple requirements are cleared in sequence", async () => {
@@ -140,7 +142,8 @@ describe("HCTS Fulfillment Tests", () => {
           continue: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("continued"),
+              op: "set",
+              path: pp("continued"),
               value: { kind: "lit", value: true },
             },
           },
@@ -150,10 +153,14 @@ describe("HCTS Fulfillment Tests", () => {
       const effectRunner = createTestEffectRunner();
       await adapter.create({ schema, effectRunner, runtime });
 
-      const requirement = createTestRequirement("manualEffect", {}, {
-        id: "req-fulfill-ns-1",
-        actionId: "continue",
-      });
+      const requirement = createTestRequirement(
+        "manualEffect",
+        {},
+        {
+          id: "req-fulfill-ns-1",
+          actionId: "continue",
+        },
+      );
       const snapshot = createSnapshotWithRequirements({}, schema.hash, [requirement]);
       adapter.seedSnapshot(executionKey, snapshot);
 
@@ -161,14 +168,18 @@ describe("HCTS Fulfillment Tests", () => {
         executionKey,
         requirement.id,
         [{ op: "set", path: pp("effectDone"), value: true }],
-        [{
-          namespace: "host",
-          patches: [{
-            op: "set",
-            path: pp("fulfillmentMarker"),
-            value: "applied-before-clear",
-          }],
-        }]
+        [
+          {
+            namespace: "host",
+            patches: [
+              {
+                op: "set",
+                path: pp("fulfillmentMarker"),
+                value: "applied-before-clear",
+              },
+            ],
+          },
+        ],
       );
 
       await adapter.drain(executionKey);
@@ -177,20 +188,20 @@ describe("HCTS Fulfillment Tests", () => {
       const hostState = getHostState(finalSnapshot);
 
       expect((finalSnapshot.state as Record<string, unknown>).effectDone).toBe(true);
-      expect((hostState as Record<string, unknown> | undefined)?.fulfillmentMarker).toBe("applied-before-clear");
+      expect((hostState as Record<string, unknown> | undefined)?.fulfillmentMarker).toBe(
+        "applied-before-clear",
+      );
       expect((finalSnapshot.state as Record<string, unknown>).$host).toBeUndefined();
       expect(finalSnapshot.system.pendingRequirements).toHaveLength(0);
 
       const trace = adapter.getTrace(executionKey);
       const namespaceApplyIndex = trace.findIndex(
-        (event) => event.t === "core:applyNamespaceDeltas" && event.source === "effect-namespace"
+        (event) => event.t === "core:applyNamespaceDeltas" && event.source === "effect-namespace",
       );
       const clearIndex = trace.findIndex(
-        (event) => event.t === "requirement:clear" && event.requirementId === requirement.id
+        (event) => event.t === "requirement:clear" && event.requirementId === requirement.id,
       );
-      const continueIndex = trace.findIndex(
-        (event) => event.t === "continue:enqueue"
-      );
+      const continueIndex = trace.findIndex((event) => event.t === "continue:enqueue");
 
       expect(namespaceApplyIndex).toBeGreaterThan(-1);
       expect(clearIndex).toBeGreaterThan(namespaceApplyIndex);
@@ -206,7 +217,8 @@ describe("HCTS Fulfillment Tests", () => {
           checkStale: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("checked"),
+              op: "set",
+              path: pp("checked"),
               value: { kind: "lit", value: true },
             },
           },
@@ -223,15 +235,15 @@ describe("HCTS Fulfillment Tests", () => {
       await adapter.create({ schema, effectRunner, runtime });
 
       // Seed snapshot with stale requirement from different action
-      const staleRequirement = createTestRequirement("staleEffect", {}, {
-        id: "stale-req-1",
-        actionId: "differentAction",
-      });
-      const snapshot = createSnapshotWithRequirements(
+      const staleRequirement = createTestRequirement(
+        "staleEffect",
         {},
-        schema.hash,
-        [staleRequirement]
+        {
+          id: "stale-req-1",
+          actionId: "differentAction",
+        },
       );
+      const snapshot = createSnapshotWithRequirements({}, schema.hash, [staleRequirement]);
       adapter.seedSnapshot(executionKey, snapshot);
 
       // Submit a different intent

@@ -7,10 +7,7 @@ import { isOk, isErr } from "../schema/common.js";
 import type { SystemState, ErrorValue } from "../schema/snapshot.js";
 import type { NamespaceDelta } from "../schema/result.js";
 import { createError } from "../errors.js";
-import {
-  getFieldSpecAtSegments,
-  validateValueAgainstFieldSpec,
-} from "./validation-utils.js";
+import { getFieldSpecAtSegments, validateValueAgainstFieldSpec } from "./validation-utils.js";
 import {
   getStateTypeDefinitionAtSegments,
   validateValueAgainstTypeDefinition,
@@ -33,7 +30,7 @@ import { findJsonValueViolation } from "../utils/json-value.js";
 export function apply(
   schema: DomainSchema,
   snapshot: Snapshot,
-  patches: readonly Patch[]
+  patches: readonly Patch[],
 ): Snapshot {
   let newState = snapshot.state;
   let newSystem: SystemState = snapshot.system;
@@ -46,62 +43,70 @@ export function apply(
     const displayPath = patchPathToDisplayString(patch.path);
 
     if (!isSafePatchPath(patch.path)) {
-      validationErrors.push(createError(
-        "PATH_NOT_FOUND",
-        `Unsafe patch path: ${displayPath}`,
-        snapshot.system.currentAction ?? "",
-        displayPath,
-        errorTimestamp,
-        { patch }
-      ));
+      validationErrors.push(
+        createError(
+          "PATH_NOT_FOUND",
+          `Unsafe patch path: ${displayPath}`,
+          snapshot.system.currentAction ?? "",
+          displayPath,
+          errorTimestamp,
+          { patch },
+        ),
+      );
       continue;
     }
 
     const typeDefinition = getStateTypeDefinitionAtSegments(schema.state, schema.types, patch.path);
     const fieldSpec = typeDefinition ? null : getFieldSpecAtSegments(rootSpec, patch.path);
     if (!typeDefinition && !fieldSpec) {
-      validationErrors.push(createError(
-        "PATH_NOT_FOUND",
-        `Unknown patch path: ${displayPath}`,
-        snapshot.system.currentAction ?? "",
-        displayPath,
-        errorTimestamp,
-        { patch }
-      ));
+      validationErrors.push(
+        createError(
+          "PATH_NOT_FOUND",
+          `Unknown patch path: ${displayPath}`,
+          snapshot.system.currentAction ?? "",
+          displayPath,
+          errorTimestamp,
+          { patch },
+        ),
+      );
       continue;
     }
 
     if (patch.op === "merge" && !isMergeTargetCompatible(newState, patch.path)) {
-      validationErrors.push(createError(
-        "TYPE_MISMATCH",
-        `Invalid merge target at ${displayPath}: target path must be an object or absent`,
-        snapshot.system.currentAction ?? "",
-        displayPath,
-        errorTimestamp,
-        { patch }
-      ));
+      validationErrors.push(
+        createError(
+          "TYPE_MISMATCH",
+          `Invalid merge target at ${displayPath}: target path must be an object or absent`,
+          snapshot.system.currentAction ?? "",
+          displayPath,
+          errorTimestamp,
+          { patch },
+        ),
+      );
       continue;
     }
 
     if (patch.op !== "unset") {
       const result = typeDefinition
         ? validateValueAgainstTypeDefinition(patch.value, typeDefinition, schema.types, {
-          allowPartial: patch.op === "merge",
-          allowUndefined: false,
-        })
+            allowPartial: patch.op === "merge",
+            allowUndefined: false,
+          })
         : validateValueAgainstFieldSpec(patch.value, fieldSpec as FieldSpec, {
-          allowPartial: patch.op === "merge",
-          allowUndefined: false,
-        });
+            allowPartial: patch.op === "merge",
+            allowUndefined: false,
+          });
       if (!result.ok) {
-        validationErrors.push(createError(
-          "TYPE_MISMATCH",
-          `Invalid patch value at ${displayPath}: ${result.message ?? "type mismatch"}`,
-          snapshot.system.currentAction ?? "",
-          displayPath,
-          errorTimestamp,
-          { patch }
-        ));
+        validationErrors.push(
+          createError(
+            "TYPE_MISMATCH",
+            `Invalid patch value at ${displayPath}: ${result.message ?? "type mismatch"}`,
+            snapshot.system.currentAction ?? "",
+            displayPath,
+            errorTimestamp,
+            { patch },
+          ),
+        );
         continue;
       }
 
@@ -111,14 +116,16 @@ export function apply(
       // drops or coerces accepted state (#480).
       const jsonViolation = findJsonValueViolation(patch.value, displayPath);
       if (jsonViolation) {
-        validationErrors.push(createError(
-          "INVALID_VALUE",
-          `Non-JSON patch value at ${jsonViolation.path}: ${jsonViolation.reason}`,
-          snapshot.system.currentAction ?? "",
-          displayPath,
-          errorTimestamp,
-          { patch }
-        ));
+        validationErrors.push(
+          createError(
+            "INVALID_VALUE",
+            `Non-JSON patch value at ${jsonViolation.path}: ${jsonViolation.reason}`,
+            snapshot.system.currentAction ?? "",
+            displayPath,
+            errorTimestamp,
+            { patch },
+          ),
+        );
         continue;
       }
     }
@@ -224,7 +231,7 @@ function applyPatch(value: unknown, patch: Patch): unknown {
  */
 export function applyNamespaceDeltas(
   snapshot: Snapshot,
-  deltas: readonly NamespaceDelta[]
+  deltas: readonly NamespaceDelta[],
 ): Snapshot {
   if (deltas.length === 0) {
     return snapshot;
@@ -237,14 +244,16 @@ export function applyNamespaceDeltas(
 
   for (const delta of deltas) {
     if (delta.namespace.length === 0) {
-      validationErrors.push(createError(
-        "PATH_NOT_FOUND",
-        "Invalid namespace: namespace must be non-empty",
-        snapshot.system.currentAction ?? "",
-        "namespaces",
-        errorTimestamp,
-        { delta }
-      ));
+      validationErrors.push(
+        createError(
+          "PATH_NOT_FOUND",
+          "Invalid namespace: namespace must be non-empty",
+          snapshot.system.currentAction ?? "",
+          "namespaces",
+          errorTimestamp,
+          { delta },
+        ),
+      );
       continue;
     }
 
@@ -252,14 +261,16 @@ export function applyNamespaceDeltas(
       ? newNamespaces[delta.namespace]
       : undefined;
     if (existingRoot !== undefined && !isObjectRecord(existingRoot)) {
-      validationErrors.push(createError(
-        "TYPE_MISMATCH",
-        `Invalid namespace root: ${delta.namespace} must be an object`,
-        snapshot.system.currentAction ?? "",
-        `namespaces.${delta.namespace}`,
-        errorTimestamp,
-        { delta }
-      ));
+      validationErrors.push(
+        createError(
+          "TYPE_MISMATCH",
+          `Invalid namespace root: ${delta.namespace} must be an object`,
+          snapshot.system.currentAction ?? "",
+          `namespaces.${delta.namespace}`,
+          errorTimestamp,
+          { delta },
+        ),
+      );
       continue;
     }
 
@@ -270,27 +281,31 @@ export function applyNamespaceDeltas(
       const displayPath = `${delta.namespace}.${patchPathToDisplayString(patch.path)}`;
 
       if (!isSafePatchPath(patch.path)) {
-        validationErrors.push(createError(
-          "PATH_NOT_FOUND",
-          `Unsafe namespace patch path: ${displayPath}`,
-          snapshot.system.currentAction ?? "",
-          displayPath,
-          errorTimestamp,
-          { delta, patch }
-        ));
+        validationErrors.push(
+          createError(
+            "PATH_NOT_FOUND",
+            `Unsafe namespace patch path: ${displayPath}`,
+            snapshot.system.currentAction ?? "",
+            displayPath,
+            errorTimestamp,
+            { delta, patch },
+          ),
+        );
         deltaFailed = true;
         break;
       }
 
       if (patch.op === "merge" && !isMergeTargetCompatible(namespaceRoot, patch.path)) {
-        validationErrors.push(createError(
-          "TYPE_MISMATCH",
-          `Invalid namespace merge target at ${displayPath}: target path must be an object or absent`,
-          snapshot.system.currentAction ?? "",
-          displayPath,
-          errorTimestamp,
-          { delta, patch }
-        ));
+        validationErrors.push(
+          createError(
+            "TYPE_MISMATCH",
+            `Invalid namespace merge target at ${displayPath}: target path must be an object or absent`,
+            snapshot.system.currentAction ?? "",
+            displayPath,
+            errorTimestamp,
+            { delta, patch },
+          ),
+        );
         deltaFailed = true;
         break;
       }
@@ -298,14 +313,16 @@ export function applyNamespaceDeltas(
       if (patch.op !== "unset") {
         const jsonViolation = findJsonValueViolation(patch.value, displayPath);
         if (jsonViolation) {
-          validationErrors.push(createError(
-            "INVALID_VALUE",
-            `Non-JSON namespace patch value at ${jsonViolation.path}: ${jsonViolation.reason}`,
-            snapshot.system.currentAction ?? "",
-            displayPath,
-            errorTimestamp,
-            { delta, patch }
-          ));
+          validationErrors.push(
+            createError(
+              "INVALID_VALUE",
+              `Non-JSON namespace patch value at ${jsonViolation.path}: ${jsonViolation.reason}`,
+              snapshot.system.currentAction ?? "",
+              displayPath,
+              errorTimestamp,
+              { delta, patch },
+            ),
+          );
           deltaFailed = true;
           break;
         }

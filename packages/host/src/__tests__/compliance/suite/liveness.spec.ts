@@ -17,14 +17,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
 import { createV2Adapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
-import {
-  assertLostWakeupPrevention,
-} from "../hcts-assertions.js";
-import {
-  createTestSchema,
-  createTestIntent,
-  createTestSnapshot,
-} from "../../helpers/index.js";
+import { assertLostWakeupPrevention } from "../hcts-assertions.js";
+import { createTestSchema, createTestIntent, createTestSnapshot } from "../../helpers/index.js";
 import { createTestEffectRunner } from "../hcts-adapter.js";
 
 describe("HCTS Liveness Tests", () => {
@@ -48,7 +42,8 @@ describe("HCTS Liveness Tests", () => {
           setFlag: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("wasProcessed"),
+              op: "set",
+              path: pp("wasProcessed"),
               value: { kind: "lit", value: true },
             },
           },
@@ -120,9 +115,7 @@ describe("HCTS Liveness Tests", () => {
                   cond: { kind: "isNull", arg: { kind: "get", path: "step1" } },
                   then: {
                     kind: "seq",
-                    steps: [
-                      { kind: "effect", type: "step1", params: {} },
-                    ],
+                    steps: [{ kind: "effect", type: "step1", params: {} }],
                   },
                 },
                 {
@@ -142,7 +135,8 @@ describe("HCTS Liveness Tests", () => {
                 },
                 {
                   kind: "patch",
-                  op: "set", path: pp("complete"),
+                  op: "set",
+                  path: pp("complete"),
                   value: { kind: "lit", value: true },
                 },
               ],
@@ -152,12 +146,8 @@ describe("HCTS Liveness Tests", () => {
       });
 
       const effectRunner = createTestEffectRunner();
-      effectRunner.register("step1", async () => [
-        { op: "set", path: pp("step1"), value: true },
-      ]);
-      effectRunner.register("step2", async () => [
-        { op: "set", path: pp("step2"), value: true },
-      ]);
+      effectRunner.register("step1", async () => [{ op: "set", path: pp("step1"), value: true }]);
+      effectRunner.register("step2", async () => [{ op: "set", path: pp("step2"), value: true }]);
 
       await adapter.create({ schema, effectRunner, runtime });
 
@@ -190,7 +180,8 @@ describe("HCTS Liveness Tests", () => {
           complete: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("done"),
+              op: "set",
+              path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },

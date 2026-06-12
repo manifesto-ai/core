@@ -10,7 +10,7 @@ async function executeWithRetry(
   handler: RegisteredHandler,
   type: string,
   params: Record<string, unknown>,
-  context: EffectContext
+  context: EffectContext,
 ): Promise<EffectResult> {
   const { options } = handler;
   let lastError: Error | undefined;
@@ -24,10 +24,7 @@ async function executeWithRetry(
     const startTime = Date.now();
 
     try {
-      const patches = await withTimeout(
-        handler.handler(type, params, context),
-        options.timeout
-      );
+      const patches = await withTimeout(handler.handler(type, params, context), options.timeout);
 
       return {
         ok: true,
@@ -161,12 +158,7 @@ export class EffectExecutor {
     };
 
     try {
-      return await executeWithRetry(
-        handler,
-        requirement.type,
-        requirement.params,
-        context
-      );
+      return await executeWithRetry(handler, requirement.type, requirement.params, context);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return {
@@ -200,7 +192,7 @@ export class EffectExecutor {
    */
   async executeAll(
     requirements: readonly Requirement[],
-    snapshot: Snapshot
+    snapshot: Snapshot,
   ): Promise<{ results: EffectResult[]; patches: Patch[] }> {
     const results: EffectResult[] = [];
     const patches: Patch[] = [];

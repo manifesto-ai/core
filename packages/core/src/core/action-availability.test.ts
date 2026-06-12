@@ -56,7 +56,7 @@ function createTestSchema(options: { includeInvalid?: boolean } = {}): DomainSch
 function createTestSnapshot(
   schemaHash: string,
   balance: number,
-  currentAction: string | null = null
+  currentAction: string | null = null,
 ) {
   const snapshot = createSnapshot({ balance }, schemaHash, HOST_CONTEXT);
   if (currentAction === null) {
@@ -99,7 +99,7 @@ describe("action availability query", () => {
     const snapshot = createTestSnapshot(schema.hash, 1);
 
     expect(() => isActionAvailable(schema, snapshot, "invalid")).toThrow(
-      "Availability condition must return boolean"
+      "Availability condition must return boolean",
     );
   });
 

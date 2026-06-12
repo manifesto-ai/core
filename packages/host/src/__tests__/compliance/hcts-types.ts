@@ -150,11 +150,7 @@ export interface HCTSConfig {
  * NOTE: ApplyTranslatorOutput is DEPRECATED (v2.0.1)
  * Host is now decoupled from Compiler/Translator (FDR-H024)
  */
-export type JobType =
-  | "StartIntent"
-  | "ContinueCompute"
-  | "FulfillEffect"
-  | "ApplyPatches";
+export type JobType = "StartIntent" | "ContinueCompute" | "FulfillEffect" | "ApplyPatches";
 
 /**
  * Represents a queued job for testing

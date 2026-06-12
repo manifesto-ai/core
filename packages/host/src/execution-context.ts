@@ -65,13 +65,9 @@ export class ExecutionContextImpl implements ExecutionContext {
     requirementId: string,
     effectType: string,
     params: unknown,
-    intent: Intent
+    intent: Intent,
   ) => void;
-  private readonly onFatalError?: (
-    key: ExecutionKey,
-    intentId: string,
-    error: Error
-  ) => void;
+  private readonly onFatalError?: (key: ExecutionKey, intentId: string, error: Error) => void;
 
   constructor(options: ExecutionContextImplOptions) {
     this.key = options.key;
@@ -134,14 +130,18 @@ export class ExecutionContextImpl implements ExecutionContext {
     };
 
     this.applyNamespaceDeltas(
-      [{
-        namespace: "host",
-        patches: [{
-          op: "set",
-          path: [{ kind: "prop", name: "intentSlots" }],
-          value: nextSlots,
-        }],
-      }],
+      [
+        {
+          namespace: "host",
+          patches: [
+            {
+              op: "set",
+              path: [{ kind: "prop", name: "intentSlots" }],
+              value: nextSlots,
+            },
+          ],
+        },
+      ],
       "host-intent-slot",
     );
   }
@@ -192,10 +192,7 @@ export class ExecutionContextImpl implements ExecutionContext {
     const timestamp = frozenContext.runtime.time.timestamp;
     const randomSeed = frozenContext.runtime.random.seed;
 
-    if (
-      snapshot.meta.timestamp === timestamp
-      && snapshot.meta.randomSeed === randomSeed
-    ) {
+    if (snapshot.meta.timestamp === timestamp && snapshot.meta.randomSeed === randomSeed) {
       return snapshot;
     }
 
@@ -213,11 +210,7 @@ export class ExecutionContextImpl implements ExecutionContext {
    * Apply patches to the current snapshot
    */
   applyPatches(patches: Patch[], source: string): Snapshot {
-    const appliedSnapshot = this.core.apply(
-      this.schema,
-      this.snapshot,
-      patches
-    );
+    const appliedSnapshot = this.core.apply(this.schema, this.snapshot, patches);
     const newSnapshot = this.stampTransitionMeta(appliedSnapshot);
     this.snapshot = newSnapshot;
 
@@ -240,10 +233,7 @@ export class ExecutionContextImpl implements ExecutionContext {
       return this.snapshot;
     }
 
-    const appliedSnapshot = this.core.applyNamespaceDeltas(
-      this.snapshot,
-      deltas
-    );
+    const appliedSnapshot = this.core.applyNamespaceDeltas(this.snapshot, deltas);
     const newSnapshot = this.stampTransitionMeta(appliedSnapshot);
     this.snapshot = newSnapshot;
 
@@ -263,9 +253,10 @@ export class ExecutionContextImpl implements ExecutionContext {
    */
   applySystemDelta(delta: SystemDelta, source: string): Snapshot {
     const appliedSnapshot = this.core.applySystemDelta(this.snapshot, delta);
-    const newSnapshot = appliedSnapshot === this.snapshot
-      ? appliedSnapshot
-      : this.stampTransitionMeta(appliedSnapshot);
+    const newSnapshot =
+      appliedSnapshot === this.snapshot
+        ? appliedSnapshot
+        : this.stampTransitionMeta(appliedSnapshot);
     this.snapshot = newSnapshot;
 
     this.trace({
@@ -304,9 +295,7 @@ export class ExecutionContextImpl implements ExecutionContext {
    * @see SPEC §10.7.2 FULFILL-0
    */
   isPendingRequirement(requirementId: string): boolean {
-    return this.snapshot.system.pendingRequirements.some(
-      (r) => r.id === requirementId
-    );
+    return this.snapshot.system.pendingRequirements.some((r) => r.id === requirementId);
   }
 
   /**
@@ -320,7 +309,7 @@ export class ExecutionContextImpl implements ExecutionContext {
         addRequirements: [],
         removeRequirementIds: [requirementId],
       },
-      "clear-requirement"
+      "clear-requirement",
     );
   }
 
@@ -334,16 +323,9 @@ export class ExecutionContextImpl implements ExecutionContext {
     requirementId: string,
     effectType: string,
     params: unknown,
-    intent: Intent
+    intent: Intent,
   ): void {
-    this.onEffectRequest?.(
-      this.key,
-      intentId,
-      requirementId,
-      effectType,
-      params,
-      intent
-    );
+    this.onEffectRequest?.(this.key, intentId, requirementId, effectType, params, intent);
   }
 
   /**
@@ -366,8 +348,6 @@ export class ExecutionContextImpl implements ExecutionContext {
 /**
  * Create an ExecutionContext
  */
-export function createExecutionContext(
-  options: ExecutionContextImplOptions
-): ExecutionContextImpl {
+export function createExecutionContext(options: ExecutionContextImplOptions): ExecutionContextImpl {
   return new ExecutionContextImpl(options);
 }

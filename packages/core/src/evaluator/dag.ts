@@ -135,10 +135,7 @@ export function detectCycles(graph: DependencyGraph): SemanticPath[][] | null {
 /**
  * Get all dependencies (transitive) for a given node
  */
-export function getTransitiveDeps(
-  graph: DependencyGraph,
-  node: SemanticPath
-): Set<SemanticPath> {
+export function getTransitiveDeps(graph: DependencyGraph, node: SemanticPath): Set<SemanticPath> {
   const deps = new Set<SemanticPath>();
   const queue = [...(graph.edges.get(node) ?? [])];
 

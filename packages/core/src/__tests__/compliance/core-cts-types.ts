@@ -24,12 +24,7 @@ export const CORE_CTS_SUITES = [
 
 export type CoreComplianceSuite = (typeof CORE_CTS_SUITES)[number];
 
-export type {
-  ComplianceStatus,
-  RuleLevel,
-  RuleLifecycle,
-  RuleMode,
-};
+export type { ComplianceStatus, RuleLevel, RuleLifecycle, RuleMode };
 
 export type CoreEvidence = ComplianceEvidence;
 

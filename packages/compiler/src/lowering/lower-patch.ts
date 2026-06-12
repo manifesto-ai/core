@@ -199,7 +199,7 @@ export type ConditionalPatchOp = SchemaConditionalPatchOp;
  */
 export function lowerPatchFragments(
   fragments: MelPatchFragment[],
-  ctx: PatchLoweringContext
+  ctx: PatchLoweringContext,
 ): SchemaConditionalPatchOp[] {
   return fragments.map((fragment) => lowerPatchFragment(fragment, ctx));
 }
@@ -209,7 +209,7 @@ export function lowerPatchFragments(
  */
 function lowerPatchFragment(
   fragment: MelPatchFragment,
-  ctx: PatchLoweringContext
+  ctx: PatchLoweringContext,
 ): SchemaConditionalPatchOp {
   // Lower condition if present
   const condition = fragment.condition
@@ -337,7 +337,7 @@ function lowerTypeExpr(typeExpr: MelTypeExpr): LoweredTypeExpr {
  */
 function createExprContext(
   patchCtx: PatchLoweringContext,
-  mode: "schema" | "action"
+  mode: "schema" | "action",
 ): ExprLoweringContext {
   return {
     mode,

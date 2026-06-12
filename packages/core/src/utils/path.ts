@@ -146,13 +146,11 @@ function unsetByPathSegments(obj: unknown, segments: string[]): unknown {
 export function mergeAtPath(
   obj: unknown,
   path: SemanticPath,
-  value: Record<string, unknown>
+  value: Record<string, unknown>,
 ): unknown {
   const existing = getByPath(obj, path);
   const merged =
-    existing !== null && typeof existing === "object"
-      ? { ...existing, ...value }
-      : value;
+    existing !== null && typeof existing === "object" ? { ...existing, ...value } : value;
 
   return setByPath(obj, path, merged);
 }

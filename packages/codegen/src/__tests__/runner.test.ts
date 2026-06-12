@@ -12,7 +12,7 @@ vi.mock("node:fs/promises", () => ({
 
 function createMockPlugin(
   name: string,
-  output: CodegenOutput | (() => CodegenOutput)
+  output: CodegenOutput | (() => CodegenOutput),
 ): CodegenPlugin {
   return {
     name,

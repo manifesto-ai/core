@@ -1,10 +1,5 @@
 import type { TypeDefinition, TypeSpec } from "@manifesto-ai/core";
-import type {
-  CodegenContext,
-  CodegenOutput,
-  CodegenPlugin,
-  Diagnostic,
-} from "../types.js";
+import type { CodegenContext, CodegenOutput, CodegenPlugin, Diagnostic } from "../types.js";
 import type { TsPluginArtifacts } from "./ts-plugin.js";
 import {
   createTypeNameAliasMap,
@@ -88,7 +83,7 @@ function renderNamedSchema(
   spec: TypeSpec,
   typeAliases: IdentifierAliasMap,
   tsArtifacts: TsPluginArtifacts | undefined,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
 ): string {
   const alias = typeAliases.get(name) ?? name;
   const schemaName = `${alias}Schema`;
@@ -104,7 +99,7 @@ function renderNamedSchema(
 function mapTypeDefinition(
   def: TypeDefinition,
   typeAliases: IdentifierAliasMap,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
 ): string {
   switch (def.kind) {
     case "primitive":
@@ -169,7 +164,7 @@ function renderLiteralValue(value: string | number | boolean | null): string {
 function handleRecord(
   def: Extract<TypeDefinition, { kind: "record" }>,
   typeAliases: IdentifierAliasMap,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
 ): string {
   const valueSchema = mapTypeDefinition(def.value, typeAliases, diagnostics);
 
@@ -189,7 +184,7 @@ function handleRecord(
 function renderZodObject(
   fields: Record<string, { type: TypeDefinition; optional: boolean }>,
   typeAliases: IdentifierAliasMap,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
 ): string {
   const sortedFields = Object.keys(fields).sort();
   const parts: string[] = [];
@@ -212,13 +207,11 @@ function renderZodObject(
 function handleUnion(
   types: TypeDefinition[],
   typeAliases: IdentifierAliasMap,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
 ): string {
   // ZOD-3: 2-variant union with null -> z.nullable(T)
   if (types.length === 2) {
-    const nullIdx = types.findIndex(
-      (t) => t.kind === "primitive" && t.type === "null"
-    );
+    const nullIdx = types.findIndex((t) => t.kind === "primitive" && t.type === "null");
     if (nullIdx !== -1) {
       const otherIdx = nullIdx === 0 ? 1 : 0;
       const otherSchema = mapTypeDefinition(types[otherIdx], typeAliases, diagnostics);

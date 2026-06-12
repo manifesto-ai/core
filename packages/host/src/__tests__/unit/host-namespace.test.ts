@@ -12,7 +12,13 @@ const pp = semanticPathToPatchPath;
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createHost, getHostState, getLegacyDataRootHostState } from "../../index.js";
-import type { DomainSchema, NamespaceDelta, Patch, Requirement, Snapshot } from "@manifesto-ai/core";
+import type {
+  DomainSchema,
+  NamespaceDelta,
+  Patch,
+  Requirement,
+  Snapshot,
+} from "@manifesto-ai/core";
 import {
   createTestSchema,
   createTestIntent,
@@ -29,7 +35,8 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
         simpleAction: {
           flow: {
             kind: "patch",
-            op: "set", path: pp("count"),
+            op: "set",
+            path: pp("count"),
             value: { kind: "lit", value: 1 },
           },
         },
@@ -159,25 +166,22 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
       };
       host.seedSnapshot(key, snapshot);
 
-      host.injectEffectResult(
-        key,
-        pending.id,
-        intent.intentId!,
-        [],
-        intent,
-        [{
+      host.injectEffectResult(key, pending.id, intent.intentId!, [], intent, [
+        {
           namespace: "host",
-          patches: [{
-            op: "merge",
-            path: [
-              { kind: "prop", name: "intentSlots" },
-              { kind: "prop", name: intent.intentId! },
-              { kind: "prop", name: "type" },
-            ],
-            value: { invalid: true },
-          }],
-        }],
-      );
+          patches: [
+            {
+              op: "merge",
+              path: [
+                { kind: "prop", name: "intentSlots" },
+                { kind: "prop", name: intent.intentId! },
+                { kind: "prop", name: "type" },
+              ],
+              value: { invalid: true },
+            },
+          ],
+        },
+      ]);
       await host.drain(key);
 
       const resultSnapshot = host.getContextSnapshot(key)!;
@@ -220,11 +224,13 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
         key,
         pending.id,
         intent.intentId!,
-        [{
-          op: "merge",
-          path: pp("count"),
-          value: { invalid: true },
-        }],
+        [
+          {
+            op: "merge",
+            path: pp("count"),
+            value: { invalid: true },
+          },
+        ],
         intent,
       );
       await host.drain(key);
@@ -252,28 +258,34 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
         },
       });
       const host = createHost(effectSchema, { initialData: {} });
-      const namespaceDelta: readonly NamespaceDelta[] = [{
-        namespace: "host",
-        patches: [{
-          op: "set",
-          path: [{ kind: "prop", name: "registeredEffectSeen" }],
-          value: true,
-        }],
-      }];
-      (host as unknown as {
-        readonly executor: {
-          execute: (
-            requirement: Requirement,
-            snapshot: Snapshot,
-          ) => Promise<{
-            ok: boolean;
-            success: boolean;
-            patches: Patch[];
-            namespaceDelta?: readonly NamespaceDelta[];
-            duration: number;
-          }>;
-        };
-      }).executor.execute = async () => ({
+      const namespaceDelta: readonly NamespaceDelta[] = [
+        {
+          namespace: "host",
+          patches: [
+            {
+              op: "set",
+              path: [{ kind: "prop", name: "registeredEffectSeen" }],
+              value: true,
+            },
+          ],
+        },
+      ];
+      (
+        host as unknown as {
+          readonly executor: {
+            execute: (
+              requirement: Requirement,
+              snapshot: Snapshot,
+            ) => Promise<{
+              ok: boolean;
+              success: boolean;
+              patches: Patch[];
+              namespaceDelta?: readonly NamespaceDelta[];
+              duration: number;
+            }>;
+          };
+        }
+      ).executor.execute = async () => ({
         ok: true,
         success: true,
         patches: [],
@@ -306,31 +318,37 @@ describe("Host Namespace Compliance (v2.0.2)", () => {
         },
       });
       const host = createHost(effectSchema, { initialData: {} });
-      (host as unknown as {
-        readonly executor: {
-          execute: (
-            requirement: Requirement,
-            snapshot: Snapshot,
-          ) => Promise<{
-            ok: boolean;
-            success: boolean;
-            patches: Patch[];
-            namespaceDelta?: readonly NamespaceDelta[];
-            duration: number;
-          }>;
-        };
-      }).executor.execute = async () => ({
+      (
+        host as unknown as {
+          readonly executor: {
+            execute: (
+              requirement: Requirement,
+              snapshot: Snapshot,
+            ) => Promise<{
+              ok: boolean;
+              success: boolean;
+              patches: Patch[];
+              namespaceDelta?: readonly NamespaceDelta[];
+              duration: number;
+            }>;
+          };
+        }
+      ).executor.execute = async () => ({
         ok: true,
         success: true,
         patches: [],
-        namespaceDelta: [{
-          namespace: "mel",
-          patches: [{
-            op: "set",
-            path: [{ kind: "prop", name: "leaked" }],
-            value: true,
-          }],
-        }],
+        namespaceDelta: [
+          {
+            namespace: "mel",
+            patches: [
+              {
+                op: "set",
+                path: [{ kind: "prop", name: "leaked" }],
+                value: true,
+              },
+            ],
+          },
+        ],
         duration: 0,
       });
 

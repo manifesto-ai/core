@@ -9,10 +9,7 @@ import {
 import { LCTS_SUITES } from "./lcts-types.js";
 import { LINEAGE_COMPLIANCE_RULES, getRulesBySuite } from "./lcts-rules.js";
 import { LINEAGE_SPEC_INVENTORY } from "./lcts-spec-inventory.js";
-import {
-  LINEAGE_COMPLIANCE_CASES,
-  LINEAGE_RULE_COVERAGE,
-} from "./lcts-coverage.js";
+import { LINEAGE_COMPLIANCE_CASES, LINEAGE_RULE_COVERAGE } from "./lcts-coverage.js";
 
 describe("LCTS Rule Matrix", () => {
   it("LCTS-MATRIX-001: rule ids are unique", () => {
@@ -24,7 +21,11 @@ describe("LCTS Rule Matrix", () => {
   });
 
   it("LCTS-MATRIX-003: coverage references only registered rules and declared case ids", () => {
-    expectCoverageIntegrity(LINEAGE_COMPLIANCE_RULES, LINEAGE_COMPLIANCE_CASES, LINEAGE_RULE_COVERAGE);
+    expectCoverageIntegrity(
+      LINEAGE_COMPLIANCE_RULES,
+      LINEAGE_COMPLIANCE_CASES,
+      LINEAGE_RULE_COVERAGE,
+    );
   });
 
   it("LCTS-MATRIX-004: every non-superseded registry rule is covered by at least one LCTS case", () => {

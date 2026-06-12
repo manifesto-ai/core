@@ -36,9 +36,7 @@ describe("ReservedEffectError", () => {
     expect(error.name).toBe("ReservedEffectError");
     expect(error.code).toBe("RESERVED_EFFECT");
     expect(error.effectType).toBe("array.map");
-    expect(error.message).toBe(
-      'Effect type "array.map" is reserved and cannot be overridden',
-    );
+    expect(error.message).toBe('Effect type "array.map" is reserved and cannot be overridden');
   });
 });
 
@@ -83,9 +81,7 @@ describe("AlreadyActivatedError", () => {
     expect(error).toBeInstanceOf(ManifestoError);
     expect(error.name).toBe("AlreadyActivatedError");
     expect(error.code).toBe("ALREADY_ACTIVATED");
-    expect(error.message).toBe(
-      "ComposableManifesto.activate() may only be called once",
-    );
+    expect(error.message).toBe("ComposableManifesto.activate() may only be called once");
   });
 });
 

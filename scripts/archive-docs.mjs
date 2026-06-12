@@ -23,8 +23,7 @@ const pathExists = async (targetPath) => {
   }
 };
 
-const sanitizePackageName = (name) =>
-  name.replace(/^@/, "").replace(/\//g, "-");
+const sanitizePackageName = (name) => name.replace(/^@/, "").replace(/\//g, "-");
 
 const isDocFile = (fileName) => {
   if (!fileName.toLowerCase().endsWith(".md")) {
@@ -35,9 +34,7 @@ const isDocFile = (fileName) => {
 };
 
 const listPackageDirs = async () => {
-  const workspaceDirs = includeApps
-    ? [...WORKSPACE_DIRS, "apps"]
-    : WORKSPACE_DIRS;
+  const workspaceDirs = includeApps ? [...WORKSPACE_DIRS, "apps"] : WORKSPACE_DIRS;
   const packageDirs = [];
   for (const workspaceDir of workspaceDirs) {
     const fullWorkspacePath = path.join(repoRoot, workspaceDir);

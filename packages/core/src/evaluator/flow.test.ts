@@ -50,7 +50,7 @@ const BASE_STATE_FIELDS: DomainSchema["state"]["fields"] = {
 function createTestContext(
   state: unknown = {},
   input?: unknown,
-  actions: DomainSchema["actions"] = {}
+  actions: DomainSchema["actions"] = {},
 ): ReturnType<typeof createContext> {
   const snapshot: Snapshot = {
     state,
@@ -175,7 +175,11 @@ describe("Flow Evaluator", () => {
         kind: "seq",
         steps: [
           { kind: "patch", op: "set", path: pp("a"), value: { kind: "lit", value: 1 } },
-          { kind: "effect", type: "http", params: { url: { kind: "lit", value: "http://example.com" } } },
+          {
+            kind: "effect",
+            type: "http",
+            params: { url: { kind: "lit", value: "http://example.com" } },
+          },
           { kind: "patch", op: "set", path: pp("b"), value: { kind: "lit", value: 2 } },
         ],
       };
@@ -195,8 +199,18 @@ describe("Flow Evaluator", () => {
       const flow: FlowNode = {
         kind: "if",
         cond: { kind: "lit", value: true },
-        then: { kind: "patch", op: "set", path: pp("result"), value: { kind: "lit", value: "then" } },
-        else: { kind: "patch", op: "set", path: pp("result"), value: { kind: "lit", value: "else" } },
+        then: {
+          kind: "patch",
+          op: "set",
+          path: pp("result"),
+          value: { kind: "lit", value: "then" },
+        },
+        else: {
+          kind: "patch",
+          op: "set",
+          path: pp("result"),
+          value: { kind: "lit", value: "else" },
+        },
       };
 
       const ctx = createTestContext();
@@ -210,8 +224,18 @@ describe("Flow Evaluator", () => {
       const flow: FlowNode = {
         kind: "if",
         cond: { kind: "lit", value: false },
-        then: { kind: "patch", op: "set", path: pp("result"), value: { kind: "lit", value: "then" } },
-        else: { kind: "patch", op: "set", path: pp("result"), value: { kind: "lit", value: "else" } },
+        then: {
+          kind: "patch",
+          op: "set",
+          path: pp("result"),
+          value: { kind: "lit", value: "then" },
+        },
+        else: {
+          kind: "patch",
+          op: "set",
+          path: pp("result"),
+          value: { kind: "lit", value: "else" },
+        },
       };
 
       const ctx = createTestContext();
@@ -225,7 +249,12 @@ describe("Flow Evaluator", () => {
       const flow: FlowNode = {
         kind: "if",
         cond: { kind: "lit", value: false },
-        then: { kind: "patch", op: "set", path: pp("result"), value: { kind: "lit", value: "then" } },
+        then: {
+          kind: "patch",
+          op: "set",
+          path: pp("result"),
+          value: { kind: "lit", value: "then" },
+        },
       };
 
       const ctx = createTestContext();
@@ -240,8 +269,18 @@ describe("Flow Evaluator", () => {
       const flow: FlowNode = {
         kind: "if",
         cond: { kind: "get", path: "enabled" },
-        then: { kind: "patch", op: "set", path: pp("result"), value: { kind: "lit", value: "enabled" } },
-        else: { kind: "patch", op: "set", path: pp("result"), value: { kind: "lit", value: "disabled" } },
+        then: {
+          kind: "patch",
+          op: "set",
+          path: pp("result"),
+          value: { kind: "lit", value: "enabled" },
+        },
+        else: {
+          kind: "patch",
+          op: "set",
+          path: pp("result"),
+          value: { kind: "lit", value: "disabled" },
+        },
       };
 
       const ctx = createTestContext({ enabled: true });
@@ -256,7 +295,8 @@ describe("Flow Evaluator", () => {
     it("should set a value", async () => {
       const flow: FlowNode = {
         kind: "patch",
-        op: "set", path: pp("count"),
+        op: "set",
+        path: pp("count"),
         value: { kind: "lit", value: 42 },
       };
 
@@ -271,7 +311,8 @@ describe("Flow Evaluator", () => {
     it("should set a nested value", async () => {
       const flow: FlowNode = {
         kind: "patch",
-        op: "set", path: pp("user.name"),
+        op: "set",
+        path: pp("user.name"),
         value: { kind: "lit", value: "Alice" },
       };
 
@@ -285,7 +326,8 @@ describe("Flow Evaluator", () => {
     it("should reject system-field patch paths at state root", async () => {
       const flow: FlowNode = {
         kind: "patch",
-        op: "set", path: pp("system.status"),
+        op: "set",
+        path: pp("system.status"),
         value: { kind: "lit", value: "error" },
       };
 
@@ -301,7 +343,8 @@ describe("Flow Evaluator", () => {
     it("should unset a value", async () => {
       const flow: FlowNode = {
         kind: "patch",
-        op: "unset", path: pp("toRemove"),
+        op: "unset",
+        path: pp("toRemove"),
       };
 
       const ctx = createTestContext({ toRemove: "value", keep: "this" });
@@ -314,7 +357,8 @@ describe("Flow Evaluator", () => {
     it("should merge objects", async () => {
       const flow: FlowNode = {
         kind: "patch",
-        op: "merge", path: pp("user"),
+        op: "merge",
+        path: pp("user"),
         value: { kind: "lit", value: { age: 30, city: "Seoul" } },
       };
 
@@ -322,13 +366,16 @@ describe("Flow Evaluator", () => {
       const state = createTestFlowState({ user: { name: "Alice" } });
       const result = await evaluateFlow(flow, ctx, state, "test");
 
-      expect(result.state.snapshot.state).toEqual({ user: { name: "Alice", age: 30, city: "Seoul" } });
+      expect(result.state.snapshot.state).toEqual({
+        user: { name: "Alice", age: 30, city: "Seoul" },
+      });
     });
 
     it("should evaluate expression for value", async () => {
       const flow: FlowNode = {
         kind: "patch",
-        op: "set", path: pp("doubled"),
+        op: "set",
+        path: pp("doubled"),
         value: {
           kind: "mul",
           left: { kind: "get", path: "input.value" },
@@ -402,7 +449,12 @@ describe("Flow Evaluator", () => {
   describe("call", () => {
     it("should call another flow", async () => {
       const helperAction = {
-        flow: { kind: "patch", op: "set", path: pp("fromHelper"), value: { kind: "lit", value: true } } as FlowNode,
+        flow: {
+          kind: "patch",
+          op: "set",
+          path: pp("fromHelper"),
+          value: { kind: "lit", value: true },
+        } as FlowNode,
       };
 
       const flow: FlowNode = {
@@ -528,14 +580,37 @@ describe("Flow Evaluator", () => {
     it("should handle nested conditionals", async () => {
       const flow: FlowNode = {
         kind: "if",
-        cond: { kind: "gt", left: { kind: "get", path: "value" }, right: { kind: "lit", value: 10 } },
+        cond: {
+          kind: "gt",
+          left: { kind: "get", path: "value" },
+          right: { kind: "lit", value: 10 },
+        },
         then: {
           kind: "if",
-          cond: { kind: "gt", left: { kind: "get", path: "value" }, right: { kind: "lit", value: 20 } },
-          then: { kind: "patch", op: "set", path: pp("category"), value: { kind: "lit", value: "high" } },
-          else: { kind: "patch", op: "set", path: pp("category"), value: { kind: "lit", value: "medium" } },
+          cond: {
+            kind: "gt",
+            left: { kind: "get", path: "value" },
+            right: { kind: "lit", value: 20 },
+          },
+          then: {
+            kind: "patch",
+            op: "set",
+            path: pp("category"),
+            value: { kind: "lit", value: "high" },
+          },
+          else: {
+            kind: "patch",
+            op: "set",
+            path: pp("category"),
+            value: { kind: "lit", value: "medium" },
+          },
         },
-        else: { kind: "patch", op: "set", path: pp("category"), value: { kind: "lit", value: "low" } },
+        else: {
+          kind: "patch",
+          op: "set",
+          path: pp("category"),
+          value: { kind: "lit", value: "low" },
+        },
       };
 
       const ctx1 = createTestContext({ value: 25 });
@@ -561,7 +636,8 @@ describe("Flow Evaluator", () => {
         steps: [
           {
             kind: "patch",
-            op: "set", path: pp("activeItems"),
+            op: "set",
+            path: pp("activeItems"),
             value: {
               kind: "filter",
               array: { kind: "get", path: "items" },
@@ -570,7 +646,8 @@ describe("Flow Evaluator", () => {
           },
           {
             kind: "patch",
-            op: "set", path: pp("activeCount"),
+            op: "set",
+            path: pp("activeCount"),
             value: {
               kind: "len",
               arg: { kind: "get", path: "activeItems" },
@@ -579,8 +656,12 @@ describe("Flow Evaluator", () => {
         ],
       };
 
-      const ctx = createTestContext({ items: [{ active: true }, { active: false }, { active: true }] });
-      const state = createTestFlowState({ items: [{ active: true }, { active: false }, { active: true }] });
+      const ctx = createTestContext({
+        items: [{ active: true }, { active: false }, { active: true }],
+      });
+      const state = createTestFlowState({
+        items: [{ active: true }, { active: false }, { active: true }],
+      });
       const result = await evaluateFlow(flow, ctx, state, "test");
 
       expect(result.state.snapshot.state).toMatchObject({

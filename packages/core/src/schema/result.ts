@@ -9,9 +9,9 @@ import { TraceGraph, TraceNode } from "./trace.js";
  */
 export const ComputeStatus = z.enum([
   "complete", // Flow finished, no pending requirements
-  "pending",  // Flow encountered effect, waiting for Host
-  "halted",   // Flow explicitly halted
-  "error",    // Flow encountered error
+  "pending", // Flow encountered effect, waiting for Host
+  "halted", // Flow explicitly halted
+  "error", // Flow encountered error
 ]);
 export type ComputeStatus = z.infer<typeof ComputeStatus>;
 

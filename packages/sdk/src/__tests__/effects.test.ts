@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  hashSchemaSync,
-  semanticPathToPatchPath,
-  type DomainSchema,
-} from "@manifesto-ai/core";
+import { hashSchemaSync, semanticPathToPatchPath, type DomainSchema } from "@manifesto-ai/core";
 
 import { createManifesto } from "../index.js";
 import { defineEffects } from "../effects.js";
@@ -205,11 +201,13 @@ describe("@manifesto-ai/sdk/effects", () => {
             merge(refs.state.profile, { name: user.name }),
           ];
         },
-        "api.raw": async () => [{
-          op: "set",
-          path: pp("rawHandled"),
-          value: true,
-        }],
+        "api.raw": async () => [
+          {
+            op: "set",
+            path: pp("rawHandled"),
+            value: true,
+          },
+        ],
       })),
     ).activate();
 

@@ -1,6 +1,4 @@
-import type {
-  ErrorValue,
-} from "@manifesto-ai/core";
+import type { ErrorValue } from "@manifesto-ai/core";
 import type {
   ActionName,
   ExecutionOutcome,
@@ -10,20 +8,13 @@ import type {
   SubmitReportMode,
   WorldRecord,
 } from "@manifesto-ai/sdk";
-import {
-  DisposedError,
-  ManifestoError,
-} from "@manifesto-ai/sdk";
+import { DisposedError, ManifestoError } from "@manifesto-ai/sdk";
 
 import type { SettlementRecovery } from "./recovery.js";
 import type { GovernanceRuntimeDeps } from "./runtime-deps.js";
 import { toSettlementOutcome } from "./settlement.js";
 import { readSnapshotCurrentError } from "./snapshot-errors.js";
-import type {
-  DecisionRecord,
-  Proposal,
-  ProposalId,
-} from "./types.js";
+import type { DecisionRecord, Proposal, ProposalId } from "./types.js";
 
 /**
  * Settlement observation seam: waits for a proposal to reach a terminal
@@ -41,11 +32,7 @@ export function createSettlementObservation<T extends ManifestoDomainShape>(
   deps: GovernanceRuntimeDeps<T>,
   recovery: Pick<SettlementRecovery, "resumeStoredSettlement">,
 ): SettlementObservation<T> {
-  const {
-    kernel,
-    lineage,
-    governanceStore,
-  } = deps;
+  const { kernel, lineage, governanceStore } = deps;
   const { resumeStoredSettlement } = recovery;
 
   async function waitForSettlement<Name extends ActionName<T>>(
@@ -76,11 +63,7 @@ export function createSettlementObservation<T extends ManifestoDomainShape>(
       }
 
       if (hasSettledExecutionResult(proposal)) {
-        return toSettledResult(
-          proposal,
-          actionName,
-          reportMode,
-        );
+        return toSettledResult(proposal, actionName, reportMode);
       }
 
       if (proposal.status === "failed") {
@@ -233,16 +216,16 @@ export function createSettlementObservation<T extends ManifestoDomainShape>(
     return activeBranch.id === proposal.branchId && activeBranch.head === proposal.resultWorld;
   }
 
-  function hasSettledExecutionResult(
-    proposal: Proposal,
-  ): proposal is Proposal & {
+  function hasSettledExecutionResult(proposal: Proposal): proposal is Proposal & {
     readonly status: "failed";
     readonly resultWorld: string;
     readonly terminalOutcome: ExecutionOutcome;
   } {
-    return proposal.status === "failed"
-      && proposal.resultWorld !== undefined
-      && proposal.terminalOutcome !== undefined;
+    return (
+      proposal.status === "failed" &&
+      proposal.resultWorld !== undefined &&
+      proposal.terminalOutcome !== undefined
+    );
   }
 
   function isObservedTerminalProposal(

@@ -1,12 +1,5 @@
-import {
-  hashSchemaSync,
-  semanticPathToPatchPath,
-  type DomainSchema,
-} from "@manifesto-ai/core";
-import type {
-  ActorAuthorityBinding,
-  GovernanceExecutionConfig,
-} from "@manifesto-ai/governance";
+import { hashSchemaSync, semanticPathToPatchPath, type DomainSchema } from "@manifesto-ai/core";
+import type { ActorAuthorityBinding, GovernanceExecutionConfig } from "@manifesto-ai/governance";
 
 const pp = semanticPathToPatchPath;
 

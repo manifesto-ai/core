@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  hashSchemaSync,
-  semanticPathToPatchPath,
-  type DomainSchema,
-} from "@manifesto-ai/core";
+import { hashSchemaSync, semanticPathToPatchPath, type DomainSchema } from "@manifesto-ai/core";
 import {
   AlreadyActivatedError,
   DisposedError,
@@ -11,17 +7,9 @@ import {
   createManifesto,
 } from "@manifesto-ai/sdk";
 import { getExtensionKernel } from "@manifesto-ai/sdk/extensions";
-import {
-  createInMemoryLineageStore,
-  withLineage,
-} from "@manifesto-ai/lineage";
-import {
-  createLineageService,
-  type LineageService,
-} from "@manifesto-ai/lineage/provider";
-import {
-  createAuthorityEvaluator,
-} from "./provider.js";
+import { createInMemoryLineageStore, withLineage } from "@manifesto-ai/lineage";
+import { createLineageService, type LineageService } from "@manifesto-ai/lineage/provider";
+import { createAuthorityEvaluator } from "./provider.js";
 
 import {
   createInMemoryGovernanceStore,
@@ -32,15 +20,15 @@ import {
   type GovernanceStore,
   type Proposal,
 } from "./index.js";
-import {
-  waitForProposal,
-  waitForProposalWithReport,
-} from "./wait-for-proposal.js";
+import { waitForProposal, waitForProposalWithReport } from "./wait-for-proposal.js";
 
-const lineageSealCalls = vi.hoisted(() => [] as Array<{
-  executionKey?: string;
-  context?: unknown;
-}>);
+const lineageSealCalls = vi.hoisted(
+  () =>
+    [] as Array<{
+      executionKey?: string;
+      context?: unknown;
+    }>,
+);
 
 vi.mock("@manifesto-ai/lineage/provider", async () => {
   const actual = await vi.importActual<typeof import("@manifesto-ai/lineage/provider")>(
@@ -55,9 +43,7 @@ vi.mock("@manifesto-ai/lineage/provider", async () => {
       const controller = actual.createLineageRuntimeController(...args);
       return {
         ...controller,
-        async sealIntent(
-          ...sealArgs: Parameters<typeof controller.sealIntent>
-        ) {
+        async sealIntent(...sealArgs: Parameters<typeof controller.sealIntent>) {
           lineageSealCalls.push({
             executionKey: sealArgs[1]?.executionKey,
             context: sealArgs[1]?.context,
@@ -231,10 +217,7 @@ function createCounterSchema(): DomainSchema {
 }
 
 function createContextCounterSchema(): DomainSchema {
-  const {
-    hash: _hash,
-    ...base
-  } = createCounterSchema();
+  const { hash: _hash, ...base } = createCounterSchema();
   void _hash;
   return withHash({
     ...base,
@@ -492,10 +475,9 @@ function createDeferred() {
   return { promise, resolve };
 }
 
-async function getStoredProposal<T extends CounterDomain | ContextCounterDomain | DispatchabilityDomain>(
-  governed: GovernanceInstance<T>,
-  proposalId: string,
-): Promise<Proposal> {
+async function getStoredProposal<
+  T extends CounterDomain | ContextCounterDomain | DispatchabilityDomain,
+>(governed: GovernanceInstance<T>, proposalId: string): Promise<Proposal> {
   const proposal = await governed.getProposal(proposalId);
   if (!proposal) {
     throw new Error(`expected stored proposal ${proposalId}`);
@@ -503,9 +485,7 @@ async function getStoredProposal<T extends CounterDomain | ContextCounterDomain 
   return proposal;
 }
 
-async function submitIncrement(
-  governed: GovernanceInstance<CounterDomain>,
-) {
+async function submitIncrement(governed: GovernanceInstance<CounterDomain>) {
   const result = await governed.action.increment.submit();
   if (!result.ok) {
     throw new Error(result.admission.message);
@@ -513,10 +493,7 @@ async function submitIncrement(
   return result;
 }
 
-async function submitAdd(
-  governed: GovernanceInstance<CounterDomain>,
-  amount: number,
-) {
+async function submitAdd(governed: GovernanceInstance<CounterDomain>, amount: number) {
   const result = await governed.action.add.submit(amount);
   if (!result.ok) {
     throw new Error(result.admission.message);
@@ -524,9 +501,7 @@ async function submitAdd(
   return result;
 }
 
-async function submitLoad(
-  governed: GovernanceInstance<CounterDomain>,
-) {
+async function submitLoad(governed: GovernanceInstance<CounterDomain>) {
   const result = await governed.action.load.submit();
   if (!result.ok) {
     throw new Error(result.admission.message);
@@ -558,9 +533,7 @@ async function settledAddProposal(
   return getStoredProposal(governed, result.proposal);
 }
 
-async function settledLoadProposal(
-  governed: GovernanceInstance<CounterDomain>,
-): Promise<Proposal> {
+async function settledLoadProposal(governed: GovernanceInstance<CounterDomain>): Promise<Proposal> {
   const result = await submitLoad(governed);
   await result.waitForSettlement();
   return getStoredProposal(governed, result.proposal);
@@ -569,10 +542,9 @@ async function settledLoadProposal(
 describe("@manifesto-ai/governance decorator runtime", () => {
   it("requires explicit lineage composition and removes direct execution backdoors", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         bindings: [createAutoBinding()],
         execution: {
@@ -629,10 +601,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("preserves optional trailing multi-arg public input on governed bound actions", () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<MultiArgDomain>(createMultiArgSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<MultiArgDomain>(createMultiArgSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         bindings: [createAutoBinding()],
         execution: {
@@ -660,10 +631,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("reports sealed domain failures as settled failure outcomes", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<DomainFailureDomain>(createDomainFailureSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<DomainFailureDomain>(createDomainFailureSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         bindings: [createAutoBinding()],
         execution: {
@@ -707,10 +677,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("captures object-valued bound input immutably before governed settlement", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<ObjectInputDomain>(createObjectInputSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<ObjectInputDomain>(createObjectInputSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -752,10 +721,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("creates a fresh intent for each governed bound submit while preserving bound input", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<GuardedBoundDomain>(createGuardedBoundSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<GuardedBoundDomain>(createGuardedBoundSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -794,10 +762,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("treats non-structured-clone governed inputs as input admission failures", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<ObjectInputDomain>(createObjectInputSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<ObjectInputDomain>(createObjectInputSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -857,10 +824,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     });
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         bindings: [createAutoBinding()],
         evaluator,
@@ -901,10 +867,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("honors report none for governed settlement observers", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -946,10 +911,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     const governanceStore = createInMemoryGovernanceStore();
     const lineageStore = createInMemoryLineageStore();
     const first = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: lineageStore },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: lineageStore,
+      }),
       {
         governanceStore,
         bindings: [createHitlBinding()],
@@ -973,10 +937,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     first.dispose();
 
     const restarted = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: lineageStore },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: lineageStore,
+      }),
       {
         governanceStore,
         bindings: [createAutoBindingForHuman()],
@@ -1004,10 +967,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("returns evaluating proposals for HITL and resolves them through approve/reject", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createHitlBinding()],
@@ -1038,7 +1000,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     const secondPending = await getStoredProposal(governed, secondResult.proposal);
     const rejected = await governed.reject(secondPending.proposalId, "manual stop");
     const decision = await governed.getDecisionRecord(rejected.decisionId!);
-    const settlement = await governed.with({ report: "full" }).waitForSettlement(secondPending.proposalId);
+    const settlement = await governed
+      .with({ report: "full" })
+      .waitForSettlement(secondPending.proposalId);
 
     expect(rejected.status).toBe("rejected");
     expect(settlement).toMatchObject({
@@ -1067,10 +1031,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as GovernanceStore;
 
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: hidingStore,
         bindings: [createHitlBinding()],
@@ -1094,29 +1057,29 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(rejected.decisionId).toBeDefined();
     expect(await governanceStore.getDecisionRecord(rejected.decisionId!)).not.toBeNull();
 
-    await expect(governed.with({ report: "full" }).waitForSettlement(pending.proposalId))
-      .resolves.toMatchObject({
-        ok: false,
+    await expect(
+      governed.with({ report: "full" }).waitForSettlement(pending.proposalId),
+    ).resolves.toMatchObject({
+      ok: false,
+      status: "settlement_failed",
+      error: {
+        code: "GOVERNANCE_DECISION_RECORD_NOT_FOUND",
+      },
+      report: {
         status: "settlement_failed",
+        stage: "observation",
         error: {
           code: "GOVERNANCE_DECISION_RECORD_NOT_FOUND",
         },
-        report: {
-          status: "settlement_failed",
-          stage: "observation",
-          error: {
-            code: "GOVERNANCE_DECISION_RECORD_NOT_FOUND",
-          },
-        },
-      });
+      },
+    });
   });
 
   it("seals approved HITL proposals on their proposal branch after an active branch switch", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createHitlBinding()],
@@ -1146,7 +1109,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(approved.status).toBe("completed");
     expect(governed.snapshot().state.count).toBe(0);
 
-    const settlement = await governed.with({ report: "full" }).waitForSettlement(pending.proposalId);
+    const settlement = await governed
+      .with({ report: "full" })
+      .waitForSettlement(pending.proposalId);
     expect(settlement).toMatchObject({
       ok: true,
       status: "settled",
@@ -1168,10 +1133,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     const governanceStore = createInMemoryGovernanceStore();
     const lineageStore = createInMemoryLineageStore();
     const first = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: lineageStore },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: lineageStore,
+      }),
       {
         governanceStore,
         bindings: [createHitlBinding()],
@@ -1195,10 +1159,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     first.dispose();
 
     const restarted = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: lineageStore },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: lineageStore,
+      }),
       {
         governanceStore,
         bindings: [createAutoBindingForHuman()],
@@ -1216,7 +1179,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     ).activate();
 
-    const settlement = await restarted.with({ report: "full" }).waitForSettlement(pending.proposalId);
+    const settlement = await restarted
+      .with({ report: "full" })
+      .waitForSettlement(pending.proposalId);
     expect(settlement).toMatchObject({
       ok: true,
       status: "settled",
@@ -1278,19 +1243,22 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(approved.status).toBe("completed");
     expect(lineageSealCalls).toHaveLength(1);
     expect(lineageSealCalls[0]?.context).toEqual(pending.computeEnvelope.context);
-    expect((lineageSealCalls[0]?.context as {
-      readonly external?: unknown;
-    }).external).toEqual({
+    expect(
+      (
+        lineageSealCalls[0]?.context as {
+          readonly external?: unknown;
+        }
+      ).external,
+    ).toEqual({
       tenantId: "submit-tenant",
     });
   });
 
   it("settles completed proposals through waitForProposal()", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -1319,15 +1287,16 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       throw new Error("expected completed settlement");
     }
     expect(settlement.snapshot.state.count).toBe(1);
-    expect(getExtensionKernel(governed).projectSnapshot(settlement.snapshot)).toEqual(governed.snapshot());
+    expect(getExtensionKernel(governed).projectSnapshot(settlement.snapshot)).toEqual(
+      governed.snapshot(),
+    );
   });
 
   it("anchors completed settlement reports on stored worlds rather than the current visible head", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -1376,10 +1345,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("anchors completed waitForProposal() snapshots on stored worlds rather than the current visible head", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -1415,10 +1383,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("preserves halted stop outcomes across governed settlement re-observation", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -1456,10 +1423,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("returns pending immediately for non-terminal proposals when timeoutMs is omitted", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createHitlBinding()],
@@ -1494,10 +1460,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     try {
       const governed = withGovernance(
-        withLineage(
-          createManifesto<CounterDomain>(createCounterSchema(), {}),
-          { store: createInMemoryLineageStore() },
-        ),
+        withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+          store: createInMemoryLineageStore(),
+        }),
         {
           governanceStore: createInMemoryGovernanceStore(),
           bindings: [createHitlBinding()],
@@ -1539,10 +1504,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     try {
       const governed = withGovernance(
-        withLineage(
-          createManifesto<CounterDomain>(createCounterSchema(), {}),
-          { store: createInMemoryLineageStore() },
-        ),
+        withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+          store: createInMemoryLineageStore(),
+        }),
         {
           governanceStore: createInMemoryGovernanceStore(),
           bindings: [createHitlBinding()],
@@ -1583,10 +1547,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     try {
       const governed = withGovernance(
-        withLineage(
-          createManifesto<CounterDomain>(createCounterSchema(), {}),
-          { store: createInMemoryLineageStore() },
-        ),
+        withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+          store: createInMemoryLineageStore(),
+        }),
         {
           governanceStore: createInMemoryGovernanceStore(),
           bindings: [createHitlBinding()],
@@ -1627,10 +1590,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("observes superseded proposals through waitForProposal()", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createHitlBinding()],
@@ -1665,10 +1627,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("keeps superseded settlement reports proposal-only", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createHitlBinding()],
@@ -1709,10 +1670,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     const explicitService = createLineageService(explicitStore);
 
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { service: explicitService },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        service: explicitService,
+      }),
       {
         bindings: [createAutoBinding()],
         execution: {
@@ -1787,9 +1747,11 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     const world = await governed.getWorld(proposal.resultWorld!);
     const snapshot = await governed.getWorldSnapshot(proposal.resultWorld!);
-    const hostNamespace = snapshot?.namespaces.host as {
-      readonly lastError?: { readonly code?: string };
-    } | undefined;
+    const hostNamespace = snapshot?.namespaces.host as
+      | {
+          readonly lastError?: { readonly code?: string };
+        }
+      | undefined;
 
     expect(world?.terminalStatus).toBe("failed");
     expect(snapshot?.system.lastError).toBeNull();
@@ -1803,10 +1765,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     const visibleCounts: number[] = [];
     let governed!: GovernanceInstance<CounterDomain>;
     governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         bindings: [createAutoBinding()],
         eventSink: {
@@ -1961,10 +1922,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as LineageService;
 
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { service: failingService },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        service: failingService,
+      }),
       {
         governanceStore,
         bindings: [createAutoBinding()],
@@ -2037,10 +1997,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     });
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore,
         bindings: [createAutoBinding()],
@@ -2098,10 +2057,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as GovernanceStore;
 
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: flakyStore,
         bindings: [createAutoBinding()],
@@ -2163,10 +2121,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as GovernanceStore;
 
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: flakyStore,
         bindings: [createAutoBinding()],
@@ -2222,10 +2179,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as GovernanceStore;
 
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: flakyStore,
         bindings: [createAutoBinding()],
@@ -2280,10 +2236,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as GovernanceStore;
 
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: flakyStore,
         bindings: [createAutoBinding()],
@@ -2340,10 +2295,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as GovernanceStore;
 
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: lineageStore },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: lineageStore,
+      }),
       {
         governanceStore: flakyStore,
         bindings: [createAutoBinding()],
@@ -2398,10 +2352,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as GovernanceStore;
 
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: policyStore,
         bindings: [createAutoBinding()],
@@ -2439,10 +2392,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     lineageSealCalls.length = 0;
 
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         bindings: [createAutoBinding()],
         execution: {
@@ -2487,10 +2439,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     }) as GovernanceStore;
 
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: serializedStore,
         bindings: [createHitlBinding()],
@@ -2568,16 +2519,15 @@ describe("@manifesto-ai/governance decorator runtime", () => {
             eventId: "evt:missing-lineage",
           }),
         },
-      })
+      }),
     ).toThrow("withGovernance() requires a manifesto already composed with withLineage()");
   });
 
   it("attaches the sdk extension kernel to the activated governance runtime", () => {
     const world = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -2604,10 +2554,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
   it("preserves coarse and fine legality semantics on the activated governance runtime", () => {
     const schema = createDispatchabilitySchema();
     const governed = withGovernance(
-      withLineage(
-        createManifesto<DispatchabilityDomain>(schema, {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<DispatchabilityDomain>(schema, {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -2649,11 +2598,13 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       ok: false,
       layer: "availability",
       code: "ACTION_UNAVAILABLE",
-      blockers: [{
-        code: "ACTION_UNAVAILABLE",
-        message: "Frozen while disabled",
-        detail: { layer: "available" },
-      }],
+      blockers: [
+        {
+          code: "ACTION_UNAVAILABLE",
+          message: "Frozen while disabled",
+          detail: { layer: "available" },
+        },
+      ],
     });
 
     governed.dispose();
@@ -2661,10 +2612,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("rejects waitForProposal() for missing proposals", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -2691,10 +2641,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("rejects waitForProposal() after the governed runtime is disposed", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -2721,10 +2670,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("rejects waitForProposalWithReport() after the governed runtime is disposed", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<CounterDomain>(createCounterSchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -2744,17 +2692,16 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
     governed.dispose();
 
-    await expect(
-      waitForProposalWithReport(governed, "proposal:disposed"),
-    ).rejects.toBeInstanceOf(DisposedError);
+    await expect(waitForProposalWithReport(governed, "proposal:disposed")).rejects.toBeInstanceOf(
+      DisposedError,
+    );
   });
 
   it("emits submission:rejected without submission:failed for non-dispatchable governed execution", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -2797,10 +2744,9 @@ describe("@manifesto-ai/governance decorator runtime", () => {
 
   it("emits submission:rejected without submission:failed for invalid governed input", async () => {
     const governed = withGovernance(
-      withLineage(
-        createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}),
-        { store: createInMemoryLineageStore() },
-      ),
+      withLineage(createManifesto<DispatchabilityDomain>(createDispatchabilitySchema(), {}), {
+        store: createInMemoryLineageStore(),
+      }),
       {
         governanceStore: createInMemoryGovernanceStore(),
         bindings: [createAutoBinding()],
@@ -2823,9 +2769,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     governed.observe.event("submission:rejected", rejected);
     governed.observe.event("submission:failed", failed);
 
-    await expect(
-      governed.action.spend.submit("oops" as unknown as number),
-    ).resolves.toMatchObject({
+    await expect(governed.action.spend.submit("oops" as unknown as number)).resolves.toMatchObject({
       ok: false,
       admission: {
         code: "INVALID_INPUT",

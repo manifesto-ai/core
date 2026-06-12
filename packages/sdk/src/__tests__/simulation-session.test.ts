@@ -47,17 +47,11 @@ describe("@manifesto-ai/sdk/extensions createSimulationSession", () => {
 
     expect(branchA.snapshot.state.count).toBe(2);
     expect(branchA.trajectory).toHaveLength(2);
-    expect(branchA.trajectory.map((step) => step.intent.type)).toEqual([
-      "increment",
-      "increment",
-    ]);
+    expect(branchA.trajectory.map((step) => step.intent.type)).toEqual(["increment", "increment"]);
 
     expect(branchB.snapshot.state.count).toBe(6);
     expect(branchB.trajectory).toHaveLength(2);
-    expect(branchB.trajectory.map((step) => step.intent.type)).toEqual([
-      "increment",
-      "add",
-    ]);
+    expect(branchB.trajectory.map((step) => step.intent.type)).toEqual(["increment", "add"]);
 
     expect(step1.snapshot.state.count).toBe(1);
     expect(step1.trajectory).toHaveLength(1);

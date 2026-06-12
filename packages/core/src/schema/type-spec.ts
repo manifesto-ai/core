@@ -31,7 +31,7 @@ export const TypeDefinition: z.ZodType<TypeDefinition> = z.lazy(() =>
         z.object({
           type: TypeDefinition,
           optional: z.boolean(),
-        })
+        }),
       ),
     }),
     z.object({
@@ -46,7 +46,7 @@ export const TypeDefinition: z.ZodType<TypeDefinition> = z.lazy(() =>
       kind: z.literal("ref"),
       name: z.string(),
     }),
-  ])
+  ]),
 );
 
 export const TypeSpec = z.object({

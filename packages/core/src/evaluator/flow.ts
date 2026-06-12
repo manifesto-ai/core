@@ -100,7 +100,7 @@ function applyNamespacePatchToState(
   state: FlowState,
   namespace: string,
   namespaceRoot: unknown,
-  patch: Patch
+  patch: Patch,
 ): FlowState {
   return {
     ...state,
@@ -150,7 +150,7 @@ export function evaluateFlowSync(
   flow: FlowNode,
   ctx: EvalContext,
   state: FlowState,
-  nodePath: string
+  nodePath: string,
 ): FlowResult {
   const flowCtx = ctx.phase === "flow" ? ctx : { ...ctx, phase: "flow" as const };
   // Stop if already terminated
@@ -188,13 +188,16 @@ export function evaluateFlowSync(
 
     default:
       return {
-        state: setError(state, createError(
-          "INTERNAL_ERROR",
-          `Unknown flow kind: ${(flow as FlowNode).kind}`,
-          flowCtx.currentAction ?? "",
-          nodePath,
-          flowCtx.trace.timestamp
-        )),
+        state: setError(
+          state,
+          createError(
+            "INTERNAL_ERROR",
+            `Unknown flow kind: ${(flow as FlowNode).kind}`,
+            flowCtx.currentAction ?? "",
+            nodePath,
+            flowCtx.trace.timestamp,
+          ),
+        ),
         trace: createTraceNode(flowCtx.trace, "error", nodePath, {}, null, []),
       };
   }
@@ -204,7 +207,7 @@ export async function evaluateFlow(
   flow: FlowNode,
   ctx: EvalContext,
   state: FlowState,
-  nodePath: string
+  nodePath: string,
 ): Promise<FlowResult> {
   return evaluateFlowSync(flow, ctx, state, nodePath);
 }
@@ -215,7 +218,7 @@ function evaluateSeq(
   steps: readonly FlowNode[],
   ctx: EvalContext,
   state: FlowState,
-  nodePath: string
+  nodePath: string,
 ): FlowResult {
   let currentState = state;
   const children: TraceNode[] = [];
@@ -244,7 +247,7 @@ function evaluateIf(
   flow: { cond: import("../schema/expr.js").ExprNode; then: FlowNode; else?: FlowNode },
   ctx: EvalContext,
   state: FlowState,
-  nodePath: string
+  nodePath: string,
 ): FlowResult {
   const condResult = evaluateExpr(flow.cond, ctx);
 
@@ -278,10 +281,14 @@ function evaluateIf(
 }
 
 function evaluatePatch(
-  flow: { op: "set" | "unset" | "merge"; path: FlowPatchPath; value?: import("../schema/expr.js").ExprNode },
+  flow: {
+    op: "set" | "unset" | "merge";
+    path: FlowPatchPath;
+    value?: import("../schema/expr.js").ExprNode;
+  },
   ctx: EvalContext,
   state: FlowState,
-  nodePath: string
+  nodePath: string,
 ): FlowResult {
   const currentCtx = withSnapshot(ctx, state.snapshot);
   const pathResult = resolveFlowPatchPath(flow.path, currentCtx, nodePath);
@@ -295,30 +302,40 @@ function evaluatePatch(
   const resolvedPath = pathResult.path;
   const displayPath = patchPathToDisplayString(resolvedPath);
   const rootSpec: FieldSpec = { type: "object", required: true, fields: ctx.schema.state.fields };
-  const typeDefinition = getStateTypeDefinitionAtSegments(ctx.schema.state, ctx.schema.types, resolvedPath);
+  const typeDefinition = getStateTypeDefinitionAtSegments(
+    ctx.schema.state,
+    ctx.schema.types,
+    resolvedPath,
+  );
   const fieldSpec = typeDefinition ? null : getFieldSpecAtSegments(rootSpec, resolvedPath);
   if (!typeDefinition && !fieldSpec) {
     return {
-      state: setError(state, createError(
-        "PATH_NOT_FOUND",
-        `Unknown patch path: ${displayPath}`,
-        ctx.currentAction ?? "",
-        nodePath,
-        ctx.trace.timestamp
-      )),
+      state: setError(
+        state,
+        createError(
+          "PATH_NOT_FOUND",
+          `Unknown patch path: ${displayPath}`,
+          ctx.currentAction ?? "",
+          nodePath,
+          ctx.trace.timestamp,
+        ),
+      ),
       trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
     };
   }
 
   if (flow.op === "merge" && !isMergeTargetCompatible(state.snapshot.state, resolvedPath)) {
     return {
-      state: setError(state, createError(
-        "TYPE_MISMATCH",
-        `Invalid merge target at ${displayPath}: target path must be an object or absent`,
-        ctx.currentAction ?? "",
-        nodePath,
-        ctx.trace.timestamp
-      )),
+      state: setError(
+        state,
+        createError(
+          "TYPE_MISMATCH",
+          `Invalid merge target at ${displayPath}: target path must be an object or absent`,
+          ctx.currentAction ?? "",
+          nodePath,
+          ctx.trace.timestamp,
+        ),
+      ),
       trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
     };
   }
@@ -339,45 +356,56 @@ function evaluatePatch(
   if (flow.op !== "unset") {
     const validation = typeDefinition
       ? validateValueAgainstTypeDefinition(patchValue, typeDefinition, ctx.schema.types, {
-        allowPartial: flow.op === "merge",
-        allowUndefined: false,
-      })
+          allowPartial: flow.op === "merge",
+          allowUndefined: false,
+        })
       : validateValueAgainstFieldSpec(patchValue, fieldSpec as FieldSpec, {
-        allowPartial: flow.op === "merge",
-        allowUndefined: false,
-      });
+          allowPartial: flow.op === "merge",
+          allowUndefined: false,
+        });
     if (!validation.ok) {
       return {
-        state: setError(state, createError(
-          "TYPE_MISMATCH",
-          `Invalid patch value at ${displayPath}: ${validation.message ?? "type mismatch"}`,
-          ctx.currentAction ?? "",
-          nodePath,
-          ctx.trace.timestamp
-        )),
+        state: setError(
+          state,
+          createError(
+            "TYPE_MISMATCH",
+            `Invalid patch value at ${displayPath}: ${validation.message ?? "type mismatch"}`,
+            ctx.currentAction ?? "",
+            nodePath,
+            ctx.trace.timestamp,
+          ),
+        ),
         trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
       };
     }
   }
 
-  const patch: Patch = flow.op === "unset"
-    ? { op: "unset", path: resolvedPath }
-    : flow.op === "merge"
-      ? { op: "merge", path: resolvedPath, value: patchValue as Record<string, unknown> }
-      : { op: "set", path: resolvedPath, value: patchValue };
+  const patch: Patch =
+    flow.op === "unset"
+      ? { op: "unset", path: resolvedPath }
+      : flow.op === "merge"
+        ? { op: "merge", path: resolvedPath, value: patchValue as Record<string, unknown> }
+        : { op: "set", path: resolvedPath, value: patchValue };
 
   const newState = applyPatchToState(state, patch);
 
   return {
     state: newState,
-    trace: createTraceNode(ctx.trace, "patch", nodePath, { op: flow.op, path: displayPath }, patchValue, []),
+    trace: createTraceNode(
+      ctx.trace,
+      "patch",
+      nodePath,
+      { op: flow.op, path: displayPath },
+      patchValue,
+      [],
+    ),
   };
 }
 
 function resolveFlowPatchPath(
   path: FlowPatchPath,
   ctx: EvalContext,
-  nodePath: string
+  nodePath: string,
 ): { ok: true; path: PatchPath } | { ok: false; error: ErrorValue } {
   const resolved: PatchSegment[] = [];
 
@@ -400,7 +428,12 @@ function resolveFlowPatchPath(
     const value = result.value;
     if (typeof value === "string" && value.length > 0) {
       const resolvedSegment: PatchSegment = { kind: "prop", name: value };
-      const safety = validateResolvedPatchSegment([...resolved, resolvedSegment], ctx, nodePath, index);
+      const safety = validateResolvedPatchSegment(
+        [...resolved, resolvedSegment],
+        ctx,
+        nodePath,
+        index,
+      );
       if (!safety.ok) {
         return safety;
       }
@@ -410,7 +443,12 @@ function resolveFlowPatchPath(
 
     if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
       const resolvedSegment: PatchSegment = { kind: "index", index: value };
-      const safety = validateResolvedPatchSegment([...resolved, resolvedSegment], ctx, nodePath, index);
+      const safety = validateResolvedPatchSegment(
+        [...resolved, resolvedSegment],
+        ctx,
+        nodePath,
+        index,
+      );
       if (!safety.ok) {
         return safety;
       }
@@ -426,7 +464,7 @@ function resolveFlowPatchPath(
         ctx.currentAction ?? "",
         `${nodePath}.path[${index}]`,
         ctx.trace.timestamp,
-        { segmentIndex: index, resolvedType: describeDynamicPathValue(value) }
+        { segmentIndex: index, resolvedType: describeDynamicPathValue(value) },
       ),
     };
   }
@@ -438,7 +476,7 @@ function validateResolvedPatchSegment(
   path: PatchPath,
   ctx: EvalContext,
   nodePath: string,
-  index: number
+  index: number,
 ): { ok: true } | { ok: false; error: ErrorValue } {
   if (isSafePatchPath(path)) {
     return { ok: true };
@@ -452,7 +490,7 @@ function validateResolvedPatchSegment(
       ctx.currentAction ?? "",
       `${nodePath}.path[${index}]`,
       ctx.trace.timestamp,
-      { segmentIndex: index, path: patchPathToDisplayString(path) }
+      { segmentIndex: index, path: patchPathToDisplayString(path) },
     ),
   };
 }
@@ -499,18 +537,21 @@ function evaluateCausalGuard(
   flow: { guardId: string; body: FlowNode },
   ctx: EvalContext,
   state: FlowState,
-  nodePath: string
+  nodePath: string,
 ): FlowResult {
   const intentId = ctx.intentId;
   if (!intentId) {
     return {
-      state: setError(state, createError(
-        "INVALID_INPUT",
-        "causalGuard requires a current intent id",
-        ctx.currentAction ?? "",
-        nodePath,
-        ctx.trace.timestamp
-      )),
+      state: setError(
+        state,
+        createError(
+          "INVALID_INPUT",
+          "causalGuard requires a current intent id",
+          ctx.currentAction ?? "",
+          nodePath,
+          ctx.trace.timestamp,
+        ),
+      ),
       trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
     };
   }
@@ -532,7 +573,7 @@ function evaluateCausalGuard(
         nodePath,
         { kind: "causalGuard", guardId: flow.guardId, skipped: true },
         null,
-        []
+        [],
       ),
     };
   }
@@ -550,12 +591,7 @@ function evaluateCausalGuard(
     value: { [flow.guardId]: intentId },
   };
 
-  const guardedState = applyNamespacePatchToState(
-    state,
-    CORE_NAMESPACE,
-    nextCoreRoot,
-    patch
-  );
+  const guardedState = applyNamespacePatchToState(state, CORE_NAMESPACE, nextCoreRoot, patch);
   const namespaceTrace = createTraceNode(
     ctx.trace,
     "namespaceDelta",
@@ -568,7 +604,7 @@ function evaluateCausalGuard(
       namespace: CORE_NAMESPACE,
       patches: [patch],
     },
-    []
+    [],
   );
   const bodyPath = `${nodePath}.body`;
   const bodyCtx = withNodePath(withSnapshot(ctx, guardedState.snapshot), bodyPath);
@@ -582,7 +618,7 @@ function evaluateCausalGuard(
       nodePath,
       { kind: "causalGuard", guardId: flow.guardId, skipped: false },
       null,
-      [namespaceTrace, bodyResult.trace]
+      [namespaceTrace, bodyResult.trace],
     ),
   };
 }
@@ -590,7 +626,7 @@ function evaluateCausalGuard(
 function getCoreNamespaceRoot(
   snapshot: Snapshot,
   ctx: EvalContext,
-  nodePath: string
+  nodePath: string,
 ): { ok: true; value: Record<string, unknown> } | { ok: false; error: ErrorValue } {
   const root = snapshot.namespaces[CORE_NAMESPACE];
   if (root === undefined) {
@@ -605,7 +641,7 @@ function getCoreNamespaceRoot(
         "Invalid core namespace root: expected object",
         ctx.currentAction ?? "",
         nodePath,
-        ctx.trace.timestamp
+        ctx.trace.timestamp,
       ),
     };
   }
@@ -620,7 +656,9 @@ function getCoreCausalGuards(root: Record<string, unknown>): Record<string, stri
   }
 
   return Object.fromEntries(
-    Object.entries(guards).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+    Object.entries(guards).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
   );
 }
 
@@ -628,7 +666,7 @@ function evaluateEffect(
   flow: { type: string; params: Record<string, import("../schema/expr.js").ExprNode> },
   ctx: EvalContext,
   state: FlowState,
-  nodePath: string
+  nodePath: string,
 ): FlowResult {
   // Handle pure array operations inline (no IO needed)
   if (flow.type === "array.map" || flow.type === "array.filter") {
@@ -653,7 +691,7 @@ function evaluateEffect(
     ctx.snapshot.meta.schemaHash,
     ctx.intentId ?? "",
     ctx.currentAction ?? "",
-    nodePath
+    nodePath,
   );
 
   const requirement: Requirement = {
@@ -684,7 +722,7 @@ function evaluateArrayOperation(
   flow: { type: string; params: Record<string, import("../schema/expr.js").ExprNode> },
   ctx: EvalContext,
   state: FlowState,
-  nodePath: string
+  nodePath: string,
 ): FlowResult {
   const { params } = flow;
 
@@ -695,13 +733,16 @@ function evaluateArrayOperation(
   const sourceExpr = params.source;
   if (!sourceExpr) {
     return {
-      state: setError(state, createError(
-        "INVALID_INPUT",
-        `${flow.type} requires 'source' parameter`,
-        ctx.currentAction ?? "",
-        nodePath,
-        ctx.trace.timestamp
-      )),
+      state: setError(
+        state,
+        createError(
+          "INVALID_INPUT",
+          `${flow.type} requires 'source' parameter`,
+          ctx.currentAction ?? "",
+          nodePath,
+          ctx.trace.timestamp,
+        ),
+      ),
       trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
     };
   }
@@ -717,13 +758,16 @@ function evaluateArrayOperation(
   const sourceArray = sourceResult.value;
   if (!Array.isArray(sourceArray)) {
     return {
-      state: setError(state, createError(
-        "TYPE_MISMATCH",
-        `${flow.type} source must be an array`,
-        currentCtx.currentAction ?? "",
-        nodePath,
-        currentCtx.trace.timestamp
-      )),
+      state: setError(
+        state,
+        createError(
+          "TYPE_MISMATCH",
+          `${flow.type} source must be an array`,
+          currentCtx.currentAction ?? "",
+          nodePath,
+          currentCtx.trace.timestamp,
+        ),
+      ),
       trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
     };
   }
@@ -732,13 +776,16 @@ function evaluateArrayOperation(
   const intoExpr = params.into;
   if (!intoExpr) {
     return {
-      state: setError(state, createError(
-        "INVALID_INPUT",
-        `${flow.type} requires 'into' parameter`,
-        currentCtx.currentAction ?? "",
-        nodePath,
-        currentCtx.trace.timestamp
-      )),
+      state: setError(
+        state,
+        createError(
+          "INVALID_INPUT",
+          `${flow.type} requires 'into' parameter`,
+          currentCtx.currentAction ?? "",
+          nodePath,
+          currentCtx.trace.timestamp,
+        ),
+      ),
       trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
     };
   }
@@ -754,13 +801,16 @@ function evaluateArrayOperation(
   const targetPath = toPatchPath(intoResult.value);
   if (!targetPath) {
     return {
-      state: setError(state, createError(
-        "INVALID_INPUT",
-        `${flow.type} into must resolve to PatchPath segments or semantic string path`,
-        currentCtx.currentAction ?? "",
-        nodePath,
-        currentCtx.trace.timestamp
-      )),
+      state: setError(
+        state,
+        createError(
+          "INVALID_INPUT",
+          `${flow.type} into must resolve to PatchPath segments or semantic string path`,
+          currentCtx.currentAction ?? "",
+          nodePath,
+          currentCtx.trace.timestamp,
+        ),
+      ),
       trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
     };
   }
@@ -769,13 +819,16 @@ function evaluateArrayOperation(
   const transformExpr = flow.type === "array.map" ? params.select : params.where;
   if (!transformExpr) {
     return {
-      state: setError(state, createError(
-        "INVALID_INPUT",
-        `${flow.type} requires '${flow.type === "array.map" ? "select" : "where"}' parameter`,
-        currentCtx.currentAction ?? "",
-        nodePath,
-        currentCtx.trace.timestamp
-      )),
+      state: setError(
+        state,
+        createError(
+          "INVALID_INPUT",
+          `${flow.type} requires '${flow.type === "array.map" ? "select" : "where"}' parameter`,
+          currentCtx.currentAction ?? "",
+          nodePath,
+          currentCtx.trace.timestamp,
+        ),
+      ),
       trace: createTraceNode(currentCtx.trace, "error", nodePath, {}, null, []),
     };
   }
@@ -815,7 +868,14 @@ function evaluateArrayOperation(
 
   return {
     state: newState,
-    trace: createTraceNode(currentCtx.trace, "effect", nodePath, { type: flow.type, target: targetPath }, { count: resultArray.length }, []),
+    trace: createTraceNode(
+      currentCtx.trace,
+      "effect",
+      nodePath,
+      { type: flow.type, target: targetPath },
+      { count: resultArray.length },
+      [],
+    ),
   };
 }
 
@@ -867,19 +927,22 @@ function evaluateCall(
   flowName: string,
   ctx: EvalContext,
   state: FlowState,
-  nodePath: string
+  nodePath: string,
 ): FlowResult {
   // Look up the flow in the schema
   const action = ctx.schema.actions[flowName];
   if (!action) {
     return {
-      state: setError(state, createError(
-        "UNKNOWN_FLOW",
-        `Unknown flow: ${flowName}`,
-        ctx.currentAction ?? "",
-        nodePath,
-        ctx.trace.timestamp
-      )),
+      state: setError(
+        state,
+        createError(
+          "UNKNOWN_FLOW",
+          `Unknown flow: ${flowName}`,
+          ctx.currentAction ?? "",
+          nodePath,
+          ctx.trace.timestamp,
+        ),
+      ),
       trace: createTraceNode(ctx.trace, "error", nodePath, {}, null, []),
     };
   }
@@ -899,7 +962,7 @@ function evaluateHalt(
   reason: string | undefined,
   ctx: EvalContext,
   state: FlowState,
-  nodePath: string
+  nodePath: string,
 ): FlowResult {
   return {
     state: { ...state, status: "halted" },
@@ -911,7 +974,7 @@ function evaluateFail(
   flow: { code: string; message?: import("../schema/expr.js").ExprNode },
   ctx: EvalContext,
   state: FlowState,
-  nodePath: string
+  nodePath: string,
 ): FlowResult {
   let message = flow.code;
 
@@ -928,7 +991,7 @@ function evaluateFail(
     ctx.currentAction ?? "",
     nodePath,
     ctx.trace.timestamp,
-    { code: flow.code }
+    { code: flow.code },
   );
 
   return {

@@ -75,7 +75,7 @@ describe("Path Utilities", () => {
 
     it("should escape dot segments for reversible path encoding", () => {
       expect(joinPath("history", "files", "file:///proof.lean")).toBe(
-        "history.files.file:///proof\\.lean"
+        "history.files.file:///proof\\.lean",
       );
     });
   });

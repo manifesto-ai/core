@@ -118,7 +118,7 @@ export interface EvaluationContext {
  * @returns Evaluation context
  */
 export function createEvaluationContext(
-  options: Partial<EvaluationContext> & { meta: EvaluationMeta }
+  options: Partial<EvaluationContext> & { meta: EvaluationMeta },
 ): EvaluationContext {
   return {
     snapshot: options.snapshot ?? { state: {}, computed: {} },
@@ -172,7 +172,7 @@ function setRuntimeAllocationState(
 export function applyPatchToWorkingSnapshot(
   snapshot: EvaluationSnapshot,
   path: string,
-  value: unknown
+  value: unknown,
 ): EvaluationSnapshot {
   const newState = structuredClone(snapshot.state) as Record<string, unknown>;
 
@@ -191,11 +191,7 @@ export function applyPatchToWorkingSnapshot(
  * @param path - Dot-separated path (e.g., "user.name")
  * @param value - Value to set
  */
-function setValueAtPath(
-  obj: Record<string, unknown>,
-  path: string,
-  value: unknown
-): void {
+function setValueAtPath(obj: Record<string, unknown>, path: string, value: unknown): void {
   const parts = parsePath(path);
   let current: Record<string, unknown> = obj;
 

@@ -129,10 +129,7 @@ import { validateAndExpandFlows } from "./analyzer/flow-composition.js";
 import { buildAnnotationIndex } from "./annotations.js";
 import { generate, type GenerateResult } from "./generator/ir.js";
 import { lowerSystemValues, type DomainSchema } from "./generator/index.js";
-import {
-  createDefaultSourceMapEmissionContext,
-  extractSourceMap,
-} from "./source-map.js";
+import { createDefaultSourceMapEmissionContext, extractSourceMap } from "./source-map.js";
 import type { CompileTrace } from "./api/index.js";
 import { tokenize } from "./lexer/index.js";
 import { parse } from "./parser/index.js";
@@ -174,14 +171,18 @@ export function compile(source: string, options: CompileOptions = {}): CompileRe
 
   const lexStart = performance.now();
   const lexResult = tokenize(source);
-  trace.push({ phase: "lex", durationMs: performance.now() - lexStart, details: { tokenCount: lexResult.tokens.length } });
+  trace.push({
+    phase: "lex",
+    durationMs: performance.now() - lexStart,
+    details: { tokenCount: lexResult.tokens.length },
+  });
 
   if (hasErrors(lexResult.diagnostics)) {
     return {
       schema: null,
       trace,
-      warnings: lexResult.diagnostics.filter(d => d.severity === "warning"),
-      errors: lexResult.diagnostics.filter(d => d.severity === "error"),
+      warnings: lexResult.diagnostics.filter((d) => d.severity === "warning"),
+      errors: lexResult.diagnostics.filter((d) => d.severity === "error"),
       success: false,
     };
   }
@@ -195,8 +196,8 @@ export function compile(source: string, options: CompileOptions = {}): CompileRe
     return {
       schema: null,
       trace,
-      warnings: parseErrors.filter(d => d.severity === "warning"),
-      errors: parseErrors.filter(d => d.severity === "error"),
+      warnings: parseErrors.filter((d) => d.severity === "warning"),
+      errors: parseErrors.filter((d) => d.severity === "error"),
       success: false,
     };
   }
@@ -244,12 +245,12 @@ export function compile(source: string, options: CompileOptions = {}): CompileRe
     diagnostics.push(...parseResult.diagnostics);
   }
 
-  const errors = diagnostics.filter(d => d.severity === "error");
+  const errors = diagnostics.filter((d) => d.severity === "error");
   if (genResult.schema === null || errors.length > 0) {
     return {
       schema: null,
       trace,
-      warnings: diagnostics.filter(d => d.severity === "warning"),
+      warnings: diagnostics.filter((d) => d.severity === "warning"),
       errors,
       success: false,
     };
@@ -262,13 +263,13 @@ export function compile(source: string, options: CompileOptions = {}): CompileRe
     trace.push({ phase: "lower", durationMs: performance.now() - lowerStart });
   }
 
-  const warnings = diagnostics.filter(d => d.severity === "warning");
+  const warnings = diagnostics.filter((d) => d.severity === "warning");
 
   return {
     schema,
     trace,
     warnings,
-    errors: diagnostics.filter(d => d.severity === "error"),
+    errors: diagnostics.filter((d) => d.severity === "error"),
     success: errors.length === 0,
   };
 }

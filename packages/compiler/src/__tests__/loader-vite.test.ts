@@ -70,7 +70,7 @@ describe("unplugin core", () => {
   it("throws when MEL compilation fails", async () => {
     const plugin = unpluginMel.raw({});
     await expect(plugin.transform("domain Broken {", "/tmp/broken.mel")).rejects.toThrow(
-      "MEL compilation failed"
+      "MEL compilation failed",
     );
   });
 
@@ -101,7 +101,7 @@ describe("unplugin core", () => {
             increment: expect.any(Object),
           }),
         }),
-      })
+      }),
     );
   });
 
@@ -142,10 +142,8 @@ describe("unplugin core", () => {
     expect(() =>
       unpluginMel.raw({
         codegen: invalidCodegen as never,
-      })
-    ).toThrow(
-      "manifesto:mel codegen must be a function or an object with a callable emit field"
-    );
+      }),
+    ).toThrow("manifesto:mel codegen must be a function or an object with a callable emit field");
   });
 
   it("rejects unsupported codegen timing values", () => {
@@ -155,10 +153,8 @@ describe("unplugin core", () => {
           emit: async () => {},
           timing: "tranform" as never,
         },
-      })
-    ).toThrow(
-      'manifesto:mel codegen timing must be one of "transform", "build", or "both"'
-    );
+      }),
+    ).toThrow('manifesto:mel codegen timing must be one of "transform", "build", or "both"');
   });
 });
 
@@ -188,7 +184,7 @@ describe("node-loader resolve/load hooks", () => {
     const resolved = await resolve(
       "./counter.mel",
       { parentURL: "file:///tmp/main.ts" },
-      nextResolve
+      nextResolve,
     );
 
     expect(nextResolve).toHaveBeenCalledTimes(1);

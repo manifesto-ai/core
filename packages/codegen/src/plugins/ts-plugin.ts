@@ -5,12 +5,7 @@ import type {
   FieldSpec,
   FieldType,
 } from "@manifesto-ai/core";
-import type {
-  CodegenContext,
-  CodegenOutput,
-  CodegenPlugin,
-  Diagnostic,
-} from "../types.js";
+import type { CodegenContext, CodegenOutput, CodegenPlugin, Diagnostic } from "../types.js";
 import {
   createTypeNameAliasMap,
   isTypeDeclarationName,
@@ -90,9 +85,7 @@ export function createTsPlugin(options?: TsPluginOptions): CodegenPlugin {
         }
       }
 
-      const patches = [
-        { op: "set" as const, path: typesFile, content: typesContent },
-      ];
+      const patches = [{ op: "set" as const, path: typesFile, content: typesContent }];
 
       if (actionDecls.length > 0) {
         const actionsContent = actionDecls.join("\n\n") + "\n";
@@ -115,7 +108,7 @@ function renderNamedType(
   name: string,
   spec: TypeSpec,
   typeAliases: IdentifierAliasMap,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
 ): string {
   const def = spec.definition;
   const declarationName = typeAliases.get(name) ?? name;
@@ -134,7 +127,7 @@ function renderInterface(
   name: string,
   fields: Record<string, { type: TypeDefinition; optional: boolean }>,
   typeAliases: IdentifierAliasMap,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
 ): string {
   const sortedFields = Object.keys(fields).sort();
   const lines: string[] = [];
@@ -153,7 +146,7 @@ function renderInterface(
 function mapTypeDefinition(
   def: TypeDefinition,
   typeAliases: IdentifierAliasMap,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
 ): string {
   switch (def.kind) {
     case "primitive":
@@ -234,7 +227,7 @@ function wrapComplex(tsType: string, def: TypeDefinition): string {
 function renderActionInputType(
   typeName: string,
   spec: ActionSpec,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
 ): string {
   if (!spec.input) {
     return "";
@@ -243,10 +236,7 @@ function renderActionInputType(
   return `export type ${typeName} = ${tsType};`;
 }
 
-function mapFieldSpec(
-  spec: FieldSpec,
-  diagnostics: Diagnostic[]
-): string {
+function mapFieldSpec(spec: FieldSpec, diagnostics: Diagnostic[]): string {
   const baseType = mapFieldType(spec.type, spec, diagnostics);
 
   // GEN-12: degrade for unknown structures
@@ -256,11 +246,7 @@ function mapFieldSpec(
   return baseType;
 }
 
-function mapFieldType(
-  type: FieldType,
-  spec: FieldSpec,
-  diagnostics: Diagnostic[]
-): string {
+function mapFieldType(type: FieldType, spec: FieldSpec, diagnostics: Diagnostic[]): string {
   if (typeof type === "object" && "enum" in type) {
     // Enum -> union of literals
     return type.enum.map((v) => renderLiteral(v as string | number | boolean | null)).join(" | ");

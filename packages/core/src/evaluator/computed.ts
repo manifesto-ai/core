@@ -15,7 +15,7 @@ import { buildDependencyGraph, topologicalSort } from "./dag.js";
  */
 export function evaluateComputed(
   schema: DomainSchema,
-  snapshot: Snapshot
+  snapshot: Snapshot,
 ): Result<Record<SemanticPath, unknown>, ErrorValue> {
   const trace = createTraceContext(snapshot.meta.timestamp);
   // Build dependency graph
@@ -24,13 +24,15 @@ export function evaluateComputed(
   // Get topological order
   const sortResult = topologicalSort(graph);
   if (!sortResult.ok) {
-    return err(createError(
-      "CYCLIC_DEPENDENCY",
-      sortResult.error.message,
-      "",
-      sortResult.error.path ?? "",
-      trace.timestamp
-    ));
+    return err(
+      createError(
+        "CYCLIC_DEPENDENCY",
+        sortResult.error.message,
+        "",
+        sortResult.error.path ?? "",
+        trace.timestamp,
+      ),
+    );
   }
 
   // Evaluate in topological order
@@ -47,7 +49,9 @@ export function evaluateComputed(
     if (!spec) continue;
 
     // Create context with current state of computed values
-    const ctx = createContext(tempSnapshot, schema, null, path, undefined, trace, { phase: "computed" });
+    const ctx = createContext(tempSnapshot, schema, null, path, undefined, trace, {
+      phase: "computed",
+    });
 
     // Evaluate the expression
     const result = evaluateExpr(spec.expr, ctx);
@@ -75,18 +79,14 @@ export function evaluateComputed(
 export function evaluateSingleComputed(
   schema: DomainSchema,
   snapshot: Snapshot,
-  path: SemanticPath
+  path: SemanticPath,
 ): Result<unknown, ErrorValue> {
   const trace = createTraceContext(snapshot.meta.timestamp);
   const spec = schema.computed.fields[path];
   if (!spec) {
-    return err(createError(
-      "PATH_NOT_FOUND",
-      `Computed field not found: ${path}`,
-      "",
-      path,
-      trace.timestamp
-    ));
+    return err(
+      createError("PATH_NOT_FOUND", `Computed field not found: ${path}`, "", path, trace.timestamp),
+    );
   }
 
   const ctx = createContext(snapshot, schema, null, path, undefined, trace, { phase: "computed" });

@@ -12,9 +12,7 @@ import {
   inferObjectLiteralContributionType,
 } from "./object-contribution-types.js";
 import type { SpreadOperandClassification } from "./object-contribution-types.js";
-export type {
-  SpreadOperandClassification,
-} from "./object-contribution-types.js";
+export type { SpreadOperandClassification } from "./object-contribution-types.js";
 export { mayYieldArrayExpr } from "./object-contribution-types.js";
 
 export type TypeEnv = Map<string, TypeExprNode>;
@@ -155,14 +153,18 @@ export function createActionTypeEnv(params: readonly ParamNode[]): TypeEnv {
 export function inferExprType(
   expr: ExprNode,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   switch (expr.kind) {
     case "literal":
       return literalTypeFromValue(expr.value, expr.location);
 
     case "identifier":
-      return env.get(expr.name) ?? symbols.stateTypes.get(expr.name) ?? inferComputedType(expr.name, symbols);
+      return (
+        env.get(expr.name) ??
+        symbols.stateTypes.get(expr.name) ??
+        inferComputedType(expr.name, symbols)
+      );
 
     case "propertyAccess":
       return getPropertyType(inferExprType(expr.object, env, symbols), expr.property, symbols);
@@ -176,7 +178,7 @@ export function inferExprType(
     case "arrayLiteral": {
       const elementType = joinTypeCandidates(
         expr.elements.map((element) => inferExprType(element, env, symbols)),
-        expr.location
+        expr.location,
       );
       if (!elementType) {
         return null;
@@ -196,11 +198,8 @@ export function inferExprType(
 
     case "ternary":
       return joinTypeCandidates(
-        [
-          inferExprType(expr.consequent, env, symbols),
-          inferExprType(expr.alternate, env, symbols),
-        ],
-        expr.location
+        [inferExprType(expr.consequent, env, symbols), inferExprType(expr.alternate, env, symbols)],
+        expr.location,
       );
 
     case "functionCall":
@@ -214,7 +213,10 @@ export function inferExprType(
   }
 }
 
-function inferDollarIdentType(path: readonly string[], symbols: DomainTypeSymbols): TypeExprNode | null {
+function inferDollarIdentType(
+  path: readonly string[],
+  symbols: DomainTypeSymbols,
+): TypeExprNode | null {
   const [namespace, ...rest] = path;
 
   if (namespace === "context") {
@@ -240,7 +242,10 @@ function inferDollarIdentType(path: readonly string[], symbols: DomainTypeSymbol
   }
 }
 
-function inferContextPathType(path: readonly string[], symbols: DomainTypeSymbols): TypeExprNode | null {
+function inferContextPathType(
+  path: readonly string[],
+  symbols: DomainTypeSymbols,
+): TypeExprNode | null {
   if (path.length === 0) {
     return {
       kind: "objectType",
@@ -284,7 +289,7 @@ function syntheticLocation(): TypeExprNode["location"] {
 export function classifyComparableExpr(
   expr: ExprNode,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): ComparableSurfaceClass {
   const inferred = inferExprType(expr, env, symbols);
   if (inferred) {
@@ -358,7 +363,7 @@ export function classifyComparableExpr(
 
       if (expr.name === "coalesce") {
         return joinComparableClasses(
-          expr.args.map((arg) => classifyComparableExpr(arg, env, symbols))
+          expr.args.map((arg) => classifyComparableExpr(arg, env, symbols)),
         );
       }
 
@@ -375,7 +380,7 @@ export function classifyComparableExpr(
 
 export function classifyComparableType(
   typeExpr: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): ComparableSurfaceClass {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
@@ -387,11 +392,11 @@ export function classifyComparableType(
       return resolved.name === "object"
         ? "nonprimitive"
         : resolved.name === "string" ||
-        resolved.name === "number" ||
-        resolved.name === "boolean" ||
-        resolved.name === "null"
-        ? "primitive"
-        : "unknown";
+            resolved.name === "number" ||
+            resolved.name === "boolean" ||
+            resolved.name === "null"
+          ? "primitive"
+          : "unknown";
 
     case "literalType":
       return "primitive";
@@ -403,7 +408,7 @@ export function classifyComparableType(
 
     case "unionType":
       return joinComparableClasses(
-        resolved.types.map((member) => classifyComparableType(member, symbols))
+        resolved.types.map((member) => classifyComparableType(member, symbols)),
       );
   }
 }
@@ -411,7 +416,7 @@ export function classifyComparableType(
 export function resolveType(
   typeExpr: TypeExprNode | null,
   symbols: DomainTypeSymbols,
-  seen = new Set<string>()
+  seen = new Set<string>(),
 ): TypeExprNode | null {
   if (!typeExpr) {
     return null;
@@ -431,7 +436,7 @@ export function resolveType(
 export function getPropertyType(
   typeExpr: TypeExprNode | null,
   property: string,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
@@ -446,10 +451,7 @@ export function getPropertyType(
     if (!field.optional) {
       return field.typeExpr;
     }
-    return joinTypeCandidates(
-      [field.typeExpr, simpleType("null", field.location)],
-      field.location
-    );
+    return joinTypeCandidates([field.typeExpr, simpleType("null", field.location)], field.location);
   }
 
   if (resolved.kind === "unionType") {
@@ -466,7 +468,7 @@ export function getPropertyType(
 
 export function getIndexType(
   typeExpr: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
@@ -495,7 +497,7 @@ export function getIndexType(
 
 export function getArrayElementType(
   typeExpr: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
@@ -518,7 +520,10 @@ export function getArrayElementType(
   return null;
 }
 
-export function isPrimitiveEntityIdType(typeExpr: TypeExprNode, symbols: DomainTypeSymbols): boolean {
+export function isPrimitiveEntityIdType(
+  typeExpr: TypeExprNode,
+  symbols: DomainTypeSymbols,
+): boolean {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
     return false;
@@ -532,7 +537,10 @@ export function isPrimitiveEntityIdType(typeExpr: TypeExprNode, symbols: DomainT
       return typeof resolved.value === "string" || typeof resolved.value === "number";
 
     case "unionType":
-      return resolved.types.length > 0 && resolved.types.every((member) => isPrimitiveEntityIdType(member, symbols));
+      return (
+        resolved.types.length > 0 &&
+        resolved.types.every((member) => isPrimitiveEntityIdType(member, symbols))
+      );
 
     default:
       return false;
@@ -548,7 +556,7 @@ export function isNullType(typeExpr: TypeExprNode): boolean {
 
 export function classifySpreadOperandType(
   typeExpr: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): SpreadOperandClassification {
   return classifySpreadOperandTypeWithResolver(typeExpr, symbols, resolveType);
 }
@@ -583,7 +591,7 @@ function inferUnaryType(expr: Extract<ExprNode, { kind: "unary" }>): TypeExprNod
 function inferBinaryType(
   expr: Extract<ExprNode, { kind: "binary" }>,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   switch (expr.operator) {
     case "==":
@@ -605,11 +613,8 @@ function inferBinaryType(
 
     case "??":
       return joinTypeCandidates(
-        [
-          inferExprType(expr.left, env, symbols),
-          inferExprType(expr.right, env, symbols),
-        ],
-        expr.location
+        [inferExprType(expr.left, env, symbols), inferExprType(expr.right, env, symbols)],
+        expr.location,
       );
   }
 }
@@ -617,7 +622,7 @@ function inferBinaryType(
 function inferFunctionCallType(
   expr: Extract<ExprNode, { kind: "functionCall" }>,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   if (PRIMITIVE_BOOLEAN_CALLS.has(expr.name)) {
     return simpleType("boolean", expr.location);
@@ -630,7 +635,7 @@ function inferFunctionCallType(
   if (expr.name === "idiv") {
     return joinTypeCandidates(
       [simpleType("number", expr.location), simpleType("null", expr.location)],
-      expr.location
+      expr.location,
     );
   }
 
@@ -669,11 +674,7 @@ function inferFunctionCallType(
       return null;
     }
 
-    const mapperType = inferExprType(
-      expr.args[1],
-      extendCollectionEnv(env, elementType),
-      symbols
-    );
+    const mapperType = inferExprType(expr.args[1], extendCollectionEnv(env, elementType), symbols);
     if (!mapperType) {
       return null;
     }
@@ -707,11 +708,8 @@ function inferFunctionCallType(
 
   if ((expr.name === "cond" || expr.name === "if") && expr.args.length >= 3) {
     return joinTypeCandidates(
-      [
-        inferExprType(expr.args[1], env, symbols),
-        inferExprType(expr.args[2], env, symbols),
-      ],
-      expr.location
+      [inferExprType(expr.args[1], env, symbols), inferExprType(expr.args[2], env, symbols)],
+      expr.location,
     );
   }
 
@@ -775,7 +773,7 @@ function joinComparableClasses(classes: ComparableSurfaceClass[]): ComparableSur
 
 function joinTypeCandidates(
   candidates: Array<TypeExprNode | null>,
-  location: TypeExprNode["location"]
+  location: TypeExprNode["location"],
 ): TypeExprNode | null {
   const present = candidates
     .filter((candidate): candidate is TypeExprNode => candidate !== null)
@@ -815,7 +813,7 @@ function joinTypeCandidates(
 function inferMatchType(
   expr: Extract<ExprNode, { kind: "functionCall" }>,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   if (expr.args.length < 3) {
     return null;
@@ -836,7 +834,7 @@ function inferMatchType(
 function inferArgSelectionType(
   expr: Extract<ExprNode, { kind: "functionCall" }>,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   if (expr.args.length < 2) {
     return null;
@@ -866,7 +864,13 @@ function inferArgSelectionType(
 const OTHER_STRING = Symbol("arg-selection:other-string");
 const OTHER_NUMBER = Symbol("arg-selection:other-number");
 
-type AbstractPrimitiveValue = string | number | boolean | null | typeof OTHER_STRING | typeof OTHER_NUMBER;
+type AbstractPrimitiveValue =
+  | string
+  | number
+  | boolean
+  | null
+  | typeof OTHER_STRING
+  | typeof OTHER_NUMBER;
 
 interface EligibilityAtom {
   key: string;
@@ -880,7 +884,7 @@ interface EligibilityAtom {
 function hasExhaustiveArgSelectionCoverage(
   expr: Extract<ExprNode, { kind: "functionCall" }>,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): boolean {
   const eligibleExprs: ExprNode[] = [];
   for (let index = 0; index < expr.args.length - 1; index += 1) {
@@ -916,8 +920,14 @@ function hasExhaustiveArgSelectionCoverage(
   }
 
   const assignment = new Map<string, AbstractPrimitiveValue>();
-  return enumerateEligibilityAssignments(domains as Array<{ key: string; values: AbstractPrimitiveValue[] }>, 0, assignment, () =>
-    eligibleExprs.some((eligibleExpr) => evaluateEligibilityExpr(eligibleExpr, assignment) === true)
+  return enumerateEligibilityAssignments(
+    domains as Array<{ key: string; values: AbstractPrimitiveValue[] }>,
+    0,
+    assignment,
+    () =>
+      eligibleExprs.some(
+        (eligibleExpr) => evaluateEligibilityExpr(eligibleExpr, assignment) === true,
+      ),
   );
 }
 
@@ -925,7 +935,7 @@ function enumerateEligibilityAssignments(
   domains: Array<{ key: string; values: AbstractPrimitiveValue[] }>,
   index: number,
   assignment: Map<string, AbstractPrimitiveValue>,
-  predicate: () => boolean
+  predicate: () => boolean,
 ): boolean {
   if (index >= domains.length) {
     return predicate();
@@ -948,7 +958,7 @@ function collectEligibilityAtoms(
   expr: ExprNode,
   env: TypeEnv,
   symbols: DomainTypeSymbols,
-  atoms: Map<string, EligibilityAtom>
+  atoms: Map<string, EligibilityAtom>,
 ): boolean {
   switch (expr.kind) {
     case "literal":
@@ -965,8 +975,10 @@ function collectEligibilityAtoms(
 
     case "binary":
       if (expr.operator === "&&" || expr.operator === "||") {
-        return collectEligibilityAtoms(expr.left, env, symbols, atoms)
-          && collectEligibilityAtoms(expr.right, env, symbols, atoms);
+        return (
+          collectEligibilityAtoms(expr.left, env, symbols, atoms) &&
+          collectEligibilityAtoms(expr.right, env, symbols, atoms)
+        );
       }
       if (expr.operator === "==" || expr.operator === "!=") {
         return registerComparisonEligibilityAtoms(expr.left, expr.right, env, symbols, atoms);
@@ -979,14 +991,21 @@ function collectEligibilityAtoms(
         case "or":
           return expr.args.every((arg) => collectEligibilityAtoms(arg, env, symbols, atoms));
         case "not":
-          return expr.args.length === 1 && collectEligibilityAtoms(expr.args[0], env, symbols, atoms);
+          return (
+            expr.args.length === 1 && collectEligibilityAtoms(expr.args[0], env, symbols, atoms)
+          );
         case "eq":
         case "neq":
-          return expr.args.length === 2
-            && registerComparisonEligibilityAtoms(expr.args[0], expr.args[1], env, symbols, atoms);
+          return (
+            expr.args.length === 2 &&
+            registerComparisonEligibilityAtoms(expr.args[0], expr.args[1], env, symbols, atoms)
+          );
         case "isNull":
         case "isNotNull":
-          return expr.args.length === 1 && registerComparableEligibilityAtom(expr.args[0], env, symbols, atoms, null);
+          return (
+            expr.args.length === 1 &&
+            registerComparableEligibilityAtom(expr.args[0], env, symbols, atoms, null)
+          );
         default:
           return false;
       }
@@ -1000,11 +1019,16 @@ function registerBooleanEligibilityAtom(
   expr: ExprNode,
   env: TypeEnv,
   symbols: DomainTypeSymbols,
-  atoms: Map<string, EligibilityAtom>
+  atoms: Map<string, EligibilityAtom>,
 ): boolean {
   const key = getEligibilityAtomKey(expr);
   const typeExpr = inferExprType(expr, env, symbols);
-  if (!key || !typeExpr || !isStrictBooleanType(typeExpr, symbols) || hasNullableEligibilityPath(expr, env, symbols)) {
+  if (
+    !key ||
+    !typeExpr ||
+    !isStrictBooleanType(typeExpr, symbols) ||
+    hasNullableEligibilityPath(expr, env, symbols)
+  ) {
     return false;
   }
 
@@ -1026,7 +1050,7 @@ function registerComparisonEligibilityAtoms(
   right: ExprNode,
   env: TypeEnv,
   symbols: DomainTypeSymbols,
-  atoms: Map<string, EligibilityAtom>
+  atoms: Map<string, EligibilityAtom>,
 ): boolean {
   const leftLiteral = getLiteralPrimitiveValue(left);
   const rightLiteral = getLiteralPrimitiveValue(right);
@@ -1050,11 +1074,16 @@ function registerComparableEligibilityAtom(
   env: TypeEnv,
   symbols: DomainTypeSymbols,
   atoms: Map<string, EligibilityAtom>,
-  comparedLiteral: string | number | boolean | null
+  comparedLiteral: string | number | boolean | null,
 ): boolean {
   const key = getEligibilityAtomKey(expr);
   const typeExpr = inferExprType(expr, env, symbols);
-  if (!key || !typeExpr || !isPrimitiveComparableType(typeExpr, symbols) || hasNullableEligibilityPath(expr, env, symbols)) {
+  if (
+    !key ||
+    !typeExpr ||
+    !isPrimitiveComparableType(typeExpr, symbols) ||
+    hasNullableEligibilityPath(expr, env, symbols)
+  ) {
     return false;
   }
 
@@ -1076,7 +1105,7 @@ function registerComparableEligibilityAtom(
 
 function buildEligibilityAtomDomain(
   atom: EligibilityAtom,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): AbstractPrimitiveValue[] | null {
   const values: AbstractPrimitiveValue[] = [];
   let invalid = false;
@@ -1150,15 +1179,17 @@ function buildEligibilityAtomDomain(
 
 function evaluateEligibilityExpr(
   expr: ExprNode,
-  assignment: Map<string, AbstractPrimitiveValue>
+  assignment: Map<string, AbstractPrimitiveValue>,
 ): AbstractPrimitiveValue | undefined {
   switch (expr.kind) {
     case "literal":
       return expr.literalType === "null"
         ? null
-        : typeof expr.value === "string" || typeof expr.value === "number" || typeof expr.value === "boolean"
-        ? expr.value
-        : undefined;
+        : typeof expr.value === "string" ||
+            typeof expr.value === "number" ||
+            typeof expr.value === "boolean"
+          ? expr.value
+          : undefined;
 
     case "identifier":
     case "iterationVar":
@@ -1178,9 +1209,13 @@ function evaluateEligibilityExpr(
       const right = evaluateEligibilityExpr(expr.right, assignment);
       switch (expr.operator) {
         case "&&":
-          return typeof left === "boolean" && typeof right === "boolean" ? left && right : undefined;
+          return typeof left === "boolean" && typeof right === "boolean"
+            ? left && right
+            : undefined;
         case "||":
-          return typeof left === "boolean" && typeof right === "boolean" ? left || right : undefined;
+          return typeof left === "boolean" && typeof right === "boolean"
+            ? left || right
+            : undefined;
         case "==":
           return left !== undefined && right !== undefined ? Object.is(left, right) : undefined;
         case "!=":
@@ -1205,7 +1240,8 @@ function evaluateEligibilityExpr(
             : undefined;
         }
         case "not": {
-          const value = expr.args.length === 1 ? evaluateEligibilityExpr(expr.args[0], assignment) : undefined;
+          const value =
+            expr.args.length === 1 ? evaluateEligibilityExpr(expr.args[0], assignment) : undefined;
           return typeof value === "boolean" ? !value : undefined;
         }
         case "eq":
@@ -1277,13 +1313,15 @@ function getEligibilityAtomKey(expr: ExprNode): string | null {
 function hasNullableEligibilityPath(
   expr: ExprNode,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): boolean {
   switch (expr.kind) {
     case "propertyAccess":
-      return canTypeIncludeNull(inferExprType(expr.object, env, symbols), symbols)
-        || canPropertyAccessBeMissing(expr.object, expr.property, env, symbols)
-        || hasNullableEligibilityPath(expr.object, env, symbols);
+      return (
+        canTypeIncludeNull(inferExprType(expr.object, env, symbols), symbols) ||
+        canPropertyAccessBeMissing(expr.object, expr.property, env, symbols) ||
+        hasNullableEligibilityPath(expr.object, env, symbols)
+      );
 
     case "indexAccess":
       return true;
@@ -1297,7 +1335,7 @@ function canPropertyAccessBeMissing(
   objectExpr: ExprNode,
   property: string,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): boolean {
   return canPropertyTypeBeMissing(inferExprType(objectExpr, env, symbols), property, symbols);
 }
@@ -1305,7 +1343,7 @@ function canPropertyAccessBeMissing(
 function canPropertyTypeBeMissing(
   typeExpr: TypeExprNode | null,
   property: string,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): boolean {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
@@ -1319,7 +1357,10 @@ function canPropertyTypeBeMissing(
 
   if (resolved.kind === "unionType") {
     const members = resolved.types.filter((member) => !isNullType(member));
-    return members.length === 0 || members.some((member) => canPropertyTypeBeMissing(member, property, symbols));
+    return (
+      members.length === 0 ||
+      members.some((member) => canPropertyTypeBeMissing(member, property, symbols))
+    );
   }
 
   return true;
@@ -1337,13 +1378,19 @@ function isStrictBooleanType(typeExpr: TypeExprNode | null, symbols: DomainTypeS
     case "literalType":
       return typeof resolved.value === "boolean";
     case "unionType":
-      return resolved.types.length > 0 && resolved.types.every((member) => isStrictBooleanType(member, symbols));
+      return (
+        resolved.types.length > 0 &&
+        resolved.types.every((member) => isStrictBooleanType(member, symbols))
+      );
     default:
       return false;
   }
 }
 
-function isPrimitiveComparableType(typeExpr: TypeExprNode | null, symbols: DomainTypeSymbols): boolean {
+function isPrimitiveComparableType(
+  typeExpr: TypeExprNode | null,
+  symbols: DomainTypeSymbols,
+): boolean {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
     return false;
@@ -1351,17 +1398,24 @@ function isPrimitiveComparableType(typeExpr: TypeExprNode | null, symbols: Domai
 
   switch (resolved.kind) {
     case "simpleType":
-      return resolved.name === "string"
-        || resolved.name === "number"
-        || resolved.name === "boolean"
-        || resolved.name === "null";
+      return (
+        resolved.name === "string" ||
+        resolved.name === "number" ||
+        resolved.name === "boolean" ||
+        resolved.name === "null"
+      );
     case "literalType":
-      return typeof resolved.value === "string"
-        || typeof resolved.value === "number"
-        || typeof resolved.value === "boolean"
-        || resolved.value === null;
+      return (
+        typeof resolved.value === "string" ||
+        typeof resolved.value === "number" ||
+        typeof resolved.value === "boolean" ||
+        resolved.value === null
+      );
     case "unionType":
-      return resolved.types.length > 0 && resolved.types.every((member) => isPrimitiveComparableType(member, symbols));
+      return (
+        resolved.types.length > 0 &&
+        resolved.types.every((member) => isPrimitiveComparableType(member, symbols))
+      );
     default:
       return false;
   }
@@ -1374,7 +1428,9 @@ function getLiteralPrimitiveValue(expr: ExprNode): string | number | boolean | n
   if (expr.literalType === "null") {
     return null;
   }
-  return typeof expr.value === "string" || typeof expr.value === "number" || typeof expr.value === "boolean"
+  return typeof expr.value === "string" ||
+    typeof expr.value === "number" ||
+    typeof expr.value === "boolean"
     ? expr.value
     : undefined;
 }
@@ -1382,7 +1438,7 @@ function getLiteralPrimitiveValue(expr: ExprNode): string | number | boolean | n
 function inferCoalesceType(
   expr: Extract<ExprNode, { kind: "functionCall" }>,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   const argTypes = expr.args.map((arg) => inferExprType(arg, env, symbols));
   if (argTypes.some((typeExpr) => typeExpr === null)) {
@@ -1408,7 +1464,7 @@ function inferCoalesceType(
 function inferValuesType(
   expr: Extract<ExprNode, { kind: "functionCall" }>,
   env: TypeEnv,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   if (expr.args.length < 1) {
     return null;
@@ -1428,7 +1484,7 @@ function inferValuesType(
 
 function getValuesElementType(
   typeExpr: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
@@ -1442,7 +1498,7 @@ function getValuesElementType(
   if (resolved.kind === "objectType") {
     return joinTypeCandidates(
       resolved.fields.map((field) => field.typeExpr),
-      resolved.location
+      resolved.location,
     );
   }
 
@@ -1451,7 +1507,7 @@ function getValuesElementType(
       resolved.types
         .filter((member) => !isNullType(member))
         .map((member) => getValuesElementType(member, symbols)),
-      resolved.location
+      resolved.location,
     );
   }
 
@@ -1460,7 +1516,7 @@ function getValuesElementType(
 
 function stripNullBranches(
   typeExpr: TypeExprNode | null,
-  symbols: DomainTypeSymbols
+  symbols: DomainTypeSymbols,
 ): TypeExprNode | null {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved || isNullType(resolved)) {
@@ -1480,10 +1536,7 @@ function stripNullBranches(
   return joinTypeCandidates(members, resolved.location);
 }
 
-function canTypeIncludeNull(
-  typeExpr: TypeExprNode | null,
-  symbols: DomainTypeSymbols
-): boolean {
+function canTypeIncludeNull(typeExpr: TypeExprNode | null, symbols: DomainTypeSymbols): boolean {
   const resolved = resolveType(typeExpr, symbols);
   if (!resolved) {
     return true;
@@ -1500,10 +1553,7 @@ function canTypeIncludeNull(
   return resolved.types.some((member) => canTypeIncludeNull(member, symbols));
 }
 
-function literalTypeFromValue(
-  value: unknown,
-  location: TypeExprNode["location"]
-): TypeExprNode {
+function literalTypeFromValue(value: unknown, location: TypeExprNode["location"]): TypeExprNode {
   return {
     kind: "literalType",
     value: value as string | number | boolean | null,

@@ -9,14 +9,20 @@ export type MaterializedEdit = {
   readonly diagnostics: readonly Diagnostic[];
 };
 
-export function validateThenEdit(diagnostics: readonly Diagnostic[], makeEdit: () => MaterializedEdit): MaterializedEdit {
+export function validateThenEdit(
+  diagnostics: readonly Diagnostic[],
+  makeEdit: () => MaterializedEdit,
+): MaterializedEdit {
   if (diagnostics.length > 0) {
     return { edits: [], changedTargets: [], diagnostics };
   }
   return makeEdit();
 }
 
-export function preMaterializationFailure(baseSource: string, diagnostics: readonly Diagnostic[]): MelEditResult {
+export function preMaterializationFailure(
+  baseSource: string,
+  diagnostics: readonly Diagnostic[],
+): MelEditResult {
   return {
     ok: false,
     newSource: baseSource,
@@ -26,8 +32,15 @@ export function preMaterializationFailure(baseSource: string, diagnostics: reado
   };
 }
 
-export function materializationSuccess(edits: readonly MelTextEdit[], changedTargets: readonly LocalTargetKey[]): MaterializedEdit {
-  return { edits: [...edits].sort((a, b) => requiredOffset(a.range.start) - requiredOffset(b.range.start)), changedTargets, diagnostics: [] };
+export function materializationSuccess(
+  edits: readonly MelTextEdit[],
+  changedTargets: readonly LocalTargetKey[],
+): MaterializedEdit {
+  return {
+    edits: [...edits].sort((a, b) => requiredOffset(a.range.start) - requiredOffset(b.range.start)),
+    changedTargets,
+    diagnostics: [],
+  };
 }
 
 export function materializationFailure(...diagnostics: Diagnostic[]): MaterializedEdit {

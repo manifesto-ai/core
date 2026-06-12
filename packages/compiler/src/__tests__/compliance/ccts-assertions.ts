@@ -21,7 +21,7 @@ export function diagnosticEvidence(diagnostics: Diagnostic[]): CompilerEvidence[
 
 export function hasDiagnosticCode(
   diagnostics: Diagnostic[],
-  codes: readonly string[] | string
+  codes: readonly string[] | string,
 ): boolean {
   const expected = Array.isArray(codes) ? codes : [codes];
   return diagnostics.some((diagnostic) => expected.includes(diagnostic.code));

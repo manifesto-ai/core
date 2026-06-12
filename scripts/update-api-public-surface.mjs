@@ -30,9 +30,7 @@ function sourceFileFromTypesPath(packageRoot, typesPath) {
 }
 
 async function readJson(relativePath) {
-  return JSON.parse(
-    await fs.readFile(path.join(repoRoot, relativePath), "utf8"),
-  );
+  return JSON.parse(await fs.readFile(path.join(repoRoot, relativePath), "utf8"));
 }
 
 function add(target, name) {
@@ -42,9 +40,7 @@ function add(target, name) {
 }
 
 function hasExportModifier(node) {
-  return Boolean(
-    node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword),
-  );
+  return Boolean(node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword));
 }
 
 function hasDefaultModifier(node) {
@@ -153,10 +149,7 @@ async function collectExports(filePath, seen = new Set()) {
       continue;
     }
 
-    if (
-      ts.isInterfaceDeclaration(statement) ||
-      ts.isTypeAliasDeclaration(statement)
-    ) {
+    if (ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement)) {
       add(types, exportedDeclarationName(statement));
     }
   }
@@ -200,9 +193,7 @@ async function collectPublicEntries() {
     }
   }
 
-  return entries.sort((left, right) =>
-    left.specifier.localeCompare(right.specifier),
-  );
+  return entries.sort((left, right) => left.specifier.localeCompare(right.specifier));
 }
 
 function renderNameList(names) {

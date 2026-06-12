@@ -107,12 +107,16 @@ describe("Golden: Trace-derived replay", () => {
         increment: {
           flow: {
             kind: "patch",
-            op: "set", path: pp("counter"),
+            op: "set",
+            path: pp("counter"),
             value: {
               kind: "add",
               left: {
                 kind: "coalesce",
-                args: [{ kind: "get", path: "counter" }, { kind: "lit", value: 0 }],
+                args: [
+                  { kind: "get", path: "counter" },
+                  { kind: "lit", value: 0 },
+                ],
               },
               right: { kind: "lit", value: 1 },
             },
@@ -133,9 +137,7 @@ describe("Golden: Trace-derived replay", () => {
     };
 
     const effectHandlers: Record<string, EffectHandler> = {
-      "mock.fetch": async () => [
-        { op: "set", path: pp("response"), value: "done" },
-      ],
+      "mock.fetch": async () => [{ op: "set", path: pp("response"), value: "done" }],
     };
 
     const intents: Intent[] = [

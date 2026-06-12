@@ -52,13 +52,13 @@ async function runLegacyCycle(
   core: ReturnType<typeof createCore>,
   snapshot: Snapshot,
   intentId: string,
-  input?: Record<string, unknown>
+  input?: Record<string, unknown>,
 ) {
   const result = await core.compute(
     schema,
     snapshot,
     createIntent("probe", input, intentId),
-    HOST_CONTEXT
+    HOST_CONTEXT,
   );
 
   return {
@@ -71,12 +71,12 @@ function applyComputeResult(
   core: ReturnType<typeof createCore>,
   schema: any,
   snapshot: Snapshot,
-  result: ComputeResult
+  result: ComputeResult,
 ): Snapshot {
   const patchedSnapshot = core.apply(schema, snapshot, result.patches);
   const namespacedSnapshot = core.applyNamespaceDeltas(
     patchedSnapshot,
-    result.namespaceDelta ?? []
+    result.namespaceDelta ?? [],
   );
   return core.applySystemDelta(namespacedSnapshot, result.systemDelta);
 }
@@ -96,9 +96,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     });
 
     expect(result.ops).toHaveLength(0);
-    expect(result.errors).toEqual([
-      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
-    ]);
+    expect(result.errors).toEqual([expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" })]);
   });
 
   it("keeps when semantics available in full domain compilation", async () => {
@@ -118,11 +116,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     const positive = await runLegacyCycle(
       schema,
       core,
-      createSnapshot(
-        { count: 0, status: "", flag: false, x: 0, y: 0 },
-        schema.hash,
-        HOST_CONTEXT,
-      ),
+      createSnapshot({ count: 0, status: "", flag: false, x: 0, y: 0 }, schema.hash, HOST_CONTEXT),
       "when-entry-snapshot",
     );
 
@@ -170,9 +164,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     });
 
     expect(result.ops).toHaveLength(0);
-    expect(result.errors).toEqual([
-      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
-    ]);
+    expect(result.errors).toEqual([expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" })]);
   });
 
   it("rejects once marker semantics in patch-only compilation", () => {
@@ -189,9 +181,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     });
 
     expect(result.ops).toHaveLength(0);
-    expect(result.errors).toEqual([
-      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
-    ]);
+    expect(result.errors).toEqual([expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" })]);
   });
 
   it("rejects onceIntent semantics in patch-only compilation", () => {
@@ -208,9 +198,7 @@ describe("compileMelPatch legacy lowering parity", () => {
     });
 
     expect(result.ops).toHaveLength(0);
-    expect(result.errors).toEqual([
-      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
-    ]);
+    expect(result.errors).toEqual([expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" })]);
   });
 
   it("rejects conditional once and onceIntent guards in patch-only compilation", () => {
@@ -260,8 +248,6 @@ describe("compileMelPatch legacy lowering parity", () => {
     });
 
     expect(result.ops).toHaveLength(0);
-    expect(result.errors).toEqual([
-      expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" }),
-    ]);
+    expect(result.errors).toEqual([expect.objectContaining({ code: "E_UNSUPPORTED_CONTROL" })]);
   });
 });

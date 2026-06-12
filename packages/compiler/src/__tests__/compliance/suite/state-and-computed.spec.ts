@@ -13,8 +13,13 @@ import { getRuleOrThrow } from "../ccts-rules.js";
 const adapter = createCompilerComplianceAdapter();
 
 describe("CCTS State and Computed Suite", () => {
-  it(caseTitle(CCTS_CASES.STATE_INLINE_OBJECTS, "(A33/E012/TYPE-LOWER-5) inline object state fields stay visible to compliance"), () => {
-    const result = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_INLINE_OBJECTS,
+      "(A33/E012/TYPE-LOWER-5) inline object state fields stay visible to compliance",
+    ),
+    () => {
+      const result = adapter.compile(`
       domain Demo {
         state {
           meta: { title: string } = { title: "" }
@@ -22,37 +27,41 @@ describe("CCTS State and Computed Suite", () => {
       }
     `);
 
-    const field = result.value?.state.fields["meta"];
-    const hasInlineObjectSignal = hasDiagnosticCode(result.diagnostics, ["E012", "W012"]);
-    const lowersToObject =
-      result.success &&
-      field?.type === "object" &&
-      field.fields?.title?.type === "string";
+      const field = result.value?.state.fields["meta"];
+      const hasInlineObjectSignal = hasDiagnosticCode(result.diagnostics, ["E012", "W012"]);
+      const lowersToObject =
+        result.success && field?.type === "object" && field.fields?.title?.type === "string";
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("A33"), hasInlineObjectSignal, {
-        passMessage: "Anonymous object types in state are surfaced to the user.",
-        failMessage: "Anonymous object types in state are still silently accepted.",
-        evidence: [
-          noteEvidence("Observed state field", field),
-          ...diagnosticEvidence(result.diagnostics),
-        ],
-      }),
-      evaluateRule(getRuleOrThrow("E012"), hasInlineObjectSignal, {
-        passMessage: "Anonymous object types emit an explicit signal.",
-        failMessage: "Expected E012/W012-style signal for an anonymous state object type.",
-        evidence: diagnosticEvidence(result.diagnostics),
-      }),
-      evaluateRule(getRuleOrThrow("TYPE-LOWER-5"), lowersToObject, {
-        passMessage: "Inline object types lower to object FieldSpec fields.",
-        failMessage: "Inline object types did not lower to object FieldSpec fields.",
-        evidence: [noteEvidence("Observed state field", field)],
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(getRuleOrThrow("A33"), hasInlineObjectSignal, {
+          passMessage: "Anonymous object types in state are surfaced to the user.",
+          failMessage: "Anonymous object types in state are still silently accepted.",
+          evidence: [
+            noteEvidence("Observed state field", field),
+            ...diagnosticEvidence(result.diagnostics),
+          ],
+        }),
+        evaluateRule(getRuleOrThrow("E012"), hasInlineObjectSignal, {
+          passMessage: "Anonymous object types emit an explicit signal.",
+          failMessage: "Expected E012/W012-style signal for an anonymous state object type.",
+          evidence: diagnosticEvidence(result.diagnostics),
+        }),
+        evaluateRule(getRuleOrThrow("TYPE-LOWER-5"), lowersToObject, {
+          passMessage: "Inline object types lower to object FieldSpec fields.",
+          failMessage: "Inline object types did not lower to object FieldSpec fields.",
+          evidence: [noteEvidence("Observed state field", field)],
+        }),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_ACTION_INPUT_FIELDS, "(ACTION-INPUT-1/2, TYPE-LOWER-1..4) action parameters lower to FieldSpec objects"), () => {
-    const result = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_ACTION_INPUT_FIELDS,
+      "(ACTION-INPUT-1/2, TYPE-LOWER-1..4) action parameters lower to FieldSpec objects",
+    ),
+    () => {
+      const result = adapter.compile(`
       domain Demo {
         type Meta = { retries: number }
         action create(
@@ -68,67 +77,77 @@ describe("CCTS State and Computed Suite", () => {
       }
     `);
 
-    const input = result.value?.actions["create"]?.input;
-    const titleField = input?.fields?.title;
-    const statusField = input?.fields?.status;
-    const tagsField = input?.fields?.tags;
-    const metaField = input?.fields?.meta;
+      const input = result.value?.actions["create"]?.input;
+      const titleField = input?.fields?.title;
+      const statusField = input?.fields?.status;
+      const tagsField = input?.fields?.tags;
+      const metaField = input?.fields?.meta;
 
-    const hasObjectInput =
-      result.success &&
-      input?.type === "object" &&
-      titleField?.type === "string" &&
-      titleField.required === true;
-    const hasRequiredFields =
-      hasObjectInput &&
-      statusField?.required === true &&
-      tagsField?.required === true &&
-      metaField?.required === true;
-    const lowersPrimitiveEnumArrayAndNamedObject =
-      hasObjectInput &&
-      typeof statusField?.type === "object" &&
-      Array.isArray((statusField?.type as { enum?: unknown[] }).enum) &&
-      tagsField?.type === "array" &&
-      tagsField.items?.type === "string" &&
-      metaField?.type === "object" &&
-      metaField.fields?.retries?.type === "number";
+      const hasObjectInput =
+        result.success &&
+        input?.type === "object" &&
+        titleField?.type === "string" &&
+        titleField.required === true;
+      const hasRequiredFields =
+        hasObjectInput &&
+        statusField?.required === true &&
+        tagsField?.required === true &&
+        metaField?.required === true;
+      const lowersPrimitiveEnumArrayAndNamedObject =
+        hasObjectInput &&
+        typeof statusField?.type === "object" &&
+        Array.isArray((statusField?.type as { enum?: unknown[] }).enum) &&
+        tagsField?.type === "array" &&
+        tagsField.items?.type === "string" &&
+        metaField?.type === "object" &&
+        metaField.fields?.retries?.type === "number";
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("ACTION-INPUT-1"), hasObjectInput, {
-        passMessage: "Action parameters lower to ActionSpec.input FieldSpec objects.",
-        failMessage: "Action parameters did not lower to ActionSpec.input FieldSpec objects.",
-        evidence: [noteEvidence("Observed action input", input)],
-      }),
-      evaluateRule(getRuleOrThrow("ACTION-INPUT-2"), hasRequiredFields, {
-        passMessage: "Each action parameter becomes a required field in input.fields.",
-        failMessage: "Action parameters were not emitted as required input.fields entries.",
-        evidence: [noteEvidence("Observed action input", input)],
-      }),
-      evaluateRule(getRuleOrThrow("TYPE-LOWER-1"), titleField?.type === "string", {
-        passMessage: "Primitive parameter types lower directly.",
-        failMessage: "Primitive parameter types did not lower directly.",
-        evidence: [noteEvidence("Observed title field", titleField)],
-      }),
-      evaluateRule(getRuleOrThrow("TYPE-LOWER-2"), typeof statusField?.type === "object", {
-        passMessage: "Literal unions lower to enum FieldSpec types.",
-        failMessage: "Literal unions did not lower to enum FieldSpec types.",
-        evidence: [noteEvidence("Observed status field", statusField)],
-      }),
-      evaluateRule(getRuleOrThrow("TYPE-LOWER-3"), tagsField?.type === "array" && tagsField.items?.type === "string", {
-        passMessage: "Array parameter types lower to array FieldSpec with items.",
-        failMessage: "Array parameter types did not lower to array FieldSpec with items.",
-        evidence: [noteEvidence("Observed tags field", tagsField)],
-      }),
-      evaluateRule(getRuleOrThrow("TYPE-LOWER-4"), lowersPrimitiveEnumArrayAndNamedObject, {
-        passMessage: "Named object types inline into nested FieldSpec fields.",
-        failMessage: "Named object types did not inline into nested FieldSpec fields.",
-        evidence: [noteEvidence("Observed meta field", metaField)],
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(getRuleOrThrow("ACTION-INPUT-1"), hasObjectInput, {
+          passMessage: "Action parameters lower to ActionSpec.input FieldSpec objects.",
+          failMessage: "Action parameters did not lower to ActionSpec.input FieldSpec objects.",
+          evidence: [noteEvidence("Observed action input", input)],
+        }),
+        evaluateRule(getRuleOrThrow("ACTION-INPUT-2"), hasRequiredFields, {
+          passMessage: "Each action parameter becomes a required field in input.fields.",
+          failMessage: "Action parameters were not emitted as required input.fields entries.",
+          evidence: [noteEvidence("Observed action input", input)],
+        }),
+        evaluateRule(getRuleOrThrow("TYPE-LOWER-1"), titleField?.type === "string", {
+          passMessage: "Primitive parameter types lower directly.",
+          failMessage: "Primitive parameter types did not lower directly.",
+          evidence: [noteEvidence("Observed title field", titleField)],
+        }),
+        evaluateRule(getRuleOrThrow("TYPE-LOWER-2"), typeof statusField?.type === "object", {
+          passMessage: "Literal unions lower to enum FieldSpec types.",
+          failMessage: "Literal unions did not lower to enum FieldSpec types.",
+          evidence: [noteEvidence("Observed status field", statusField)],
+        }),
+        evaluateRule(
+          getRuleOrThrow("TYPE-LOWER-3"),
+          tagsField?.type === "array" && tagsField.items?.type === "string",
+          {
+            passMessage: "Array parameter types lower to array FieldSpec with items.",
+            failMessage: "Array parameter types did not lower to array FieldSpec with items.",
+            evidence: [noteEvidence("Observed tags field", tagsField)],
+          },
+        ),
+        evaluateRule(getRuleOrThrow("TYPE-LOWER-4"), lowersPrimitiveEnumArrayAndNamedObject, {
+          passMessage: "Named object types inline into nested FieldSpec fields.",
+          failMessage: "Named object types did not inline into nested FieldSpec fields.",
+          evidence: [noteEvidence("Observed meta field", metaField)],
+        }),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_ACTION_INPUT_OMISSION, "(ACTION-INPUT-3) actions without params omit ActionSpec.input"), () => {
-    const result = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_ACTION_INPUT_OMISSION,
+      "(ACTION-INPUT-3) actions without params omit ActionSpec.input",
+    ),
+    () => {
+      const result = adapter.compile(`
       domain Demo {
         action ping() {
           when true {
@@ -138,19 +157,25 @@ describe("CCTS State and Computed Suite", () => {
       }
     `);
 
-    const input = result.value?.actions["ping"]?.input;
+      const input = result.value?.actions["ping"]?.input;
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("ACTION-INPUT-3"), result.success && input === undefined, {
-        passMessage: "Parameterless actions omit ActionSpec.input entirely.",
-        failMessage: "Parameterless actions still emitted ActionSpec.input.",
-        evidence: [noteEvidence("Observed action input", input)],
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(getRuleOrThrow("ACTION-INPUT-3"), result.success && input === undefined, {
+          passMessage: "Parameterless actions omit ActionSpec.input entirely.",
+          failMessage: "Parameterless actions still emitted ActionSpec.input.",
+          evidence: [noteEvidence("Observed action input", input)],
+        }),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_CONSTANT_DEFAULTS, "(STATE-INIT-1/4/5) constant defaults lower to concrete values"), () => {
-    const result = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_CONSTANT_DEFAULTS,
+      "(STATE-INIT-1/4/5) constant defaults lower to concrete values",
+    ),
+    () => {
+      const result = adapter.compile(`
       domain Demo {
         type Settings = { enabled: boolean }
         state {
@@ -161,45 +186,52 @@ describe("CCTS State and Computed Suite", () => {
       }
     `);
 
-    const countField = result.value?.state.fields["count"];
-    const itemsField = result.value?.state.fields["items"];
-    const settingsField = result.value?.state.fields["settings"];
-    const defaultsLowered =
-      result.success &&
-      countField?.default === 0 &&
-      Array.isArray(itemsField?.default) &&
-      (itemsField?.default as unknown[]).length === 2 &&
-      typeof settingsField?.default === "object" &&
-      settingsField?.required === true;
+      const countField = result.value?.state.fields["count"];
+      const itemsField = result.value?.state.fields["items"];
+      const settingsField = result.value?.state.fields["settings"];
+      const defaultsLowered =
+        result.success &&
+        countField?.default === 0 &&
+        Array.isArray(itemsField?.default) &&
+        (itemsField?.default as unknown[]).length === 2 &&
+        typeof settingsField?.default === "object" &&
+        settingsField?.required === true;
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("STATE-INIT-1"), defaultsLowered, {
-        passMessage: "Compile-time constant state initializers lower successfully.",
-        failMessage: "Compile-time constant state initializers did not lower to concrete defaults.",
-        evidence: [
-          noteEvidence("Observed count field", countField),
-          noteEvidence("Observed items field", itemsField),
-          noteEvidence("Observed settings field", settingsField),
-        ],
-      }),
-      evaluateRule(getRuleOrThrow("STATE-INIT-4"), defaultsLowered, {
-        passMessage: "State initializer expressions emit concrete JSON defaults.",
-        failMessage: "State initializer expressions did not emit concrete JSON defaults.",
-        evidence: [noteEvidence("Observed settings default", settingsField?.default)],
-      }),
-      evaluateRule(getRuleOrThrow("STATE-INIT-5"), defaultsLowered, {
-        passMessage: "State defaults do not force fields to become optional.",
-        failMessage: "State defaults broke the required/default contract.",
-        evidence: [
-          noteEvidence("Observed count required", countField?.required),
-          noteEvidence("Observed settings required", settingsField?.required),
-        ],
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(getRuleOrThrow("STATE-INIT-1"), defaultsLowered, {
+          passMessage: "Compile-time constant state initializers lower successfully.",
+          failMessage:
+            "Compile-time constant state initializers did not lower to concrete defaults.",
+          evidence: [
+            noteEvidence("Observed count field", countField),
+            noteEvidence("Observed items field", itemsField),
+            noteEvidence("Observed settings field", settingsField),
+          ],
+        }),
+        evaluateRule(getRuleOrThrow("STATE-INIT-4"), defaultsLowered, {
+          passMessage: "State initializer expressions emit concrete JSON defaults.",
+          failMessage: "State initializer expressions did not emit concrete JSON defaults.",
+          evidence: [noteEvidence("Observed settings default", settingsField?.default)],
+        }),
+        evaluateRule(getRuleOrThrow("STATE-INIT-5"), defaultsLowered, {
+          passMessage: "State defaults do not force fields to become optional.",
+          failMessage: "State defaults broke the required/default contract.",
+          evidence: [
+            noteEvidence("Observed count required", countField?.required),
+            noteEvidence("Observed settings required", settingsField?.required),
+          ],
+        }),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_COMPUTED_DEPS, "(COMP-DEP-1..6) computed deps stay extractable and ordered"), () => {
-    const result = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_COMPUTED_DEPS,
+      "(COMP-DEP-1..6) computed deps stay extractable and ordered",
+    ),
+    () => {
+      const result = adapter.compile(`
       domain Demo {
         state { count: number = 0 }
         computed final = add(total, 1)
@@ -207,63 +239,73 @@ describe("CCTS State and Computed Suite", () => {
       }
     `);
 
-    const total = result.value?.computed.fields["total"];
-    const finalValue = result.value?.computed.fields["final"];
-    const computedKeys = result.value?.computed.fields
-      ? Object.keys(result.value.computed.fields)
-      : [];
-    const hasDeps =
-      result.success &&
-      total?.deps.includes("count") === true &&
-      finalValue?.deps.includes("total") === true;
-    const topoOrdered = JSON.stringify(computedKeys) === JSON.stringify(["total", "final"]);
+      const total = result.value?.computed.fields["total"];
+      const finalValue = result.value?.computed.fields["final"];
+      const computedKeys = result.value?.computed.fields
+        ? Object.keys(result.value.computed.fields)
+        : [];
+      const hasDeps =
+        result.success &&
+        total?.deps.includes("count") === true &&
+        finalValue?.deps.includes("total") === true;
+      const topoOrdered = JSON.stringify(computedKeys) === JSON.stringify(["total", "final"]);
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("COMP-DEP-1"), hasDeps, {
-        passMessage: "Compiler extracts deps from referenced get paths.",
-        failMessage: "Compiler did not extract deps from referenced get paths.",
-        evidence: [
-          noteEvidence("Observed total deps", total?.deps ?? []),
-          noteEvidence("Observed final deps", finalValue?.deps ?? []),
-        ],
-      }),
-      evaluateRule(getRuleOrThrow("COMP-DEP-2"), hasDeps, {
-        passMessage: "Deps include the root segment of referenced paths.",
-        failMessage: "Deps did not include the root segment of referenced paths.",
-        evidence: [noteEvidence("Observed total deps", total?.deps ?? [])],
-      }),
-      evaluateRule(getRuleOrThrow("COMP-DEP-3"), hasDeps, {
-        passMessage: "Deps reflect all referenced schema paths.",
-        failMessage: "Deps did not reflect all referenced schema paths.",
-        evidence: [noteEvidence("Observed final deps", finalValue?.deps ?? [])],
-      }),
-      evaluateRule(getRuleOrThrow("COMP-DEP-4"), result.success && finalValue?.deps.includes("total") === true, {
-        passMessage: "Computed-to-computed references remain representable in deps.",
-        failMessage: "Computed-to-computed references were not represented in deps.",
-        evidence: [noteEvidence("Observed final deps", finalValue?.deps ?? [])],
-      }),
-      evaluateRule(getRuleOrThrow("COMP-DEP-6"), topoOrdered, {
-        passMessage: "Computed fields emit in topological order.",
-        failMessage: "Computed fields are not yet emitted in topological order.",
-        evidence: [noteEvidence("Observed computed field order", computedKeys)],
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(getRuleOrThrow("COMP-DEP-1"), hasDeps, {
+          passMessage: "Compiler extracts deps from referenced get paths.",
+          failMessage: "Compiler did not extract deps from referenced get paths.",
+          evidence: [
+            noteEvidence("Observed total deps", total?.deps ?? []),
+            noteEvidence("Observed final deps", finalValue?.deps ?? []),
+          ],
+        }),
+        evaluateRule(getRuleOrThrow("COMP-DEP-2"), hasDeps, {
+          passMessage: "Deps include the root segment of referenced paths.",
+          failMessage: "Deps did not include the root segment of referenced paths.",
+          evidence: [noteEvidence("Observed total deps", total?.deps ?? [])],
+        }),
+        evaluateRule(getRuleOrThrow("COMP-DEP-3"), hasDeps, {
+          passMessage: "Deps reflect all referenced schema paths.",
+          failMessage: "Deps did not reflect all referenced schema paths.",
+          evidence: [noteEvidence("Observed final deps", finalValue?.deps ?? [])],
+        }),
+        evaluateRule(
+          getRuleOrThrow("COMP-DEP-4"),
+          result.success && finalValue?.deps.includes("total") === true,
+          {
+            passMessage: "Computed-to-computed references remain representable in deps.",
+            failMessage: "Computed-to-computed references were not represented in deps.",
+            evidence: [noteEvidence("Observed final deps", finalValue?.deps ?? [])],
+          },
+        ),
+        evaluateRule(getRuleOrThrow("COMP-DEP-6"), topoOrdered, {
+          passMessage: "Computed fields emit in topological order.",
+          failMessage: "Computed fields are not yet emitted in topological order.",
+          evidence: [noteEvidence("Observed computed field order", computedKeys)],
+        }),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_SCHEMA_REFS, "(STATE-INIT-2/3, COMP-DEP-5, E040/E041/E042) schema-position references stay checked"), () => {
-    const cycleResult = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_SCHEMA_REFS,
+      "(STATE-INIT-2/3, COMP-DEP-5, E040/E041/E042) schema-position references stay checked",
+    ),
+    () => {
+      const cycleResult = adapter.compile(`
       domain Demo {
         state { count: number = 0 }
         computed a = add(b, 1)
         computed b = add(a, 1)
       }
     `);
-    const undefinedResult = adapter.compile(`
+      const undefinedResult = adapter.compile(`
       domain Demo {
         computed total = add(missingValue, 1)
       }
     `);
-    const stateRefResult = adapter.compile(`
+      const stateRefResult = adapter.compile(`
       domain Demo {
         state {
           base: number = 1
@@ -271,7 +313,7 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const metaRefResult = adapter.compile(`
+      const metaRefResult = adapter.compile(`
       domain Demo {
         state {
           traceId: string = $runtime.intent.id
@@ -279,63 +321,77 @@ describe("CCTS State and Computed Suite", () => {
       }
     `);
 
-    const hasE042 =
-      hasDiagnosticCode(stateRefResult.errors, "E042") ||
-      hasDiagnosticCode(metaRefResult.errors, "E002");
+      const hasE042 =
+        hasDiagnosticCode(stateRefResult.errors, "E042") ||
+        hasDiagnosticCode(metaRefResult.errors, "E002");
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("COMP-DEP-5"), hasDiagnosticCode(cycleResult.errors, "E040"), {
-        passMessage: "Computed dependency cycles are rejected.",
-        failMessage: "Computed dependency cycles are not yet rejected.",
-        evidence: diagnosticEvidence(cycleResult.errors),
-      }),
-      evaluateRule(getRuleOrThrow("STATE-INIT-2"), hasDiagnosticCode(stateRefResult.errors, "E042"), {
-        passMessage: "State initializers reject references to other state fields.",
-        failMessage: "State initializers still accept references to other state fields.",
-        evidence: diagnosticEvidence(stateRefResult.errors),
-      }),
-      evaluateRule(getRuleOrThrow("STATE-INIT-3"), hasE042, {
-        passMessage: "State initializers reject runtime-dependent schema references.",
-        failMessage: "State initializers still accept runtime-dependent schema references.",
-        evidence: [
-          ...diagnosticEvidence(stateRefResult.errors),
-          ...diagnosticEvidence(metaRefResult.errors),
-        ],
-      }),
-      evaluateRule(getRuleOrThrow("E040"), hasDiagnosticCode(cycleResult.errors, "E040"), {
-        passMessage: "Circular computed dependencies are diagnosed as E040.",
-        failMessage: "Circular computed dependencies are not yet diagnosed as E040.",
-        evidence: diagnosticEvidence(cycleResult.errors),
-      }),
-      evaluateRule(getRuleOrThrow("E041"), hasDiagnosticCode(undefinedResult.errors, ["E041", "E_UNDEFINED"]), {
-        passMessage: "Undefined computed references remain visible to diagnostics.",
-        failMessage: "Undefined computed references were accepted silently.",
-        evidence: diagnosticEvidence(undefinedResult.errors),
-      }),
-      evaluateRule(getRuleOrThrow("E042"), hasE042, {
-        passMessage: "Schema-position runtime references are diagnosed as E042.",
-        failMessage: "Schema-position runtime references are not yet diagnosed as E042.",
-        evidence: [
-          ...diagnosticEvidence(stateRefResult.errors),
-          ...diagnosticEvidence(metaRefResult.errors),
-        ],
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(getRuleOrThrow("COMP-DEP-5"), hasDiagnosticCode(cycleResult.errors, "E040"), {
+          passMessage: "Computed dependency cycles are rejected.",
+          failMessage: "Computed dependency cycles are not yet rejected.",
+          evidence: diagnosticEvidence(cycleResult.errors),
+        }),
+        evaluateRule(
+          getRuleOrThrow("STATE-INIT-2"),
+          hasDiagnosticCode(stateRefResult.errors, "E042"),
+          {
+            passMessage: "State initializers reject references to other state fields.",
+            failMessage: "State initializers still accept references to other state fields.",
+            evidence: diagnosticEvidence(stateRefResult.errors),
+          },
+        ),
+        evaluateRule(getRuleOrThrow("STATE-INIT-3"), hasE042, {
+          passMessage: "State initializers reject runtime-dependent schema references.",
+          failMessage: "State initializers still accept runtime-dependent schema references.",
+          evidence: [
+            ...diagnosticEvidence(stateRefResult.errors),
+            ...diagnosticEvidence(metaRefResult.errors),
+          ],
+        }),
+        evaluateRule(getRuleOrThrow("E040"), hasDiagnosticCode(cycleResult.errors, "E040"), {
+          passMessage: "Circular computed dependencies are diagnosed as E040.",
+          failMessage: "Circular computed dependencies are not yet diagnosed as E040.",
+          evidence: diagnosticEvidence(cycleResult.errors),
+        }),
+        evaluateRule(
+          getRuleOrThrow("E041"),
+          hasDiagnosticCode(undefinedResult.errors, ["E041", "E_UNDEFINED"]),
+          {
+            passMessage: "Undefined computed references remain visible to diagnostics.",
+            failMessage: "Undefined computed references were accepted silently.",
+            evidence: diagnosticEvidence(undefinedResult.errors),
+          },
+        ),
+        evaluateRule(getRuleOrThrow("E042"), hasE042, {
+          passMessage: "Schema-position runtime references are diagnosed as E042.",
+          failMessage: "Schema-position runtime references are not yet diagnosed as E042.",
+          evidence: [
+            ...diagnosticEvidence(stateRefResult.errors),
+            ...diagnosticEvidence(metaRefResult.errors),
+          ],
+        }),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_UNSUPPORTED_TYPES, "(TYPE-LOWER-6..9, E043/E044) rich schema shapes lower via TypeDefinition while unsupported unions remain rejected"), () => {
-    const nullableResult = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_UNSUPPORTED_TYPES,
+      "(TYPE-LOWER-6..9, E043/E044) rich schema shapes lower via TypeDefinition while unsupported unions remain rejected",
+    ),
+    () => {
+      const nullableResult = adapter.compile(`
       domain Demo {
         state { value: string | null = null }
       }
     `);
-    const recordResult = adapter.compile(`
+      const recordResult = adapter.compile(`
       domain Demo {
         type Entry = { id: string }
         state { entries: Record<string, Entry> = {} }
       }
     `);
-    const unionResult = adapter.compile(`
+      const unionResult = adapter.compile(`
       domain Demo {
         action process(value: string | number) {
           when true {
@@ -344,65 +400,95 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const recursiveResult = adapter.compile(`
+      const recursiveResult = adapter.compile(`
       domain Demo {
         type Tree = { children: Array<Tree> }
         state { root: Tree = { children: [] } }
       }
     `);
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("TYPE-LOWER-6"), nullableResult.success, {
-        passMessage: "Nullable schema-position types compile through the TypeDefinition seam.",
-        failMessage: "Nullable schema-position types do not yet compile through the TypeDefinition seam.",
-        evidence: [
-          noteEvidence("Observed nullable FieldSpec", nullableResult.value?.state.fields["value"]),
-          noteEvidence("Observed nullable fieldType", nullableResult.value?.state.fieldTypes?.["value"]),
-          ...diagnosticEvidence(nullableResult.errors),
-        ],
-      }),
-      evaluateRule(
-        getRuleOrThrow("TYPE-LOWER-7"),
-        recordResult.success
-          && recordResult.value?.state.fields["entries"]?.type === "object"
-          && recordResult.value?.state.fieldTypes?.["entries"]?.kind === "record",
-        {
-        passMessage: "Record schema-position types compile with compatibility FieldSpec plus precise TypeDefinition.",
-        failMessage: "Record schema-position types do not yet lower through the split runtime seam.",
-        evidence: [
-          noteEvidence("Observed record FieldSpec", recordResult.value?.state.fields["entries"]),
-          noteEvidence("Observed record fieldType", recordResult.value?.state.fieldTypes?.["entries"]),
-          ...diagnosticEvidence(recordResult.errors),
-        ],
-      }),
-      evaluateRule(getRuleOrThrow("TYPE-LOWER-8"), hasDiagnosticCode(unionResult.errors, "E043"), {
-        passMessage: "Non-trivial unions in schema positions are rejected.",
-        failMessage: "Non-trivial unions in schema positions are not yet rejected.",
-        evidence: [
-          noteEvidence("Observed action input", unionResult.value?.actions["process"]?.input),
-          ...diagnosticEvidence(unionResult.errors),
-        ],
-      }),
-      evaluateRule(getRuleOrThrow("E043"), hasDiagnosticCode(unionResult.errors, "E043"), {
-        passMessage: "Non-trivial unions emit E043.",
-        failMessage: "Non-trivial unions do not yet emit E043.",
-        evidence: diagnosticEvidence(unionResult.errors),
-      }),
-      evaluateRule(getRuleOrThrow("TYPE-LOWER-9"), hasDiagnosticCode(recursiveResult.errors, "E044"), {
-        passMessage: "Recursive named types in schema positions are rejected.",
-        failMessage: "Recursive named types are not yet rejected in schema positions.",
-        evidence: diagnosticEvidence(recursiveResult.errors),
-      }),
-      evaluateRule(getRuleOrThrow("E044"), hasDiagnosticCode(recursiveResult.errors, "E044"), {
-        passMessage: "Recursive named types emit E044.",
-        failMessage: "Recursive named types do not yet emit E044.",
-        evidence: diagnosticEvidence(recursiveResult.errors),
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(getRuleOrThrow("TYPE-LOWER-6"), nullableResult.success, {
+          passMessage: "Nullable schema-position types compile through the TypeDefinition seam.",
+          failMessage:
+            "Nullable schema-position types do not yet compile through the TypeDefinition seam.",
+          evidence: [
+            noteEvidence(
+              "Observed nullable FieldSpec",
+              nullableResult.value?.state.fields["value"],
+            ),
+            noteEvidence(
+              "Observed nullable fieldType",
+              nullableResult.value?.state.fieldTypes?.["value"],
+            ),
+            ...diagnosticEvidence(nullableResult.errors),
+          ],
+        }),
+        evaluateRule(
+          getRuleOrThrow("TYPE-LOWER-7"),
+          recordResult.success &&
+            recordResult.value?.state.fields["entries"]?.type === "object" &&
+            recordResult.value?.state.fieldTypes?.["entries"]?.kind === "record",
+          {
+            passMessage:
+              "Record schema-position types compile with compatibility FieldSpec plus precise TypeDefinition.",
+            failMessage:
+              "Record schema-position types do not yet lower through the split runtime seam.",
+            evidence: [
+              noteEvidence(
+                "Observed record FieldSpec",
+                recordResult.value?.state.fields["entries"],
+              ),
+              noteEvidence(
+                "Observed record fieldType",
+                recordResult.value?.state.fieldTypes?.["entries"],
+              ),
+              ...diagnosticEvidence(recordResult.errors),
+            ],
+          },
+        ),
+        evaluateRule(
+          getRuleOrThrow("TYPE-LOWER-8"),
+          hasDiagnosticCode(unionResult.errors, "E043"),
+          {
+            passMessage: "Non-trivial unions in schema positions are rejected.",
+            failMessage: "Non-trivial unions in schema positions are not yet rejected.",
+            evidence: [
+              noteEvidence("Observed action input", unionResult.value?.actions["process"]?.input),
+              ...diagnosticEvidence(unionResult.errors),
+            ],
+          },
+        ),
+        evaluateRule(getRuleOrThrow("E043"), hasDiagnosticCode(unionResult.errors, "E043"), {
+          passMessage: "Non-trivial unions emit E043.",
+          failMessage: "Non-trivial unions do not yet emit E043.",
+          evidence: diagnosticEvidence(unionResult.errors),
+        }),
+        evaluateRule(
+          getRuleOrThrow("TYPE-LOWER-9"),
+          hasDiagnosticCode(recursiveResult.errors, "E044"),
+          {
+            passMessage: "Recursive named types in schema positions are rejected.",
+            failMessage: "Recursive named types are not yet rejected in schema positions.",
+            evidence: diagnosticEvidence(recursiveResult.errors),
+          },
+        ),
+        evaluateRule(getRuleOrThrow("E044"), hasDiagnosticCode(recursiveResult.errors, "E044"), {
+          passMessage: "Recursive named types emit E044.",
+          failMessage: "Recursive named types do not yet emit E044.",
+          evidence: diagnosticEvidence(recursiveResult.errors),
+        }),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_PATCH_MERGE, "(PATCH-MERGE-1) patch merge remains a shallow partial-object operation"), () => {
-    const partialResult = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_PATCH_MERGE,
+      "(PATCH-MERGE-1) patch merge remains a shallow partial-object operation",
+    ),
+    () => {
+      const partialResult = adapter.compile(`
       domain Demo {
         type User = { name: string, age: number }
 
@@ -417,7 +503,7 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const invalidResult = adapter.compile(`
+      const invalidResult = adapter.compile(`
       domain Demo {
         type User = { name: string, age: number }
 
@@ -433,27 +519,38 @@ describe("CCTS State and Computed Suite", () => {
       }
     `);
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("PATCH-MERGE-1"), partialResult.success && hasDiagnosticCode(invalidResult.errors, "E_TYPE_MISMATCH"), {
-        passMessage: "patch merge accepts partial object payloads while preserving field-level type checks.",
-        failMessage: "patch merge no longer behaves as a shallow partial-object operation.",
-        evidence: [
-          ...diagnosticEvidence(partialResult.errors),
-          ...diagnosticEvidence(invalidResult.errors),
-        ],
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("PATCH-MERGE-1"),
+          partialResult.success && hasDiagnosticCode(invalidResult.errors, "E_TYPE_MISMATCH"),
+          {
+            passMessage:
+              "patch merge accepts partial object payloads while preserving field-level type checks.",
+            failMessage: "patch merge no longer behaves as a shallow partial-object operation.",
+            evidence: [
+              ...diagnosticEvidence(partialResult.errors),
+              ...diagnosticEvidence(invalidResult.errors),
+            ],
+          },
+        ),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_COALESCE_NARROWING, "(COALESCE-1) coalesce narrows compatible nullable branches for downstream typing"), () => {
-    const numericResult = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_COALESCE_NARROWING,
+      "(COALESCE-1) coalesce narrows compatible nullable branches for downstream typing",
+    ),
+    () => {
+      const numericResult = adapter.compile(`
       domain Demo {
         state { count: number = 1 }
         computed maybe = idiv(count, 2)
         computed safe = clamp(coalesce(maybe, 0), 0, 10)
       }
     `);
-    const selectorResult = adapter.compile(`
+      const selectorResult = adapter.compile(`
       domain Demo {
         state { mode: "ship" | "pickup" = "ship" }
 
@@ -471,7 +568,7 @@ describe("CCTS State and Computed Suite", () => {
         )
       }
     `);
-    const invalidResult = adapter.compile(`
+      const invalidResult = adapter.compile(`
       domain Demo {
         state {
           primary: string | null = null
@@ -487,26 +584,35 @@ describe("CCTS State and Computed Suite", () => {
       }
     `);
 
-    expectAllCompliance([
-      evaluateRule(
-        getRuleOrThrow("COALESCE-1"),
-        numericResult.success
-          && selectorResult.success
-          && hasDiagnosticCode(invalidResult.errors, "E_TYPE_MISMATCH"),
-        {
-        passMessage: "coalesce narrows only when a non-null fallback is guaranteed and preserves nullable results otherwise.",
-        failMessage: "coalesce still leaks nullable result types into guaranteed fallback paths or over-narrows all-nullable paths.",
-        evidence: [
-          ...diagnosticEvidence(numericResult.errors),
-          ...diagnosticEvidence(selectorResult.errors),
-          ...diagnosticEvidence(invalidResult.errors),
-        ],
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("COALESCE-1"),
+          numericResult.success &&
+            selectorResult.success &&
+            hasDiagnosticCode(invalidResult.errors, "E_TYPE_MISMATCH"),
+          {
+            passMessage:
+              "coalesce narrows only when a non-null fallback is guaranteed and preserves nullable results otherwise.",
+            failMessage:
+              "coalesce still leaks nullable result types into guaranteed fallback paths or over-narrows all-nullable paths.",
+            evidence: [
+              ...diagnosticEvidence(numericResult.errors),
+              ...diagnosticEvidence(selectorResult.errors),
+              ...diagnosticEvidence(invalidResult.errors),
+            ],
+          },
+        ),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_VALUES_RECORD_TYPING, "(COLLECT-VALUES-1) values(record) preserves typed collection flows"), () => {
-    const typedResult = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_VALUES_RECORD_TYPING,
+      "(COLLECT-VALUES-1) values(record) preserves typed collection flows",
+    ),
+    () => {
+      const typedResult = adapter.compile(`
       domain Demo {
         type Item = { id: string, qty: number }
         type Line = { id: string, qty: number }
@@ -523,7 +629,7 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const invalidResult = adapter.compile(`
+      const invalidResult = adapter.compile(`
       domain Demo {
         type Item = { id: string, qty: number }
         type Line = { id: string, qty: number }
@@ -540,7 +646,7 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const nestedResult = adapter.compile(`
+      const nestedResult = adapter.compile(`
       domain Demo {
         type Item = { id: string, qty: number }
         type Line = { id: string, qty: number }
@@ -562,22 +668,38 @@ describe("CCTS State and Computed Suite", () => {
       }
     `);
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("COLLECT-VALUES-1"), typedResult.success && nestedResult.success && hasDiagnosticCode(invalidResult.errors, "E_TYPE_MISMATCH"), {
-        passMessage: "values(record) keeps typed collection flows visible to semantic checking.",
-        failMessage: "values(record) still loses typing or bypasses downstream validation.",
-        evidence: [
-          ...diagnosticEvidence(typedResult.errors),
-          ...diagnosticEvidence(invalidResult.errors),
-          ...diagnosticEvidence(nestedResult.errors),
-          noteEvidence("Observed nested order field", nestedResult.value?.state.fields["orders"]),
-        ],
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("COLLECT-VALUES-1"),
+          typedResult.success &&
+            nestedResult.success &&
+            hasDiagnosticCode(invalidResult.errors, "E_TYPE_MISMATCH"),
+          {
+            passMessage:
+              "values(record) keeps typed collection flows visible to semantic checking.",
+            failMessage: "values(record) still loses typing or bypasses downstream validation.",
+            evidence: [
+              ...diagnosticEvidence(typedResult.errors),
+              ...diagnosticEvidence(invalidResult.errors),
+              ...diagnosticEvidence(nestedResult.errors),
+              noteEvidence(
+                "Observed nested order field",
+                nestedResult.value?.state.fields["orders"],
+              ),
+            ],
+          },
+        ),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_ARG_SELECTION_COVERAGE, "(MEL-SUGAR-4) argmax()/argmin() narrow away null only when eligibility is exhaustively covered"), () => {
-    const coveredResult = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_ARG_SELECTION_COVERAGE,
+      "(MEL-SUGAR-4) argmax()/argmin() narrow away null only when eligibility is exhaustively covered",
+    ),
+    () => {
+      const coveredResult = adapter.compile(`
       domain Demo {
         state {
           mode: "ship" | "pickup" = "ship"
@@ -604,7 +726,7 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const coveredMinResult = adapter.compile(`
+      const coveredMinResult = adapter.compile(`
       domain Demo {
         state {
           mode: "ship" | "pickup" = "ship"
@@ -631,7 +753,7 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const uncoveredResult = adapter.compile(`
+      const uncoveredResult = adapter.compile(`
       domain Demo {
         state {
           flag: boolean = false
@@ -658,7 +780,7 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const literalGapResult = adapter.compile(`
+      const literalGapResult = adapter.compile(`
       domain Demo {
         state {
           mode: "ship" | "pickup" | "digital" = "ship"
@@ -685,7 +807,7 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const nullablePathResult = adapter.compile(`
+      const nullablePathResult = adapter.compile(`
       domain Demo {
         type Selection = { mode: "ship" | "pickup" }
 
@@ -707,7 +829,7 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const optionalPathResult = adapter.compile(`
+      const optionalPathResult = adapter.compile(`
       domain Demo {
         type Selection = { mode?: "ship" | "pickup" }
 
@@ -729,7 +851,7 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const indexPathResult = adapter.compile(`
+      const indexPathResult = adapter.compile(`
       domain Demo {
         type Entry = { mode: "ship" | "pickup" }
 
@@ -752,25 +874,43 @@ describe("CCTS State and Computed Suite", () => {
       }
     `);
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("MEL-SUGAR-4"), coveredResult.success && coveredMinResult.success && hasDiagnosticCode(uncoveredResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(literalGapResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(nullablePathResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(optionalPathResult.errors, "E_TYPE_MISMATCH") && hasDiagnosticCode(indexPathResult.errors, "E_TYPE_MISMATCH"), {
-        passMessage: "argmax()/argmin() preserve non-null label typing only when candidate eligibility coverage is statically exhaustive.",
-        failMessage: "argmax()/argmin() nullability narrowing is either too weak for exhaustive coverage or too loose for uncovered cases.",
-        evidence: [
-          ...diagnosticEvidence(coveredResult.errors),
-          ...diagnosticEvidence(coveredMinResult.errors),
-          ...diagnosticEvidence(uncoveredResult.errors),
-          ...diagnosticEvidence(literalGapResult.errors),
-          ...diagnosticEvidence(nullablePathResult.errors),
-          ...diagnosticEvidence(optionalPathResult.errors),
-          ...diagnosticEvidence(indexPathResult.errors),
-        ],
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(
+          getRuleOrThrow("MEL-SUGAR-4"),
+          coveredResult.success &&
+            coveredMinResult.success &&
+            hasDiagnosticCode(uncoveredResult.errors, "E_TYPE_MISMATCH") &&
+            hasDiagnosticCode(literalGapResult.errors, "E_TYPE_MISMATCH") &&
+            hasDiagnosticCode(nullablePathResult.errors, "E_TYPE_MISMATCH") &&
+            hasDiagnosticCode(optionalPathResult.errors, "E_TYPE_MISMATCH") &&
+            hasDiagnosticCode(indexPathResult.errors, "E_TYPE_MISMATCH"),
+          {
+            passMessage:
+              "argmax()/argmin() preserve non-null label typing only when candidate eligibility coverage is statically exhaustive.",
+            failMessage:
+              "argmax()/argmin() nullability narrowing is either too weak for exhaustive coverage or too loose for uncovered cases.",
+            evidence: [
+              ...diagnosticEvidence(coveredResult.errors),
+              ...diagnosticEvidence(coveredMinResult.errors),
+              ...diagnosticEvidence(uncoveredResult.errors),
+              ...diagnosticEvidence(literalGapResult.errors),
+              ...diagnosticEvidence(nullablePathResult.errors),
+              ...diagnosticEvidence(optionalPathResult.errors),
+              ...diagnosticEvidence(indexPathResult.errors),
+            ],
+          },
+        ),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_OBJECT_SPREAD_TYPING, "(SPREAD-OPERAND-1/SPREAD-PATCH-1/SPREAD-PRESENCE-1) object-spread typing and patch assignability are enforced"), () => {
-    const result = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_OBJECT_SPREAD_TYPING,
+      "(SPREAD-OPERAND-1/SPREAD-PATCH-1/SPREAD-PRESENCE-1) object-spread typing and patch assignability are enforced",
+    ),
+    () => {
+      const result = adapter.compile(`
       domain Demo {
         type Draft = {
           customerId: string,
@@ -794,7 +934,7 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const invalidStateInitializerResult = adapter.compile(`
+      const invalidStateInitializerResult = adapter.compile(`
       domain Demo {
         type Config = {
           theme: string
@@ -808,35 +948,45 @@ describe("CCTS State and Computed Suite", () => {
         }
       }
     `);
-    const operandSurfaceHolds =
-      result.success &&
-      !invalidStateInitializerResult.success &&
-      hasDiagnosticCode(invalidStateInitializerResult.diagnostics, ["E_TYPE_MISMATCH"]);
+      const operandSurfaceHolds =
+        result.success &&
+        !invalidStateInitializerResult.success &&
+        hasDiagnosticCode(invalidStateInitializerResult.diagnostics, ["E_TYPE_MISMATCH"]);
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("SPREAD-OPERAND-1"), operandSurfaceHolds, {
-        passMessage: "Object-literal spread accepts nullable object operands and rejects non-object state-initializer operands.",
-        failMessage: "Object-literal spread operand validation still leaks or rejects part of the v1.2 surface.",
-        evidence: [
-          ...diagnosticEvidence(result.errors),
-          ...diagnosticEvidence(invalidStateInitializerResult.errors),
-        ],
-      }),
-      evaluateRule(getRuleOrThrow("SPREAD-PATCH-1"), result.success, {
-        passMessage: "Spread-backed object literals are accepted in set-patch assignment positions.",
-        failMessage: "Set-patch object literals using spread are still blocked.",
-        evidence: diagnosticEvidence(result.errors),
-      }),
-      evaluateRule(getRuleOrThrow("SPREAD-PRESENCE-1"), result.success, {
-        passMessage: "Presence-aware typing for spread-backed objects accepts explicit unconditional contributions.",
-        failMessage: "Presence-aware spread typing did not hold for the current v1.2 contract.",
-        evidence: diagnosticEvidence(result.errors),
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(getRuleOrThrow("SPREAD-OPERAND-1"), operandSurfaceHolds, {
+          passMessage:
+            "Object-literal spread accepts nullable object operands and rejects non-object state-initializer operands.",
+          failMessage:
+            "Object-literal spread operand validation still leaks or rejects part of the v1.2 surface.",
+          evidence: [
+            ...diagnosticEvidence(result.errors),
+            ...diagnosticEvidence(invalidStateInitializerResult.errors),
+          ],
+        }),
+        evaluateRule(getRuleOrThrow("SPREAD-PATCH-1"), result.success, {
+          passMessage:
+            "Spread-backed object literals are accepted in set-patch assignment positions.",
+          failMessage: "Set-patch object literals using spread are still blocked.",
+          evidence: diagnosticEvidence(result.errors),
+        }),
+        evaluateRule(getRuleOrThrow("SPREAD-PRESENCE-1"), result.success, {
+          passMessage:
+            "Presence-aware typing for spread-backed objects accepts explicit unconditional contributions.",
+          failMessage: "Presence-aware spread typing did not hold for the current v1.2 contract.",
+          evidence: diagnosticEvidence(result.errors),
+        }),
+      ]);
+    },
+  );
 
-  it(caseTitle(CCTS_CASES.STATE_OBJECT_SPREAD_CONSUME, "(SPREAD-CONSUME-1) optional spread-result reads require explicit normalization"), () => {
-    const result = adapter.compile(`
+  it(
+    caseTitle(
+      CCTS_CASES.STATE_OBJECT_SPREAD_CONSUME,
+      "(SPREAD-CONSUME-1) optional spread-result reads require explicit normalization",
+    ),
+    () => {
+      const result = adapter.compile(`
       domain Demo {
         type Draft = {
           customerId: string,
@@ -853,12 +1003,15 @@ describe("CCTS State and Computed Suite", () => {
       }
     `);
 
-    expectAllCompliance([
-      evaluateRule(getRuleOrThrow("SPREAD-CONSUME-1"), result.success, {
-        passMessage: "Optional fields introduced by spread can be observed as nullable values and normalized explicitly.",
-        failMessage: "Spread-result consumption did not satisfy the current optional-read contract.",
-        evidence: diagnosticEvidence(result.errors),
-      }),
-    ]);
-  });
+      expectAllCompliance([
+        evaluateRule(getRuleOrThrow("SPREAD-CONSUME-1"), result.success, {
+          passMessage:
+            "Optional fields introduced by spread can be observed as nullable values and normalized explicitly.",
+          failMessage:
+            "Spread-result consumption did not satisfy the current optional-read contract.",
+          evidence: diagnosticEvidence(result.errors),
+        }),
+      ]);
+    },
+  );
 });

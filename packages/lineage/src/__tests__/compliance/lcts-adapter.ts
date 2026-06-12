@@ -11,7 +11,7 @@ export class SplitNativeLineageComplianceAdapter implements LineageComplianceAda
   async computeWorldId(
     schemaHash: string,
     snapshotHash: string,
-    parentWorldId: string | null
+    parentWorldId: string | null,
   ): Promise<string> {
     return computeWorldId(schemaHash, snapshotHash, parentWorldId);
   }

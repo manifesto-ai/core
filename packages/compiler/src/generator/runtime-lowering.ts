@@ -6,10 +6,7 @@ import {
   EFFECT_ARGS_CONTEXT,
   lowerExprNode,
 } from "../lowering/index.js";
-import {
-  getBasePathExpr,
-  objExpr,
-} from "../lowering/to-mel-expr.js";
+import { getBasePathExpr, objExpr } from "../lowering/to-mel-expr.js";
 import type {
   CanonicalDomainSchema,
   CompilerActionSpec,
@@ -30,16 +27,18 @@ export function lowerCanonicalSchema(schema: CanonicalDomainSchema): DomainSchem
         Object.entries(schema.computed.fields).map(([name, field]) => [
           name,
           lowerComputedField(field),
-        ])
+        ]),
       ),
     },
     actions: Object.fromEntries(
-      Object.entries(schema.actions).map(([name, action]) => [name, lowerAction(action)])
+      Object.entries(schema.actions).map(([name, action]) => [name, lowerAction(action)]),
     ),
   };
 }
 
-function lowerComputedField(field: CompilerComputedFieldSpec): DomainSchema["computed"]["fields"][string] {
+function lowerComputedField(
+  field: CompilerComputedFieldSpec,
+): DomainSchema["computed"]["fields"][string] {
   return {
     ...field,
     expr: lowerSchemaExpr(field.expr),
@@ -91,7 +90,7 @@ function lowerFlow(flow: CompilerFlowNode): CoreFlowNode {
         kind: "effect",
         type: flow.type,
         params: Object.fromEntries(
-          Object.entries(flow.params).map(([name, value]) => [name, lowerEffectExpr(value)])
+          Object.entries(flow.params).map(([name, value]) => [name, lowerEffectExpr(value)]),
         ),
       };
 
@@ -109,7 +108,7 @@ function lowerFlow(flow: CompilerFlowNode): CoreFlowNode {
 }
 
 function lowerFlowPatchPath(
-  path: Extract<CompilerFlowNode, { kind: "patch" }>["path"]
+  path: Extract<CompilerFlowNode, { kind: "patch" }>["path"],
 ): Extract<CoreFlowNode, { kind: "patch" }>["path"] {
   return path.map((segment) => {
     if (segment.kind === "prop" || segment.kind === "index") {
@@ -189,7 +188,9 @@ function rewriteForRuntime(expr: MelExprNode): MelExprNode {
 function rewriteEntityPrimitive(fn: string, args: MelExprNode[]): MelExprNode {
   const [collection, idArg, updatesArg] = args;
   const collectionExpr = rewriteForRuntime(collection);
-  const idExpr = idArg ? rewriteForRuntime(idArg) : { kind: "lit", value: null } satisfies MelExprNode;
+  const idExpr = idArg
+    ? rewriteForRuntime(idArg)
+    : ({ kind: "lit", value: null } satisfies MelExprNode);
   const itemVar = { kind: "var", name: "item" } satisfies MelExprNode;
   const itemId = getBasePathExpr(itemVar, "id");
 

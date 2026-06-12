@@ -4,10 +4,7 @@ import { createInMemoryLineageStore } from "./store/in-memory-lineage-store.js";
 import { createLineageService } from "./service/lineage-service.js";
 import type { ComputeEnvelope } from "./types.js";
 
-function createTestComputeEnvelope(
-  type = "test.intent",
-  intentId = "intent-1",
-): ComputeEnvelope {
+function createTestComputeEnvelope(type = "test.intent", intentId = "intent-1"): ComputeEnvelope {
   return {
     intent: { type, intentId },
     context: {
@@ -22,7 +19,7 @@ function createTestComputeEnvelope(
 
 function createTestSnapshot(
   state: Record<string, unknown>,
-  overrides?: Partial<Snapshot>
+  overrides?: Partial<Snapshot>,
 ): Snapshot {
   return {
     state,

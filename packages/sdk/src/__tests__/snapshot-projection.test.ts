@@ -103,8 +103,9 @@ describe("projectCanonicalSnapshot()", () => {
     const canonical = createCanonicalSnapshot();
     const plan = { visibleComputedKeys: ["doubled"] };
 
-    expect(projectEffectContextSnapshot(canonical, plan))
-      .toEqual(projectCanonicalSnapshot(canonical, plan));
+    expect(projectEffectContextSnapshot(canonical, plan)).toEqual(
+      projectCanonicalSnapshot(canonical, plan),
+    );
   });
 });
 
@@ -185,70 +186,77 @@ describe("projectedSnapshotsEqual()", () => {
 
     const withHole: unknown[] = [];
     withHole[1] = 2;
-    expect(projectedSnapshotsEqual(snap({ a: withHole }), snap({ a: [undefined, 2] })))
-      .toBe(false);
+    expect(projectedSnapshotsEqual(snap({ a: withHole }), snap({ a: [undefined, 2] }))).toBe(false);
   });
 
   it("compares Date, RegExp, Map, Set, and typed-array values by content", () => {
-    expect(projectedSnapshotsEqual(
-      snap({ at: new Date(1_000) }),
-      snap({ at: new Date(1_000) }),
-    )).toBe(true);
-    expect(projectedSnapshotsEqual(
-      snap({ at: new Date(1_000) }),
-      snap({ at: new Date(2_000) }),
-    )).toBe(false);
+    expect(
+      projectedSnapshotsEqual(snap({ at: new Date(1_000) }), snap({ at: new Date(1_000) })),
+    ).toBe(true);
+    expect(
+      projectedSnapshotsEqual(snap({ at: new Date(1_000) }), snap({ at: new Date(2_000) })),
+    ).toBe(false);
 
-    expect(projectedSnapshotsEqual(
-      snap({ pattern: /abc/gi }),
-      snap({ pattern: /abc/gi }),
-    )).toBe(true);
-    expect(projectedSnapshotsEqual(
-      snap({ pattern: /abc/g }),
-      snap({ pattern: /abc/i }),
-    )).toBe(false);
+    expect(projectedSnapshotsEqual(snap({ pattern: /abc/gi }), snap({ pattern: /abc/gi }))).toBe(
+      true,
+    );
+    expect(projectedSnapshotsEqual(snap({ pattern: /abc/g }), snap({ pattern: /abc/i }))).toBe(
+      false,
+    );
 
-    expect(projectedSnapshotsEqual(
-      snap({ map: new Map([["k", 1]]) }),
-      snap({ map: new Map([["k", 1]]) }),
-    )).toBe(true);
-    expect(projectedSnapshotsEqual(
-      snap({ map: new Map([["k", 1]]) }),
-      snap({ map: new Map([["k", 2]]) }),
-    )).toBe(false);
+    expect(
+      projectedSnapshotsEqual(
+        snap({ map: new Map([["k", 1]]) }),
+        snap({ map: new Map([["k", 1]]) }),
+      ),
+    ).toBe(true);
+    expect(
+      projectedSnapshotsEqual(
+        snap({ map: new Map([["k", 1]]) }),
+        snap({ map: new Map([["k", 2]]) }),
+      ),
+    ).toBe(false);
 
-    expect(projectedSnapshotsEqual(
-      snap({ set: new Set([1, 2]) }),
-      snap({ set: new Set([1, 2]) }),
-    )).toBe(true);
-    expect(projectedSnapshotsEqual(
-      snap({ set: new Set([1, 2]) }),
-      snap({ set: new Set([1, 3]) }),
-    )).toBe(false);
+    expect(
+      projectedSnapshotsEqual(snap({ set: new Set([1, 2]) }), snap({ set: new Set([1, 2]) })),
+    ).toBe(true);
+    expect(
+      projectedSnapshotsEqual(snap({ set: new Set([1, 2]) }), snap({ set: new Set([1, 3]) })),
+    ).toBe(false);
 
-    expect(projectedSnapshotsEqual(
-      snap({ bytes: new Uint8Array([1, 2]) }),
-      snap({ bytes: new Uint8Array([1, 2]) }),
-    )).toBe(true);
-    expect(projectedSnapshotsEqual(
-      snap({ bytes: new Uint8Array([1, 2]) }),
-      snap({ bytes: new Uint8Array([1, 3]) }),
-    )).toBe(false);
-    expect(projectedSnapshotsEqual(
-      snap({ bytes: new Uint8Array([1, 2]) }),
-      snap({ bytes: new Int8Array([1, 2]) }),
-    )).toBe(false);
+    expect(
+      projectedSnapshotsEqual(
+        snap({ bytes: new Uint8Array([1, 2]) }),
+        snap({ bytes: new Uint8Array([1, 2]) }),
+      ),
+    ).toBe(true);
+    expect(
+      projectedSnapshotsEqual(
+        snap({ bytes: new Uint8Array([1, 2]) }),
+        snap({ bytes: new Uint8Array([1, 3]) }),
+      ),
+    ).toBe(false);
+    expect(
+      projectedSnapshotsEqual(
+        snap({ bytes: new Uint8Array([1, 2]) }),
+        snap({ bytes: new Int8Array([1, 2]) }),
+      ),
+    ).toBe(false);
   });
 
   it("compares ArrayBuffer values by bytes", () => {
-    expect(projectedSnapshotsEqual(
-      snap({ buffer: new Uint8Array([7, 8]).buffer }),
-      snap({ buffer: new Uint8Array([7, 8]).buffer }),
-    )).toBe(true);
-    expect(projectedSnapshotsEqual(
-      snap({ buffer: new Uint8Array([7, 8]).buffer }),
-      snap({ buffer: new Uint8Array([7, 9]).buffer }),
-    )).toBe(false);
+    expect(
+      projectedSnapshotsEqual(
+        snap({ buffer: new Uint8Array([7, 8]).buffer }),
+        snap({ buffer: new Uint8Array([7, 8]).buffer }),
+      ),
+    ).toBe(true);
+    expect(
+      projectedSnapshotsEqual(
+        snap({ buffer: new Uint8Array([7, 8]).buffer }),
+        snap({ buffer: new Uint8Array([7, 9]).buffer }),
+      ),
+    ).toBe(false);
   });
 
   it("terminates on equivalent cyclic structures", () => {
@@ -289,7 +297,10 @@ describe("diffProjectedPaths()", () => {
       profile: { name: "Kim", age: 30 },
     });
     const right = snap({
-      todos: [{ id: "a", done: true }, { id: "b", done: false }],
+      todos: [
+        { id: "a", done: true },
+        { id: "b", done: false },
+      ],
       profile: { name: "Lee", age: 30 },
     });
 
@@ -314,12 +325,9 @@ describe("diffProjectedPaths()", () => {
     expect(diffProjectedPaths(snap({ a: [1] }), snap({ a: { 0: 1 } }))).toEqual([
       { path: ["state", "a"], kind: "changed" },
     ]);
-    expect(diffProjectedPaths(
-      snap({ at: new Date(1_000) }),
-      snap({ at: new Date(2_000) }),
-    )).toEqual([
-      { path: ["state", "at"], kind: "changed" },
-    ]);
+    expect(
+      diffProjectedPaths(snap({ at: new Date(1_000) }), snap({ at: new Date(2_000) })),
+    ).toEqual([{ path: ["state", "at"], kind: "changed" }]);
   });
 
   it("treats null transitions as changed", () => {

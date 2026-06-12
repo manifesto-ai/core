@@ -9,10 +9,7 @@ import {
   createCounterSchema,
   type CounterDomain,
 } from "../../../../sdk/src/__tests__/helpers/schema.ts";
-import {
-  createInMemoryLineageStore,
-  withLineage,
-} from "../../index.ts";
+import { createInMemoryLineageStore, withLineage } from "../../index.ts";
 
 const lineage = withLineage<CounterDomain>(
   createManifesto<CounterDomain>(createCounterSchema(), {}),

@@ -4,10 +4,7 @@ import type { SchemaGraph as RawSchemaGraph } from "@manifesto-ai/compiler";
 import { ManifestoError, createManifesto } from "../index.js";
 import { createSdkSchemaGraph } from "../runtime/schema-graph.js";
 import type { SchemaGraphNodeId } from "../types.js";
-import {
-  createCounterSchema,
-  type CounterDomain,
-} from "./helpers/schema.js";
+import { createCounterSchema, type CounterDomain } from "./helpers/schema.js";
 
 function createRawGraph(): RawSchemaGraph {
   return {
@@ -55,11 +52,7 @@ describe("createSdkSchemaGraph()", () => {
 
     const downstream = graph.traceDown("state:count");
 
-    expect(nodeIds(downstream)).toEqual([
-      "computed:doubled",
-      "computed:quadrupled",
-      "state:count",
-    ]);
+    expect(nodeIds(downstream)).toEqual(["computed:doubled", "computed:quadrupled", "state:count"]);
     expect(downstream.edges).toEqual([
       { from: "state:count", to: "computed:doubled", relation: "feeds" },
       { from: "computed:doubled", to: "computed:quadrupled", relation: "feeds" },
@@ -113,17 +106,22 @@ describe("createSdkSchemaGraph()", () => {
   it("resolves ActionRef, FieldRef, and ComputedRef lookups", () => {
     const graph = createSdkSchemaGraph(createRawGraph());
 
-    expect(nodeIds(graph.traceDown({ __kind: "FieldRef", name: "count" })))
-      .toEqual(["computed:doubled", "computed:quadrupled", "state:count"]);
-    expect(nodeIds(graph.traceDown({ __kind: "ActionRef", name: "increment" })))
-      .toEqual([
-        "action:increment",
-        "computed:doubled",
-        "computed:quadrupled",
-        "state:count",
-      ]);
-    expect(nodeIds(graph.traceUp({ __kind: "ComputedRef", name: "doubled" })))
-      .toEqual(["action:increment", "computed:doubled", "state:count"]);
+    expect(nodeIds(graph.traceDown({ __kind: "FieldRef", name: "count" }))).toEqual([
+      "computed:doubled",
+      "computed:quadrupled",
+      "state:count",
+    ]);
+    expect(nodeIds(graph.traceDown({ __kind: "ActionRef", name: "increment" }))).toEqual([
+      "action:increment",
+      "computed:doubled",
+      "computed:quadrupled",
+      "state:count",
+    ]);
+    expect(nodeIds(graph.traceUp({ __kind: "ComputedRef", name: "doubled" }))).toEqual([
+      "action:increment",
+      "computed:doubled",
+      "state:count",
+    ]);
   });
 
   it("rejects malformed string node ids with SCHEMA_ERROR", () => {
@@ -147,8 +145,7 @@ describe("createSdkSchemaGraph()", () => {
   it("rejects refs that are not part of the projected graph", () => {
     const graph = createSdkSchemaGraph(createRawGraph());
 
-    const error = captureError(() =>
-      graph.traceUp({ __kind: "FieldRef", name: "missing" }));
+    const error = captureError(() => graph.traceUp({ __kind: "FieldRef", name: "missing" }));
     expect(error.code).toBe("SCHEMA_ERROR");
     expect(error.message).toBe(
       'SchemaGraph node "state:missing" is not part of the projected graph',
@@ -159,7 +156,8 @@ describe("createSdkSchemaGraph()", () => {
     const graph = createSdkSchemaGraph(createRawGraph());
 
     const error = captureError(() =>
-      graph.traceUp({ __kind: "EffectRef", name: "count" } as never));
+      graph.traceUp({ __kind: "EffectRef", name: "count" } as never),
+    );
     expect(error.code).toBe("SCHEMA_ERROR");
     expect(error.message).toBe("Unsupported SchemaGraph ref lookup target");
   });

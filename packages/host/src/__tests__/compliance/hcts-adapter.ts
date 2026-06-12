@@ -39,11 +39,7 @@ export interface TestEffectRunner {
   /**
    * Execute an effect and return patches
    */
-  execute(
-    requirementId: string,
-    type: string,
-    params: Record<string, unknown>
-  ): Promise<Patch[]>;
+  execute(requirementId: string, type: string, params: Record<string, unknown>): Promise<Patch[]>;
 
   /**
    * Get execution count for a requirement type
@@ -95,7 +91,7 @@ export interface HostTestAdapter {
     key: ExecutionKey,
     requirementId: string,
     patches: Patch[],
-    namespaceDelta?: readonly NamespaceDelta[]
+    namespaceDelta?: readonly NamespaceDelta[],
   ): void;
 
   /**
@@ -152,7 +148,7 @@ export class SimpleTestEffectRunner implements TestEffectRunner {
   async execute(
     requirementId: string,
     type: string,
-    params: Record<string, unknown>
+    params: Record<string, unknown>,
   ): Promise<Patch[]> {
     const count = this.executionCounts.get(type) ?? 0;
     this.executionCounts.set(type, count + 1);
@@ -227,7 +223,7 @@ export class ControllableEffectRunner implements TestEffectRunner {
   async execute(
     requirementId: string,
     type: string,
-    params: Record<string, unknown>
+    params: Record<string, unknown>,
   ): Promise<Patch[]> {
     const count = this.executionCounts.get(type) ?? 0;
     this.executionCounts.set(type, count + 1);

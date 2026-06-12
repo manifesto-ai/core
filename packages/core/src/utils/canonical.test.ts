@@ -30,7 +30,10 @@ describe("Canonical Utilities", () => {
     });
 
     it("should handle arrays", () => {
-      const obj = [{ b: 1, a: 2 }, { d: 3, c: 4 }];
+      const obj = [
+        { b: 1, a: 2 },
+        { d: 3, c: 4 },
+      ];
       const result = sortKeys(obj) as Array<Record<string, number>>;
       expect(result).toHaveLength(2);
       expect(Object.keys(result[0])).toEqual(["a", "b"]);

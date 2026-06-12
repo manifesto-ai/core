@@ -5,10 +5,7 @@ import { compileMelDomain, compileMelModule } from "../api/index.js";
 import { parse } from "../parser/index.js";
 import { tokenize } from "../lexer/index.js";
 import { extractSchemaGraph } from "../schema-graph.js";
-import {
-  createDefaultSourceMapEmissionContext,
-  extractSourceMap,
-} from "../source-map.js";
+import { createDefaultSourceMapEmissionContext, extractSourceMap } from "../source-map.js";
 
 const ANNOTATED_SOURCE = `
   @meta("doc:summary", { area: "tasks" })
@@ -95,7 +92,9 @@ describe("structural annotations", () => {
     expect(firstModule.sourceMap.sourceHash.startsWith("fnv1a32:")).toBe(true);
     expect(firstModule.sourceMap.emissionFingerprint.startsWith("fnv1a32:")).toBe(true);
     expect(firstModule.graph).toEqual(extractSchemaGraph(firstModule.schema));
-    expect(firstModule.graph).toEqual(extractSchemaGraph(compileMelDomain(STRIPPED_SOURCE, { mode: "domain" }).schema!));
+    expect(firstModule.graph).toEqual(
+      extractSchemaGraph(compileMelDomain(STRIPPED_SOURCE, { mode: "domain" }).schema!),
+    );
     expect(JSON.stringify(firstModule.annotations)).toBe(JSON.stringify(secondModule.annotations));
     expect(JSON.stringify(firstModule.sourceMap)).toBe(JSON.stringify(secondModule.sourceMap));
     expect(Object.keys(firstModule.annotations.entries)).toEqual([
@@ -141,11 +140,14 @@ describe("structural annotations", () => {
     expect(Object.isFrozen(firstModule.sourceMap.entries["action:archive"]?.target)).toBe(true);
     expect(Object.isFrozen(firstModule.annotations.entries)).toBe(true);
     expect(Object.isFrozen(firstModule.annotations.entries["computed:hasArchivedTask"])).toBe(true);
-    expect(Object.isFrozen(firstModule.annotations.entries["computed:hasArchivedTask"]?.[2]?.payload)).toBe(true);
+    expect(
+      Object.isFrozen(firstModule.annotations.entries["computed:hasArchivedTask"]?.[2]?.payload),
+    ).toBe(true);
   });
 
   it("remains namespace-blind and accepts unknown annotation vocabularies", () => {
-    const result = compileMelModule(`
+    const result = compileMelModule(
+      `
       @meta("totally:custom", { enabled: true })
       domain Demo {
         state { count: number = 0 }
@@ -154,7 +156,9 @@ describe("structural annotations", () => {
           when true { patch count = add(count, 1) }
         }
       }
-    `, { mode: "module" });
+    `,
+      { mode: "module" },
+    );
 
     expect(result.errors).toEqual([]);
     expect(result.module?.annotations.entries).toEqual({
@@ -164,7 +168,8 @@ describe("structural annotations", () => {
   });
 
   it("reports E053 for unsupported annotation placement", () => {
-    const statementResult = compileMelDomain(`
+    const statementResult = compileMelDomain(
+      `
       domain Demo {
         state { count: number = 0 }
         action increment() {
@@ -172,9 +177,12 @@ describe("structural annotations", () => {
           when true { patch count = add(count, 1) }
         }
       }
-    `, { mode: "domain" });
+    `,
+      { mode: "domain" },
+    );
 
-    const nestedFieldResult = compileMelDomain(`
+    const nestedFieldResult = compileMelDomain(
+      `
       domain Demo {
         state {
           config: {
@@ -183,12 +191,17 @@ describe("structural annotations", () => {
           } = { nested: "x" }
         }
       }
-    `, { mode: "domain" });
-    const trailingMemberResult = compileMelDomain(`
+    `,
+      { mode: "domain" },
+    );
+    const trailingMemberResult = compileMelDomain(
+      `
       domain Demo {
         @meta("ui:button")
       }
-    `, { mode: "domain" });
+    `,
+      { mode: "domain" },
+    );
     const floatingTopLevelResult = compileMelDomain(FLOATING_ANNOTATION_SOURCE, { mode: "domain" });
 
     expect(statementResult.errors.some((error) => error.code === "E053")).toBe(true);
@@ -198,20 +211,24 @@ describe("structural annotations", () => {
   });
 
   it("reports E054 for action-parameter annotations", () => {
-    const result = compileMelDomain(`
+    const result = compileMelDomain(
+      `
       domain Demo {
         state { nextDueDate: string = "" }
         action create(@meta("ui:date-picker") dueDate: string) {
           when true { patch nextDueDate = dueDate }
         }
       }
-    `, { mode: "domain" });
+    `,
+      { mode: "domain" },
+    );
 
     expect(result.errors.some((error) => error.code === "E054")).toBe(true);
   });
 
   it("reports E055 for non-literal annotation payloads", () => {
-    const result = compileMelDomain(`
+    const result = compileMelDomain(
+      `
       domain Demo {
         state {
           items: Array<string> = []
@@ -223,20 +240,25 @@ describe("structural annotations", () => {
           when true { patch lastArchivedId = "done" }
         }
       }
-    `, { mode: "domain" });
+    `,
+      { mode: "domain" },
+    );
 
     expect(result.errors.some((error) => error.code === "E055")).toBe(true);
   });
 
   it("reports E056 for payloads that exceed the v1 nesting limit", () => {
-    const result = compileMelDomain(`
+    const result = compileMelDomain(
+      `
       domain Demo {
         state { cardVariant: string = "free" }
 
         @meta("ui:card", { config: { pricing: { free: "$0" } } })
         computed cardVariantView = cardVariant
       }
-    `, { mode: "domain" });
+    `,
+      { mode: "domain" },
+    );
 
     expect(result.errors.some((error) => error.code === "E056")).toBe(true);
   });
@@ -309,15 +331,10 @@ describe("structural annotations", () => {
       compiled.schema!,
       createDefaultSourceMapEmissionContext("3.5.0"),
     );
-    const byteResult = extractSourceMap(
-      parsed.program!,
-      source,
-      compiled.schema!,
-      {
-        ...createDefaultSourceMapEmissionContext("3.5.0"),
-        coordinateUnit: "bytes",
-      },
-    );
+    const byteResult = extractSourceMap(parsed.program!, source, compiled.schema!, {
+      ...createDefaultSourceMapEmissionContext("3.5.0"),
+      coordinateUnit: "bytes",
+    });
 
     expect(utf16Result.diagnostics).toEqual([]);
     expect(byteResult.diagnostics).toEqual([]);

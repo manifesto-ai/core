@@ -1,7 +1,7 @@
 import { semanticPathToPatchPath } from "@manifesto-ai/core";
 const pp = semanticPathToPatchPath;
 
-import { describe, it, expect, beforeEach, } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { EffectExecutor, createEffectExecutor } from "../../../effects/executor.js";
 import { EffectHandlerRegistry, createEffectRegistry } from "../../../effects/registry.js";
 import type { EffectHandler } from "../../../effects/types.js";
@@ -36,7 +36,8 @@ describe("EffectExecutor", () => {
       expect(result.success).toBe(true);
       expect(result.patches).toHaveLength(1);
       expect(result.patches[0]).toEqual({
-        op: "set", path: pp("result"),
+        op: "set",
+        path: pp("result"),
         value: "success",
       });
       expect(result.duration).toBeGreaterThanOrEqual(0);
@@ -131,10 +132,7 @@ describe("EffectExecutor", () => {
         payload: { bytes: new Uint8Array([1, 2, 3]) },
       });
 
-      await executor.execute(
-        createTestRequirement("test"),
-        snapshot,
-      );
+      await executor.execute(createTestRequirement("test"), snapshot);
 
       expect(receivedContext.snapshot.state.payload.bytes).toBeInstanceOf(Uint8Array);
       expect(Array.from(receivedContext.snapshot.state.payload.bytes)).toEqual([1, 2, 3]);
@@ -142,7 +140,9 @@ describe("EffectExecutor", () => {
 
       receivedContext.snapshot.state.payload.bytes[0] = 9;
       expect(Array.from(receivedContext.snapshot.state.payload.bytes)).toEqual([9, 2, 3]);
-      expect(Array.from((snapshot.state as { payload: { bytes: Uint8Array } }).payload.bytes)).toEqual([1, 2, 3]);
+      expect(
+        Array.from((snapshot.state as { payload: { bytes: Uint8Array } }).payload.bytes),
+      ).toEqual([1, 2, 3]);
     });
 
     it("should provide a frozen requirement to handler", async () => {
@@ -189,10 +189,7 @@ describe("EffectExecutor", () => {
       const handler: EffectHandler = async () => patches;
       registry.register("multi", handler);
 
-      const result = await executor.execute(
-        createTestRequirement("multi"),
-        createTestSnapshot()
-      );
+      const result = await executor.execute(createTestRequirement("multi"), createTestSnapshot());
 
       expect(result.success).toBe(true);
       expect(result.patches).toEqual(patches);
@@ -204,10 +201,7 @@ describe("EffectExecutor", () => {
       };
       registry.register("failing", handler);
 
-      const result = await executor.execute(
-        createTestRequirement("failing"),
-        createTestSnapshot()
-      );
+      const result = await executor.execute(createTestRequirement("failing"), createTestSnapshot());
 
       expect(result.ok).toBe(false);
       expect(result.success).toBe(false);
@@ -229,7 +223,7 @@ describe("EffectExecutor", () => {
 
       const result = await executor.execute(
         createTestRequirement("throwing"),
-        createTestSnapshot()
+        createTestSnapshot(),
       );
 
       expect(result.success).toBe(false);
@@ -243,10 +237,7 @@ describe("EffectExecutor", () => {
       };
       registry.register("slow", handler, { timeout: 5000 });
 
-      const result = await executor.execute(
-        createTestRequirement("slow"),
-        createTestSnapshot()
-      );
+      const result = await executor.execute(createTestRequirement("slow"), createTestSnapshot());
 
       expect(result.success).toBe(true);
       expect(result.duration).toBeGreaterThanOrEqual(40); // Allow some tolerance
@@ -261,10 +252,7 @@ describe("EffectExecutor", () => {
       };
       registry.register("slow", handler, { timeout: 50 });
 
-      const result = await executor.execute(
-        createTestRequirement("slow"),
-        createTestSnapshot()
-      );
+      const result = await executor.execute(createTestRequirement("slow"), createTestSnapshot());
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("timed out");
@@ -297,10 +285,7 @@ describe("EffectExecutor", () => {
       };
       registry.register("retry", handler, { retries: 3, retryDelay: 10 });
 
-      const result = await executor.execute(
-        createTestRequirement("retry"),
-        createTestSnapshot()
-      );
+      const result = await executor.execute(createTestRequirement("retry"), createTestSnapshot());
 
       expect(result.success).toBe(true);
       expect(attempts).toBe(3);
@@ -316,7 +301,7 @@ describe("EffectExecutor", () => {
 
       const result = await executor.execute(
         createTestRequirement("always-fail"),
-        createTestSnapshot()
+        createTestSnapshot(),
       );
 
       expect(result.ok).toBe(false);
@@ -367,10 +352,7 @@ describe("EffectExecutor", () => {
         createTestRequirement("set", { key: "c", value: 3 }, { id: "req-3" }),
       ];
 
-      const { results, patches } = await executor.executeAll(
-        requirements,
-        createTestSnapshot()
-      );
+      const { results, patches } = await executor.executeAll(requirements, createTestSnapshot());
 
       expect(results).toHaveLength(3);
       expect(results.every((r) => r.ok)).toBe(true);
@@ -395,10 +377,7 @@ describe("EffectExecutor", () => {
         createTestRequirement("success", {}, { id: "req-3" }),
       ];
 
-      const { results, patches } = await executor.executeAll(
-        requirements,
-        createTestSnapshot()
-      );
+      const { results, patches } = await executor.executeAll(requirements, createTestSnapshot());
 
       expect(results).toHaveLength(3);
       expect(results[0].ok).toBe(true);
@@ -467,10 +446,7 @@ describe("EffectExecutor", () => {
       registry.register("http", async () => []);
       registry.register("storage", async () => []);
 
-      const requirements = [
-        createTestRequirement("http"),
-        createTestRequirement("storage"),
-      ];
+      const requirements = [createTestRequirement("http"), createTestRequirement("storage")];
 
       const missing = executor.getMissingHandlers(requirements);
 

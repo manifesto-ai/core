@@ -16,10 +16,12 @@ export const JsonValue: z.ZodType<JsonValue> = z.lazy(() =>
     z.boolean(),
     z.array(JsonValue),
     z.record(z.string(), JsonValue),
-  ])
+  ]),
 );
 
-export type Context<TExternalContext extends Record<string, JsonValue> = Record<string, JsonValue>> = {
+export type Context<
+  TExternalContext extends Record<string, JsonValue> = Record<string, JsonValue>,
+> = {
   readonly runtime: {
     readonly time: {
       readonly timestamp: number;

@@ -38,22 +38,18 @@ export class DefaultLineageService implements LineageService {
   async prepareSealGenesis(input: SealGenesisInput) {
     assertLineage(
       (await this.store.getBranches()).length === 0,
-      "LIN-GENESIS-3 violation: genesis requires empty branch state"
+      "LIN-GENESIS-3 violation: genesis requires empty branch state",
     );
 
-    const record = createWorldRecord(
-      input.schemaHash,
-      input.terminalSnapshot,
-      null
-    );
+    const record = createWorldRecord(input.schemaHash, input.terminalSnapshot, null);
 
     assertLineage(
       record.world.terminalStatus === "completed",
-      "LIN-GENESIS-1 violation: genesis snapshot must derive terminalStatus 'completed'"
+      "LIN-GENESIS-1 violation: genesis snapshot must derive terminalStatus 'completed'",
     );
     assertLineage(
       (await this.store.getWorld(record.worldId)) == null,
-      `LIN-COLLISION-3 violation: genesis world ${record.worldId} already exists`
+      `LIN-COLLISION-3 violation: genesis world ${record.worldId} already exists`,
     );
 
     const branch = createGenesisBranchEntry(input, record.worldId);
@@ -79,54 +75,63 @@ export class DefaultLineageService implements LineageService {
   async prepareSealNext(input: SealNextInput) {
     assertLineage(
       input.computeEnvelope != null,
-      "LIN-REPLAY-1 violation: next seal requires a compute envelope"
+      "LIN-REPLAY-1 violation: next seal requires a compute envelope",
     );
 
     const branchHead = await this.store.getBranchHead(input.branchId);
-    assertLineage(branchHead != null, `LIN-BRANCH-SEAL-2 violation: unknown branch ${input.branchId}`);
+    assertLineage(
+      branchHead != null,
+      `LIN-BRANCH-SEAL-2 violation: unknown branch ${input.branchId}`,
+    );
     assertLineage(
       branchHead === input.baseWorldId,
-      `LIN-BRANCH-SEAL-2 violation: branch ${input.branchId} head ${branchHead} does not match baseWorldId ${input.baseWorldId}`
+      `LIN-BRANCH-SEAL-2 violation: branch ${input.branchId} head ${branchHead} does not match baseWorldId ${input.baseWorldId}`,
     );
 
     const branchTip = await this.store.getBranchTip(input.branchId);
-    assertLineage(branchTip != null, `LIN-EPOCH-5 violation: branch ${input.branchId} tip is not set`);
+    assertLineage(
+      branchTip != null,
+      `LIN-EPOCH-5 violation: branch ${input.branchId} tip is not set`,
+    );
 
     const baseWorld = await this.store.getWorld(input.baseWorldId);
-    assertLineage(baseWorld != null, `LIN-BASE-1 violation: base world ${input.baseWorldId} does not exist`);
+    assertLineage(
+      baseWorld != null,
+      `LIN-BASE-1 violation: base world ${input.baseWorldId} does not exist`,
+    );
     assertLineage(
       baseWorld.schemaHash === input.schemaHash,
-      `LIN-BASE-4 violation: base world schemaHash ${baseWorld.schemaHash} does not match input ${input.schemaHash}`
+      `LIN-BASE-4 violation: base world schemaHash ${baseWorld.schemaHash} does not match input ${input.schemaHash}`,
     );
     assertLineage(
       baseWorld.terminalStatus !== "failed",
-      `LIN-BASE-3 violation: failed base world ${input.baseWorldId} cannot be used as base`
+      `LIN-BASE-3 violation: failed base world ${input.baseWorldId} cannot be used as base`,
     );
 
     const baseSnapshot = await this.getSnapshot(input.baseWorldId);
-    assertLineage(baseSnapshot != null, `LIN-PERSIST-BASE-1 violation: missing snapshot for base world ${input.baseWorldId}`);
+    assertLineage(
+      baseSnapshot != null,
+      `LIN-PERSIST-BASE-1 violation: missing snapshot for base world ${input.baseWorldId}`,
+    );
     assertLineage(
       baseSnapshot.system.pendingRequirements.length === 0,
-      `LIN-BASE-2 violation: base world ${input.baseWorldId} has pending requirements`
+      `LIN-BASE-2 violation: base world ${input.baseWorldId} has pending requirements`,
     );
 
     if (input.patchDelta != null) {
       assertLineage(
         input.patchDelta._patchFormat === 2,
-        "LIN-PERSIST-PATCH-2 violation: only _patchFormat: 2 is supported"
+        "LIN-PERSIST-PATCH-2 violation: only _patchFormat: 2 is supported",
       );
     }
 
-    const record = createWorldRecord(
-      input.schemaHash,
-      input.terminalSnapshot,
-      branchTip
-    );
+    const record = createWorldRecord(input.schemaHash, input.terminalSnapshot, branchTip);
 
     const expectedEpoch = await this.store.getBranchEpoch(input.branchId);
     const headAdvanced = input.advanceHead ?? record.world.terminalStatus === "completed";
-    const forkCreated = (await this.store.getEdges(branchTip))
-      .some((candidate) => candidate.from === branchTip);
+    const forkCreated = (await this.store.getEdges(branchTip)).some(
+      (candidate) => candidate.from === branchTip,
+    );
     const edge = createWorldEdge(branchTip, record.worldId);
 
     return {
@@ -155,25 +160,27 @@ export class DefaultLineageService implements LineageService {
     };
   }
 
-  async commitPrepared(
-    prepared: Parameters<LineageService["commitPrepared"]>[0]
-  ): Promise<void> {
+  async commitPrepared(prepared: Parameters<LineageService["commitPrepared"]>[0]): Promise<void> {
     await this.store.commitPrepared(prepared);
   }
 
   async createBranch(name: string, headWorldId: WorldId): Promise<BranchId> {
     const world = await this.store.getWorld(headWorldId);
-    assertLineage(world != null, `LIN-BRANCH-CREATE-1 violation: head world ${headWorldId} does not exist`);
+    assertLineage(
+      world != null,
+      `LIN-BRANCH-CREATE-1 violation: head world ${headWorldId} does not exist`,
+    );
     assertLineage(
       world.terminalStatus === "completed",
-      `LIN-BRANCH-CREATE-2 violation: head world ${headWorldId} must be completed`
+      `LIN-BRANCH-CREATE-2 violation: head world ${headWorldId} must be completed`,
     );
 
     const branches = await this.store.getBranches();
     const branchId = computeHash({ kind: "branch", name, headWorldId, ordinal: branches.length });
-    const branchCreatedAt = branches.reduce((latest, branch) => {
-      return Math.max(latest, branch.createdAt, branch.headAdvancedAt);
-    }, 0) + 1;
+    const branchCreatedAt =
+      branches.reduce((latest, branch) => {
+        return Math.max(latest, branch.createdAt, branch.headAdvancedAt);
+      }, 0) + 1;
 
     const branch: PersistedBranchEntry = {
       id: branchId,
@@ -201,15 +208,19 @@ export class DefaultLineageService implements LineageService {
 
   async getActiveBranch(): Promise<BranchInfo> {
     const activeBranchId = await this.store.getActiveBranchId();
-    assertLineage(activeBranchId != null, "LIN-BRANCH-PERSIST-3 violation: active branch is not set");
+    assertLineage(
+      activeBranchId != null,
+      "LIN-BRANCH-PERSIST-3 violation: active branch is not set",
+    );
     const branch = await this.getBranch(activeBranchId);
-    assertLineage(branch != null, `LIN-BRANCH-PERSIST-1 violation: missing active branch ${activeBranchId}`);
+    assertLineage(
+      branch != null,
+      `LIN-BRANCH-PERSIST-1 violation: missing active branch ${activeBranchId}`,
+    );
     return branch;
   }
 
-  async switchActiveBranch(
-    targetBranchId: BranchId
-  ): Promise<BranchSwitchResult> {
+  async switchActiveBranch(targetBranchId: BranchId): Promise<BranchSwitchResult> {
     const previousBranchId = await this.store.getActiveBranchId();
     assertLineage(previousBranchId != null, "LIN-SWITCH-1 violation: active branch is not set");
     await this.store.switchActiveBranch(previousBranchId, targetBranchId);

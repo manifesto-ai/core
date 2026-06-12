@@ -25,11 +25,7 @@ import {
   assertEmptyToNonEmptyKick,
   expectCompliance,
 } from "../hcts-assertions.js";
-import {
-  createTestSchema,
-  createTestIntent,
-  createTestSnapshot,
-} from "../../helpers/index.js";
+import { createTestSchema, createTestIntent, createTestSnapshot } from "../../helpers/index.js";
 import { createTestEffectRunner } from "../hcts-adapter.js";
 
 describe("HCTS Runner Tests", () => {
@@ -56,7 +52,8 @@ describe("HCTS Runner Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("done"),
+              op: "set",
+              path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -88,7 +85,8 @@ describe("HCTS Runner Tests", () => {
           simple: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("done"),
+              op: "set",
+              path: pp("done"),
               value: { kind: "lit", value: true },
             },
           },
@@ -125,12 +123,16 @@ describe("HCTS Runner Tests", () => {
           increment: {
             flow: {
               kind: "patch",
-              op: "set", path: pp("count"),
+              op: "set",
+              path: pp("count"),
               value: {
                 kind: "add",
                 left: {
                   kind: "coalesce",
-                  args: [{ kind: "get", path: "count" }, { kind: "lit", value: 0 }],
+                  args: [
+                    { kind: "get", path: "count" },
+                    { kind: "lit", value: 0 },
+                  ],
                 },
                 right: { kind: "lit", value: 1 },
               },

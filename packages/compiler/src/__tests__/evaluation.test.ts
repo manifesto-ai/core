@@ -7,13 +7,15 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { patchPathToDisplayString, semanticPathToPatchPath, type ExprNode, type Patch } from "@manifesto-ai/core";
+import {
+  patchPathToDisplayString,
+  semanticPathToPatchPath,
+  type ExprNode,
+  type Patch,
+} from "@manifesto-ai/core";
 import { createEvaluationContext, type EvaluationContext } from "../evaluation/context.js";
 import { evaluateExpr } from "../evaluation/evaluate-expr.js";
-import {
-  evaluateConditionalPatchOps,
-  evaluateCondition,
-} from "../evaluation/evaluate-patch.js";
+import { evaluateConditionalPatchOps, evaluateCondition } from "../evaluation/evaluate-patch.js";
 import {
   evaluateRuntimePatches,
   evaluateRuntimePatchesWithTrace,
@@ -25,7 +27,7 @@ const irp = (path: string): RuntimeConditionalPatchOp["path"] =>
   semanticPathToPatchPath(path).map((segment) =>
     segment.kind === "prop"
       ? { kind: "prop" as const, name: segment.name }
-      : { kind: "expr" as const, expr: { kind: "lit", value: segment.index } }
+      : { kind: "expr" as const, expr: { kind: "lit", value: segment.index } },
   );
 
 const toLegacyPatch = (patch: Patch) => {
@@ -42,9 +44,7 @@ const toLegacyPatch = (patch: Patch) => {
 const toLegacyPatches = (patches: Patch[]) => patches.map(toLegacyPatch);
 
 // Test helpers
-function createTestContext(
-  overrides: Partial<EvaluationContext> = {}
-): EvaluationContext {
+function createTestContext(overrides: Partial<EvaluationContext> = {}): EvaluationContext {
   return createEvaluationContext({
     meta: { intentId: "test-intent-123" },
     runtime: {
@@ -62,7 +62,7 @@ function createTestContext(
 
 function createRecordingObject(
   entries: ReadonlyArray<readonly [string, unknown]>,
-  accessLog: string[]
+  accessLog: string[],
 ): Record<string, unknown> {
   const obj: Record<string, unknown> = {};
   for (const [key, value] of entries) {
@@ -99,23 +99,19 @@ describe("evaluateExpr", () => {
     it("should resolve runtime paths", () => {
       const ctx = createTestContext();
       expect(evaluateExpr({ kind: "get", path: "$runtime.intent.id" }, ctx)).toBe(
-        "test-intent-123"
+        "test-intent-123",
       );
     });
 
     it("should resolve input paths", () => {
       const ctx = createTestContext();
-      expect(evaluateExpr({ kind: "get", path: "input.title" }, ctx)).toBe(
-        "Hello"
-      );
+      expect(evaluateExpr({ kind: "get", path: "input.title" }, ctx)).toBe("Hello");
       expect(evaluateExpr({ kind: "get", path: "input.value" }, ctx)).toBe(42);
     });
 
     it("should resolve computed paths", () => {
       const ctx = createTestContext();
-      expect(evaluateExpr({ kind: "get", path: "total" }, ctx)).toBe(
-        100
-      );
+      expect(evaluateExpr({ kind: "get", path: "total" }, ctx)).toBe(100);
     });
 
     it("should resolve $item paths", () => {
@@ -124,31 +120,21 @@ describe("evaluateExpr", () => {
         id: "item-1",
         val: 99,
       });
-      expect(evaluateExpr({ kind: "get", path: "$item.id" }, ctx)).toBe(
-        "item-1"
-      );
+      expect(evaluateExpr({ kind: "get", path: "$item.id" }, ctx)).toBe("item-1");
     });
 
     it("should return null for missing paths", () => {
       const ctx = createTestContext();
-      expect(evaluateExpr({ kind: "get", path: "nonexistent" }, ctx)).toBe(
-        null
-      );
-      expect(evaluateExpr({ kind: "get", path: "meta.missing" }, ctx)).toBe(
-        null
-      );
+      expect(evaluateExpr({ kind: "get", path: "nonexistent" }, ctx)).toBe(null);
+      expect(evaluateExpr({ kind: "get", path: "meta.missing" }, ctx)).toBe(null);
     });
 
     it("should return null for legacy meta intent and action paths", () => {
       const ctx = createTestContext({
         meta: {} as EvaluationContext["meta"],
       });
-      expect(evaluateExpr({ kind: "get", path: "meta.intentId" }, ctx)).toBe(
-        null
-      );
-      expect(evaluateExpr({ kind: "get", path: "meta.actionName" }, ctx)).toBe(
-        null
-      );
+      expect(evaluateExpr({ kind: "get", path: "meta.intentId" }, ctx)).toBe(null);
+      expect(evaluateExpr({ kind: "get", path: "meta.actionName" }, ctx)).toBe(null);
     });
   });
 
@@ -162,8 +148,8 @@ describe("evaluateExpr", () => {
             left: { kind: "get", path: "count" },
             right: { kind: "lit", value: 10 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(true);
       expect(
         evaluateExpr(
@@ -172,8 +158,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: 5 },
             right: { kind: "lit", value: 5 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(true);
     });
 
@@ -186,8 +172,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: 5 },
             right: { kind: "lit", value: 10 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(true);
     });
 
@@ -200,8 +186,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: 10 },
             right: { kind: "lit", value: 5 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(true);
       expect(
         evaluateExpr(
@@ -210,8 +196,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: 10 },
             right: { kind: "lit", value: 10 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(true);
       expect(
         evaluateExpr(
@@ -220,8 +206,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: 5 },
             right: { kind: "lit", value: 10 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(true);
       expect(
         evaluateExpr(
@@ -230,8 +216,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: 10 },
             right: { kind: "lit", value: 10 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(true);
     });
 
@@ -244,8 +230,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: "a" },
             right: { kind: "lit", value: 5 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(null);
     });
   });
@@ -262,8 +248,8 @@ describe("evaluateExpr", () => {
               { kind: "lit", value: true },
             ],
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(true);
       expect(
         evaluateExpr(
@@ -274,8 +260,8 @@ describe("evaluateExpr", () => {
               { kind: "lit", value: false },
             ],
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(false);
     });
 
@@ -290,8 +276,8 @@ describe("evaluateExpr", () => {
               { kind: "lit", value: true },
             ],
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(true);
       expect(
         evaluateExpr(
@@ -302,26 +288,20 @@ describe("evaluateExpr", () => {
               { kind: "lit", value: false },
             ],
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(false);
     });
 
     it("should evaluate not", () => {
       const ctx = createTestContext();
-      expect(
-        evaluateExpr({ kind: "not", arg: { kind: "lit", value: true } }, ctx)
-      ).toBe(false);
-      expect(
-        evaluateExpr({ kind: "not", arg: { kind: "lit", value: false } }, ctx)
-      ).toBe(true);
+      expect(evaluateExpr({ kind: "not", arg: { kind: "lit", value: true } }, ctx)).toBe(false);
+      expect(evaluateExpr({ kind: "not", arg: { kind: "lit", value: false } }, ctx)).toBe(true);
     });
 
     it("should return null for non-boolean operands", () => {
       const ctx = createTestContext();
-      expect(
-        evaluateExpr({ kind: "not", arg: { kind: "lit", value: "true" } }, ctx)
-      ).toBe(null);
+      expect(evaluateExpr({ kind: "not", arg: { kind: "lit", value: "true" } }, ctx)).toBe(null);
     });
 
     it("should short-circuit in left-to-right order", () => {
@@ -334,7 +314,7 @@ describe("evaluateExpr", () => {
                 ["left", false],
                 ["right", true],
               ],
-              accesses
+              accesses,
             ),
           },
           computed: {},
@@ -350,8 +330,8 @@ describe("evaluateExpr", () => {
               { kind: "get", path: "flags.right" },
             ],
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(false);
       expect(accesses).toEqual(["left"]);
 
@@ -366,8 +346,8 @@ describe("evaluateExpr", () => {
               { kind: "get", path: "flags.left" },
             ],
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(true);
       expect(accesses).toEqual(["right"]);
     });
@@ -384,7 +364,7 @@ describe("evaluateExpr", () => {
                 ["then", "accepted"],
                 ["else", "rejected"],
               ],
-              accesses
+              accesses,
             ),
           },
           computed: {},
@@ -399,8 +379,8 @@ describe("evaluateExpr", () => {
             then: { kind: "get", path: "branches.then" },
             else: { kind: "get", path: "branches.else" },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe("accepted");
       expect(accesses).toEqual(["then"]);
     });
@@ -416,8 +396,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: 5 },
             right: { kind: "lit", value: 3 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(8);
       expect(
         evaluateExpr(
@@ -426,8 +406,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: 10 },
             right: { kind: "lit", value: 4 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(6);
       expect(
         evaluateExpr(
@@ -436,8 +416,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: 6 },
             right: { kind: "lit", value: 7 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(42);
     });
 
@@ -450,8 +430,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: 10 },
             right: { kind: "lit", value: 0 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(null);
     });
 
@@ -464,47 +444,43 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: "5" },
             right: { kind: "lit", value: 3 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(null);
     });
 
     it("should evaluate extended arithmetic operators", () => {
       const ctx = createTestContext();
 
-      expect(
-        evaluateExpr({ kind: "abs", arg: { kind: "lit", value: -3 } }, ctx)
-      ).toBe(3);
+      expect(evaluateExpr({ kind: "abs", arg: { kind: "lit", value: -3 } }, ctx)).toBe(3);
       expect(
         evaluateExpr(
           {
             kind: "min",
-            args: [{ kind: "lit", value: 9 }, { kind: "lit", value: 4 }],
+            args: [
+              { kind: "lit", value: 9 },
+              { kind: "lit", value: 4 },
+            ],
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(4);
       expect(
         evaluateExpr(
           {
             kind: "max",
-            args: [{ kind: "lit", value: 9 }, { kind: "lit", value: 4 }],
+            args: [
+              { kind: "lit", value: 9 },
+              { kind: "lit", value: 4 },
+            ],
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(9);
-      expect(
-        evaluateExpr({ kind: "floor", arg: { kind: "lit", value: -1.2 } }, ctx)
-      ).toBe(-2);
-      expect(
-        evaluateExpr({ kind: "ceil", arg: { kind: "lit", value: -1.2 } }, ctx)
-      ).toBe(-1);
-      expect(
-        evaluateExpr({ kind: "round", arg: { kind: "lit", value: 1.6 } }, ctx)
-      ).toBe(2);
-      expect(
-        evaluateExpr({ kind: "sqrt", arg: { kind: "lit", value: 9 } }, ctx)
-      ).toBe(3);
+      expect(evaluateExpr({ kind: "floor", arg: { kind: "lit", value: -1.2 } }, ctx)).toBe(-2);
+      expect(evaluateExpr({ kind: "ceil", arg: { kind: "lit", value: -1.2 } }, ctx)).toBe(-1);
+      expect(evaluateExpr({ kind: "round", arg: { kind: "lit", value: 1.6 } }, ctx)).toBe(2);
+      expect(evaluateExpr({ kind: "sqrt", arg: { kind: "lit", value: 9 } }, ctx)).toBe(3);
       expect(
         evaluateExpr(
           {
@@ -512,8 +488,8 @@ describe("evaluateExpr", () => {
             base: { kind: "lit", value: 2 },
             exponent: { kind: "lit", value: 3 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(8);
     });
   });
@@ -531,34 +507,24 @@ describe("evaluateExpr", () => {
               { kind: "lit", value: "World" },
             ],
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe("Hello World");
     });
 
     it("should evaluate trim", () => {
       const ctx = createTestContext();
-      expect(
-        evaluateExpr(
-          { kind: "trim", str: { kind: "lit", value: "  hello  " } },
-          ctx
-        )
-      ).toBe("hello");
+      expect(evaluateExpr({ kind: "trim", str: { kind: "lit", value: "  hello  " } }, ctx)).toBe(
+        "hello",
+      );
     });
   });
 
   describe("collection operators", () => {
     it("should evaluate len", () => {
       const ctx = createTestContext();
-      expect(
-        evaluateExpr({ kind: "len", arg: { kind: "get", path: "items" } }, ctx)
-      ).toBe(3);
-      expect(
-        evaluateExpr(
-          { kind: "len", arg: { kind: "lit", value: "hello" } },
-          ctx
-        )
-      ).toBe(5);
+      expect(evaluateExpr({ kind: "len", arg: { kind: "get", path: "items" } }, ctx)).toBe(3);
+      expect(evaluateExpr({ kind: "len", arg: { kind: "lit", value: "hello" } }, ctx)).toBe(5);
     });
 
     it("should evaluate at", () => {
@@ -570,23 +536,23 @@ describe("evaluateExpr", () => {
             array: { kind: "get", path: "items" },
             index: { kind: "lit", value: 1 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(2);
     });
 
     it("should evaluate numeric array aggregation helpers", () => {
       const ctx = createTestContext();
 
-      expect(
-        evaluateExpr({ kind: "sumArray", array: { kind: "get", path: "items" } }, ctx)
-      ).toBe(6);
-      expect(
-        evaluateExpr({ kind: "minArray", array: { kind: "get", path: "items" } }, ctx)
-      ).toBe(1);
-      expect(
-        evaluateExpr({ kind: "maxArray", array: { kind: "get", path: "items" } }, ctx)
-      ).toBe(3);
+      expect(evaluateExpr({ kind: "sumArray", array: { kind: "get", path: "items" } }, ctx)).toBe(
+        6,
+      );
+      expect(evaluateExpr({ kind: "minArray", array: { kind: "get", path: "items" } }, ctx)).toBe(
+        1,
+      );
+      expect(evaluateExpr({ kind: "maxArray", array: { kind: "get", path: "items" } }, ctx)).toBe(
+        3,
+      );
     });
 
     it("should return null for out-of-bounds at", () => {
@@ -598,25 +564,15 @@ describe("evaluateExpr", () => {
             array: { kind: "get", path: "items" },
             index: { kind: "lit", value: 10 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(null);
     });
 
     it("should evaluate first/last", () => {
       const ctx = createTestContext();
-      expect(
-        evaluateExpr(
-          { kind: "first", array: { kind: "get", path: "items" } },
-          ctx
-        )
-      ).toBe(1);
-      expect(
-        evaluateExpr(
-          { kind: "last", array: { kind: "get", path: "items" } },
-          ctx
-        )
-      ).toBe(3);
+      expect(evaluateExpr({ kind: "first", array: { kind: "get", path: "items" } }, ctx)).toBe(1);
+      expect(evaluateExpr({ kind: "last", array: { kind: "get", path: "items" } }, ctx)).toBe(3);
     });
 
     it("should evaluate filter", () => {
@@ -631,7 +587,7 @@ describe("evaluateExpr", () => {
             right: { kind: "lit", value: 1 },
           },
         },
-        ctx
+        ctx,
       );
       expect(result).toEqual([2, 3]);
     });
@@ -648,7 +604,7 @@ describe("evaluateExpr", () => {
             right: { kind: "lit", value: 2 },
           },
         },
-        ctx
+        ctx,
       );
       expect(result).toEqual([2, 4, 6]);
     });
@@ -657,46 +613,20 @@ describe("evaluateExpr", () => {
   describe("type operators", () => {
     it("should evaluate typeof", () => {
       const ctx = createTestContext();
-      expect(
-        evaluateExpr(
-          { kind: "typeof", arg: { kind: "lit", value: 42 } },
-          ctx
-        )
-      ).toBe("number");
-      expect(
-        evaluateExpr(
-          { kind: "typeof", arg: { kind: "lit", value: "hello" } },
-          ctx
-        )
-      ).toBe("string");
-      expect(
-        evaluateExpr(
-          { kind: "typeof", arg: { kind: "lit", value: null } },
-          ctx
-        )
-      ).toBe("null");
-      expect(
-        evaluateExpr(
-          { kind: "typeof", arg: { kind: "get", path: "items" } },
-          ctx
-        )
-      ).toBe("array");
+      expect(evaluateExpr({ kind: "typeof", arg: { kind: "lit", value: 42 } }, ctx)).toBe("number");
+      expect(evaluateExpr({ kind: "typeof", arg: { kind: "lit", value: "hello" } }, ctx)).toBe(
+        "string",
+      );
+      expect(evaluateExpr({ kind: "typeof", arg: { kind: "lit", value: null } }, ctx)).toBe("null");
+      expect(evaluateExpr({ kind: "typeof", arg: { kind: "get", path: "items" } }, ctx)).toBe(
+        "array",
+      );
     });
 
     it("should evaluate isNull", () => {
       const ctx = createTestContext();
-      expect(
-        evaluateExpr(
-          { kind: "isNull", arg: { kind: "lit", value: null } },
-          ctx
-        )
-      ).toBe(true);
-      expect(
-        evaluateExpr(
-          { kind: "isNull", arg: { kind: "lit", value: 0 } },
-          ctx
-        )
-      ).toBe(false);
+      expect(evaluateExpr({ kind: "isNull", arg: { kind: "lit", value: null } }, ctx)).toBe(true);
+      expect(evaluateExpr({ kind: "isNull", arg: { kind: "lit", value: 0 } }, ctx)).toBe(false);
     });
 
     it("should evaluate coalesce", () => {
@@ -710,8 +640,8 @@ describe("evaluateExpr", () => {
               { kind: "lit", value: 42 },
             ],
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(42);
       expect(
         evaluateExpr(
@@ -722,8 +652,8 @@ describe("evaluateExpr", () => {
               { kind: "lit", value: "second" },
             ],
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe("first");
     });
   });
@@ -740,8 +670,8 @@ describe("evaluateExpr", () => {
             left: { kind: "lit", value: 1 },
             right: { kind: "lit", value: 0 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(null);
 
       expect(
@@ -751,13 +681,11 @@ describe("evaluateExpr", () => {
             array: { kind: "lit", value: [1, 2, 3] },
             index: { kind: "lit", value: -1 },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toBe(null);
 
-      expect(evaluateExpr({ kind: "get", path: "missing.path" }, ctx)).toBe(
-        null
-      );
+      expect(evaluateExpr({ kind: "get", path: "missing.path" }, ctx)).toBe(null);
     });
 
     it("should remain total across malformed runtime operations", () => {
@@ -803,18 +731,10 @@ describe("evaluateCondition", () => {
 
   it("should return true only for boolean true", () => {
     const ctx = createTestContext();
-    expect(
-      evaluateCondition({ kind: "lit", value: true }, ctx)
-    ).toBe(true);
-    expect(
-      evaluateCondition({ kind: "lit", value: false }, ctx)
-    ).toBe(false);
-    expect(
-      evaluateCondition({ kind: "lit", value: 1 }, ctx)
-    ).toBe(false);
-    expect(
-      evaluateCondition({ kind: "lit", value: "true" }, ctx)
-    ).toBe(false);
+    expect(evaluateCondition({ kind: "lit", value: true }, ctx)).toBe(true);
+    expect(evaluateCondition({ kind: "lit", value: false }, ctx)).toBe(false);
+    expect(evaluateCondition({ kind: "lit", value: 1 }, ctx)).toBe(false);
+    expect(evaluateCondition({ kind: "lit", value: "true" }, ctx)).toBe(false);
   });
 
   describe("object functions", () => {
@@ -834,7 +754,10 @@ describe("evaluateCondition", () => {
         kind: "merge",
         objects: [
           { kind: "get", path: "base" },
-          { kind: "object", fields: { b: { kind: "lit", value: 3 }, c: { kind: "lit", value: 4 } } },
+          {
+            kind: "object",
+            fields: { b: { kind: "lit", value: 3 }, c: { kind: "lit", value: 4 } },
+          },
         ],
       };
       expect(evaluateExpr(expr, ctx)).toEqual({ a: 1, b: 3, c: 4 });
@@ -852,9 +775,17 @@ describe("evaluateCondition", () => {
           computed: { total: 100 },
         },
       });
-      expect(evaluateExpr({ kind: "keys", obj: { kind: "get", path: "obj" } }, ctx)).toEqual(["x", "y"]);
-      expect(evaluateExpr({ kind: "values", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([1, 2]);
-      expect(evaluateExpr({ kind: "entries", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([["x", 1], ["y", 2]]);
+      expect(evaluateExpr({ kind: "keys", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([
+        "x",
+        "y",
+      ]);
+      expect(evaluateExpr({ kind: "values", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([
+        1, 2,
+      ]);
+      expect(evaluateExpr({ kind: "entries", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([
+        ["x", 1],
+        ["y", 2],
+      ]);
     });
 
     it("should evaluate object fields and traversals in Unicode code-point order", () => {
@@ -868,9 +799,9 @@ describe("evaluateCondition", () => {
                 ["ä", 2],
                 ["a", 3],
               ],
-              accesses
+              accesses,
             ),
-            obj: { "ä": 2, b: 1, a: 3 },
+            obj: { ä: 2, b: 1, a: 3 },
           },
           computed: {},
         },
@@ -886,12 +817,18 @@ describe("evaluateCondition", () => {
               a: { kind: "get", path: "source.a" },
             },
           },
-          ctx
-        )
+          ctx,
+        ),
       ).toEqual({ a: 3, b: 1, ä: 2 });
       expect(accesses).toEqual(["a", "b", "ä"]);
-      expect(evaluateExpr({ kind: "keys", obj: { kind: "get", path: "obj" } }, ctx)).toEqual(["a", "b", "ä"]);
-      expect(evaluateExpr({ kind: "values", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([3, 1, 2]);
+      expect(evaluateExpr({ kind: "keys", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([
+        "a",
+        "b",
+        "ä",
+      ]);
+      expect(evaluateExpr({ kind: "values", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([
+        3, 1, 2,
+      ]);
       expect(evaluateExpr({ kind: "entries", obj: { kind: "get", path: "obj" } }, ctx)).toEqual([
         ["a", 3],
         ["b", 1],

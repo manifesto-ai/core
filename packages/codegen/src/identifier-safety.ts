@@ -19,19 +19,68 @@ const IDENTIFIER_PART_PATTERN = /^[$\u200C\u200D\p{ID_Continue}]$/u;
 
 /** Reserved words (including strict-mode reserved words) that cannot be binding identifiers. */
 const RESERVED_WORDS = new Set([
-  "arguments", "await", "break", "case", "catch", "class", "const",
-  "continue", "debugger", "default", "delete", "do", "else", "enum",
-  "eval", "export", "extends", "false", "finally", "for", "function",
-  "if", "implements", "import", "in", "instanceof", "interface", "let",
-  "new", "null", "package", "private", "protected", "public", "return",
-  "static", "super", "switch", "this", "throw", "true", "try", "typeof",
-  "var", "void", "while", "with", "yield",
+  "arguments",
+  "await",
+  "break",
+  "case",
+  "catch",
+  "class",
+  "const",
+  "continue",
+  "debugger",
+  "default",
+  "delete",
+  "do",
+  "else",
+  "enum",
+  "eval",
+  "export",
+  "extends",
+  "false",
+  "finally",
+  "for",
+  "function",
+  "if",
+  "implements",
+  "import",
+  "in",
+  "instanceof",
+  "interface",
+  "let",
+  "new",
+  "null",
+  "package",
+  "private",
+  "protected",
+  "public",
+  "return",
+  "static",
+  "super",
+  "switch",
+  "this",
+  "throw",
+  "true",
+  "try",
+  "typeof",
+  "var",
+  "void",
+  "while",
+  "with",
+  "yield",
 ]);
 
 /** Predefined type names that TypeScript rejects as declaration names. */
 const FORBIDDEN_TYPE_DECLARATION_NAMES = new Set([
-  "any", "bigint", "boolean", "never", "number", "object",
-  "string", "symbol", "undefined", "unknown",
+  "any",
+  "bigint",
+  "boolean",
+  "never",
+  "number",
+  "object",
+  "string",
+  "symbol",
+  "undefined",
+  "unknown",
 ]);
 
 /**
@@ -73,9 +122,7 @@ export function renderPropertyKey(name: string): string {
  */
 export function sanitizeIdentifier(name: string): string {
   const chars = Array.from(name);
-  let base = chars
-    .map((ch) => (IDENTIFIER_PART_PATTERN.test(ch) ? ch : "_"))
-    .join("");
+  let base = chars.map((ch) => (IDENTIFIER_PART_PATTERN.test(ch) ? ch : "_")).join("");
   const first = Array.from(base)[0];
   if (first === undefined || !IDENTIFIER_START_PATTERN.test(first)) {
     base = `_${base}`;
@@ -98,7 +145,7 @@ export type IdentifierAliasMap = ReadonlyMap<string, string>;
  */
 export function createTypeNameAliasMap(
   names: readonly string[],
-  reserved: readonly string[] = []
+  reserved: readonly string[] = [],
 ): IdentifierAliasMap {
   const sorted = [...names].sort();
   const used = new Set(reserved);

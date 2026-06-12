@@ -23,12 +23,12 @@ export function validateExternalContext(
     return Object.keys(external).length === 0
       ? validResult()
       : invalidResult(
-        Object.keys(external).map((name) => ({
-          code: "INVALID_CONTEXT",
-          message: `Schema does not declare user context field "${name}"`,
-          path: `context.${name}`,
-        })),
-      );
+          Object.keys(external).map((name) => ({
+            code: "INVALID_CONTEXT",
+            message: `Schema does not declare user context field "${name}"`,
+            path: `context.${name}`,
+          })),
+        );
   }
 
   const declared = contextSpec.fields;

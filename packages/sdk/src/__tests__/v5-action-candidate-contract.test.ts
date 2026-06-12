@@ -6,10 +6,7 @@ import {
   type Snapshot as CoreSnapshot,
 } from "@manifesto-ai/core";
 
-import {
-  SubmissionFailedError,
-  createManifesto,
-} from "../index.js";
+import { SubmissionFailedError, createManifesto } from "../index.js";
 import { createBaseRuntimeInstance } from "../runtime/base-runtime.js";
 import { getRuntimeKernelFactory } from "../provider.js";
 import {
@@ -197,10 +194,7 @@ function createOutcomeSchema(): DomainSchema {
       stop: {
         flow: {
           kind: "seq",
-          steps: [
-            setCountFlow(1),
-            { kind: "halt", reason: "insufficient-evidence" },
-          ],
+          steps: [setCountFlow(1), { kind: "halt", reason: "insufficient-evidence" }],
         },
       },
       fail: {
@@ -678,7 +672,9 @@ describe("SDK v5 action-candidate contract", () => {
       layer: "input",
       code: "INVALID_INPUT",
     });
-    expect(fresh.action.incrementGuarded.bind("not-number" as unknown as number).intent()).toBeNull();
+    expect(
+      fresh.action.incrementGuarded.bind("not-number" as unknown as number).intent(),
+    ).toBeNull();
     expect(fresh.action.incrementGuarded.check(0)).toMatchObject({
       ok: false,
       layer: "dispatchability",
@@ -702,11 +698,13 @@ describe("SDK v5 action-candidate contract", () => {
       ok: false,
       layer: "availability",
       code: "ACTION_UNAVAILABLE",
-      blockers: [{
-        code: "ACTION_UNAVAILABLE",
-        message: "Increment only while enabled and below the caller-provided max",
-        detail: { layer: "available" },
-      }],
+      blockers: [
+        {
+          code: "ACTION_UNAVAILABLE",
+          message: "Increment only while enabled and below the caller-provided max",
+          detail: { layer: "available" },
+        },
+      ],
     });
   });
 
@@ -899,8 +897,9 @@ describe("SDK v5 action-candidate contract", () => {
 
   it("rejects reserved public action names before activation", () => {
     for (const name of ["then", "constructor", "prototype", "__proto__"]) {
-      expect(() => createManifesto(createReservedActionSchema(name), {}).activate())
-        .toThrowError(expect.objectContaining({ code: "RESERVED_ACTION_NAME" }));
+      expect(() => createManifesto(createReservedActionSchema(name), {}).activate()).toThrowError(
+        expect.objectContaining({ code: "RESERVED_ACTION_NAME" }),
+      );
     }
   });
 
@@ -1090,7 +1089,9 @@ describe("SDK v5 action-candidate contract", () => {
 
     const summary = await app.with({ report: "summary" }).action.increment.submit();
     expect(summary.ok && summary.report !== undefined).toBe(true);
-    expect(summary.ok && summary.report !== undefined && "diagnostics" in summary.report).toBe(false);
+    expect(summary.ok && summary.report !== undefined && "diagnostics" in summary.report).toBe(
+      false,
+    );
   });
 
   it("passes a call-entry materialized context into base submit execution", async () => {
@@ -1145,12 +1146,14 @@ describe("SDK v5 action-candidate contract", () => {
 
     await expect(app.action.increment.submit()).rejects.toBeInstanceOf(SubmissionFailedError);
 
-    expect(failed).toHaveBeenCalledWith(expect.objectContaining({
-      action: "increment",
-      mode: "base",
-      stage: "runtime",
-      error: expect.objectContaining({ message: "host exploded" }),
-    }));
+    expect(failed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "increment",
+        mode: "base",
+        stage: "runtime",
+        error: expect.objectContaining({ message: "host exploded" }),
+      }),
+    );
   });
 
   it("rejects HostResult errors while preserving the diagnostic canonical snapshot", async () => {
@@ -1174,15 +1177,17 @@ describe("SDK v5 action-candidate contract", () => {
       message: "effect exploded",
     });
     expect(app.snapshot().state.status).toBe("loading");
-    expect(failed).toHaveBeenCalledWith(expect.objectContaining({
-      action: "load",
-      mode: "base",
-      stage: "runtime",
-      error: expect.objectContaining({
-        code: "EFFECT_EXECUTION_FAILED",
-        message: "effect exploded",
+    expect(failed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "load",
+        mode: "base",
+        stage: "runtime",
+        error: expect.objectContaining({
+          code: "EFFECT_EXECUTION_FAILED",
+          message: "effect exploded",
+        }),
       }),
-    }));
+    );
   });
 
   it("emits observe.event payloads matching ManifestoEventPayloadMap without full snapshots", async () => {
@@ -1194,13 +1199,15 @@ describe("SDK v5 action-candidate contract", () => {
 
     await app.action.increment.submit();
 
-    expect(settled).toHaveBeenCalledWith(expect.objectContaining({
-      action: "increment",
-      mode: "base",
-      outcome: { kind: "ok" },
-      schemaHash: app.inspect.schemaHash(),
-      snapshotVersion: expect.any(Number),
-    }));
+    expect(settled).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "increment",
+        mode: "base",
+        outcome: { kind: "ok" },
+        schemaHash: app.inspect.schemaHash(),
+        snapshotVersion: expect.any(Number),
+      }),
+    );
     expect(proposalCreated).not.toHaveBeenCalled();
     expect(settled.mock.calls[0]?.[0]).not.toHaveProperty("snapshot");
     expect(settled.mock.calls[0]?.[0]).not.toHaveProperty("canonicalSnapshot");
@@ -1218,11 +1225,13 @@ describe("SDK v5 action-candidate contract", () => {
     const result = await app.action.increment.submit();
 
     expect(result.ok).toBe(true);
-    expect(afterThrow).toHaveBeenCalledWith(expect.objectContaining({
-      action: "increment",
-      mode: "base",
-      outcome: { kind: "ok" },
-    }));
+    expect(afterThrow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "increment",
+        mode: "base",
+        outcome: { kind: "ok" },
+      }),
+    );
   });
 
   it("does not call observe.state listeners during registration and supplies the previous selected value on publication", async () => {

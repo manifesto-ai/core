@@ -16,9 +16,7 @@ export type MelCodegenArtifact = {
   readonly sourceId: string;
 };
 
-export type MelCodegenEmitter = (
-  artifact: MelCodegenArtifact
-) => unknown | Promise<unknown>;
+export type MelCodegenEmitter = (artifact: MelCodegenArtifact) => unknown | Promise<unknown>;
 
 export type MelCodegenTiming = "transform" | "build" | "both";
 
@@ -75,9 +73,7 @@ function sanitizePathSegment(value: string): string {
   return normalized || "domain";
 }
 
-function resolveCodegenOptions(
-  codegen: MelPluginOptions["codegen"]
-): MelCodegenOptions | null {
+function resolveCodegenOptions(codegen: MelPluginOptions["codegen"]): MelCodegenOptions | null {
   if (!codegen) {
     return null;
   }
@@ -90,7 +86,7 @@ function resolveCodegenOptions(
     const timing = codegen.timing ?? "transform";
     if (!VALID_CODEGEN_TIMINGS.has(timing)) {
       throw new TypeError(
-        `manifesto:mel codegen timing must be one of "transform", "build", or "both" (received ${JSON.stringify(timing)})`
+        `manifesto:mel codegen timing must be one of "transform", "build", or "both" (received ${JSON.stringify(timing)})`,
       );
     }
 
@@ -101,7 +97,7 @@ function resolveCodegenOptions(
   }
 
   throw new TypeError(
-    "manifesto:mel codegen must be a function or an object with a callable emit field"
+    "manifesto:mel codegen must be a function or an object with a callable emit field",
   );
 }
 

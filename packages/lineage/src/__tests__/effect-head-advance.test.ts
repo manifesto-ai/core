@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  hashSchemaSync,
-  semanticPathToPatchPath,
-  type DomainSchema,
-} from "@manifesto-ai/core";
+import { hashSchemaSync, semanticPathToPatchPath, type DomainSchema } from "@manifesto-ai/core";
 import { createManifesto } from "@manifesto-ai/sdk";
 
 import { createInMemoryLineageStore, withLineage } from "../index.js";

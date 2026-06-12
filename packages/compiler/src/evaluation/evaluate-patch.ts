@@ -90,7 +90,7 @@ export interface PatchEvaluationResult {
  */
 export function evaluateConditionalPatchOps(
   ops: ConditionalPatchOp[],
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): PatchEvaluationResult {
   const patches: EvaluatedPatch[] = [];
   const skipped: PatchEvaluationResult["skipped"] = [];
@@ -110,11 +110,7 @@ export function evaluateConditionalPatchOps(
       if (conditionResult !== true) {
         // Skip this patch
         const reason =
-          conditionResult === false
-            ? "false"
-            : conditionResult === null
-              ? "null"
-              : "non-boolean";
+          conditionResult === false ? "false" : conditionResult === null ? "null" : "non-boolean";
 
         skipped.push({ fragmentId: op.fragmentId, reason });
         continue;
@@ -154,7 +150,7 @@ export function evaluateConditionalPatchOps(
  */
 export function evaluatePatches(
   ops: ConditionalPatchOp[],
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): EvaluatedPatch[] {
   return ops
     .filter((op) => {
@@ -184,7 +180,7 @@ export function evaluatePatches(
 function updateWorkingSnapshot(
   snapshot: EvaluationSnapshot,
   op: LoweredPatchOp,
-  _ctx: EvaluationContext
+  _ctx: EvaluationContext,
 ): EvaluationSnapshot {
   // Most schema operations don't affect the working snapshot
   // They modify the schema, not the runtime state
@@ -222,7 +218,7 @@ function updateWorkingSnapshot(
  */
 export function evaluatePatchExpressions(
   op: LoweredPatchOp,
-  _ctx: EvaluationContext
+  _ctx: EvaluationContext,
 ): LoweredPatchOp {
   switch (op.kind) {
     case "addType":
@@ -271,7 +267,7 @@ export function evaluatePatchExpressions(
  */
 export function evaluateCondition(
   condition: CoreExprNode | undefined,
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): boolean {
   if (condition === undefined) {
     return true;
@@ -290,7 +286,7 @@ export function evaluateCondition(
  */
 export function classifyCondition(
   condition: CoreExprNode | undefined,
-  ctx: EvaluationContext
+  ctx: EvaluationContext,
 ): { passes: boolean; reason: "no-condition" | "true" | "false" | "null" | "non-boolean" } {
   if (condition === undefined) {
     return { passes: true, reason: "no-condition" };
