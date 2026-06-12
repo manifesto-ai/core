@@ -1,6 +1,4 @@
-import {
-  ManifestoError,
-} from "../errors.js";
+import { ManifestoError } from "../errors.js";
 
 export function cloneAndFreezeActionPayload<T>(value: T): T {
   let cloned: T;
@@ -18,7 +16,9 @@ export function cloneAndFreezeActionPayload<T>(value: T): T {
 
 export function tryCloneAndFreezeActionPayload<T>(
   value: T,
-): { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: ManifestoError } {
+):
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: ManifestoError } {
   try {
     return { ok: true, value: cloneAndFreezeActionPayload(value) };
   } catch (error) {
