@@ -72,7 +72,15 @@ export type SealIntentOptions = {
   readonly context?: HostDispatchOptions["context"];
   readonly publishOnCompleted?: boolean;
   readonly assumeEnqueued?: boolean;
-  readonly rejectPendingBeforeSeal?: boolean;
+  /**
+   * Reject a non-terminal host result before sealing.
+   *
+   * `true` rejects every pending result. `"unless-failed"` rejects only
+   * pending results that carry no recorded failure evidence — a failed
+   * effect execution legitimately leaves the snapshot pending while the
+   * failure itself is the terminal outcome to seal.
+   */
+  readonly rejectPendingBeforeSeal?: boolean | "unless-failed";
 };
 
 type LineageControllerKernel<T extends ManifestoDomainShape> = Pick<
@@ -401,10 +409,15 @@ export function createLineageRuntimeController<T extends ManifestoDomainShape>(
         throw createLineageSealRuntimeFailure<T>(error, "host");
       }
 
-      if (
+      const pendingResult =
+        result.status === "pending" || result.snapshot.system.status === "pending";
+      const rejectPending =
         options?.rejectPendingBeforeSeal === true
-        && (result.status === "pending" || result.snapshot.system.status === "pending")
-      ) {
+          ? pendingResult
+          : options?.rejectPendingBeforeSeal === "unless-failed"
+            ? pendingResult && !hasRecordedFailureEvidence(result)
+            : false;
+      if (rejectPending) {
         restoreSealView();
         throw createLineageSealRuntimeFailure<T>(
           new ManifestoError(
@@ -650,6 +663,37 @@ function shouldAdvanceLineageHead(
 
   const finalTrace = result.traces[result.traces.length - 1];
   return finalTrace?.terminatedBy === "complete";
+}
+
+/**
+ * Structural check for failure evidence on a host result: a host-level
+ * error, a system lastError, or a host-owned lastError under
+ * snapshot.namespaces.host. Lineage reads the snapshot as data only; it
+ * does not import Host internals.
+ */
+function hasRecordedFailureEvidence(
+  result: Awaited<ReturnType<LineageControllerKernel<ManifestoDomainShape>["executeHost"]>>,
+): boolean {
+  if (result.error !== undefined && result.error !== null) {
+    return true;
+  }
+
+  if (result.snapshot.system.lastError !== null) {
+    return true;
+  }
+
+  const hostNamespace = (
+    result.snapshot.namespaces as Record<string, unknown> | undefined
+  )?.host;
+  if (
+    hostNamespace !== null
+    && typeof hostNamespace === "object"
+    && (hostNamespace as { readonly lastError?: unknown }).lastError
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function toError(error: unknown): Error {
