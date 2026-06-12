@@ -473,6 +473,7 @@ _Source: `packages/core/src/index.ts`_
 - `FieldType`
 - `FilterExpr`
 - `FindExpr`
+- `findJsonValueViolation`
 - `FirstExpr`
 - `FlatExpr`
 - `FloorExpr`
@@ -688,6 +689,7 @@ _Source: `packages/core/src/index.ts`_
 - `Intent`
 - `IsNullExpr`
 - `JsonValue`
+- `JsonValueViolation`
 - `KeysExpr`
 - `LastExpr`
 - `LenExpr`
