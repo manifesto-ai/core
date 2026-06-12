@@ -665,36 +665,6 @@ function shouldAdvanceLineageHead(
   return finalTrace?.terminatedBy === "complete";
 }
 
-/**
- * Structural check for failure evidence on a host result: a host-level
- * error, a system lastError, or a host-owned lastError under
- * snapshot.namespaces.host. Lineage reads the snapshot as data only; it
- * does not import Host internals.
- */
-function hasRecordedFailureEvidence(
-  result: Awaited<ReturnType<LineageControllerKernel<ManifestoDomainShape>["executeHost"]>>,
-): boolean {
-  if (result.error !== undefined && result.error !== null) {
-    return true;
-  }
-
-  if (result.snapshot.system.lastError !== null) {
-    return true;
-  }
-
-  const hostNamespace = (
-    result.snapshot.namespaces as Record<string, unknown> | undefined
-  )?.host;
-  if (
-    hostNamespace !== null
-    && typeof hostNamespace === "object"
-    && (hostNamespace as { readonly lastError?: unknown }).lastError
-  ) {
-    return true;
-  }
-
-  return false;
-}
 
 /**
  * Structural check for failure evidence on a host result: a host-level
