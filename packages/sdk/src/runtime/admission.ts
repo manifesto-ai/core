@@ -59,7 +59,6 @@ export function createRuntimeAdmission<T extends ManifestoDomainShape>({
   ensureIntentId,
   getAvailableActionsFor,
   isActionAvailableFor,
-  isIntentDispatchableFor,
   evaluateActionAvailabilityFor,
   evaluateIntentDispatchabilityFor,
   projectSnapshotFromCanonical,

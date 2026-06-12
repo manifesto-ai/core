@@ -22,7 +22,6 @@ import {
   type ChangedPath,
   type ComputedReadSurface,
   type ComputedRef,
-  type DispatchBlocker,
   type DispatchExecutionOutcome,
   type DynamicActionHandle,
   type ExecutionDiagnostics,

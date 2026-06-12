@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   semanticPathToPatchPath,
-  type DomainSchema,
 } from "@manifesto-ai/core";
 
 import { CompileError, ManifestoError } from "../errors.js";

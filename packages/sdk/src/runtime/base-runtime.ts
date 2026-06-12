@@ -24,7 +24,6 @@ import type {
   BoundAction,
   ComputedReadSurface,
   ComputedRef,
-  DispatchBlocker,
   DispatchExecutionOutcome,
   DynamicActionHandle,
   ExecutionDiagnostics,
