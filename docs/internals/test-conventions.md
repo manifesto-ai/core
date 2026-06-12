@@ -1,7 +1,7 @@
 # Test Conventions
 
 > **Status:** Normative
-> **Last updated:** 2026-03-24
+> **Last updated:** 2026-06-12
 
 ---
 
@@ -61,3 +61,26 @@ pnpm test --filter @manifesto-ai/core
 pnpm --filter @manifesto-ai/host exec vitest run src/__tests__/compliance/
 pnpm --filter @manifesto-ai/compiler exec vitest run src/__tests__/compliance/
 ```
+
+## CTS Taxonomy
+
+Compliance test suites (CTS) follow a two-tier taxonomy:
+
+1. **Package CTS** — `packages/*/src/__tests__/compliance/`
+   Verifies that package's own SPEC (e.g. Core CTS, Host HCTS, Compiler CCTS,
+   Lineage LCTS, Governance GCTS). Package CTS may use internal adapters and
+   package internals to observe behavior the public surface does not expose.
+2. **Cross-package activation CTS** — `cts/activation-cts/`
+   Verifies composed activation/decorator contracts (base runtime, lineage,
+   governance) against public surfaces only. It must not import package
+   internals.
+
+`@manifesto-ai/cts-kit` (`cts/cts-kit/`) is the single shared compliance
+framework for both tiers: rule/inventory/case/coverage types, the
+`evaluateRule`/`passRule`/`failRule`/`expectCompliance`/`expectAllCompliance`
+assertion helpers, and the rule-matrix validators
+(`expectUniqueRuleIds`, `expectInventoryRegistryParity`,
+`expectCoverageIntegrity`, `expectCoverageCompleteness`,
+`expectSuiteRulePresence`). New compliance suites MUST consume cts-kit rather
+than copying the skeleton; package-specific helpers (e.g. compiler diagnostic
+evidence, host trace evidence) stay in the package's compliance directory.

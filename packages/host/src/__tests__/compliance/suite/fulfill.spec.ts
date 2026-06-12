@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createCore, type ManifestoCore } from "@manifesto-ai/core";
 import type { TraceEvent } from "../hcts-types.js";
 import { createTestRuntime, type DeterministicRuntime } from "../hcts-runtime.js";
-import { createV1Adapter, type V1HostAdapter } from "../adapter-v2.js";
+import { createV2Adapter, type V2HostAdapter } from "../adapter-v2.js";
 import type { HostTestAdapter } from "../hcts-adapter.js";
 import {
   assertRequirementCleared,
@@ -41,7 +41,7 @@ describe("HCTS Fulfillment Tests", () => {
 
   beforeEach(async () => {
     runtime = createTestRuntime();
-    adapter = createV1Adapter();
+    adapter = createV2Adapter();
   });
 
   afterEach(async () => {

@@ -45,3 +45,6 @@ export {
   getRuntimeKernelFactory,
 } from "./compat/internal.js";
 export { createBaseRuntimeInstance } from "./runtime/base-runtime.js";
+// Shared admission-failure mapping for decorator runtimes (single source
+// for the blocked-admission -> AdmissionFailure narrowing).
+export { mapBlockedAdmission, toBlocker } from "./runtime/admission-failure.js";

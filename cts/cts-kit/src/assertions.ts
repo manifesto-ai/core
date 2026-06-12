@@ -9,7 +9,7 @@ export function noteEvidence(summary: string, details?: unknown): ComplianceEvid
   return { kind: "note", summary, details };
 }
 
-export function passRule<TSuite extends string, TEvidence extends ComplianceEvidence>(
+export function passRule<TSuite extends string, TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
   rule: ComplianceRule<TSuite>,
   message?: string,
   evidence?: TEvidence[]
@@ -24,7 +24,7 @@ export function passRule<TSuite extends string, TEvidence extends ComplianceEvid
   };
 }
 
-export function failRule<TSuite extends string, TEvidence extends ComplianceEvidence>(
+export function failRule<TSuite extends string, TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
   rule: ComplianceRule<TSuite>,
   message?: string,
   evidence?: TEvidence[]
@@ -39,7 +39,7 @@ export function failRule<TSuite extends string, TEvidence extends ComplianceEvid
   };
 }
 
-export function warnRule<TSuite extends string, TEvidence extends ComplianceEvidence>(
+export function warnRule<TSuite extends string, TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
   rule: ComplianceRule<TSuite>,
   message?: string,
   evidence?: TEvidence[]
@@ -54,7 +54,7 @@ export function warnRule<TSuite extends string, TEvidence extends ComplianceEvid
   };
 }
 
-export function evaluateRule<TSuite extends string, TEvidence extends ComplianceEvidence>(
+export function evaluateRule<TSuite extends string, TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
   rule: ComplianceRule<TSuite>,
   satisfied: boolean,
   options: {
@@ -74,7 +74,7 @@ export function evaluateRule<TSuite extends string, TEvidence extends Compliance
   return warnRule(rule, options.failMessage, options.evidence);
 }
 
-function formatEvidence(evidence: ComplianceEvidence[] | undefined): string {
+function formatEvidence(evidence: readonly ComplianceEvidence<string>[] | undefined): string {
   if (!evidence || evidence.length === 0) {
     return "";
   }
@@ -82,7 +82,7 @@ function formatEvidence(evidence: ComplianceEvidence[] | undefined): string {
   return evidence.map((item) => `- [${item.kind}] ${item.summary}`).join("\n");
 }
 
-export function expectCompliance<TEvidence extends ComplianceEvidence>(
+export function expectCompliance<TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
   result: ComplianceResult<TEvidence>
 ): void {
   if (result.status === "FAIL") {
@@ -92,7 +92,7 @@ export function expectCompliance<TEvidence extends ComplianceEvidence>(
   }
 }
 
-export function expectAllCompliance<TEvidence extends ComplianceEvidence>(
+export function expectAllCompliance<TEvidence extends ComplianceEvidence<string> = ComplianceEvidence>(
   results: readonly ComplianceResult<TEvidence>[]
 ): void {
   for (const result of results) {

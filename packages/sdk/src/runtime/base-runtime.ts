@@ -1,4 +1,7 @@
-import type { ErrorValue, Intent } from "@manifesto-ai/core";
+import type {
+  ErrorValue,
+  Intent,
+} from "@manifesto-ai/core";
 
 import {
   DisposedError,
@@ -48,17 +51,27 @@ import {
   attachExtensionKernel,
   type RuntimeKernel,
 } from "../compat/internal.js";
-import { runBaseDispatchAttempt } from "./base-dispatch.js";
+import {
+  runBaseDispatchAttempt,
+} from "./base-dispatch.js";
+import { mapBlockedAdmission } from "./admission-failure.js";
 import {
   cloneAndFreezeActionPayload,
   tryCloneAndFreezeActionPayload,
 } from "./action-payload.js";
-import { createRuntimePublication } from "./publication.js";
-import { diffProjectedPaths } from "./reports.js";
+import {
+  createRuntimePublication,
+} from "./publication.js";
+import {
+  diffProjectedPaths,
+} from "./reports.js";
 
 type BaseMode = "base";
 
-type Candidate<T extends ManifestoDomainShape, Name extends ActionName<T>> = {
+type Candidate<
+  T extends ManifestoDomainShape,
+  Name extends ActionName<T>,
+> = {
   readonly actionName: Name;
   readonly input: ActionInput<T, Name>;
   readonly intent: TypedIntent<T, Name> | null;
@@ -97,10 +110,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
 
   for (const name of actionInfoByName.keys()) {
     const handle = createActionHandle(name);
-    actionByName.set(
-      name,
-      handle as unknown as DynamicActionHandle<T, BaseMode>,
-    );
+    actionByName.set(name, handle as unknown as DynamicActionHandle<T, BaseMode>);
     Object.defineProperty(action, name, {
       enumerable: true,
       configurable: false,
@@ -141,10 +151,8 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     },
   });
 
-  const getAction = ((name: string) => actionByName.get(name)) as GetAction<
-    T,
-    BaseMode
-  >;
+  const getAction = ((name: string) =>
+    actionByName.get(name)) as GetAction<T, BaseMode>;
 
   const app = {
     action: Object.freeze(action),
@@ -159,8 +167,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       },
       availableActions(): readonly ActionInfo<ActionName<T>>[] {
         return Object.freeze(
-          kernel
-            .getAvailableActions()
+          kernel.getAvailableActions()
             .map((name) => getActionInfo(name as ActionName<T>)),
         );
       },
@@ -193,11 +200,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       return runtimeView.context ?? kernel.getExternalContext();
     },
     with(nextView) {
-      return createBaseRuntimeInstance(
-        kernel,
-        mergeRuntimeView(nextView),
-        true,
-      );
+      return createBaseRuntimeInstance(kernel, mergeRuntimeView(nextView), true);
     },
     dispose: kernel.dispose,
   } satisfies ManifestoApp<T, BaseMode>;
@@ -219,15 +222,17 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
 
   function createStateReadSurface(): StateReadSurface<T> {
     const surface: Record<PropertyKey, unknown> = Object.create(null);
-    for (const name of Object.keys(kernel.refs.state) as Array<
-      keyof T["state"] & string
-    >) {
+    for (const name of Object.keys(kernel.refs.state) as Array<keyof T["state"] & string>) {
       const ref = kernel.refs.state[name] as FieldRef<T["state"][typeof name]>;
       Object.defineProperty(surface, name, {
         enumerable: true,
         configurable: false,
         writable: false,
-        value: createReadHandle(name, ref, (snapshot) => snapshot.state[name]),
+        value: createReadHandle(
+          name,
+          ref,
+          (snapshot) => snapshot.state[name],
+        ),
       });
     }
 
@@ -236,12 +241,8 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
 
   function createComputedReadSurface(): ComputedReadSurface<T> {
     const surface: Record<PropertyKey, unknown> = Object.create(null);
-    for (const name of Object.keys(kernel.refs.computed) as Array<
-      keyof T["computed"] & string
-    >) {
-      const ref = kernel.refs.computed[name] as ComputedRef<
-        T["computed"][typeof name]
-      >;
+    for (const name of Object.keys(kernel.refs.computed) as Array<keyof T["computed"] & string>) {
+      const ref = kernel.refs.computed[name] as ComputedRef<T["computed"][typeof name]>;
       Object.defineProperty(surface, name, {
         enumerable: true,
         configurable: false,
@@ -284,13 +285,10 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     args: ActionArgs<T, Name>,
   ): BoundAction<T, Name, BaseMode> {
     const candidate = createCandidate(name, args);
-    const stableArgs = tryCloneAndFreezeActionPayload<readonly unknown[]>([
-      ...args,
-    ]);
-    const createFreshCandidate = (): Candidate<T, Name> =>
-      stableArgs.ok
-        ? createCandidate(name, stableArgs.value as ActionArgs<T, Name>)
-        : candidate;
+    const stableArgs = tryCloneAndFreezeActionPayload<readonly unknown[]>([...args]);
+    const createFreshCandidate = (): Candidate<T, Name> => stableArgs.ok
+      ? createCandidate(name, stableArgs.value as ActionArgs<T, Name>)
+      : candidate;
     return Object.freeze({
       action: name,
       input: candidate.input,
@@ -299,7 +297,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       submit: () => submitCandidate(createFreshCandidate()),
       intent: () => {
         const fresh = createFreshCandidate();
-        return fresh.inputError ? null : (fresh.intent as Intent | null);
+        return fresh.inputError ? null : fresh.intent as Intent | null;
       },
     });
   }
@@ -310,8 +308,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
   ): Candidate<T, Name> {
     const actionRef = kernel.refs.actions[name] as TypedActionRef<T, Name>;
     const publicInput = toPublicInput(name, args);
-    const stableInput =
-      tryCloneAndFreezeActionPayload<ActionInput<T, Name>>(publicInput);
+    const stableInput = tryCloneAndFreezeActionPayload<ActionInput<T, Name>>(publicInput);
     if (!stableInput.ok) {
       return Object.freeze({
         actionName: name,
@@ -322,9 +319,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     }
 
     try {
-      const intent = cloneAndFreezeActionPayload(
-        kernel.createIntent(actionRef, ...args),
-      );
+      const intent = cloneAndFreezeActionPayload(kernel.createIntent(actionRef, ...args));
       const inputError = kernel.validateIntentInputFor(
         kernel.getCanonicalSnapshot(),
         intent,
@@ -390,10 +385,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     }
 
     const intent = admission.intent;
-    const context = kernel.createComputeContext(
-      intent,
-      captureViewExternalContext(),
-    );
+    const context = kernel.createComputeContext(intent, captureViewExternalContext());
     const simulated = kernel.simulateSync(beforeCanonical, intent, {
       context,
     });
@@ -406,8 +398,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       after,
       changes: diffProjectedPaths(before, after),
       requirements: simulated.requirements,
-      newAvailableActions: kernel
-        .getAvailableActionsFor(simulated.snapshot)
+      newAvailableActions: kernel.getAvailableActionsFor(simulated.snapshot)
         .map((name) => getActionInfo(name as ActionName<T>)),
       ...previewDiagnostics(simulated.diagnostics, runtimeView.diagnostics),
       error: simulated.snapshot.system.lastError,
@@ -421,10 +412,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       throw new DisposedError();
     }
     const context = candidate.intent
-      ? kernel.createComputeContext(
-          candidate.intent,
-          captureViewExternalContext(),
-        )
+      ? kernel.createComputeContext(candidate.intent, captureViewExternalContext())
       : null;
 
     return kernel.enqueue(async () => {
@@ -436,12 +424,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       const admission = admitCandidate(candidate, beforeCanonical);
       if (!admission.admission.ok || admission.intent === null) {
         const rejectedAdmission = admission.admission as AdmissionFailure<Name>;
-        emitSubmissionRejected(
-          candidate.actionName,
-          candidate.intent,
-          rejectedAdmission,
-          beforeCanonical,
-        );
+        emitSubmissionRejected(candidate.actionName, candidate.intent, rejectedAdmission, beforeCanonical);
         return Object.freeze({
           ok: false,
           mode: "base",
@@ -451,28 +434,15 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       }
 
       const admittedIntent = admission.intent;
-      emitSubmissionAdmitted(
-        candidate.actionName,
-        admittedIntent,
-        admission.admission,
-        beforeCanonical,
-      );
-      emitSubmissionSubmitted(
-        candidate.actionName,
-        admittedIntent,
-        beforeCanonical,
-      );
+      emitSubmissionAdmitted(candidate.actionName, admittedIntent, admission.admission, beforeCanonical);
+      emitSubmissionSubmitted(candidate.actionName, admittedIntent, beforeCanonical);
 
       const attempt = await runBaseDispatchAttempt(
         kernel,
         extensionKernel,
         publication,
         admittedIntent,
-        context ??
-          kernel.createComputeContext(
-            admittedIntent,
-            captureViewExternalContext(),
-          ),
+        context ?? kernel.createComputeContext(admittedIntent, captureViewExternalContext()),
       );
 
       if (attempt.kind === "rejected") {
@@ -481,12 +451,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
           attempt.admission,
           attempt.rejection.reason,
         );
-        emitSubmissionRejected(
-          candidate.actionName,
-          attempt.intent,
-          rejected,
-          attempt.beforeCanonicalSnapshot,
-        );
+        emitSubmissionRejected(candidate.actionName, attempt.intent, rejected, attempt.beforeCanonicalSnapshot);
         return Object.freeze({
           ok: false,
           mode: "base",
@@ -496,50 +461,32 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       }
 
       if (attempt.kind === "failed") {
-        const failureSnapshot =
-          attempt.outcome?.canonical.afterCanonicalSnapshot ??
-          attempt.beforeCanonicalSnapshot;
+        const failureSnapshot = attempt.outcome?.canonical.afterCanonicalSnapshot
+          ?? attempt.beforeCanonicalSnapshot;
         const hostOperationalError = readHostNamespaceError(failureSnapshot);
-        if (
-          !attempt.published ||
-          hostOperationalError ||
-          !failureSnapshot.system.lastError
-        ) {
-          const error =
-            hostOperationalError ??
-            toDiagnosticErrorValue(
-              attempt.failure,
-              attempt.intent,
-              failureSnapshot,
-            );
-          emitSubmissionFailed(
-            candidate.actionName,
+        if (!attempt.published || hostOperationalError || !failureSnapshot.system.lastError) {
+          const error = hostOperationalError ?? toDiagnosticErrorValue(
+            attempt.failure,
             attempt.intent,
-            error,
             failureSnapshot,
           );
+          emitSubmissionFailed(candidate.actionName, attempt.intent, error, failureSnapshot);
           throw new SubmissionFailedError(attempt.failure.message, "runtime", {
             cause: attempt.failure,
           });
         }
       }
 
-      const dispatchOutcome =
-        attempt.kind === "completed" ? attempt.outcome : attempt.outcome;
+      const dispatchOutcome = attempt.kind === "completed"
+        ? attempt.outcome
+        : attempt.outcome;
       if (!dispatchOutcome) {
         const error = toErrorValue(
-          attempt.kind === "failed"
-            ? attempt.failure
-            : new Error("Submission produced no terminal outcome"),
+          attempt.kind === "failed" ? attempt.failure : new Error("Submission produced no terminal outcome"),
           attempt.intent,
           kernel.getCanonicalSnapshot(),
         );
-        emitSubmissionFailed(
-          candidate.actionName,
-          attempt.intent,
-          error,
-          kernel.getCanonicalSnapshot(),
-        );
+        emitSubmissionFailed(candidate.actionName, attempt.intent, error, kernel.getCanonicalSnapshot());
         throw new SubmissionFailedError(error.message, "runtime");
       }
 
@@ -556,21 +503,11 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
           attempt.intent,
           afterCanonical,
         );
-        emitSubmissionFailed(
-          candidate.actionName,
-          attempt.intent,
-          error,
-          afterCanonical,
-        );
+        emitSubmissionFailed(candidate.actionName, attempt.intent, error, afterCanonical);
         throw new SubmissionFailedError(error.message, "runtime");
       }
 
-      emitSubmissionSettled(
-        candidate.actionName,
-        attempt.intent,
-        outcome,
-        afterCanonical,
-      );
+      emitSubmissionSettled(candidate.actionName, attempt.intent, outcome, afterCanonical);
       const report = createBaseWriteReport(
         runtimeView.report,
         candidate.actionName,
@@ -592,15 +529,11 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     });
   }
 
-  function getViewExternalContext(): ReturnType<
-    RuntimeKernel<T>["getExternalContext"]
-  > {
+  function getViewExternalContext(): ReturnType<RuntimeKernel<T>["getExternalContext"]> {
     return runtimeView.context ?? kernel.getExternalContext();
   }
 
-  function captureViewExternalContext(): ReturnType<
-    RuntimeKernel<T>["getExternalContext"]
-  > {
+  function captureViewExternalContext(): ReturnType<RuntimeKernel<T>["getExternalContext"]> {
     return runtimeView.context ?? kernel.captureExternalContext();
   }
 
@@ -612,9 +545,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       ...(nextView.context !== undefined
         ? { context: kernel.captureExternalContext(nextView.context) }
         : {}),
-      ...(nextView.diagnostics !== undefined
-        ? { diagnostics: nextView.diagnostics }
-        : {}),
+      ...(nextView.diagnostics !== undefined ? { diagnostics: nextView.diagnostics } : {}),
       ...(nextView.report !== undefined ? { report: nextView.report } : {}),
     });
   }
@@ -622,15 +553,13 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
   function admitCandidate<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
     snapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>,
-  ):
-    | {
-        readonly admission: AdmissionOk<Name>;
-        readonly intent: TypedIntent<T, Name>;
-      }
-    | {
-        readonly admission: AdmissionFailure<Name>;
-        readonly intent: null;
-      } {
+  ): {
+    readonly admission: AdmissionOk<Name>;
+    readonly intent: TypedIntent<T, Name>;
+  } | {
+    readonly admission: AdmissionFailure<Name>;
+    readonly intent: null;
+  } {
     if (!kernel.isActionAvailableFor(snapshot, candidate.actionName)) {
       return {
         admission: Object.freeze({
@@ -659,10 +588,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
       };
     }
 
-    const legality = kernel.evaluateIntentLegalityFor(
-      snapshot,
-      candidate.intent,
-    );
+    const legality = kernel.evaluateIntentLegalityFor(snapshot, candidate.intent);
     if (legality.kind === "admitted") {
       return {
         admission: Object.freeze({
@@ -677,68 +603,12 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     return {
       admission: mapBlockedAdmission(
         candidate.actionName,
-        legacyAdmission as Extract<
-          typeof legacyAdmission,
-          { readonly kind: "blocked" }
-        >,
+        legacyAdmission as Extract<typeof legacyAdmission, { readonly kind: "blocked" }>,
       ),
       intent: null,
     };
   }
 
-  function mapBlockedAdmission<Name extends ActionName<T>>(
-    actionName: Name,
-    admission: { readonly failure: { readonly kind: string } },
-    fallbackMessage?: string,
-  ): AdmissionFailure<Name> {
-    if (admission.failure.kind === "invalid_input") {
-      const failure = admission.failure as unknown as {
-        readonly error: { readonly message: string };
-      };
-      return Object.freeze({
-        ok: false,
-        action: actionName,
-        layer: "input",
-        code: "INVALID_INPUT",
-        message: failure.error.message,
-        blockers: Object.freeze([]),
-      }) as AdmissionFailure<Name>;
-    }
-
-    if (admission.failure.kind === "not_dispatchable") {
-      const failure = admission.failure as unknown as {
-        readonly blockers: readonly DispatchBlocker[];
-      };
-      return Object.freeze({
-        ok: false,
-        action: actionName,
-        layer: "dispatchability",
-        code: "INTENT_NOT_DISPATCHABLE",
-        message:
-          fallbackMessage ??
-          `Action "${actionName}" is not dispatchable against the current visible snapshot`,
-        blockers: failure.blockers.map((blocker) =>
-          toBlocker(blocker, "INTENT_NOT_DISPATCHABLE"),
-        ),
-      }) as AdmissionFailure<Name>;
-    }
-
-    const failure = admission.failure as unknown as {
-      readonly blockers?: readonly DispatchBlocker[];
-    };
-    return Object.freeze({
-      ok: false,
-      action: actionName,
-      layer: "availability",
-      code: "ACTION_UNAVAILABLE",
-      message:
-        fallbackMessage ??
-        `Action "${actionName}" is unavailable against the current visible snapshot`,
-      blockers: (failure.blockers ?? []).map((blocker) =>
-        toBlocker(blocker, "ACTION_UNAVAILABLE"),
-      ),
-    }) as AdmissionFailure<Name>;
-  }
 
   function getAvailabilityBlockers<Name extends ActionName<T>>(
     candidate: Candidate<T, Name>,
@@ -749,39 +619,25 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
         type: String(candidate.actionName),
         intentId: `availability:${String(candidate.actionName)}`,
       }) as TypedIntent<T, Name>;
-      const legality = kernel.evaluateIntentLegalityFor(
-        snapshot,
-        availabilityIntent,
-      );
+      const legality = kernel.evaluateIntentLegalityFor(snapshot, availabilityIntent);
       const admission = kernel.deriveIntentAdmission(snapshot, legality);
-      if (
-        admission.kind !== "blocked" ||
-        admission.failure.kind !== "unavailable"
-      ) {
+      if (admission.kind !== "blocked" || admission.failure.kind !== "unavailable") {
         return Object.freeze([]);
       }
 
       return mapBlockedAdmission(candidate.actionName, admission).blockers;
     }
 
-    const legality = kernel.evaluateIntentLegalityFor(
-      snapshot,
-      candidate.intent,
-    );
+    const legality = kernel.evaluateIntentLegalityFor(snapshot, candidate.intent);
     const admission = kernel.deriveIntentAdmission(snapshot, legality);
-    if (
-      admission.kind !== "blocked" ||
-      admission.failure.kind !== "unavailable"
-    ) {
+    if (admission.kind !== "blocked" || admission.failure.kind !== "unavailable") {
       return Object.freeze([]);
     }
 
     return mapBlockedAdmission(candidate.actionName, admission).blockers;
   }
 
-  function getActionInfo<Name extends ActionName<T>>(
-    name: Name,
-  ): ActionInfo<Name> {
+  function getActionInfo<Name extends ActionName<T>>(name: Name): ActionInfo<Name> {
     const info = actionInfoByName.get(name);
     if (!info) {
       throw new ManifestoError(
@@ -821,10 +677,7 @@ export function createBaseRuntimeInstance<T extends ManifestoDomainShape>(
     intent: TypedIntent<T>,
     snapshot: ReturnType<RuntimeKernel<T>["getCanonicalSnapshot"]>,
   ): void {
-    kernel.emitEvent(
-      "submission:submitted",
-      eventBase(actionName, intent, snapshot),
-    );
+    kernel.emitEvent("submission:submitted", eventBase(actionName, intent, snapshot));
   }
 
   function emitSubmissionSettled<Name extends ActionName<T>>(
@@ -912,36 +765,33 @@ function freezeRuntimeView<T extends ManifestoDomainShape>(
 function toActionInfo<
   T extends ManifestoDomainShape,
   Name extends ActionName<T>,
->(metadata: TypedActionMetadata<T, Name>): ActionInfo<Name> {
-  const inputFields =
-    metadata.input?.type === "object" ? (metadata.input.fields ?? {}) : {};
-  const parameterNames =
-    metadata.params.length > 0 ? metadata.params : Object.keys(inputFields);
+>(
+  metadata: TypedActionMetadata<T, Name>,
+): ActionInfo<Name> {
+  const inputFields = metadata.input?.type === "object"
+    ? metadata.input.fields ?? {}
+    : {};
+  const parameterNames = metadata.params.length > 0
+    ? metadata.params
+    : Object.keys(inputFields);
   const annotations = metadata.annotations;
-  const title =
-    typeof annotations?.title === "string" ? annotations.title : undefined;
+  const title = typeof annotations?.title === "string"
+    ? annotations.title
+    : undefined;
 
   return Object.freeze({
     name: metadata.name,
     ...(title !== undefined ? { title } : {}),
-    ...(metadata.description !== undefined
-      ? { description: metadata.description }
-      : {}),
-    parameters: Object.freeze(
-      parameterNames.map((name) => {
-        const field = inputFields[name];
-        return Object.freeze({
-          name,
-          required: field?.required ?? true,
-          ...(field?.type !== undefined
-            ? { type: fieldTypeToString(field.type) }
-            : {}),
-          ...(field?.description !== undefined
-            ? { description: field.description }
-            : {}),
-        });
-      }),
-    ),
+    ...(metadata.description !== undefined ? { description: metadata.description } : {}),
+    parameters: Object.freeze(parameterNames.map((name) => {
+      const field = inputFields[name];
+      return Object.freeze({
+        name,
+        required: field?.required ?? true,
+        ...(field?.type !== undefined ? { type: fieldTypeToString(field.type) } : {}),
+        ...(field?.description !== undefined ? { description: field.description } : {}),
+      });
+    })),
     ...(annotations !== undefined ? { annotations } : {}),
   }) as ActionInfo<Name>;
 }
@@ -956,17 +806,6 @@ function fieldTypeToString(type: unknown): string {
   return "unknown";
 }
 
-function toBlocker(blocker: DispatchBlocker, code: Blocker["code"]): Blocker {
-  return Object.freeze({
-    path: Object.freeze([]),
-    code,
-    message: blocker.description ?? code,
-    detail: Object.freeze({
-      layer: blocker.layer,
-      expression: blocker.expression,
-    }),
-  });
-}
 
 function toExecutionOutcome<T extends ManifestoDomainShape>(
   dispatchOutcome: DispatchExecutionOutcome<T>,
@@ -1003,9 +842,7 @@ function toExecutionOutcome<T extends ManifestoDomainShape>(
   return Object.freeze({ kind: "ok" }) as ExecutionOutcome;
 }
 
-function findHaltReason(
-  diagnostics: ExecutionDiagnostics | undefined,
-): string | null {
+function findHaltReason(diagnostics: ExecutionDiagnostics | undefined): string | null {
   const haltTrace = diagnostics?.hostTraces
     ?.slice()
     .reverse()
@@ -1063,12 +900,11 @@ function readHostNamespaceError<T extends ManifestoDomainShape>(
 ): ErrorValue | null {
   const hostNamespace = snapshot.namespaces?.host;
   if (
-    hostNamespace &&
-    typeof hostNamespace === "object" &&
-    !Array.isArray(hostNamespace)
+    hostNamespace
+    && typeof hostNamespace === "object"
+    && !Array.isArray(hostNamespace)
   ) {
-    const lastError = (hostNamespace as { readonly lastError?: unknown })
-      .lastError;
+    const lastError = (hostNamespace as { readonly lastError?: unknown }).lastError;
     if (isErrorValue(lastError)) {
       return lastError;
     }
@@ -1083,13 +919,11 @@ function isErrorValue(value: unknown): value is ErrorValue {
   }
 
   const candidate = value as Partial<ErrorValue>;
-  return (
-    typeof candidate.code === "string" &&
-    typeof candidate.message === "string" &&
-    typeof candidate.timestamp === "number" &&
-    !!candidate.source &&
-    typeof candidate.source === "object" &&
-    typeof candidate.source.actionId === "string" &&
-    typeof candidate.source.nodePath === "string"
-  );
+  return typeof candidate.code === "string"
+    && typeof candidate.message === "string"
+    && typeof candidate.timestamp === "number"
+    && !!candidate.source
+    && typeof candidate.source === "object"
+    && typeof candidate.source.actionId === "string"
+    && typeof candidate.source.nodePath === "string";
 }

@@ -39,6 +39,16 @@ export type {
 } from "./plugins/index.js";
 
 // Utilities (for custom plugin authors)
+export {
+  createTypeNameAliasMap,
+  isBindingIdentifier,
+  isIdentifierName,
+  isTypeDeclarationName,
+  renderPropertyKey,
+  sanitizeIdentifier,
+  sanitizeParameterNames,
+} from "./identifier-safety.js";
+export type { IdentifierAliasMap } from "./identifier-safety.js";
 export { validatePath } from "./path-safety.js";
 export type { PathValidationResult } from "./path-safety.js";
 export { stableHash } from "./stable-hash.js";

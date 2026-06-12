@@ -17,9 +17,16 @@ _Source: `packages/codegen/src/index.ts`_
 - `createCompilerCodegen`
 - `createDomainPlugin`
 - `createTsPlugin`
+- `createTypeNameAliasMap`
 - `createZodPlugin`
 - `generate`
 - `generateHeader`
+- `isBindingIdentifier`
+- `isIdentifierName`
+- `isTypeDeclarationName`
+- `renderPropertyKey`
+- `sanitizeIdentifier`
+- `sanitizeParameterNames`
 - `stableHash`
 - `validatePath`
 
@@ -38,6 +45,7 @@ _Source: `packages/codegen/src/index.ts`_
 - `GenerateOptions`
 - `GenerateResult`
 - `HeaderOptions`
+- `IdentifierAliasMap`
 - `PathValidationResult`
 - `TsPluginArtifacts`
 - `TsPluginOptions`
@@ -993,6 +1001,21 @@ _Source: `packages/host/src/index.ts`_
 - `TraceEvent`
 - `TraceGraph`
 
+### @manifesto-ai/host/tooling
+
+_Source: `packages/host/src/tooling.ts`_
+
+#### Values
+
+- `getHostState`
+- `getIntentSlot`
+- `getLegacyDataRootHostState`
+
+#### Types
+
+- `HostOwnedState`
+- `IntentSlot`
+
 ## @manifesto-ai/lineage
 
 ### @manifesto-ai/lineage
@@ -1248,6 +1271,8 @@ _Source: `packages/sdk/src/provider.ts`_
 - `createRuntimeKernel`
 - `getActivationState`
 - `getRuntimeKernelFactory`
+- `mapBlockedAdmission`
+- `toBlocker`
 
 #### Types
 
