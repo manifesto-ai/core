@@ -70,7 +70,7 @@
     "cli": "node ./dist/cli/index.js"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "^0.91.1",
+    "@anthropic-ai/sdk": "^0.104.1",
     "@manifesto-ai/core": "^5.1.0",
     "openai": "^4.0.0",
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0",
@@ -91,7 +91,7 @@
     "unplugin": "^3.0.0"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.91.1",
+    "@anthropic-ai/sdk": "^0.104.1",
     "@manifesto-ai/core": "workspace:*",
     "@types/node": "^25.9.3",
     "@types/react": "^19.2.17",
