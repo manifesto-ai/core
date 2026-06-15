@@ -43,13 +43,13 @@
     "test:coverage": "node ../../scripts/run-vitest.mjs run --coverage"
   },
   "peerDependencies": {
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@manifesto-ai/cts-kit": "workspace:*",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
     "vitest": "^4.1.8",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   }
 }
