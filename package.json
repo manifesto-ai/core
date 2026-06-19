@@ -76,7 +76,12 @@
       "preact": "10.28.2",
       "fast-uri": "3.1.2",
       "ws": "8.21.0",
-      "uuid": "11.1.1"
+      "uuid": "11.1.1",
+      "mermaid>dompurify": "3.4.11",
+      "minimatch>brace-expansion": "5.0.6",
+      "typedoc>markdown-it": "14.2.0",
+      "vitepress>@vitejs/plugin-vue": "6.0.7",
+      "vitepress>vite": "6.4.3"
     },
     "onlyBuiltDependencies": [
       "esbuild"
