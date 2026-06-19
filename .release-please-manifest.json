@@ -1,9 +1,9 @@
 {
-  "packages/codegen": "5.1.0",
-  "packages/compiler": "5.0.1",
-  "packages/core": "5.1.0",
-  "packages/governance": "5.1.0",
-  "packages/host": "5.0.1",
-  "packages/lineage": "5.1.0",
-  "packages/sdk": "5.1.0"
+  "packages/codegen": "5.1.1",
+  "packages/compiler": "5.0.2",
+  "packages/core": "5.1.1",
+  "packages/governance": "5.1.1",
+  "packages/host": "5.0.2",
+  "packages/lineage": "5.1.1",
+  "packages/sdk": "5.1.1"
 }

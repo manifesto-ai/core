@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.1.1](https://github.com/manifesto-ai/core/compare/sdk-v5.1.0...sdk-v5.1.1) (2026-06-19)
+
+
+### Dependencies
+
+* consolidate depsbot updates ([#527](https://github.com/manifesto-ai/core/issues/527)) ([2f8578b](https://github.com/manifesto-ai/core/commit/2f8578b1ac46c35f4b02ec6311ece3f71b0b1526))
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/compiler bumped to 5.0.2
+    * @manifesto-ai/core bumped to 5.1.1
+    * @manifesto-ai/host bumped to 5.0.2
+
 ## [5.1.0](https://github.com/manifesto-ai/core/compare/sdk-v5.0.0...sdk-v5.1.0) (2026-06-12)
 
 
