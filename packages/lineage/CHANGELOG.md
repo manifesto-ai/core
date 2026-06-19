@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.1.1](https://github.com/manifesto-ai/core/compare/lineage-v5.1.0...lineage-v5.1.1) (2026-06-19)
+
+
+### Dependencies
+
+* consolidate depsbot updates ([#527](https://github.com/manifesto-ai/core/issues/527)) ([2f8578b](https://github.com/manifesto-ai/core/commit/2f8578b1ac46c35f4b02ec6311ece3f71b0b1526))
+* The following workspace dependencies were updated
+  * dependencies
+    * @manifesto-ai/sdk bumped to 5.1.1
+  * devDependencies
+    * @manifesto-ai/core bumped to 5.1.1
+  * peerDependencies
+    * @manifesto-ai/core bumped from ^5.1.0 to ^5.1.1
+
 ## [5.1.0](https://github.com/manifesto-ai/core/compare/lineage-v5.0.0...lineage-v5.1.0) (2026-06-12)
 
 
