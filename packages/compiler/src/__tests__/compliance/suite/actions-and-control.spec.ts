@@ -129,7 +129,7 @@ describe("CCTS Actions and Control Suite", () => {
   it(
     caseTitle(
       CCTS_CASES.ACTIONS_ONCE_INTENT_DESUGARING,
-      "(COMPILER-MEL-1) onceIntent lowers to Core intent guards",
+      "(COMPILER-MEL-1) onceIntent lowers to transition-scoped Core intent guards",
     ),
     () => {
       const result = adapter.compile(`
@@ -153,7 +153,8 @@ describe("CCTS Actions and Control Suite", () => {
 
       expectAllCompliance([
         evaluateRule(getRuleOrThrow("COMPILER-MEL-1"), satisfied, {
-          passMessage: "onceIntent lowers to a Core-owned generic intent guard.",
+          passMessage:
+            "onceIntent lowers to a Core-owned runtime re-entry guard, not a durable global idempotency key.",
           failMessage: "onceIntent no longer lowers to the expected Core intent guard.",
           evidence: [noteEvidence("Observed flow", flow)],
         }),

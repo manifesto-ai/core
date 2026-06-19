@@ -965,7 +965,7 @@ describe("@manifesto-ai/governance decorator runtime", () => {
     expect(restarted.snapshot().state.count).toBe(1);
   });
 
-  it("returns evaluating proposals for HITL and resolves them through approve/reject", async () => {
+  it("returns evaluating proposals for HITL and does not consume runtime guards on reject", async () => {
     const governed = withGovernance(
       withLineage(createManifesto<CounterDomain>(createCounterSchema(), {}), {
         store: createInMemoryLineageStore(),
@@ -1015,6 +1015,21 @@ describe("@manifesto-ai/governance decorator runtime", () => {
       },
     });
     expect(governed.snapshot().state.count).toBe(1);
+
+    const acceptedAfterRejection = await submitAdd(governed, 2);
+    const proposalAfterRejection = await getStoredProposal(
+      governed,
+      acceptedAfterRejection.proposal,
+    );
+    const approvedAfterRejection = await governed.approve(proposalAfterRejection.proposalId);
+    const settledAfterRejection = await governed.waitForSettlement(acceptedAfterRejection.proposal);
+
+    expect(approvedAfterRejection.status).toBe("completed");
+    expect(settledAfterRejection).toMatchObject({
+      ok: true,
+      status: "settled",
+      after: { state: { count: 3 } },
+    });
   });
 
   it("fails terminal observation when a referenced decision record is missing", async () => {

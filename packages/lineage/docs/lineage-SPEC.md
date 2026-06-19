@@ -418,6 +418,10 @@ ADR-025 separates stored canonical lookup from execution restore:
 - runtime restore MUST normalize `snapshot.namespaces` structurally without
   interpreting owner-specific namespace shapes. Namespace owners define any
   owner-specific restore semantics outside Lineage.
+- Operational guard bookkeeping, including Core `causalGuard` state used by
+  compiler `onceIntent`, is restore residue rather than lineage identity.
+  Restore and branch switching therefore do not provide global deduplication
+  for a reused raw intent id.
 
 | Rule ID | Level | Description |
 |---------|-------|-------------|

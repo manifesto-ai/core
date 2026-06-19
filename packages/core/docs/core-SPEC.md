@@ -1500,7 +1500,11 @@ In this specification, domain-owned mutable state is stored under `snapshot.stat
 | `causalGuard` | Core | Core-owned per-causal-intent bookkeeping | Core |
 
 Compiler `onceIntent` lowers to Core `causalGuard`. Core MUST NOT know MEL
-namespace names or MEL-owned storage shape.
+namespace names or MEL-owned storage shape. `causalGuard` is a runtime
+re-entry primitive: it prevents the guarded block from executing more than once
+for the same causal intent id against the current canonical Snapshot
+bookkeeping. It is not a lineage-global, branch-global, restore-stable, or
+governance proposal-global idempotency mechanism.
 
 ### 13.5 Requirements
 

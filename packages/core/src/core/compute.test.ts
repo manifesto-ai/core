@@ -1148,6 +1148,103 @@ describe("compute", () => {
     });
   });
 
+  describe("causalGuard scope", () => {
+    function createCausalGuardSchema(): DomainSchema {
+      return createTestSchema({
+        state: {
+          fields: {
+            count: { type: "number", required: true },
+            lastIntentId: { type: "string", required: true },
+          },
+        },
+        actions: {
+          record: {
+            flow: {
+              kind: "causalGuard",
+              guardId: "record-once-intent",
+              body: {
+                kind: "seq",
+                steps: [
+                  {
+                    kind: "patch",
+                    op: "set",
+                    path: pp("count"),
+                    value: {
+                      kind: "add",
+                      left: { kind: "get", path: "count" },
+                      right: { kind: "lit", value: 1 },
+                    },
+                  },
+                  {
+                    kind: "patch",
+                    op: "set",
+                    path: pp("lastIntentId"),
+                    value: { kind: "get", path: "$runtime.intent.id" },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+    }
+
+    it("skips repeated block for the same causal intent in the same canonical snapshot", async () => {
+      const schema = createCausalGuardSchema();
+      const initial = createTestSnapshot({ count: 0, lastIntentId: "" }, schema.hash);
+      const intent = createIntent("record", "intent-same");
+
+      const first = await compute(schema, initial, intent, HOST_CONTEXT);
+      const second = await compute(schema, first.snapshot, intent, HOST_CONTEXT);
+
+      expect(first.snapshot.state).toMatchObject({
+        count: 1,
+        lastIntentId: "intent-same",
+      });
+      expect(first.snapshot.namespaces).toMatchObject({
+        core: {
+          causalGuards: {
+            "record-once-intent": "intent-same",
+          },
+        },
+      });
+      expect(second.snapshot.state).toMatchObject({
+        count: 1,
+        lastIntentId: "intent-same",
+      });
+      expect(second.patches).toEqual([]);
+      expect(second.namespaceDelta ?? []).toEqual([]);
+    });
+
+    it("does not imply restore-stable global dedupe", async () => {
+      const schema = createCausalGuardSchema();
+      const initial = createTestSnapshot({ count: 0, lastIntentId: "" }, schema.hash);
+      const intent = createIntent("record", "intent-same");
+
+      const first = await compute(schema, initial, intent, HOST_CONTEXT);
+      const restoreLikeSnapshot = {
+        ...first.snapshot,
+        namespaces: {
+          host: {},
+          mel: {},
+        },
+      };
+      const second = await compute(schema, restoreLikeSnapshot, intent, HOST_CONTEXT);
+
+      expect(second.snapshot.state).toMatchObject({
+        count: 2,
+        lastIntentId: "intent-same",
+      });
+      expect(second.snapshot.namespaces).toMatchObject({
+        core: {
+          causalGuards: {
+            "record-once-intent": "intent-same",
+          },
+        },
+      });
+    });
+  });
+
   describe("Availability on Re-Entry (#134)", () => {
     it("should keep action valid when re-entering after effect mutates available fields", async () => {
       const schema = createTestSchema({
