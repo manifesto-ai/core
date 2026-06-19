@@ -351,7 +351,9 @@ type GovernanceSettlementResult<
 
 `settled` is used only when authority permits execution and the runtime reaches
 a sealed world result. Rejected, superseded, expired, and cancelled proposals are
-governance lifecycle outcomes, not execution outcomes.
+governance lifecycle outcomes, not execution outcomes. They do not run the
+SDK/Host/Core execution path and therefore do not consume runtime re-entry
+guards such as Core `causalGuard` / compiler `onceIntent`.
 
 For `settled` results, `before` MUST be the projected snapshot at
 `proposal.baseWorld` and `after` MUST be the projected snapshot of the sealed

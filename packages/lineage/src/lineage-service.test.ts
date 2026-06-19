@@ -207,7 +207,7 @@ describe("@manifesto-ai/lineage service", () => {
     expect(await service.getAttempts(failed.worldId)).toHaveLength(1);
   });
 
-  it("supports branch creation, branch switching, idempotent reuse, and snapshot restore normalization", async () => {
+  it("supports branch switching, idempotent reuse, and operational guard restore normalization", async () => {
     const store = createInMemoryLineageStore();
     const service = createLineageService(store);
     const genesis = await service.prepareSealGenesis({
@@ -236,6 +236,7 @@ describe("@manifesto-ai/lineage service", () => {
           namespaces: {
             host: { trace: "first" },
             mel: { guards: { intent: { stale: "true" } } },
+            core: { causalGuards: { "record-once-intent": "intent-canonical" } },
           },
         },
       ),
@@ -268,6 +269,7 @@ describe("@manifesto-ai/lineage service", () => {
           namespaces: {
             host: { trace: "second" },
             mel: { guards: { intent: { stale: "false" } } },
+            core: { causalGuards: { "record-once-intent": "intent-reused" } },
           },
         },
       ),
@@ -299,6 +301,7 @@ describe("@manifesto-ai/lineage service", () => {
         schemaHash: "schema-hash",
       },
       namespaces: {
+        core: {},
         host: {},
         mel: {},
       },

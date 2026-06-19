@@ -224,6 +224,10 @@ Normative rules:
 - The compiler MUST emit Core `causalGuard` and MUST NOT emit a MEL namespace
   read/write path for `onceIntent`.
 - The Core `causalGuard` primitive owns any runtime bookkeeping it needs.
+- `onceIntent` inherits `causalGuard` scope: it is a runtime re-entry guard for
+  the current causal transition attempt, not a durable idempotency key for
+  lineage-global, branch-global, restore-stable, or governance proposal-global
+  deduplication.
 - Adding another compiler-owned runtime construct requires a new ADR before it
   becomes current SPEC behavior.
 
