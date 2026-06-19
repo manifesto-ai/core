@@ -6,25 +6,21 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 10
+    versioning-strategy: increase-if-necessary
     groups:
       dev-dependencies:
+        dependency-type: "development"
         patterns:
-          - "@types/*"
-          - "typescript"
-          - "vitest"
-          - "turbo"
+          - "*"
         update-types:
           - "minor"
           - "patch"
       production-dependencies:
+        dependency-type: "production"
         patterns:
           - "*"
-        exclude-patterns:
-          - "@types/*"
-          - "typescript"
-          - "vitest"
-          - "turbo"
         update-types:
+          - "minor"
           - "patch"
 
   - package-ecosystem: "github-actions"
@@ -33,3 +29,10 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
