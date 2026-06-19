@@ -51,21 +51,21 @@
     "docs:api:clean": "rm -rf docs/api"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.16",
+    "@biomejs/biome": "^2.5.0",
     "@vercel/analytics": "^2.0.1",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.9",
     "mermaid": "^11.15.0",
     "tsup": "^8.5.1",
-    "tsx": "^4.21.0",
+    "tsx": "^4.22.4",
     "turbo": "^2.9.14",
     "typedoc": "^0.28.19",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
     "vitepress": "^1.6.4",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   },
   "dependencies": {
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "pnpm": {
     "overrides": {
