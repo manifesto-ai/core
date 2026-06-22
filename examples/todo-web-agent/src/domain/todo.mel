@@ -1,0 +1,67 @@
+domain TodoApp {
+  type Todo = {
+    id: string,
+    title: string,
+    completed: boolean
+  }
+
+  state {
+    todos: Array<Todo> = [
+      { id: "draft-launch-post", title: "Draft launch post", completed: false },
+      { id: "old-research-notes", title: "Archive old research notes", completed: true },
+      { id: "record-demo", title: "Record agent demo", completed: false }
+    ]
+    filterMode: "all" | "active" | "completed" = "all"
+    nextTodoId: string = "publish-demo"
+  }
+
+  computed todoCount = len(todos)
+  computed completedCount = len(filter(todos, $item.completed))
+  computed activeCount = todoCount - completedCount
+  computed hasCompleted = completedCount > 0
+
+  action addTodo(title: string)
+    dispatchable when trim(title) != "" {
+    onceIntent {
+      patch todos = append(todos, {
+        id: nextTodoId,
+        title: trim(title),
+        completed: false
+      })
+    }
+  }
+
+  action toggleTodo(id: string)
+    available when todoCount > 0
+    dispatchable when len(filter(todos, $item.id == id)) > 0 {
+    onceIntent {
+      patch todos = map(todos,
+        $item.id == id
+          ? { id: $item.id, title: $item.title, completed: !$item.completed }
+          : $item
+      )
+    }
+  }
+
+  action removeTodo(id: string)
+    available when todoCount > 0
+    dispatchable when len(filter(todos, $item.id == id)) > 0 {
+    onceIntent {
+      patch todos = filter(todos, $item.id != id)
+    }
+  }
+
+  action setFilter(newFilter: "all" | "active" | "completed")
+    dispatchable when filterMode != newFilter {
+    onceIntent {
+      patch filterMode = newFilter
+    }
+  }
+
+  action clearCompleted()
+    available when hasCompleted {
+    onceIntent {
+      patch todos = filter(todos, !$item.completed)
+    }
+  }
+}

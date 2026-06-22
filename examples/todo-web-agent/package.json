@@ -1,0 +1,30 @@
+{
+  "name": "@manifesto-ai/example-todo-web-agent",
+  "version": "5.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:capture": "vite --host 127.0.0.1 --port 5178",
+    "capture:smoke": "tsx --loader @manifesto-ai/compiler/node-loader scripts/capture-smoke.ts",
+    "capture:video": "tsx scripts/capture-video.ts",
+    "build": "node ../../scripts/run-tsc.mjs -p tsconfig.json --noEmit && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@manifesto-ai/sdk": "workspace:*",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@manifesto-ai/codegen": "workspace:*",
+    "@manifesto-ai/compiler": "workspace:*",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
+  }
+}
