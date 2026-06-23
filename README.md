@@ -16,6 +16,18 @@ product needs history, restore, audit, approval, policy, or delegation.
 [![npm version](https://img.shields.io/npm/v/@manifesto-ai/sdk.svg)](https://www.npmjs.com/package/@manifesto-ai/sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+## Agent Demo
+
+![Manifesto agent demo](./examples/todo-web-agent/public/manifesto-agent-demo.gif)
+
+A React Todo UI and a scripted agent share one Manifesto runtime. The agent
+reads the Snapshot, checks available typed actions, and submits app-owned
+actions; the UI and computed values update from the same deterministic state
+transition.
+
+[Run the example](./examples/todo-web-agent) ·
+[Download the MP4](./examples/todo-web-agent/public/manifesto-agent-demo.mp4)
+
 ## Smallest Start
 
 ```bash
